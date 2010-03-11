@@ -63,12 +63,12 @@ typedef void * timer_handle;
 #define TIMERLIST_NS_IN_USEC  1000ULL
 
 struct timerlist {
-	struct list_head timer_head;
-	struct list_head *timer_iter;
+	struct qb_list_head timer_head;
+	struct qb_list_head *timer_iter;
 };
 
 struct timerlist_timer {
-	struct list_head list;
+	struct qb_list_head list;
 	unsigned long long expire_time;
 	int is_absolute_timer;
 	void (*timer_fn)(void *data);
@@ -78,7 +78,7 @@ struct timerlist_timer {
 
 static inline void timerlist_init (struct timerlist *timerlist)
 {
-	list_init (&timerlist->timer_head);
+	qb_list_init (&timerlist->timer_head);
 }
 
 static inline unsigned long long timerlist_nano_from_epoch (void)
@@ -129,7 +129,7 @@ static inline unsigned long long timerlist_nano_monotonic_hz (void) {
 
 static inline void timerlist_add (struct timerlist *timerlist, struct timerlist_timer *timer)
 {
-	struct list_head *timer_list = 0;
+	struct qb_list_head *timer_list = 0;
 	struct timerlist_timer *timer_from_list;
 	int found;
 
@@ -137,17 +137,17 @@ static inline void timerlist_add (struct timerlist *timerlist, struct timerlist_
 		timer_list != &timerlist->timer_head;
 		timer_list = timer_list->next) {
 
-		timer_from_list = list_entry (timer_list,
+		timer_from_list = qb_list_entry (timer_list,
 			struct timerlist_timer, list);
 
 		if (timer_from_list->expire_time > timer->expire_time) {
-			list_add (&timer->list, timer_list->prev);
+			qb_list_add (&timer->list, timer_list->prev);
 			found = 1;
 			break; /* for timer iteration */
 		}
 	}
 	if (found == 0) {
-		list_add (&timer->list, timerlist->timer_head.prev);
+		qb_list_add (&timer->list, timerlist->timer_head.prev);
 	}
 }
 
@@ -215,8 +215,8 @@ static inline void timerlist_del (struct timerlist *timerlist,
 	if (timerlist->timer_iter == &timer->list) {
 		timerlist->timer_iter = timerlist->timer_iter->next;
 	}
-	list_del (&timer->list);
-	list_init (&timer->list);
+	qb_list_del (&timer->list);
+	qb_list_init (&timer->list);
 	free (timer);
 }
 
@@ -232,8 +232,8 @@ static inline void timerlist_pre_dispatch (struct timerlist *timerlist, timer_ha
 	struct timerlist_timer *timer = (struct timerlist_timer *)_timer_handle;
 
 	memset (timer->handle_addr, 0, sizeof (struct timerlist_timer *));
-	list_del (&timer->list);
-	list_init (&timer->list);
+	qb_list_del (&timer->list);
+	qb_list_init (&timer->list);
 }
 
 static inline void timerlist_post_dispatch (struct timerlist *timerlist, timer_handle _timer_handle)
@@ -259,7 +259,7 @@ static inline unsigned long long timerlist_msec_duration_to_expire (struct timer
 		return (-1);
 	}
 
-	timer_from_list = list_entry (timerlist->timer_head.next,
+	timer_from_list = qb_list_entry (timerlist->timer_head.next,
 		struct timerlist_timer, list);
 
 	if (timer_from_list->is_absolute_timer) {
@@ -296,7 +296,7 @@ static inline void timerlist_expire (struct timerlist *timerlist)
 	for (timerlist->timer_iter = timerlist->timer_head.next;
 		timerlist->timer_iter != &timerlist->timer_head;) {
 
-		timer_from_list = list_entry (timerlist->timer_iter,
+		timer_from_list = qb_list_entry (timerlist->timer_iter,
 			struct timerlist_timer, list);
 
 		current_time = (timer_from_list->is_absolute_timer ? current_time_from_epoch : current_monotonic_time);
