@@ -33,8 +33,11 @@
 
 MAINTAINERCLEANFILES	= Makefile.in
 
-dist_man_MANS = man3/qbtsafe.h.3
+public_header_files = qbtsafe.h qbhdb.h
+dist_man_MANS = qbtsafe.h.3 qbhdb.h.3
 
-$(dist_man_MANS): Doxyfile $(top_srcdir)/include/qb/qbtsafe.h
-	( cd $(top_srcdir) ; doxygen man/Doxyfile )
+dependant_headers = $(addprefix $(top_srcdir)/include/qb/,$(public_header_files))
+
+$(dist_man_MANS): Doxyfile $(dependant_headers)
+	doxygen Doxyfile
 

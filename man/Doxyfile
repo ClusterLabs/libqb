@@ -74,7 +74,7 @@ WARN_NO_PARAMDOC       = NO
 WARN_FORMAT            =
 WARN_LOGFILE           =
 #---------------------------------------------------------------------------
-INPUT                  = include/qb/
+INPUT                  = ../include/qb/
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES
@@ -104,7 +104,7 @@ COLS_IN_ALPHA_INDEX    = 5
 IGNORE_PREFIX          =
 #---------------------------------------------------------------------------
 GENERATE_MAN           = YES
-MAN_OUTPUT             = man
+MAN_OUTPUT             = .
 MAN_EXTENSION          = .3
 MAN_LINKS              = YES
 GENERATE_HTML          = NO
@@ -119,11 +119,11 @@ ENABLE_PREPROCESSING   = NO
 MACRO_EXPANSION        = NO
 EXPAND_ONLY_PREDEF     = NO
 SEARCH_INCLUDES        = YES
-INCLUDE_PATH           = include include/qb
+INCLUDE_PATH           = ../include
 INCLUDE_FILE_PATTERNS  = *.h
 PREDEFINED             = 
 EXPAND_AS_DEFINED      =
-SKIP_FUNCTION_MACROS   = NO
+SKIP_FUNCTION_MACROS   = YES
 #---------------------------------------------------------------------------
 #
 #
