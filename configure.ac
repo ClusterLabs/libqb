@@ -107,7 +107,8 @@ AC_CHECK_FUNCS([alarm alphasort atexit bzero dup2 endgrent endpwent fcntl \
 		getcwd getpeerucred getpeereid gettimeofday inet_ntoa memmove \
 		memset mkdir scandir select socket strcasecmp strchr strdup \
 		strerror strrchr strspn strstr pthread_spin_lock \
-		pthread_spin_unlock pututxline lgammal])
+		pthread_spin_unlock pututxline lgammal setkey \
+		crypt encrypt getdate strsignal])
 
 AC_CONFIG_FILES([Makefile
 		 include/Makefile

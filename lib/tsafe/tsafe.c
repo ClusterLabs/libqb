@@ -33,10 +33,15 @@
  */
 
 #include <config.h>
+
+#define _XOPEN_SOURCE 600
+#define _GNU_SOURCE 1
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+
 #include <string.h>
 #include <assert.h>
 #include <time.h>
@@ -328,7 +333,7 @@ char *catgets(nl_catd catalog, int set_number,
 	return NULL;
 }
 
-#ifdef _XOPEN_SOURCE
+#ifdef HAVE_CRYPT
 char *crypt(const char *key, const char *salt)
 {
 	static char *(*real_crypt)(const char *key, const char *salt) = NULL;
@@ -341,7 +346,7 @@ char *crypt(const char *key, const char *salt)
 	assert(0);
 	return NULL;
 }
-#endif /* _XOPEN_SOURCE */
+#endif /* HAVE_CRYPT */
 
 char *ctermid(char *s)
 {
@@ -396,7 +401,7 @@ double drand48(void)
 	return 0;
 }
 
-#ifdef _XOPEN_SOURCE
+#ifdef HAVE_ENCRYPT
 void encrypt(char block[64], int edflag)
 {
 	static void (*real_encrypt)(char block[64], int edflag) = NULL;
@@ -408,8 +413,9 @@ void encrypt(char block[64], int edflag)
 	}
 	assert(0);
 }
-#endif /* _XOPEN_SOURCE */
+#endif /* HAVE_ENCRYPT */
 
+#ifdef HAVE_ENDGRENT
 void endgrent(void)
 {
 	static void (*real_endgrent)(void) = NULL;
@@ -421,7 +427,9 @@ void endgrent(void)
 	}
 	assert(0);
 }
+#endif /* HAVE_ENDGRENT */
 
+#ifdef HAVE_ENDPWENT
 void endpwent(void)
 {
 	static void (*real_endpwent)(void) = NULL;
@@ -433,8 +441,9 @@ void endpwent(void)
 	}
 	assert(0);
 }
+#endif /* HAVE_ENDPWENT */
 
-#ifdef _XOPEN_SOURCE
+#ifdef HAVE_GETDATE
 struct tm *getdate(const char *string)
 {
 	static struct tm *(*real_getdate)(const char *string) = NULL;
@@ -447,7 +456,7 @@ struct tm *getdate(const char *string)
 	assert(0);
 	return NULL;
 }
-#endif /* _XOPEN_SOURCE */
+#endif /* HAVE_GETDATE */
 
 struct group *getgrent(void)
 {
@@ -788,6 +797,7 @@ char *l64a(long value)
 	return NULL;
 }
 
+#ifdef HAVE_LGAMMAL
 double lgamma(double x)
 {
 	static double (*real_lgamma)(double x) = NULL;
@@ -801,6 +811,7 @@ double lgamma(double x)
 	return 0;
 
 }
+#endif /* HAVE_LGAMMAL */
 
 float lgammaf(float x)
 {
@@ -883,7 +894,7 @@ long int mrand48(void)
 	return 0;
 }
 
-/* TODO ifdef here */
+#ifdef HAVE_PUTUTXLINE
 struct utmpx *pututxline(const struct utmpx *a)
 {
 	static struct utmpx *(*real_pututxline)(const struct utmpx *a) = NULL;
@@ -896,7 +907,7 @@ struct utmpx *pututxline(const struct utmpx *a)
 	assert(0);
 	return NULL;
 }
-/* TODO ifdef here */
+#endif /* HAVE_PUTUTXLINE */
 
 int rand(void)
 {
@@ -953,7 +964,7 @@ void setgrent(void)
 }
 #endif
 
-#ifdef _XOPEN_SOURCE
+#ifdef HAVE_SETKEY
 void setkey(const char *key)
 {
 	static void (*real_setkey)(const char *key) = NULL;
@@ -965,7 +976,7 @@ void setkey(const char *key)
 	}
 	assert(0);
 }
-#endif /* _XOPEN_SOURCE */
+#endif /* HAVE_SETKEY */
 
 void setpwent(void)
 {
@@ -1004,6 +1015,7 @@ char *strerror(int errnum)
 	return NULL;
 }
 
+#ifdef HAVE_STRSIGNAL
 char *strsignal(int sig)
 {
 	static char *(*real_strsignal)(int sig) = NULL;
@@ -1016,6 +1028,7 @@ char *strsignal(int sig)
 	assert(0);
 	return NULL;
 }
+#endif /* HAVE_STRSIGNAL */
 
 char *strtok(char *str, const char *delim)
 {
