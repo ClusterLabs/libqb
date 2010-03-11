@@ -114,6 +114,7 @@ AC_CONFIG_FILES([Makefile
 		 include/qb/Makefile
 		 lib/Makefile
 		 lib/tsafe/Makefile
+		 lib/poll/Makefile
 		 man/Makefile])
 
 ### Local business
