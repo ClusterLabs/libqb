@@ -1,0 +1,8 @@
+Last Updated: 
+
+Generic Items
+-------------
+* doxygen-ize the include and lib directories.
+* use doxygen to generate the man pages
+* write unit test cases
+
