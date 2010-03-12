@@ -3,6 +3,7 @@
 *.so
 *.so.*
 *.3
+*.rpm
 Makefile
 Makefile.in
 include/config.h
@@ -18,3 +19,7 @@ depcomp
 include/stamp-h1
 install-sh
 missing
+lib/plugin/test
+lib/plugin/test_static
+lib/plugin/uic
+quarterback-?.?.?
