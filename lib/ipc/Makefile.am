@@ -1,6 +1,9 @@
+#
 # Copyright (c) 2010 Red Hat, Inc.
 #
-# Authors: Angus Salkeld <asalkeld@redhat.com>
+# Authors: Andrew Beekhof
+#	   Steven Dake (sdake@redhat.com)
+#	   Angus Salkeld <asaslkeld@redhat.com>
 #
 # This software licensed under BSD license, the text of which follows:
 #
@@ -29,7 +32,64 @@
 # THE POSSIBILITY OF SUCH DAMAGE.
 
 MAINTAINERCLEANFILES    = Makefile.in
-instdir 		= $(includedir)/qb/
-inst_HEADERS		= qbtsafe.h qbhdb.h qblist.h qbpoll.h \
-			  qbtimer.h qbplugin.h qbplugin_comp.h \
-			  qbipcc.h
+
+AM_CFLAGS		= -fPIC
+
+AM_LDFLAGS		= -lpthread
+
+INCLUDES		= -I$(top_builddir)/include -I$(top_srcdir)/include
+
+lib_LIBRARIES		= libqbipcc.a
+SHARED_LIBS		= $(lib_LIBRARIES:%.a=%.so.$(SONAME))
+SHARED_LIBS_SO		= $(lib_LIBRARIES:%.a=%.so)
+SHARED_LIBS_SO_TWO	= $(lib_LIBRARIES:%.a=%.so.$(SOMAJOR))
+
+libqbipcc_a_SOURCES	= ipcc.c
+
+noinst_HEADERS		= ipc_int.h libqbipcc.versions 
+
+if BUILD_DARWIN
+
+lib%.so.$(SONAME): %.o
+	$(CC) $(DARWIN_OPTS) $^ -o $@
+	ln -sf lib$*.so.$(SONAME) lib$*.so
+	ln -sf lib$*.so.$(SONAME) lib$*.so.$(SOMAJOR)
+
+else
+
+if BUILD_SOLARIS
+
+lib%.so.$(SONAME): %.o
+	$(LD) $(SOLARIS_OPTS) -G $^ -o $@
+	ln -sf lib$*.so.$(SONAME) lib$*.so
+	ln -sf lib$*.so.$(SONAME) lib$*.so.$(SOMAJOR)
+
+else
+
+libqb%.so.$(SONAME): %.o
+	$(CC) -shared -o $@ \
+		-Wl,-soname=libqb$*.so.$(SOMAJOR) \
+		-Wl,-version-script=$(srcdir)/libqb$*.versions \
+		$^ $(LDFLAGS) $(AM_LDFLAGS)
+	ln -sf libqb$*.so.$(SONAME) libqb$*.so
+	ln -sf libqb$*.so.$(SONAME) libqb$*.so.$(SOMAJOR)
+
+endif
+
+endif
+
+all-local: $(SHARED_LIBS)
+	@echo Built shared libs
+
+install-exec-local:
+	$(INSTALL) -d $(DESTDIR)/$(libdir)
+	$(INSTALL) -m 755 $(SHARED_LIBS) $(DESTDIR)/$(libdir)
+	$(CP) -a $(SHARED_LIBS_SO) $(SHARED_LIBS_SO_TWO) $(DESTDIR)/$(libdir)
+
+uninstall-local:
+	cd $(DESTDIR)/$(libdir)/ && \
+		rm -f $(SHARED_LIBS) $(SHARED_LIBS_SO) $(SHARED_LIBS_SO_TWO)
+
+clean-local:
+	rm -f *.o *.a *.so* *.da *.bb *.bbg
+
