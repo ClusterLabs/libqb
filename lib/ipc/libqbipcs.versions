@@ -1,0 +1,16 @@
+QB_IPCS_0.1 {
+	global:
+		qb_ipcs_ipc_init;
+		qb_ipcs_private_data_get;
+		qb_ipcs_response_send;
+		qb_ipcs_response_iov_send;
+		qb_ipcs_dispatch_send;
+		qb_ipcs_dispatch_iov_send;
+		qb_ipcs_refcount_inc;
+		qb_ipcs_refcount_dec;
+		qb_ipcs_ipc_exit;
+		qb_ipcs_ipc_service_exit;
+		qb_ipcs_handler_accept;
+		qb_ipcs_handler_dispatch;
+	local: *;
+};

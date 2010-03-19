@@ -38,31 +38,12 @@
 #include <config.h>
 
 #include "os_base.h"
-#if 0
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/un.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <assert.h>
-#endif
 #include <sys/shm.h>
 #include <sys/mman.h>
 
-//#include <qb/qb_ipc_types.h>
 #include <qb/qbipcc.h>
 #include <qb/qbhdb.h>
+#include "ipc_int.h"
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 #include <semaphore.h>
@@ -70,8 +51,6 @@
 #include <sys/sem.h>
 #endif
 
-#include "ipc_int.h"
-//#include "util.h"
 
 /*
  * Define sem_wait timeout (real timeout will be (n-1;n) )

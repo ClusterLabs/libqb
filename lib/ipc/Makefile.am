@@ -39,14 +39,15 @@ AM_LDFLAGS		= -lpthread
 
 INCLUDES		= -I$(top_builddir)/include -I$(top_srcdir)/include
 
-lib_LIBRARIES		= libqbipcc.a
+lib_LIBRARIES		= libqbipcc.a libqbipcs.a
 SHARED_LIBS		= $(lib_LIBRARIES:%.a=%.so.$(SONAME))
 SHARED_LIBS_SO		= $(lib_LIBRARIES:%.a=%.so)
 SHARED_LIBS_SO_TWO	= $(lib_LIBRARIES:%.a=%.so.$(SOMAJOR))
 
 libqbipcc_a_SOURCES	= ipcc.c
+libqbipcs_a_SOURCES	= ipcs.c
 
-noinst_HEADERS		= ipc_int.h libqbipcc.versions 
+noinst_HEADERS		= ipc_int.h libqbipcc.versions libqbipcs.versions
 
 if BUILD_DARWIN
 

@@ -1,4 +1,4 @@
-QB_IPC_0.1 {
+QB_IPCC_0.1 {
 	global:
 		qb_ipcc_service_connect;
 		qb_ipcc_service_disconnect;
