@@ -1,5 +1,3 @@
-# Version and symbol export for libcpg.so
-
 QB_POLL_0.1 {
 	global:
 		qb_poll_create;
@@ -11,4 +9,5 @@ QB_POLL_0.1 {
 		qb_poll_timer_delete;
 		qb_poll_run;
 		qb_poll_stop;
+	local: *;
 };
