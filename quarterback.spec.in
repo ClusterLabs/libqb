@@ -1,0 +1,79 @@
+%global alphatag @alphatag@
+
+Name: quarterback
+Summary: The Quarterback Client Server Developer Library
+Version: @version@
+Release: 1%{?alphatag:.%{alphatag}}%{?dist}
+License: BSD
+Group: System Environment/Libraries
+URL: http://www.openais.org
+Source0: http://developer.osdl.org/dev/openais/downloads/%{name}-%{version}/%{name}-%{version}.tar.gz
+
+BuildRequires: autoconf automake
+
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+
+%prep
+%setup -q -n %{name}-%{version}
+
+./autogen.sh
+
+%{configure}
+
+%build
+make %{_smp_mflags}
+
+%install
+rm -rf %{buildroot}
+
+make install DESTDIR=%{buildroot}
+
+## tree fixup
+# drop static libs
+rm -f %{buildroot}%{_libdir}/*.a
+# drop docs and html docs for now
+rm -rf %{buildroot}%{_docdir}/*
+
+%clean
+rm -rf %{buildroot}
+
+%description
+This package contains quarterback libraries.
+
+%files -n quarterback
+%defattr(-,root,root,-)
+%doc LICENSE
+%{_libdir}/libqbpoll.so.*
+%{_libdir}/libqbtsafe.so.*
+
+%post -n quarterback -p /sbin/ldconfig
+
+%postun -n quarterback -p /sbin/ldconfig
+
+%package -n quarterback-devel
+Summary: The Quarterback Development Kit
+Group: Development/Libraries
+Requires: quarterback = %{version}-%{release}
+Requires: pkgconfig
+Provides: quarterback-devel = %{version}
+
+%description -n quarterback-devel
+This package contains include files and man pages used to develop using
+The Quarterback APIs.
+
+%files -n quarterback-devel
+%defattr(-,root,root,-)
+%doc LICENSE README
+%dir %{_includedir}/qb/
+%{_includedir}/qb/qbtsafe.h
+%{_includedir}/qb/qbpoll.h
+%{_includedir}/qb/qbhdb.h
+%{_includedir}/qb/qblist.h
+%{_libdir}/libqbpoll.so
+%{_libdir}/libqbtsafe.so
+%{_mandir}/man3/qb*3*
+
+
+%changelog
+* @date@ Autotools generated version <nobody@nowhere.org> - @version@-1.@alphatag@
+- Autotools generated version
