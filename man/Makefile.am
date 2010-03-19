@@ -32,11 +32,15 @@
 # THE POSSIBILITY OF SUCH DAMAGE.
 
 MAINTAINERCLEANFILES	= Makefile.in
+EXTRA_DIST 		= Doxyfile
 
-public_header_files = qbtsafe.h qbhdb.h
-dist_man_MANS = qbtsafe.h.3 qbhdb.h.3
+dist_man_MANS = man3/qbtsafe.h.3 man3/qbhdb.h.3 man3/qblist.h.3 \
+	       	man3/qbpoll.h.3 man3/qbtimer.h.3
 
-dependant_headers = $(addprefix $(top_srcdir)/include/qb/,$(public_header_files))
+inc_dir = $(top_srcdir)/include/qb
+
+dependant_headers = $(inc_dir)/qbtsafe.h $(inc_dir)/qbhdb.h $(inc_dir)/qblist.h \
+		    $(inc_dir)/qbpoll.h $(inc_dir)/qbtimer.h
 
 $(dist_man_MANS): Doxyfile $(dependant_headers)
 	doxygen Doxyfile
