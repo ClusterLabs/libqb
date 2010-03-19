@@ -50,7 +50,7 @@ noinst_HEADERS		= libqbtimer.versions
 
 if BUILD_DARWIN
 
-lib%.so.$(SONAME): %.o libqbipcc.so.$(SONAME)
+lib%.so.$(SONAME): %.o
 	$(CC) $(DARWIN_OPTS) $^ -o $@
 	ln -sf lib$*.so.$(SONAME) lib$*.so
 	ln -sf lib$*.so.$(SONAME) lib$*.so.$(SOMAJOR)
@@ -60,7 +60,7 @@ else
 if BUILD_SOLARIS
 
 lib%.so.$(SONAME): %.o
-	$(LD) $(SOLARIS_OPTS) -G $^ -o $@ -lqbipcc
+	$(LD) $(SOLARIS_OPTS) -G $^ -o $@
 	ln -sf lib$*.so.$(SONAME) lib$*.so
 	ln -sf lib$*.so.$(SONAME) lib$*.so.$(SOMAJOR)
 
@@ -70,7 +70,7 @@ libqb%.so.$(SONAME): %.o
 	$(CC) -shared -o $@ \
 		-Wl,-soname=libqb$*.so.$(SOMAJOR) \
 		-Wl,-version-script=$(srcdir)/libqb$*.versions \
-		$^ $(LDFLAGS) -lqbipcc $(AM_LDFLAGS)
+		$^ $(LDFLAGS) $(AM_LDFLAGS)
 	ln -sf libqb$*.so.$(SONAME) libqb$*.so
 	ln -sf libqb$*.so.$(SONAME) libqb$*.so.$(SOMAJOR)
 
