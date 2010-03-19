@@ -797,7 +797,6 @@ char *l64a(long value)
 	return NULL;
 }
 
-#ifdef HAVE_LGAMMAL
 double lgamma(double x)
 {
 	static double (*real_lgamma)(double x) = NULL;
@@ -811,7 +810,6 @@ double lgamma(double x)
 	return 0;
 
 }
-#endif /* HAVE_LGAMMAL */
 
 float lgammaf(float x)
 {
@@ -826,8 +824,7 @@ float lgammaf(float x)
 	return 0;
 }
 
-#ifdef QB_LINUX
-/* TODO */
+#ifdef HAVE_LGAMMAL
 long double lgammal(long double x)
 {
 	static long double (*real_lgammal)(long double x) = NULL;
@@ -840,7 +837,7 @@ long double lgammal(long double x)
 	assert(0);
 	return 0;
 }
-#endif /* QB_LINUX */
+#endif /* HAVE_LGAMMAL */
 
 struct lconv *localeconv(void)
 {

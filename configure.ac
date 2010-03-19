@@ -117,6 +117,7 @@ AC_CONFIG_FILES([Makefile
 		 lib/tsafe/Makefile
 		 lib/poll/Makefile
 		 lib/timer/Makefile
+		 lib/plugin/Makefile
 		 man/Makefile])
 
 ### Local business
@@ -359,7 +360,7 @@ AC_SUBST([SOLARIS_OPTS])
 
 AC_SUBST([LINT_FLAGS])
 
-AC_DEFINE_UNQUOTED([LCRSODIR], "$(eval echo ${LCRSODIR})", [LCRSO directory])
+AC_DEFINE_UNQUOTED([PLUGINSODIR], "$(eval echo ${PLUGINSODIR})", [PLUGINSO directory])
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 

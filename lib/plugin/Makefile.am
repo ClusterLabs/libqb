@@ -1,6 +1,7 @@
-# Copyright (c) 2010 Red Hat, Inc.
+# Copyright (c) 2009 Red Hat, Inc.
 #
-# Authors: Angus Salkeld <asalkeld@redhat.com>
+# Authors: Andrew Beekhof
+#	   Steven Dake (sdake@redhat.com)
 #
 # This software licensed under BSD license, the text of which follows:
 #
@@ -27,8 +28,51 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
-
 MAINTAINERCLEANFILES    = Makefile.in
 
-SUBDIRS			= tsafe poll timer plugin
+AM_CFLAGS		= -fPIC
 
+INCLUDES 		= -I$(top_builddir)/include -I$(top_srcdir)/include
+
+lib_LIBRARIES		= libqbplugin.a
+
+noinst_PROGRAMS		= test test_static uic
+
+noinst_PLUGIN		= libtest_a.so libtest_b.so
+
+uic_SOURCES		= uic.c
+
+libqbplugin_a_SOURCES	= plugin_loader.c
+
+test_SOURCES		= test.c uis.c
+test_LDADD		= libqbplugin.a
+
+test_static_SOURCES	= test.c libtest_a.c libtest_b.c uis.c plugin_loader.c
+
+if BUILD_DARWIN
+
+%.so: %.o
+	$(CC) $(CFLAGS) -bundle -bundle_loader ./test $^ -o $@
+else
+
+if BUILD_SOLARIS
+
+%.so: %.o
+	$(CC) $(CFLAGS) -shared $^ -o $@
+else
+
+%.so: %.o
+	$(CC) $(CFLAGS) -shared -Wl,-soname,$@ $^ -o $@
+
+endif
+
+endif
+
+lint:
+	-splint $(LINT_FLAGS) $(CFLAGS) *.c
+
+all-local: $(noinst_PLUGIN)
+	@echo Built Plugin
+
+clean-local:
+	rm -f *.o *.a *.so* *.da *.bb *.bbg *.so

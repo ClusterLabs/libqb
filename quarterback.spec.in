@@ -74,6 +74,8 @@ The Quarterback APIs.
 %{_includedir}/qb/qbhdb.h
 %{_includedir}/qb/qblist.h
 %{_includedir}/qb/qbtimer.h
+%{_includedir}/qb/qbplugin.h
+%{_includedir}/qb/qbplugin_comp.h
 %{_mandir}/man3/qb*3*
 
 
