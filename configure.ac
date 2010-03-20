@@ -120,6 +120,7 @@ AC_CONFIG_FILES([Makefile
 		 lib/plugin/Makefile
 		 lib/ipc/Makefile
 		 lib/wthread/Makefile
+		 lib/logsys/Makefile
 		 man/Makefile])
 
 ### Local business
