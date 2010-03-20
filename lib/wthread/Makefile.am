@@ -1,9 +1,9 @@
-# Copyright (c) 2004 MontaVista Software, Inc.
-# Copyright (c) 2009 Red Hat, Inc.
 #
-# Authors: Angus Salkeld <asalkeld@redhat.com>
+# Copyright (c) 2010 Red Hat, Inc.
 #
-# All rights reserved.
+# Authors: Andrew Beekhof
+#	   Steven Dake (sdake@redhat.com)
+#	   Angus Salkeld <asaslkeld@redhat.com>
 #
 # This software licensed under BSD license, the text of which follows:
 #
@@ -31,21 +31,65 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-MAINTAINERCLEANFILES	= Makefile.in
-EXTRA_DIST 		= Doxyfile
+MAINTAINERCLEANFILES    = Makefile.in
 
-dist_man_MANS = man3/qbtsafe.h.3 man3/qbhdb.h.3 man3/qblist.h.3 \
-	       	man3/qbpoll.h.3 man3/qbtimer.h.3 man3/qbplugin.h.3 \
-		man3/qbplugin_comp.h.3 man3/qbipcc.h.3 man3/qbipcs.h.3 \
-		man3/qbqueue.h.3 man3/qbwthread.h
+AM_CFLAGS		= -fPIC
 
-inc_dir = $(top_srcdir)/include/qb
+AM_LDFLAGS		= -lpthread
 
-dependant_headers = $(inc_dir)/qbtsafe.h $(inc_dir)/qbhdb.h $(inc_dir)/qblist.h \
-		    $(inc_dir)/qbpoll.h $(inc_dir)/qbtimer.h $(inc_dir)/qbplugin.h \
-		    $(inc_dir)/qbplugin_comp.h $(inc_dir)/qbipcc.h \
-		    $(inc_dir)/qbipcs.h $(inc_dir)/qbqueue.h $(inc_dir)/qbwthread.h
+INCLUDES		= -I$(top_builddir)/include -I$(top_srcdir)/include
 
-$(dist_man_MANS): Doxyfile $(dependant_headers)
-	doxygen Doxyfile
+lib_LIBRARIES		= libqbwthread.a
+SHARED_LIBS		= $(lib_LIBRARIES:%.a=%.so.$(SONAME))
+SHARED_LIBS_SO		= $(lib_LIBRARIES:%.a=%.so)
+SHARED_LIBS_SO_TWO	= $(lib_LIBRARIES:%.a=%.so.$(SOMAJOR))
+
+libqbwthread_a_SOURCES	= wthread.c
+
+noinst_HEADERS		= libqbwthread.versions 
+
+if BUILD_DARWIN
+
+lib%.so.$(SONAME): %.o
+	$(CC) $(DARWIN_OPTS) $^ -o $@
+	ln -sf lib$*.so.$(SONAME) lib$*.so
+	ln -sf lib$*.so.$(SONAME) lib$*.so.$(SOMAJOR)
+
+else
+
+if BUILD_SOLARIS
+
+lib%.so.$(SONAME): %.o
+	$(LD) $(SOLARIS_OPTS) -G $^ -o $@
+	ln -sf lib$*.so.$(SONAME) lib$*.so
+	ln -sf lib$*.so.$(SONAME) lib$*.so.$(SOMAJOR)
+
+else
+
+libqb%.so.$(SONAME): %.o
+	$(CC) -shared -o $@ \
+		-Wl,-soname=libqb$*.so.$(SOMAJOR) \
+		-Wl,-version-script=$(srcdir)/libqb$*.versions \
+		$^ $(LDFLAGS) $(AM_LDFLAGS)
+	ln -sf libqb$*.so.$(SONAME) libqb$*.so
+	ln -sf libqb$*.so.$(SONAME) libqb$*.so.$(SOMAJOR)
+
+endif
+
+endif
+
+all-local: $(SHARED_LIBS)
+	@echo Built shared libs
+
+install-exec-local:
+	$(INSTALL) -d $(DESTDIR)/$(libdir)
+	$(INSTALL) -m 755 $(SHARED_LIBS) $(DESTDIR)/$(libdir)
+	$(CP) -a $(SHARED_LIBS_SO) $(SHARED_LIBS_SO_TWO) $(DESTDIR)/$(libdir)
+
+uninstall-local:
+	cd $(DESTDIR)/$(libdir)/ && \
+		rm -f $(SHARED_LIBS) $(SHARED_LIBS_SO) $(SHARED_LIBS_SO_TWO)
+
+clean-local:
+	rm -f *.o *.a *.so* *.da *.bb *.bbg
 

@@ -119,6 +119,7 @@ AC_CONFIG_FILES([Makefile
 		 lib/timer/Makefile
 		 lib/plugin/Makefile
 		 lib/ipc/Makefile
+		 lib/wthread/Makefile
 		 man/Makefile])
 
 ### Local business

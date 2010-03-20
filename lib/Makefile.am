@@ -30,5 +30,5 @@
 
 MAINTAINERCLEANFILES    = Makefile.in
 
-SUBDIRS			= tsafe poll timer plugin ipc
+SUBDIRS			= tsafe poll timer plugin ipc wthread
 
