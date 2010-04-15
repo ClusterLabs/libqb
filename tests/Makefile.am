@@ -28,10 +28,14 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-MAINTAINERCLEANFILES    = Makefile.in
-instdir 		= $(includedir)/qb/
-inst_HEADERS		= qbtsafe.h qbhdb.h qblist.h qbpoll.h \
-			  qbtimer.h qbplugin.h qbplugin_comp.h \
-			  qbipcc.h qbipcs.h qbwthread.h qbqueue.h \
-			  qblogsys.h qbhash.h
+if HAVE_CHECK
+TESTS = check_hash
+
+check_PROGRAMS = check_hash
+
+check_hash_SOURCES = check_hash.c $(top_builddir)/include/qb/qbhash.h
+check_hash_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+check_hash_LDADD = $(top_builddir)/lib/hash/libqbhash.a @CHECK_LIBS@
+
+endif
 

@@ -49,6 +49,8 @@ This package contains quarterback libraries.
 %{_libdir}/libqbipcc.so.*
 %{_libdir}/libqbipcs.so.*
 %{_libdir}/libqbwthread.so.*
+%{_libdir}/libqblogsys.so.*
+%{_libdir}/libqbhash.so.*
 
 %post -n quarterback -p /sbin/ldconfig
 
@@ -75,6 +77,8 @@ The Quarterback APIs.
 %{_libdir}/libqbipcc.so
 %{_libdir}/libqbipcs.so
 %{_libdir}/libqbwthread.so
+%{_libdir}/libqbhash.so
+%{_libdir}/libqblogsys.so
 %{_includedir}/qb/qbtsafe.h
 %{_includedir}/qb/qbpoll.h
 %{_includedir}/qb/qbhdb.h
@@ -86,6 +90,8 @@ The Quarterback APIs.
 %{_includedir}/qb/qbipcs.h
 %{_includedir}/qb/qbqueue.h
 %{_includedir}/qb/qbwthread.h
+%{_includedir}/qb/qblogsys.h
+%{_includedir}/qb/qbhash.h
 %{_mandir}/man3/qb*3*
 
 %changelog

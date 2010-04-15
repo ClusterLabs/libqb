@@ -57,13 +57,15 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
-#AC_CHECK_PROGS([GROFF], [groff])
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
 
 # Checks for libraries.
 AC_CHECK_LIB([dl], [dlopen])
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([socket], [socket])
+
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
+AM_CONDITIONAL(HAVE_CHECK, test "${with_check}" = "yes")
 
 # Checks for header files.
 AC_HEADER_DIRENT
@@ -121,7 +123,9 @@ AC_CONFIG_FILES([Makefile
 		 lib/ipc/Makefile
 		 lib/wthread/Makefile
 		 lib/logsys/Makefile
-		 man/Makefile])
+		 lib/hash/Makefile
+		 man/Makefile
+		 tests/Makefile])
 
 ### Local business
 
@@ -360,7 +364,6 @@ AM_CONDITIONAL(BUILD_DARWIN, test -n "${DARWIN_OPTS}")
 AM_CONDITIONAL(BUILD_SOLARIS, test -n "${SOLARIS_OPTS}")
 AC_SUBST([DARWIN_OPTS])
 AC_SUBST([SOLARIS_OPTS])
-
 AC_SUBST([LINT_FLAGS])
 
 AC_DEFINE_UNQUOTED([PLUGINSODIR], "$(eval echo ${PLUGINSODIR})", [PLUGINSO directory])

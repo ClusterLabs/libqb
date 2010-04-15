@@ -44,7 +44,7 @@ MAINTAINERCLEANFILES	= Makefile.in aclocal.m4 configure depcomp \
 
 dist_doc_DATA		= LICENSE INSTALL README TODO 
 
-SUBDIRS			= include lib man
+SUBDIRS			= include lib man tests
 #pkgconfig
 
 install-exec-local:
