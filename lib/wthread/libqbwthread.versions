@@ -1,9 +1,0 @@
-QB_WTHREAD_0.1 {
-	global:
-		qb_wthread_group_init;
-		qb_wthread_group_work_add;
-		qb_wthread_group_wait;
-		qb_wthread_group_exit;
-		qb_wthread_group_atsegv;
-	local: *;
-};

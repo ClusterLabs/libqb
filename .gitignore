@@ -1,6 +1,8 @@
 *.[oa]
 *.deps
 *.so
+*.la
+*.lo
 *.so.*
 *.3
 *.rpm
@@ -8,6 +10,7 @@ Makefile
 Makefile.in
 include/config.h
 include/config.h.in
+include/stamp-h1
 aclocal.m4
 autom4te.cache/
 config.guess
@@ -16,10 +19,10 @@ config.status
 config.sub
 configure
 depcomp
-include/stamp-h1
 install-sh
 missing
-lib/plugin/test
-lib/plugin/test_static
-lib/plugin/uic
-quarterback-?.?.?
+.libs
+m4
+libtool
+ltmain.sh
+libqb-*

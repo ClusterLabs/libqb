@@ -1,6 +1,6 @@
 %global alphatag @alphatag@
 
-Name: quarterback
+Name: libqb
 Summary: The Quarterback Client Server Developer Library
 Version: @version@
 Release: 1%{?alphatag:.%{alphatag}}%{?dist}
@@ -38,9 +38,9 @@ rm -rf %{buildroot}%{_docdir}/*
 rm -rf %{buildroot}
 
 %description
-This package contains quarterback libraries.
+This package contains libqb libraries.
 
-%files -n quarterback
+%files -n libqb
 %defattr(-,root,root,-)
 %doc LICENSE
 %{_libdir}/libqbtsafe.so.*
@@ -52,22 +52,22 @@ This package contains quarterback libraries.
 %{_libdir}/libqblogsys.so.*
 %{_libdir}/libqbhash.so.*
 
-%post -n quarterback -p /sbin/ldconfig
+%post -n libqb -p /sbin/ldconfig
 
-%postun -n quarterback -p /sbin/ldconfig
+%postun -n libqb -p /sbin/ldconfig
 
-%package -n quarterback-devel
+%package -n libqb-devel
 Summary: The Quarterback Development Kit
 Group: Development/Libraries
-Requires: quarterback = %{version}-%{release}
+Requires: libqb = %{version}-%{release}
 Requires: pkgconfig
-Provides: quarterback-devel = %{version}
+Provides: libqb-devel = %{version}
 
-%description -n quarterback-devel
+%description -n libqb-devel
 This package contains include files and man pages used to develop using
 The Quarterback APIs.
 
-%files -n quarterback-devel
+%files -n libqb-devel
 %defattr(-,root,root,-)
 %doc LICENSE README
 %dir %{_includedir}/qb/
@@ -79,6 +79,14 @@ The Quarterback APIs.
 %{_libdir}/libqbwthread.so
 %{_libdir}/libqbhash.so
 %{_libdir}/libqblogsys.so
+%{_libdir}/libqbtsafe.la
+%{_libdir}/libqbpoll.la
+%{_libdir}/libqbtimer.la
+%{_libdir}/libqbipcc.la
+%{_libdir}/libqbipcs.la
+%{_libdir}/libqbwthread.la
+%{_libdir}/libqbhash.la
+%{_libdir}/libqblogsys.la
 %{_includedir}/qb/qbtsafe.h
 %{_includedir}/qb/qbpoll.h
 %{_includedir}/qb/qbhdb.h

@@ -1,7 +1,0 @@
-QB_TSAFE_0.1 {
-	global:
-		qb_tsafe_init;
-		qb_tsafe_off;
-		qb_tsafe_on;
-	local: *;
-};

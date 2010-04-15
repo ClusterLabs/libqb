@@ -40,7 +40,11 @@ AUTOMAKE_OPTIONS	= foreign
 
 MAINTAINERCLEANFILES	= Makefile.in aclocal.m4 configure depcomp \
 			  config.guess config.sub missing install-sh \
-			  autoheader automake autoconf
+			  autoheader automake autoconf libtool libtoolize \
+			  ltmain.sh compile
+
+
+ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= LICENSE INSTALL README TODO 
 
@@ -61,6 +65,9 @@ doxygen:
 
 dist-clean-local:
 	rm -f autoconf automake autoheader
+
+maintainer-clean-local:
+	rm -rf m4
 
 clean-generic:
 	rm -rf doc/api $(SPEC) $(TARFILE) 

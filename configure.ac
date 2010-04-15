@@ -1,32 +1,30 @@
-#                                               -*- Autoconf -*-
+
 # Process this file with autoconf to produce a configure script.
 
-# bootstrap / init
 AC_PREREQ([2.61])
-
-AC_INIT([quarterback], [0.1.0], [quarterback-devel@fedorahosted.org])
+AC_INIT([libqb], [0.1.0], [quarterback-devel@fedorahosted.org])
 AM_INIT_AUTOMAKE([-Wno-portability])
+LT_PREREQ([2.2.6])
+LT_INIT
 
-AC_CONFIG_SRCDIR([lib/tsafe/tsafe.c])
+AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_SRCDIR([lib/tsafe.c])
 AC_CONFIG_HEADER([include/config.h])
 
 AC_CANONICAL_HOST
+AC_PROG_LIBTOOL
 
 AC_LANG([C])
 
 dnl Fix default variables - "prefix" variable if not specified
 if test "$prefix" = "NONE"; then
 	prefix="/usr"
-
-	dnl Fix "localstatedir" variable if not specified
 	if test "$localstatedir" = "\${prefix}/var"; then
 		localstatedir="/var"
 	fi
-	dnl Fix "sysconfdir" variable if not specified
 	if test "$sysconfdir" = "\${prefix}/etc"; then
 		sysconfdir="/etc"
 	fi
-	dnl Fix "libdir" variable if not specified
 	if test "$libdir" = "\${exec_prefix}/lib"; then
 		if test -e /usr/lib64; then
 			libdir="/usr/lib64"
@@ -50,14 +48,37 @@ if ! ${MAKE-make} --version /cannot/make/this >/dev/null 2>&1; then
 	AC_MSG_ERROR([you don't seem to have GNU make; it is required])
 fi
 
-sinclude(coroysync-default.m4)
-
 AC_PROG_CC
-AC_PROG_INSTALL
+AM_PROG_CC_C_O
 AC_PROG_LN_S
+AC_PROG_INSTALL
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
+
+## local helper functions
+
+# this function checks if CC support options passed as
+# args. Global CFLAGS are ignored during this test.
+cc_supports_flag() {
+	local CFLAGS="$@"
+	AC_MSG_CHECKING([whether $CC supports "$@"])
+	AC_COMPILE_IFELSE([int main(){return 0;}] ,
+			  [RC=0; AC_MSG_RESULT([yes])],
+			  [RC=1; AC_MSG_RESULT([no])])
+	return $RC
+}
+
+## cleanup
+AC_MSG_NOTICE(Sanitizing prefix: ${prefix})
+case $prefix in
+  NONE) prefix=/usr/local;;
+esac
+
+AC_MSG_NOTICE(Sanitizing exec_prefix: ${exec_prefix})
+case $exec_prefix in
+  NONE)   exec_prefix=$prefix;;
+  prefix) exec_prefix=$prefix;;
+esac
 
 # Checks for libraries.
 AC_CHECK_LIB([dl], [dlopen])
@@ -112,48 +133,7 @@ AC_CHECK_FUNCS([alarm alphasort atexit bzero dup2 endgrent endpwent fcntl \
 		pthread_spin_unlock pututxline lgammal setkey \
 		crypt encrypt getdate strsignal])
 
-AC_CONFIG_FILES([Makefile
-		 include/Makefile
-		 include/qb/Makefile
-		 lib/Makefile
-		 lib/tsafe/Makefile
-		 lib/poll/Makefile
-		 lib/timer/Makefile
-		 lib/plugin/Makefile
-		 lib/ipc/Makefile
-		 lib/wthread/Makefile
-		 lib/logsys/Makefile
-		 lib/hash/Makefile
-		 man/Makefile
-		 tests/Makefile])
 
-### Local business
-
-# ===============================================
-# Helpers
-# ===============================================
-
-## helper for CC stuff
-cc_supports_flag() {
-	local CFLAGS="$@"
-	AC_MSG_CHECKING([whether $CC supports "$@"])
-	AC_COMPILE_IFELSE([int main(){return 0;}] ,
-			  [RC=0; AC_MSG_RESULT([yes])],
-			  [RC=1; AC_MSG_RESULT([no])])
-	return $RC
-}
-
-## cleanup
-AC_MSG_NOTICE(Sanitizing prefix: ${prefix})
-case $prefix in
-  NONE) prefix=/usr/local;;
-esac
-
-AC_MSG_NOTICE(Sanitizing exec_prefix: ${exec_prefix})
-case $exec_prefix in
-  NONE)   exec_prefix=$prefix;;
-  prefix) exec_prefix=$prefix;;
-esac
 
 ## local defines
 PACKAGE_FEATURES=""
@@ -371,6 +351,14 @@ AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
+
+
+AC_CONFIG_FILES([Makefile
+		 include/Makefile
+		 include/qb/Makefile
+		 lib/Makefile
+		 man/Makefile
+		 tests/Makefile])
 
 AC_OUTPUT
 

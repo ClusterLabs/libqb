@@ -30,6 +30,7 @@
 
 #include <config.h>
 
+#include <check.h>
 #include <assert.h>
 #include <unistd.h>
 #include <qb/qbhdb.h>
@@ -41,7 +42,8 @@ struct iface {
 	void (*func3) (void);
 };
 
-int main (void) {
+START_TEST (test_plugin)
+{
 	qb_hdb_handle_t a_ifact_handle_ver0;
 	qb_hdb_handle_t b_ifact_handle_ver0;
 	struct iface *a_iface_ver0;
@@ -58,6 +60,7 @@ int main (void) {
 
 	unsigned int res;
 
+	setenv ("LD_LIBRARY_PATH", ".libs", 1);
 	/*
 	 * Reference version 0 and 1 of A and B interfaces
 	 */
@@ -67,7 +70,7 @@ int main (void) {
 		0, /* version 0 */
 		&a_iface_ver0_p,
 		(void *)0xaaaa0000);
-	assert (res == 0);
+	ck_assert_int_eq (res, 0);
 
 	a_iface_ver0 = (struct iface *)a_iface_ver0_p;
 
@@ -77,7 +80,7 @@ int main (void) {
 		0, /* version 0 */
 		&b_iface_ver0_p,
 		(void *)0xbbbb0000);
-	assert (res == 0);
+	ck_assert_int_eq (res, 0);
 
 	b_iface_ver0 = (struct iface *)b_iface_ver0_p;
 
@@ -87,7 +90,7 @@ int main (void) {
 		1, /* version 1 */
 		&a_iface_ver1_p,
 		(void *)0xaaaa1111);
-	assert (res == 0);
+	ck_assert_int_eq (res, 0);
 
 	a_iface_ver1 = (struct iface *)a_iface_ver1_p;
 
@@ -97,7 +100,7 @@ int main (void) {
 		1, /* version 1 */
 		&b_iface_ver1_p,
 		(void *)0xbbbb1111);
-	assert (res == 0);
+	ck_assert_int_eq (res, 0);
 
 	b_iface_ver1 = (struct iface *)b_iface_ver1_p;
 
@@ -124,6 +127,29 @@ int main (void) {
 	b_iface_ver1->func3();
 
 	plugin_ifact_release (b_ifact_handle_ver1);
-
-	return (0);
 }
+END_TEST
+
+static Suite *hash_suite (void)
+{
+	TCase *tc_plugin;
+	Suite *s = suite_create ("plugin");
+	tc_plugin = tcase_create ("load");
+	tcase_add_test (tc_plugin, test_plugin);
+	suite_add_tcase (s, tc_plugin);
+
+	return s;
+}
+
+int main (void)
+{
+	int number_failed;
+
+	Suite *s = hash_suite ();
+	SRunner *sr = srunner_create (s);
+	srunner_run_all (sr, CK_NORMAL);
+	number_failed = srunner_ntests_failed (sr);
+	srunner_free (sr);
+	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+

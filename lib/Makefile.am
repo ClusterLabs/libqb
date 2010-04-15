@@ -1,6 +1,7 @@
+#
 # Copyright (c) 2010 Red Hat, Inc.
 #
-# Authors: Angus Salkeld <asalkeld@redhat.com>
+# Author: Angus Salkeld <asaslkeld@redhat.com>
 #
 # This software licensed under BSD license, the text of which follows:
 #
@@ -28,7 +29,62 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-MAINTAINERCLEANFILES    = Makefile.in
 
-SUBDIRS			= tsafe poll timer plugin ipc wthread logsys hash
+MAINTAINERCLEANFILES	= Makefile.in
+
+noinst_HEADERS          = ipc_int.h
+
+#pkgconfigdir		= $(libdir)/pkgconfig
+#pkgconfig_DATA		= libqbhash.pc
+#libqbhash_la_LIBADD	= 
+
+#
+# Here are a set of rules to help you update your library version information:
+# Start with version information of ‘0:0:0’ for each libtool library.
+# Update the version information only immediately before a public release of your software. 
+# More frequent updates are unnecessary, and only guarantee that the current interface number gets larger faster.
+# If the library source code has changed at all since the last update, then increment revision (‘c:r:a’ becomes ‘c:r+1:a’).
+# If any interfaces have been added, removed, or changed since the last update, increment current, and set revision to 0.
+# If any interfaces have been added since the last public release, then increment age.
+# If any interfaces have been removed since the last public release, then set age to 0.
+#
+
+lib_LTLIBRARIES		= libqbhash.la libqbpoll.la libqbtimer.la libqblogsys.la \
+			  libqbtsafe.la  libqbwthread.la libqbipcc.la libqbipcs.la
+
+lib_LIBRARIES		= libqbplugin.a
+
+libqbplugin_a_SOURCES	= plugin_loader.c
+
+libqbhash_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbhash_la_LDFLAGS	= -version-info 0:0:0
+libqbhash_la_SOURCES	= hash.c
+
+libqbpoll_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbpoll_la_LDFLAGS	= -version-info 0:0:0
+libqbpoll_la_SOURCES	= poll.c
+
+libqbtimer_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbtimer_la_LDFLAGS	= -version-info 0:0:0
+libqbtimer_la_SOURCES	= timer.c
+
+libqblogsys_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqblogsys_la_LDFLAGS	= -version-info 0:0:0
+libqblogsys_la_SOURCES	= logsys.c
+
+libqbtsafe_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbtsafe_la_LDFLAGS	= -version-info 0:0:0
+libqbtsafe_la_SOURCES	= tsafe.c
+
+libqbwthread_la_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbwthread_la_LDFLAGS	= -version-info 0:0:0
+libqbwthread_la_SOURCES	= wthread.c
+
+libqbipcc_la_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbipcc_la_LDFLAGS	= -version-info 0:0:0
+libqbipcc_la_SOURCES	= ipcc.c
+
+libqbipcs_la_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbipcs_la_LDFLAGS	= -version-info 0:0:0
+libqbipcs_la_SOURCES	= ipcs.c
 

@@ -87,11 +87,12 @@ static int plugin_select_so (struct dirent *dirent)
 #endif
 {
 	unsigned int len;
-
+	/*
+	 * TODO check .lcrso > .so
+	 */
 	len = strlen (dirent->d_name);
-
-	if (len > 6) {
-		if (strcmp (".pluginso", dirent->d_name + len - 6) == 0) {
+	if (len > 3) {
+		if (strcmp (".so", dirent->d_name + len - 3) == 0) {
 			return (1);
 		}
 	}
@@ -393,7 +394,7 @@ static int interface_find_and_load (
 		snprintf (dl_name, sizeof(dl_name), "%s/%s",
 			path, scandir_list[libs_to_scan]->d_name);
 		/*
-	 	 * Don't reload already loaded libraries
+		 * Don't reload already loaded libraries
 		 */
 		if (plugin_lib_loaded (dl_name)) {
 			continue;
