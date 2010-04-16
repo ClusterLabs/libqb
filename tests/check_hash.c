@@ -36,51 +36,33 @@
 #include <check.h>
 #include <qb/qbhash.h>
 
-qb_hdb_handle_t handle;
-unsigned int distribution[65536];
-
-
-START_TEST (test_hash_init)
-{
-	int res;
-	handle = 0;
-
-	res = qb_hash_initialize (&handle, 3, 17);
-
-	ck_assert_int_ne (handle, 0);
-	ck_assert_int_eq (res, 0);
-
-	memset (distribution, 0, sizeof (distribution));
-}
-END_TEST
 
 START_TEST (test_hash_load)
 {
 	char word[1000];
 	FILE *fp;
-	int hashes_done = 0;
+	int res = 0;
+	qb_hdb_handle_t handle = 0;
+	void *value;
+	uint64_t value_len;
 
+	res = qb_hash_initialize (&handle, 17, 0);
+
+	ck_assert_int_ne (handle, 0);
+	ck_assert_int_eq (res, 0);
 	/*
 	 * Load hash table with dictionary
 	 */
 	fp = fopen ("/usr/share/dict/words", "r");
 	while (fgets (word, sizeof (word), fp)) {
 		word[strlen (word) - 1] = '\0';
-		qb_hash_key_set (handle, word, word, strlen (word) + 1);
-		hashes_done += 1;
+		res = qb_hash_key_set (handle, word, word, strlen (word) + 1);
+		//if (res < 0) {
+		//	printf ("FAILED to insert %s : %s\n", word, strerror(errno));
+		//}
+		ck_assert_int_eq (res, 0);
 	}
 	fclose (fp);
-
-	fail_unless (1 == 1);
-}
-END_TEST
-
-START_TEST (test_hash_verify)
-{
-	char word[1000];
-	FILE *fp;
-	void *value;
-	uint64_t value_len;
 
 	/*
 	 * Verify dictionary produces correct values
@@ -92,14 +74,6 @@ START_TEST (test_hash_verify)
 		ck_assert_str_eq (word, value);
 	}
 	fclose (fp);
-}
-END_TEST
-
-START_TEST (test_hash_delete)
-{
-	char word[1000];
-	FILE *fp;
-	int res;
 
 	/*
 	 * Delete all dictionary entries
@@ -111,29 +85,19 @@ START_TEST (test_hash_delete)
 		ck_assert_int_eq (res, 0);
 	}
 	fclose (fp);
-
 }
 END_TEST
+
 
 static Suite *hash_suite (void)
 {
 	TCase *tc_load;
-	TCase *tc_verify;
-	TCase *tc_delete;
 	Suite *s = suite_create ("hashtable");
 
-	tc_load = tcase_create ("load");
-	tcase_add_test (tc_load, test_hash_init);
+	tc_load = tcase_create ("load_and_verify");
 	tcase_add_test (tc_load, test_hash_load);
+	tcase_set_timeout(tc_load, 10);
 	suite_add_tcase (s, tc_load);
-
-	tc_verify = tcase_create ("verify");
-	tcase_add_test (tc_verify, test_hash_verify);
-	suite_add_tcase (s, tc_verify);
-
-	tc_delete = tcase_create ("delete");
-	tcase_add_test (tc_delete, test_hash_delete);
-	suite_add_tcase (s, tc_delete);
 
 	return s;
 }
