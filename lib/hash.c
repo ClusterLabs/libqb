@@ -134,7 +134,7 @@ int32_t qb_hash_key_set (
 	struct qb_list_head *list;
 	int found = 0;
 	struct hash_node *hash_node;
-	int res;
+	int res = 0;
 
 	res = qb_hdb_handle_get (&qb_hash_handle_db, handle, (void *)&hash_table);
 	if (res != 0) { 
@@ -158,6 +158,8 @@ int32_t qb_hash_key_set (
 	if (found == 0) {
 		hash_node = malloc (sizeof (struct hash_node) + strlen (key) + 1);
 		if (hash_node == 0) {
+			res = -1;
+			errno = -ENOMEM;
 			goto error_exit;
 		}
 
@@ -183,7 +185,7 @@ error_exit:
 	pthread_mutex_unlock (&hash_table->hash_buckets[hash_entry].mutex);
 	qb_hdb_handle_put (&qb_hash_handle_db, handle);
 
-	return (0);
+	return (res);
 }
 
 
