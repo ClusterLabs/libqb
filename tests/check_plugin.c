@@ -130,7 +130,7 @@ START_TEST (test_plugin)
 }
 END_TEST
 
-static Suite *hash_suite (void)
+static Suite *plugin_suite (void)
 {
 	TCase *tc_plugin;
 	Suite *s = suite_create ("plugin");
@@ -145,7 +145,7 @@ int main (void)
 {
 	int number_failed;
 
-	Suite *s = hash_suite ();
+	Suite *s = plugin_suite ();
 	SRunner *sr = srunner_create (s);
 	srunner_run_all (sr, CK_NORMAL);
 	number_failed = srunner_ntests_failed (sr);

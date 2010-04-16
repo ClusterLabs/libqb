@@ -41,6 +41,7 @@ check_hash_LDADD = $(top_builddir)/lib/libqbhash.la @CHECK_LIBS@
 check_plugin_SOURCES = check_plugin.c
 check_plugin_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
 check_plugin_LDADD = $(top_builddir)/lib/libqbplugin.a @CHECK_LIBS@
+check_plugin_LDFLAGS = $(OS_DYFLAGS)
 
 noinst_libdir = $(shell pwd)/$(top_builddir)/tests
 
