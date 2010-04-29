@@ -40,6 +40,7 @@
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <qb/qbhdb.h>
+#include <qb/qbipc_common.h>
 
 #ifdef __cplusplus
 extern "C" {

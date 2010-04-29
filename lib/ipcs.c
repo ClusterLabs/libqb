@@ -48,8 +48,8 @@
 
 #include <qb/qblist.h>
 #include <qb/qbhdb.h>
-#include "ipc_int.h"
 #include <qb/qbipcs.h>
+#include "ipc_int.h"
 
 //#define LOGSYS_UTILS_ONLY 1
 #include <syslog.h>

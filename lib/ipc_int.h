@@ -67,17 +67,6 @@ enum req_init_types {
 #define MESSAGE_RES_ENABLE_FLOWCONTROL 2
 #define MESSAGE_RES_OUTQ_FLUSH_NR      3
 
-typedef struct {
-	int size __attribute__((aligned(8)));
-	int id __attribute__((aligned(8)));
-} qb_ipc_request_header_t __attribute__((aligned(8)));
-
-typedef struct {
-	int size __attribute__((aligned(8)));
-	int id __attribute__((aligned(8)));
-	int32_t error __attribute__((aligned(8)));
-} qb_ipc_response_header_t __attribute__((aligned(8)));
-
 struct control_buffer {
 	unsigned int read;
 	unsigned int write;

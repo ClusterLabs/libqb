@@ -36,7 +36,7 @@
 #define QB_IPCS_H_DEFINED
 
 #include <stdlib.h>
-//#include <qb/engine/objdb.h>
+#include <qb/qbipc_common.h>
 
 #ifdef __cplusplus
 extern "C" {
