@@ -96,6 +96,7 @@ The Quarterback APIs.
 %{_includedir}/qb/qbplugin_comp.h
 %{_includedir}/qb/qbipcc.h
 %{_includedir}/qb/qbipcs.h
+%{_includedir}/qb/qbipc_common.h
 %{_includedir}/qb/qbqueue.h
 %{_includedir}/qb/qbwthread.h
 %{_includedir}/qb/qblogsys.h
