@@ -54,33 +54,6 @@ struct qb_ipcs_init_state {
 	const struct sched_param *sched_param;
 	void *(*malloc) (size_t size);
 	void (*free) (void *ptr);
-        void (*log_printf) (
-                const char *format,
-                ...) __attribute__((format(printf, 1, 2)));
-	int (*service_available)(unsigned int service);
-	int (*private_data_size_get)(unsigned int service);
-	int (*security_valid)(int uid, int gid);
-	void (*serialize_lock)(void);
-	void (*serialize_unlock)(void);
-	int (*sending_allowed)(unsigned int service, unsigned int id,
-		const void *msg, void *sending_allowed_private_data);
-	void (*sending_allowed_release)(void *sending_allowed_private_data);
-	void (*poll_accept_add)(int fd);
-	void (*poll_dispatch_add)(int fd, void *context);
-	void (*poll_dispatch_modify)(int fd, int events);
-	void (*poll_dispatch_destroy)(int fd, void *context);
-	void (*fatal_error)(const char *error_msg);
-	qb_ipcs_init_fn_lvalue (*init_fn_get)(unsigned int service);
-	qb_ipcs_exit_fn_lvalue (*exit_fn_get)(unsigned int service);
-	qb_ipcs_handler_fn_lvalue (*handler_fn_get)(unsigned int service, unsigned int id);
-};
-
-struct qb_ipcs_init_state_v2 {
-	const char *socket_name;
-	int sched_policy;
-	const struct sched_param *sched_param;
-	void *(*malloc) (size_t size);
-	void (*free) (void *ptr);
         void (*old_log_printf) (
                 const char *format,
                 ...) __attribute__((format(printf, 1, 2)));
@@ -119,10 +92,7 @@ struct qb_ipcs_init_state_v2 {
 };
 
 extern void qb_ipcs_ipc_init (
-	struct qb_ipcs_init_state *init_state);
-
-extern void qb_ipcs_ipc_init_v2 (
-        struct qb_ipcs_init_state_v2 *init_state_v2);
+        struct qb_ipcs_init_state *init_state);
 
 extern void *qb_ipcs_private_data_get (void *conn);
 

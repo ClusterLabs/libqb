@@ -70,7 +70,7 @@
 #define MSG_SEND_LOCKED		0
 #define MSG_SEND_UNLOCKED	1
 
-static struct qb_ipcs_init_state_v2 *api = NULL;
+static struct qb_ipcs_init_state *api = NULL;
 
 QB_DECLARE_LIST_INIT (conn_info_qb_list_head);
 
@@ -153,8 +153,6 @@ static void ipc_disconnect (struct conn_info *conn_info);
 
 static void msg_send (void *conn, const struct iovec *iov, unsigned int iov_len,
 		      int locked);
-
-static void _qb_ipc_init(void);
 
 #define log_printf(level, format, args...) \
 do { \
@@ -667,7 +665,7 @@ retry_semop:
 			qb_ipcs_response_send (conn_info,
 				&qb_ipc_response_header,
 				sizeof (qb_ipc_response_header_t));
-		} else 
+		} else
 		if (send_ok) {
 			api->serialize_lock();
 			api->stats_increment_value (conn_info->stats_handle, "requests");
@@ -905,59 +903,19 @@ static int conn_info_create (int fd)
 /*
  * Exported functions
  */
-extern void qb_ipcs_ipc_init_v2 (
-	struct qb_ipcs_init_state_v2 *init_state_v2)
-{
-	api = init_state_v2;
-	api->old_log_printf	= NULL;
-
-	log_printf (LOG_DEBUG, "you are using ipc api v2\n");
-	_qb_ipc_init ();
-}
-
 extern void qb_ipcs_ipc_init (
-        struct qb_ipcs_init_state *init_state)
-{
-	api = calloc (sizeof(struct qb_ipcs_init_state_v2), 1);
-	/* v2 api */
-	api->stats_create_connection	= dummy_stats_create_connection;
-	api->stats_destroy_connection	= dummy_stats_destroy_connection;
-	api->stats_update_value		= dummy_stats_update_value;
-	api->stats_increment_value	= dummy_stats_increment_value;
-	api->log_printf			= NULL;
-
-	/* v1 api */
-	api->socket_name		= init_state->socket_name;
-	api->sched_policy		= init_state->sched_policy;
-	api->sched_param		= init_state->sched_param;
-	api->malloc			= init_state->malloc;
-	api->free			= init_state->free;
-	api->old_log_printf		= init_state->log_printf;
-	api->fatal_error		= init_state->fatal_error;
-	api->security_valid		= init_state->security_valid;
-	api->service_available		= init_state->service_available;
-	api->private_data_size_get	= init_state->private_data_size_get;
-	api->serialize_lock		= init_state->serialize_lock;
-	api->serialize_unlock		= init_state->serialize_unlock;
-	api->sending_allowed		= init_state->sending_allowed;
-	api->sending_allowed_release	= init_state->sending_allowed_release;
-	api->poll_accept_add		= init_state->poll_accept_add;
-	api->poll_dispatch_add		= init_state->poll_dispatch_add;
-	api->poll_dispatch_modify	= init_state->poll_dispatch_modify;
-	api->init_fn_get		= init_state->init_fn_get;
-	api->exit_fn_get		= init_state->exit_fn_get;
-	api->handler_fn_get		= init_state->handler_fn_get;
-
-	log_printf (LOG_DEBUG, "you are using ipc api v1\n");
-
-	_qb_ipc_init ();
-}
-
-static void _qb_ipc_init(void)
+	struct qb_ipcs_init_state *init_state)
 {
 	int server_fd;
 	struct sockaddr_un un_addr;
 	int res;
+
+	api = init_state;
+	api->old_log_printf	= NULL;
+	api->stats_create_connection	= dummy_stats_create_connection;
+	api->stats_destroy_connection	= dummy_stats_destroy_connection;
+	api->stats_update_value		= dummy_stats_update_value;
+	api->stats_increment_value	= dummy_stats_increment_value;
 
 	/*
 	 * Create socket for IPC clients, name socket, listen for connections
