@@ -28,6 +28,20 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
+noinst_PROGRAMS = bmc bmcpt bms
+
+bmc_SOURCES = bmc.c
+bmc_CFLAGS = -I$(top_srcdir)/include
+bmc_LDADD = -lrt $(top_builddir)/lib/libqbipcc.la $(top_builddir)/lib/libqbpoll.la
+
+bmcpt_SOURCES = bmcpt.c
+bmcpt_CFLAGS = -I$(top_srcdir)/include
+bmcpt_LDADD = -lrt $(top_builddir)/lib/libqbipcc.la $(top_builddir)/lib/libqbpoll.la
+
+bms_SOURCES = bms.c
+bms_CFLAGS = -I$(top_srcdir)/include
+bms_LDADD = -lrt $(top_builddir)/lib/libqbipcs.la $(top_builddir)/lib/libqbpoll.la
+
 if HAVE_CHECK
 
 TESTS = check_hash check_plugin
