@@ -41,6 +41,8 @@
 #include <sys/time.h>
 #include <time.h>
 
+int blocking = 1;
+int verbose = 0;
 #define ITERATIONS 10000
 
 static struct timeval tv1, tv2, tv_elapsed;
@@ -112,19 +114,21 @@ static void bmc_send_nozc (unsigned int size)
 
 	req_header.id = 0;
 	req_header.size = sizeof (qb_ipc_request_header_t) + size;
-	
+
 	iov[0].iov_base = &req_header;
 	iov[0].iov_len = sizeof (qb_ipc_request_header_t);
 	iov[1].iov_base = buffer;
 	iov[1].iov_len = size;
 
 repeat_send:
-	res = qb_ipcc_msg_send_reply_receive (
-		bmc_ipc_handle,
-		iov,
-		2,
-		&res_header,
-		sizeof (qb_ipc_response_header_t));
+	if (blocking) {
+		res = qb_ipcc_msg_send_reply_receive (bmc_ipc_handle,
+			iov, 2,
+			&res_header, sizeof (qb_ipc_response_header_t));
+	} else {
+		res = qb_ipcc_msg_send (bmc_ipc_handle,
+			iov, 2);
+	}
 	if (res != 0) {
 		goto repeat_send;
 	}
@@ -132,9 +136,44 @@ repeat_send:
 
 qb_ipc_request_header_t *global_zcb_buffer;
 
-int main (void)
+static void show_usage(const char *name)
 {
+	printf("usage: \n");
+	printf("%s <options>\n", name);
+	printf("\n");
+	printf("  options:\n");
+	printf("\n");
+	printf("  -n             non-blocking ipc (default blocking)\n");
+	printf("  -v             verbose\n");
+	printf("  -h             show this help text\n");
+	printf("\n");
+}
+
+int main (int argc, char *argv[])
+{
+	const char *options = "nvh";
+	int opt;
 	int i, j;
+
+	if (argc == 1) {
+		show_usage (argv[0]);
+		exit(0);
+	}
+	while ((opt = getopt(argc, argv, options)) != -1) {
+		switch (opt) {
+		case 'n': /* non-blocking */
+			blocking = 0;
+			break;
+		case 'v':
+			verbose = 1;
+			break;
+		case 'h':
+		default:
+			show_usage (argv[0]);
+			exit(0);
+			break;
+		}
+	}
 
 	bmc_connect();
 

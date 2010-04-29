@@ -59,6 +59,9 @@
 #include <qb/qbpoll.h>
 #include <qb/qbipcs.h>
 
+int blocking = 1;
+int verbose = 0;
+
 static qb_hdb_handle_t bms_poll_handle;
 
 struct lib_handler {
@@ -76,7 +79,9 @@ static void bms_benchmark_one_fn (void *conn, const void *msg)
 {
 	qb_ipc_response_header_t res;
 
-	qb_ipcs_response_send (conn, &res, sizeof (res));
+	if (blocking) {
+		qb_ipcs_response_send (conn, &res, sizeof (res));
+	}
 }
 
 int ii=0;
@@ -164,16 +169,18 @@ static qb_ipcs_handler_fn_lvalue bms_handler_fn_get (unsigned int service, unsig
 
 static int bms_security_valid (int euid, int egid)
 {
-	printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	if (euid == 0 || egid == 0) {
 		return (1);
 	}
+	printf("%s:%d %s NOT VALID!\n", __FILE__, __LINE__, __func__);
 	return (0);
 }
 
 static int bms_service_available (unsigned int service)
 {
-	printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	return (service < 1);
 }
 
@@ -214,7 +221,9 @@ static int bms_poll_handler_accept (
 	int revent,
 	void *context)
 {
-	printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	return (qb_ipcs_handler_accept (fd, revent, context));
 }
 
@@ -231,7 +240,9 @@ static int bms_poll_handler_dispatch (
 static void bms_poll_accept_add (
 	int fd)
 {
-	printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	qb_poll_dispatch_add (bms_poll_handle, fd, POLLIN|POLLNVAL, 0, bms_poll_handler_accept);
 }
 
@@ -239,7 +250,9 @@ static void bms_poll_dispatch_add (
 	int fd,
 	void *context)
 {
-	printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	qb_poll_dispatch_add (bms_poll_handle, fd, POLLIN|POLLNVAL, context,
 		bms_poll_handler_dispatch);
 }
@@ -248,7 +261,9 @@ static void bms_poll_dispatch_modify (
 	int fd,
 	int events)
 {
-	printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	qb_poll_dispatch_modify (bms_poll_handle, fd, events,
 		bms_poll_handler_dispatch);
 }
@@ -284,8 +299,43 @@ static void sigusr1_handler (int num)
 {
 }
 
-int main (int argc, char **argv)
+static void show_usage(const char *name)
 {
+	printf("usage: \n");
+	printf("%s <options>\n", name);
+	printf("\n");
+	printf("  options:\n");
+	printf("\n");
+	printf("  -n             non-blocking ipc (default blocking)\n");
+	printf("  -v             verbose\n");
+	printf("  -h             show this help text\n");
+	printf("\n");
+}
+
+int main (int argc, char *argv[])
+{
+	const char *options = "nvh";
+	int opt;
+
+	if (argc == 1) {
+		show_usage (argv[0]);
+		exit(0);
+	}
+	while ((opt = getopt(argc, argv, options)) != -1) {
+		switch (opt) {
+		case 'n': /* non-blocking */
+			blocking = 0;
+			break;
+		case 'v':
+			verbose = 1;
+			break;
+		case 'h':
+		default:
+			show_usage (argv[0]);
+			exit(0);
+			break;
+		}
+	}
 	signal (SIGUSR1, sigusr1_handler);
 
         bms_poll_handle = qb_poll_create ();
