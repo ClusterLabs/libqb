@@ -26,3 +26,5 @@ m4
 libtool
 ltmain.sh
 libqb-*
+mbsec
+opsec
