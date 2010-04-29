@@ -80,6 +80,12 @@ qb_ipcc_dispatch_flow_control_get (
 	unsigned int *flow_control_state);
 
 extern int32_t
+qb_ipcc_msg_send (
+	qb_hdb_handle_t handle,
+	const struct iovec *iov,
+	unsigned int iov_len);
+
+extern int32_t
 qb_ipcc_msg_send_reply_receive (
 	qb_hdb_handle_t handle,
 	const struct iovec *iov,

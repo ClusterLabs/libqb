@@ -999,6 +999,34 @@ error_exit:
 }
 
 int32_t
+qb_ipcc_msg_send (
+	qb_hdb_handle_t handle,
+	const struct iovec *iov,
+	unsigned int iov_len)
+{
+	int32_t res;
+	struct ipc_instance *ipc_instance;
+
+	res = qb_hdb_handle_get (&ipc_hdb, handle, (void **)&ipc_instance);
+	if (res != 0) {
+		return (res);
+	}
+
+	pthread_mutex_lock (&ipc_instance->mutex);
+
+	res = msg_send (ipc_instance, iov, iov_len);
+	if (res != 0) {
+		goto error_exit;
+	}
+
+error_exit:
+	qb_hdb_handle_put (&ipc_hdb, handle);
+	pthread_mutex_unlock (&ipc_instance->mutex);
+
+	return (res);
+}
+
+int32_t
 qb_ipcc_msg_send_reply_receive (
 	qb_hdb_handle_t handle,
 	const struct iovec *iov,
