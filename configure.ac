@@ -358,6 +358,7 @@ AC_CONFIG_FILES([Makefile
 		 include/qb/Makefile
 		 lib/Makefile
 		 man/Makefile
+		 man/Doxyfile
 		 tests/Makefile])
 
 AC_OUTPUT
