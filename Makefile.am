@@ -37,7 +37,7 @@ ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= COPYING INSTALL README TODO 
 
-SUBDIRS			= include lib man tests
+SUBDIRS			= include lib docs tests
 #pkgconfig
 
 install-exec-local:
@@ -47,10 +47,10 @@ uninstall-local:
 	rmdir $(DESTDIR)/${SOCKETDIR} || :;
 
 lint:
-	for dir in lib ; do make -C $$dir lint; done
+	$(MAKE) -C lib lint
 
 doxygen:
-	doxygen doc/Doxyfile
+	$(MAKE) -C docs doxygen
 
 dist-clean-local:
 	rm -f autoconf automake autoheader
@@ -59,7 +59,7 @@ maintainer-clean-local:
 	rm -rf m4
 
 clean-generic:
-	rm -rf doc/api $(SPEC) $(TARFILE) 
+	rm -rf docs/html docs/man3 $(SPEC) $(TARFILE) 
 
 ## make rpm/srpm section.
 

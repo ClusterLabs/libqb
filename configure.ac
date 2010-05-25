@@ -357,8 +357,9 @@ AC_CONFIG_FILES([Makefile
 		 include/Makefile
 		 include/qb/Makefile
 		 lib/Makefile
-		 man/Makefile
-		 man/Doxyfile
+		 docs/Makefile
+		 docs/man.dox
+		 docs/html.dox
 		 tests/Makefile])
 
 AC_OUTPUT

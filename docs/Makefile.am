@@ -18,7 +18,7 @@
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 
 MAINTAINERCLEANFILES	= Makefile.in
-EXTRA_DIST 		= Doxyfile
+EXTRA_DIST 		= man.dox html.dox
 
 dist_man_MANS = man3/qbtsafe.h.3 man3/qbhdb.h.3 man3/qblist.h.3 \
 	       	man3/qbpoll.h.3 man3/qbtimer.h.3 man3/qbplugin.h.3 \
@@ -34,6 +34,9 @@ dependant_headers = $(inc_dir)/qbtsafe.h $(inc_dir)/qbhdb.h $(inc_dir)/qblist.h 
 		    $(inc_dir)/qbipcs.h $(inc_dir)/qbqueue.h $(inc_dir)/qbwthread.h \
 		    $(inc_dir)/qblogsys.h $(inc_dir)/qbhash.h $(inc_dir)/qbutil.h
 
-$(dist_man_MANS): Doxyfile $(dependant_headers)
-	doxygen Doxyfile
+$(dist_man_MANS): man.dox $(dependant_headers)
+	doxygen man.dox
+
+doxygen: html.dox
+	doxygen html.dox
 
