@@ -21,7 +21,7 @@
 
 MAINTAINERCLEANFILES	= Makefile.in
 
-noinst_HEADERS          = ipc_int.h
+noinst_HEADERS          = ipc_int.h util_int.h
 
 #pkgconfigdir		= $(libdir)/pkgconfig
 #pkgconfig_DATA		= libqbhash.pc

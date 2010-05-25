@@ -21,6 +21,8 @@
 #include <config.h>
 
 #include "os_base.h"
+#include "util_int.h"
+#include <stdarg.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <pthread.h>
@@ -106,5 +108,35 @@ int32_t qb_thread_trylock (qb_thread_lock_t* tl)
 	return (int32_t)res;
 }
 
+
+/*
+ * ---------------------------------------------------
+ * Logging functions for the library.
+ */
+static qb_util_log_fn_t real_log_fn = NULL;
+
+void _qb_util_log (const char *file_name,
+	int32_t file_line,
+	int32_t severity,
+	const char *format,
+	...)
+{
+	if (real_log_fn) {
+		va_list ap;
+		char msg[256];
+
+		va_start (ap, format);
+		vsnprintf (msg, 256, format, ap);
+		va_end (ap);
+
+		real_log_fn (file_name, file_line, severity, msg);
+	}
+}
+
+
+void qb_util_set_log_function (qb_util_log_fn_t fn)
+{
+	real_log_fn = fn;
+}
 
 

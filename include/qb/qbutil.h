@@ -51,5 +51,17 @@ int32_t qb_thread_trylock (qb_thread_lock_t* tl);
  */
 int32_t qb_thread_unlock (qb_thread_lock_t* tl);
 
+
+typedef void (* qb_util_log_fn_t)(const char *file_name,
+	int32_t file_line,
+	int32_t severity,
+	const char *msg);
+
+/**
+ * Use this function output libqb internal log message as you wish.
+ */
+void qb_util_set_log_function (qb_util_log_fn_t fn);
+
+
 #endif /* QB_UTIL_H_DEFINED */
 
