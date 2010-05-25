@@ -20,6 +20,10 @@
 #ifndef QB_PLUGIN_COMP_H_DEFINED
 #define QB_PLUGIN_COMP_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * plugin Interface
  */
@@ -50,4 +54,9 @@ static inline void plugin_interfaces_set (struct plugin_iface *iface, void *ifac
 	iface->interfaces = (void **)iface_list;
 }
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
 #endif /* QB_PLUGIN_COMP_H_DEFINED */
+

@@ -25,6 +25,10 @@
 #include <stdlib.h>
 #include <qb/qbhdb.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int32_t qb_hash_initialize (
 	qb_hdb_handle_t *handle,
 	uint32_t order,
@@ -85,4 +89,9 @@ extern int32_t qb_hash_edge_value_get (
 	const void **edge_value,
 	uint64_t *edge_value_len);
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
 #endif /* QB_HASH_H_DEFINED */
+

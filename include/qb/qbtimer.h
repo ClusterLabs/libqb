@@ -22,6 +22,10 @@
 #ifndef QB_TIMER_H_DEFINED
 #define QB_TIMER_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void * qb_timer_handle;
 
 extern int qb_timer_init (
@@ -52,6 +56,10 @@ extern void qb_timer_unlock (void);
 extern unsigned long long qb_timer_time_get (void);
 
 extern unsigned long long qb_timer_expire_time_get (qb_timer_handle handle);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* QB_TIMER_H_DEFINED */
 

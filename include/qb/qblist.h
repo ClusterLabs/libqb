@@ -21,6 +21,10 @@
 #ifndef QB_LIST_H_DEFINED
 #define QB_LIST_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct qb_list_head {
 	struct qb_list_head *next;
 	struct qb_list_head *prev;
@@ -82,6 +86,10 @@ static inline void qb_list_splice (struct qb_list_head *list, struct qb_list_hea
 	last->next = current;
 	current->prev = last;
 }
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* QB_LIST_H_DEFINED */
 

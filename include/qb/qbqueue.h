@@ -25,6 +25,10 @@
 #include <pthread.h>
 #include "assert.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct qb_queue {
 	int head;
 	int tail;
@@ -211,4 +215,9 @@ static inline int qb_queue_usedhw (struct qb_queue *qb_queue) {
 	return (usedhw);
 }
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
 #endif /* QB_QUEUE_H_DEFINED */
+

@@ -22,6 +22,10 @@
 #ifndef QB_WTHREAD_H_DEFINED
 #define QB_WTHREAD_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct qb_wthread_group {
 	int threadcount;
 	int last_scheduled;
@@ -50,6 +54,10 @@ extern void qb_wthread_group_exit (
 
 extern void qb_wthread_group_atsegv (
 	struct qb_wthread_group *worker_thread_group);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* QB_WTHREAD_H_DEFINED */
 

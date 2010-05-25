@@ -20,6 +20,10 @@
 #ifndef QB_UTIL_H_DEFINED
 #define QB_UTIL_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	QB_THREAD_LOCK_SHORT,
 	QB_THREAD_LOCK_LONG,
@@ -62,6 +66,9 @@ typedef void (* qb_util_log_fn_t)(const char *file_name,
  */
 void qb_util_set_log_function (qb_util_log_fn_t fn);
 
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* QB_UTIL_H_DEFINED */
 

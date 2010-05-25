@@ -22,6 +22,10 @@
 #ifndef QB_TSAFE_H_DEFINED
 #define QB_TSAFE_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Initialize the thread safe checker.
  *
@@ -45,6 +49,10 @@ extern void qb_tsafe_on (void);
  * It is fine to do this if you have only one thread.
  */
 extern void qb_tsafe_off (void);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* QB_TSAFE_H_DEFINED */
 
