@@ -39,11 +39,16 @@ noinst_HEADERS          = ipc_int.h
 #
 
 lib_LTLIBRARIES		= libqbhash.la libqbpoll.la libqbtimer.la libqblogsys.la \
-			  libqbtsafe.la  libqbwthread.la libqbipcc.la libqbipcs.la
+			  libqbtsafe.la  libqbwthread.la libqbipcc.la libqbipcs.la \
+			  libqbutil.la
 
 lib_LIBRARIES		= libqbplugin.a
 
 libqbplugin_a_SOURCES	= plugin_loader.c
+
+libqbutil_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqbutil_la_LDFLAGS	= -version-info 0:0:0
+libqbutil_la_SOURCES	= util.c
 
 libqbhash_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbhash_la_LDFLAGS	= -version-info 0:0:0

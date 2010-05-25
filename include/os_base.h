@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #endif /* HAVE_STDLIB_H */
 #include <stdio.h>
+#include <stdint.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif /* HAVE_UNISTD_H */
