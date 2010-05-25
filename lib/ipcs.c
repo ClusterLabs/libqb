@@ -37,10 +37,7 @@
 #include <qb/qbhdb.h>
 #include <qb/qbipcs.h>
 #include "ipc_int.h"
-
-//#define LOGSYS_UTILS_ONLY 1
-#include <syslog.h>
-//#include <qb/engine/logsys.h>
+#include "util_int.h"
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 #include <semaphore.h>
@@ -140,16 +137,6 @@ static void ipc_disconnect (struct conn_info *conn_info);
 
 static void msg_send (void *conn, const struct iovec *iov, unsigned int iov_len,
 		      int locked);
-
-#define log_printf(level, format, args...) \
-do { \
-        api->log_printf ( level, \
-                /*LOGSYS_ENCODE_RECID(level, */\
-                                    /*api->log_subsys_id,*/ \
-                                    /*LOGSYS_RECID_LOG),*/ \
-                __FUNCTION__, __FILE__, __LINE__, \
-                (const char *)format, ##args); \
-} while (0)
 
 static qb_hdb_handle_t dummy_stats_create_connection (
 	const char *name,
@@ -819,11 +806,11 @@ retry_recv:
 
 #else /* no credentials */
 	authenticated = 1;
- 	log_printf (LOG_ERR, "Platform does not support IPC authentication.  Using no authentication\n");
+ 	qb_util_log (LOG_ERR, "Platform does not support IPC authentication.  Using no authentication\n");
 #endif /* no credentials */
 
 	if (authenticated == 0) {
-		log_printf (LOG_ERR, "Invalid IPC credentials.\n");
+		qb_util_log (LOG_ERR, "Invalid IPC credentials.\n");
 		ipc_disconnect (conn_info);
 		return (-1);
  	}
@@ -898,7 +885,6 @@ extern void qb_ipcs_ipc_init (
 	int res;
 
 	api = init_state;
-	api->old_log_printf	= NULL;
 	api->stats_create_connection	= dummy_stats_create_connection;
 	api->stats_destroy_connection	= dummy_stats_destroy_connection;
 	api->stats_update_value		= dummy_stats_update_value;
@@ -913,7 +899,7 @@ extern void qb_ipcs_ipc_init (
 	server_fd = socket (PF_LOCAL, SOCK_STREAM, 0);
 #endif
 	if (server_fd == -1) {
-		log_printf (LOG_CRIT, "Cannot create client connections socket.\n");
+		qb_util_log (LOG_CRIT, "Cannot create client connections socket.\n");
 		api->fatal_error ("Can't create library listen socket");
 	};
 
@@ -921,7 +907,7 @@ extern void qb_ipcs_ipc_init (
 	if (res == -1) {
 		char error_str[100];
 		strerror_r (errno, error_str, 100);
-		log_printf (LOG_CRIT, "Could not set non-blocking operation on server socket: %s\n", error_str);
+		qb_util_log (LOG_CRIT, "Could not set non-blocking operation on server socket: %s\n", error_str);
 		api->fatal_error ("Could not set non-blocking operation on server socket");
 	}
 
@@ -938,7 +924,7 @@ extern void qb_ipcs_ipc_init (
 		struct stat stat_out;
 		res = stat (SOCKETDIR, &stat_out);
 		if (res == -1 || (res == 0 && !S_ISDIR(stat_out.st_mode))) {
-			log_printf (LOG_CRIT, "Required directory not present %s\n", SOCKETDIR);
+			qb_util_log (LOG_CRIT, "Required directory not present %s\n", SOCKETDIR);
 			api->fatal_error ("Please create required directory.");
 		}
 		sprintf (un_addr.sun_path, "%s/%s", SOCKETDIR, api->socket_name);
@@ -950,7 +936,7 @@ extern void qb_ipcs_ipc_init (
 	if (res) {
 		char error_str[100];
 		strerror_r (errno, error_str, 100);
-		log_printf (LOG_CRIT, "Could not bind AF_UNIX (%s): %s.\n", un_addr.sun_path, error_str);
+		qb_util_log (LOG_CRIT, "Could not bind AF_UNIX (%s): %s.\n", un_addr.sun_path, error_str);
 		api->fatal_error ("Could not bind to AF_UNIX socket\n");
 	}
 
@@ -1180,10 +1166,10 @@ static int flow_control_event_send (struct conn_info *conn_info, char event)
 
 	if (conn_info->flow_control_state != new_fc) {
 		if (new_fc == 1) {
-			log_printf (LOG_INFO, "Enabling flow control for %d, event %d\n",
+			qb_util_log (LOG_INFO, "Enabling flow control for %d, event %d\n",
 				conn_info->client_pid, event);
 		} else {
-			log_printf (LOG_INFO, "Disabling flow control for %d, event %d\n",
+			qb_util_log (LOG_INFO, "Disabling flow control for %d, event %d\n",
 				conn_info->client_pid, event);
 		}
 		conn_info->flow_control_state = new_fc;
@@ -1446,7 +1432,7 @@ retry_accept:
 	if (new_fd == -1) {
 		char error_str[100];
 		strerror_r (errno, error_str, 100);
-		log_printf (LOG_ERR,
+		qb_util_log (LOG_ERR,
 			"Could not accept Library connection: %s\n", error_str);
 		return (0); /* This is an error, but -1 would indicate disconnect from poll loop */
 	}
@@ -1455,7 +1441,7 @@ retry_accept:
 	if (res == -1) {
 		char error_str[100];
 		strerror_r (errno, error_str, 100);
-		log_printf (LOG_ERR,
+		qb_util_log (LOG_ERR,
 			"Could not set non-blocking operation on library connection: %s\n",
 			error_str);
 		close (new_fd);

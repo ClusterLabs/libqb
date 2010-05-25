@@ -41,9 +41,6 @@ struct qb_ipcs_init_state {
 	const struct sched_param *sched_param;
 	void *(*malloc) (size_t size);
 	void (*free) (void *ptr);
-        void (*old_log_printf) (
-                const char *format,
-                ...) __attribute__((format(printf, 1, 2)));
 	int (*service_available)(unsigned int service);
 	int (*private_data_size_get)(unsigned int service);
 	int (*security_valid)(int uid, int gid);
@@ -60,21 +57,12 @@ struct qb_ipcs_init_state {
 	qb_ipcs_init_fn_lvalue (*init_fn_get)(unsigned int service);
 	qb_ipcs_exit_fn_lvalue (*exit_fn_get)(unsigned int service);
 	qb_ipcs_handler_fn_lvalue (*handler_fn_get)(unsigned int service, unsigned int id);
-	/* v2 functions */
 	qb_hdb_handle_t (*stats_create_connection) (const char* name,
 		pid_t pid, int fd);
 	void (*stats_destroy_connection) (qb_hdb_handle_t handle);
 	void (*stats_update_value) (qb_hdb_handle_t handle,
 		const char *name, const void *value, size_t value_len);
 	void (*stats_increment_value) (qb_hdb_handle_t handle, const char* name);
-	void (*log_printf) (
-		unsigned int rec_ident,
-		const char *function_name,
-		const char *file_name,
-		int file_line,
-		const char *format,
-		...) __attribute__((format(printf, 5, 6)));
-	int log_subsys_id;
 	void (*stats_decrement_value) (qb_hdb_handle_t handle, const char* name);
 };
 

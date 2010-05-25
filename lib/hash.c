@@ -24,6 +24,7 @@
 #include <config.h>
 
 #include "os_base.h"
+#include "util_int.h"
 
 #include <qb/qbhdb.h>
 #include <qb/qblist.h>
@@ -87,10 +88,12 @@ int32_t qb_hash_initialize (
 
 	res = qb_hdb_handle_create (&qb_hash_handle_db, size, handle);
 	if (res != 0) {
+		qb_util_log(LOG_ERR, "could not create handle (%s)", strerror(errno));
 		return (res);
 	}
 	res = qb_hdb_handle_get (&qb_hash_handle_db, *handle, (void *)&hash_table);
 	if (res != 0) {
+		qb_util_log(LOG_ERR, "could not get handle (%s)", strerror(errno));
 		goto hash_destroy;
 	}
 

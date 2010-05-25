@@ -28,6 +28,7 @@
 #include <qb/qbipcc.h>
 #include <qb/qbhdb.h>
 #include "ipc_int.h"
+#include "util_int.h"
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 #include <semaphore.h>

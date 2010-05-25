@@ -20,6 +20,8 @@
 #ifndef QB_UTIL_INT_H_DEFINED
 #define QB_UTIL_INT_H_DEFINED
 
+#include <syslog.h>
+
 #define qb_util_log(severity, args...)				\
 do {							\
 	_qb_util_log (__FILE__,  __LINE__, severity, ##args);	\
@@ -29,7 +31,7 @@ void _qb_util_log (const char *file_name,
 	int32_t file_line,
 	int32_t severity,
 	const char *format,
-	...);
+	...) __attribute__((format(printf, 4, 5)));
 
 #endif /* QB_UTIL_INT_H_DEFINED */
 

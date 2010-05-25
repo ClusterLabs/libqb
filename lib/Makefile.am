@@ -53,10 +53,12 @@ libqbutil_la_SOURCES	= util.c
 libqbhash_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbhash_la_LDFLAGS	= -version-info 0:0:0
 libqbhash_la_SOURCES	= hash.c
+libqbhash_la_LIBADD	= libqbutil.la
 
 libqbpoll_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbpoll_la_LDFLAGS	= -version-info 0:0:0
 libqbpoll_la_SOURCES	= poll.c
+libqbpoll_la_LIBADD	= libqbutil.la
 
 libqbtimer_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbtimer_la_LDFLAGS	= -version-info 0:0:0
@@ -73,12 +75,15 @@ libqbtsafe_la_SOURCES	= tsafe.c
 libqbwthread_la_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbwthread_la_LDFLAGS	= -version-info 0:0:0
 libqbwthread_la_SOURCES	= wthread.c
+libqbwthread_la_LIBADD	= libqbutil.la
 
 libqbipcc_la_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbipcc_la_LDFLAGS	= -version-info 0:0:0
 libqbipcc_la_SOURCES	= ipcc.c
+libqbipcc_la_LIBADD	= libqbutil.la
 
 libqbipcs_la_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 libqbipcs_la_LDFLAGS	= -version-info 0:0:0
 libqbipcs_la_SOURCES	= ipcs.c
+libqbipcs_la_LIBADD	= libqbutil.la
 

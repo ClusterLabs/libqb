@@ -42,6 +42,7 @@
 #include <stdarg.h>
 #include <sched.h>
 
+#include <qb/qbutil.h>
 #include <qb/qbpoll.h>
 #include <qb/qbipcs.h>
 
@@ -183,16 +184,12 @@ static void bms_sending_allowed_release (void *sending_allowed_private_data)
 {
 }
 
-static void ipc_log_printf (const char *format, ...) __attribute__((format(printf, 1, 2)));
-static void ipc_log_printf (const char *format, ...)
+static void ipc_log_fn(const char *file_name,
+	int32_t file_line,
+	int32_t severity,
+	const char *msg)
 {
-	va_list ap;
-
-	va_start (ap, format);
-
-	vfprintf (stderr, format, ap);
-
-	va_end (ap);
+	fprintf (stderr, "%s:%d [%d] %s", file_name, file_line, severity, msg);
 }
 
 static void ipc_fatal_error (const char *error_msg)
@@ -264,7 +261,6 @@ struct qb_ipcs_init_state ipc_init_state = {
 	.sched_param			= NULL,
 	.malloc				= malloc,
 	.free				= free,
-	.log_printf			= ipc_log_printf,
 	.fatal_error			= ipc_fatal_error,
 	.security_valid			= bms_security_valid,
 	.service_available		= bms_service_available,
@@ -323,6 +319,8 @@ int main (int argc, char *argv[])
 		}
 	}
 	signal (SIGUSR1, sigusr1_handler);
+
+	qb_util_set_log_function (ipc_log_fn);
 
         bms_poll_handle = qb_poll_create ();
 

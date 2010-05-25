@@ -32,6 +32,7 @@
 #include <qb/qbpoll.h>
 #include <qb/qblist.h>
 #include "tlist.h"
+#include "util_int.h"
 
 typedef int (*dispatch_fn_t) (qb_hdb_handle_t hdb_handle, int fd, int revents, void *data);
 
