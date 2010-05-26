@@ -39,11 +39,6 @@ dist_doc_DATA		= COPYING INSTALL README TODO
 
 SUBDIRS			= include lib docs pkgconfig tests
 
-install-exec-local:
-	$(INSTALL) -d $(DESTDIR)/${SOCKETDIR}
-
-uninstall-local:
-	rmdir $(DESTDIR)/${SOCKETDIR} || :;
 
 lint:
 	$(MAKE) -C lib lint
@@ -58,7 +53,7 @@ maintainer-clean-local:
 	rm -rf m4
 
 clean-generic:
-	rm -rf docs/html docs/man3 $(SPEC) $(TARFILE) 
+	rm -rf $(SPEC) $(TARFILE) 
 
 ## make rpm/srpm section.
 

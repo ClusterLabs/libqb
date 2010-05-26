@@ -20,23 +20,18 @@
 MAINTAINERCLEANFILES	= Makefile.in
 EXTRA_DIST 		= man.dox html.dox
 
-dist_man_MANS = man3/qbtsafe.h.3 man3/qbhdb.h.3 man3/qblist.h.3 \
-	       	man3/qbpoll.h.3 man3/qbtimer.h.3 man3/qbplugin.h.3 \
-		man3/qbplugin_comp.h.3 man3/qbipcc.h.3 man3/qbipcs.h.3 \
-		man3/qbqueue.h.3 man3/qbwthread.h.3 man3/qblogsys.h.3 \
-		man3/qbhash.h.3 man3/qbipc_common.h.3 man3/qbutil.h.3
-
 inc_dir = $(top_srcdir)/include/qb
-
-dependant_headers = $(inc_dir)/qbtsafe.h $(inc_dir)/qbhdb.h $(inc_dir)/qblist.h \
-		    $(inc_dir)/qbpoll.h $(inc_dir)/qbtimer.h $(inc_dir)/qbplugin.h \
-		    $(inc_dir)/qbplugin_comp.h $(inc_dir)/qbipcc.h $(inc_dir)/qbipc_common.h \
-		    $(inc_dir)/qbipcs.h $(inc_dir)/qbqueue.h $(inc_dir)/qbwthread.h \
-		    $(inc_dir)/qblogsys.h $(inc_dir)/qbhash.h $(inc_dir)/qbutil.h
+dependant_headers = $(wildcard $(inc_dir)/qb*.h)
+dist_man_MANS = $(addsuffix .3,$(subst $(inc_dir),man3,$(dependant_headers)))
 
 $(dist_man_MANS): man.dox $(dependant_headers)
+	mkdir -p man3
 	doxygen man.dox
 
 doxygen: html.dox
+	mkdir -p html
 	doxygen html.dox
 
+clean-generic:
+	rm -rf html man3
+	
