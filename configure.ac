@@ -357,10 +357,11 @@ AC_CONFIG_FILES([Makefile
 		 include/Makefile
 		 include/qb/Makefile
 		 lib/Makefile
+		 tests/Makefile
+		 pkgconfig/Makefile
 		 docs/Makefile
 		 docs/man.dox
-		 docs/html.dox
-		 tests/Makefile])
+		 docs/html.dox])
 
 AC_OUTPUT
 

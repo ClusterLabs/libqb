@@ -37,8 +37,7 @@ ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= COPYING INSTALL README TODO 
 
-SUBDIRS			= include lib docs tests
-#pkgconfig
+SUBDIRS			= include lib docs pkgconfig tests
 
 install-exec-local:
 	$(INSTALL) -d $(DESTDIR)/${SOCKETDIR}
