@@ -37,7 +37,7 @@ ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= COPYING INSTALL README TODO 
 
-SUBDIRS			= include lib docs pkgconfig tests
+SUBDIRS			= include lib docs tests
 
 
 lint:

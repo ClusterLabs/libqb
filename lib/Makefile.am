@@ -38,63 +38,10 @@ libqbplugin_a_SOURCES	= plugin_loader.c
 # If any interfaces have been removed since the last public release, then set age to 0.
 #
 
-lib_LTLIBRARIES		= libqbutil.la libqbtsafe.la
-# make sure libraries that use libqbutil are listed below.
-lib_LTLIBRARIES		+= libqbhash.la libqbpoll.la libqbtimer.la libqblogsys.la
-lib_LTLIBRARIES		+= libqbwthread.la libqbipcc.la libqbipcs.la
+lib_LTLIBRARIES		= libqb.la
 
-libqbutil_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbutil_la_LDFLAGS	= -version-info 0:0:0
-libqbutil_la_SOURCES	= util.c
-
-libqbtsafe_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbtsafe_la_LDFLAGS	= -version-info 0:0:0
-libqbtsafe_la_SOURCES	= tsafe.c
-
-
-#
-# libs dependant on qbutil
-#
-
-libqbhash_la_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbhash_la_LDFLAGS		= -version-info 0:0:0
-libqbhash_la_SOURCES		= hash.c
-libqbhash_la_LIBADD		= libqbutil.la
-libqbhash_la_DEPENDENCIES	= libqbutil.la
-
-libqbpoll_la_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbpoll_la_LDFLAGS		= -version-info 0:0:0
-libqbpoll_la_SOURCES		= poll.c
-libqbpoll_la_LIBADD		= libqbutil.la
-libqbpoll_la_DEPENDENCIES	= libqbutil.la
-
-libqbtimer_la_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbtimer_la_LDFLAGS		= -version-info 0:0:0
-libqbtimer_la_SOURCES		= timer.c
-libqbtimer_la_LIBADD		= libqbutil.la
-libqbtimer_la_DEPENDENCIES	= libqbutil.la
-
-libqbwthread_la_CPPFLAGS 	= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbwthread_la_LDFLAGS		= -version-info 0:0:0
-libqbwthread_la_SOURCES		= wthread.c
-libqbwthread_la_LIBADD		= libqbutil.la
-libqbwthread_la_DEPENDENCIES	= libqbutil.la
-
-libqbipcc_la_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbipcc_la_LDFLAGS		= -version-info 0:0:0
-libqbipcc_la_SOURCES		= ipcc.c
-libqbipcc_la_LIBADD		= libqbutil.la
-libqbipcc_la_DEPENDENCIES	= libqbutil.la
-
-libqbipcs_la_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqbipcs_la_LDFLAGS		= -version-info 0:0:0
-libqbipcs_la_SOURCES		= ipcs.c
-libqbipcs_la_LIBADD		= libqbutil.la
-libqbipcs_la_DEPENDENCIES	= libqbutil.la
-
-libqblogsys_la_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqblogsys_la_LDFLAGS		= -version-info 0:0:0
-libqblogsys_la_SOURCES		= logsys.c
-libqblogsys_la_LIBADD		= libqbutil.la
-libqblogsys_la_DEPENDENCIES	= libqbutil.la
+libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+libqb_la_LDFLAGS	= -version-info 0:0:0
+libqb_la_SOURCES	= util.c tsafe.c hash.c poll.c timer.c wthread.c \
+			  ipcc.c ipcs.c logsys.c
 

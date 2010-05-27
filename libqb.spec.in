@@ -43,14 +43,7 @@ This package contains libqb libraries.
 %files -n libqb
 %defattr(-,root,root,-)
 %doc COPYING
-%{_libdir}/libqbtsafe.so.*
-%{_libdir}/libqbpoll.so.*
-%{_libdir}/libqbtimer.so.*
-%{_libdir}/libqbipcc.so.*
-%{_libdir}/libqbipcs.so.*
-%{_libdir}/libqbwthread.so.*
-%{_libdir}/libqblogsys.so.*
-%{_libdir}/libqbhash.so.*
+%{_libdir}/libqb.so.*
 
 %post -n libqb -p /sbin/ldconfig
 
@@ -71,22 +64,8 @@ The Quarterback APIs.
 %defattr(-,root,root,-)
 %doc COPYING README
 %dir %{_includedir}/qb/
-%{_libdir}/libqbtsafe.so
-%{_libdir}/libqbpoll.so
-%{_libdir}/libqbtimer.so
-%{_libdir}/libqbipcc.so
-%{_libdir}/libqbipcs.so
-%{_libdir}/libqbwthread.so
-%{_libdir}/libqbhash.so
-%{_libdir}/libqblogsys.so
-%{_libdir}/libqbtsafe.la
-%{_libdir}/libqbpoll.la
-%{_libdir}/libqbtimer.la
-%{_libdir}/libqbipcc.la
-%{_libdir}/libqbipcs.la
-%{_libdir}/libqbwthread.la
-%{_libdir}/libqbhash.la
-%{_libdir}/libqblogsys.la
+%{_libdir}/libqb.so
+%{_libdir}/libqb.la
 %{_includedir}/qb/qbtsafe.h
 %{_includedir}/qb/qbpoll.h
 %{_includedir}/qb/qbhdb.h
@@ -101,6 +80,7 @@ The Quarterback APIs.
 %{_includedir}/qb/qbwthread.h
 %{_includedir}/qb/qblogsys.h
 %{_includedir}/qb/qbhash.h
+%{_includedir}/qb/qbutil.h
 %{_mandir}/man3/qb*3*
 
 %changelog

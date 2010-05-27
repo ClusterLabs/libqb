@@ -6,6 +6,7 @@
 *.so.*
 *.3
 *.rpm
+*.pc
 Makefile
 Makefile.in
 include/config.h

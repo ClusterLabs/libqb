@@ -357,8 +357,8 @@ AC_CONFIG_FILES([Makefile
 		 include/Makefile
 		 include/qb/Makefile
 		 lib/Makefile
+		 lib/libqb.pc
 		 tests/Makefile
-		 pkgconfig/Makefile
 		 docs/Makefile
 		 docs/man.dox
 		 docs/html.dox])

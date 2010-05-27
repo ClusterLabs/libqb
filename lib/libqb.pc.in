@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+libdir=@libdir@
+includedir=${prefix}/include
+
+Name: libqb
+Version: @VERSION@
+Description: libqb
+Requires:
+Libs: -L${libdir} -lqb -lrt
+Cflags: -I${includedir}
