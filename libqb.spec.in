@@ -66,6 +66,7 @@ The Quarterback APIs.
 %dir %{_includedir}/qb/
 %{_libdir}/libqb.so
 %{_libdir}/libqb.la
+%{_libdir}/pkgconfig/libqb.pc
 %{_includedir}/qb/qbtsafe.h
 %{_includedir}/qb/qbpoll.h
 %{_includedir}/qb/qbhdb.h

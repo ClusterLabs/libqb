@@ -4,7 +4,7 @@ libdir=@libdir@
 includedir=${prefix}/include
 
 Name: libqb
-Version: @VERSION@
+Version: @PACKAGE_VERSION@
 Description: libqb
 Requires:
 Libs: -L${libdir} -lqb -lrt

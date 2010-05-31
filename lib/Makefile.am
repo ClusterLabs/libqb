@@ -45,3 +45,6 @@ libqb_la_LDFLAGS	= -version-info 0:0:0
 libqb_la_SOURCES	= util.c tsafe.c hash.c poll.c timer.c wthread.c \
 			  ipcc.c ipcs.c logsys.c
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libqb.pc
+
