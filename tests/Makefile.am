@@ -32,31 +32,33 @@ bms_SOURCES = bms.c
 bms_CFLAGS = -I$(top_srcdir)/include
 bms_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
-noinst_libdir		= $(abs_top_builddir)/tests
-noinst_lib_LTLIBRARIES	= libtest_a.la libtest_b.la
-
-libtest_a_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
-libtest_a_la_LDFLAGS	= -version-info 0:0:0
-libtest_a_la_SOURCES	= libtest_a.c
-
-libtest_b_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
-libtest_b_la_LDFLAGS	= -version-info 0:0:0
-libtest_b_la_SOURCES	= libtest_b.c
+#noinst_libdir		= $(abs_top_builddir)/tests
+#noinst_lib_LTLIBRARIES	= libtest_a.la libtest_b.la
+#
+#libtest_a_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+#libtest_a_la_LDFLAGS	= -version-info 0:0:0
+#libtest_a_la_SOURCES	= libtest_a.c
+#
+#libtest_b_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
+#libtest_b_la_LDFLAGS	= -version-info 0:0:0
+#libtest_b_la_SOURCES	= libtest_b.c
 
 if HAVE_CHECK
 
-TESTS = check_hash check_plugin
+TESTS = check_hash
+#check_plugin
 
-check_PROGRAMS = check_hash check_plugin
+check_PROGRAMS = check_hash
+#check_plugin
 
 check_hash_SOURCES = check_hash.c $(top_builddir)/include/qb/qbhash.h
 check_hash_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
 check_hash_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
-check_plugin_SOURCES = check_plugin.c
-check_plugin_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-check_plugin_LDADD = $(top_builddir)/lib/libqbplugin.a @CHECK_LIBS@
-check_plugin_LDFLAGS = $(OS_DYFLAGS)
+#check_plugin_SOURCES = check_plugin.c
+#check_plugin_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+#check_plugin_LDADD = $(top_builddir)/lib/libqbplugin.a @CHECK_LIBS@
+#check_plugin_LDFLAGS = $(OS_DYFLAGS)
 
 endif
 
