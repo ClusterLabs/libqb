@@ -25,7 +25,6 @@ missing
 .libs
 m4
 libtool
+compile
 ltmain.sh
 libqb-*
-mbsec
-opsec

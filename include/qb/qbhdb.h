@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <qb/qbutil.h>
 
 typedef uint64_t qb_hdb_handle_t;
 
@@ -60,54 +61,9 @@ struct qb_hdb_handle_database {
 	struct qb_hdb_handle *handles;
 	unsigned int iterator;
         void (*destructor) (void *);
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
-	pthread_spinlock_t lock;
-#else
-	pthread_mutex_t lock;
-#endif
+	qb_thread_lock_t *lock;
 	unsigned int first_run;
 };
-
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
-static inline void qb_hdb_database_lock (pthread_spinlock_t *spinlock)
-{
-	pthread_spin_lock (spinlock);
-}
-
-static inline void qb_hdb_database_unlock (pthread_spinlock_t *spinlock)
-{
-	pthread_spin_unlock (spinlock);
-}
-static inline void qb_hdb_database_lock_init (pthread_spinlock_t *spinlock)
-{
-	pthread_spin_init (spinlock, 0);
-}
-
-static inline void qb_hdb_database_lock_destroy (pthread_spinlock_t *spinlock)
-{
-	pthread_spin_destroy (spinlock);
-}
-
-#else
-static inline void qb_hdb_database_lock (pthread_mutex_t *mutex)
-{
-	pthread_mutex_lock (mutex);
-}
-
-static inline void qb_hdb_database_unlock (pthread_mutex_t *mutex)
-{
-	pthread_mutex_unlock (mutex);
-}
-static inline void qb_hdb_database_lock_init (pthread_mutex_t *mutex)
-{
-	pthread_mutex_init (mutex, NULL);
-}
-
-static inline void qb_hdb_database_lock_destroy (pthread_mutex_t *mutex)
-{
-	pthread_mutex_destroy (mutex);
-}
-#endif
 
 #define DECLARE_HDB_DATABASE(database_name,destructor_function)		\
 static struct qb_hdb_handle_database (database_name) = {			\
@@ -122,14 +78,14 @@ static inline void qb_hdb_create (
 	struct qb_hdb_handle_database *handle_database)
 {
 	memset (handle_database, 0, sizeof (struct qb_hdb_handle_database));
-	qb_hdb_database_lock_init (&handle_database->lock);
+	handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 }
 
 static inline void qb_hdb_destroy (
 	struct qb_hdb_handle_database *handle_database)
 {
 	free (handle_database->handles);
-	qb_hdb_database_lock_destroy (&handle_database->lock);
+	qb_thread_lock_destroy (handle_database->lock);
 	memset (handle_database, 0, sizeof (struct qb_hdb_handle_database));
 }
 
@@ -148,9 +104,9 @@ static inline int qb_hdb_handle_create (
 
 	if (handle_database->first_run == 1) {
 		handle_database->first_run = 0;
-		qb_hdb_database_lock_init (&handle_database->lock);
+		handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 	}
-	qb_hdb_database_lock (&handle_database->lock);
+	qb_thread_lock (handle_database->lock);
 
 	for (handle = 0; handle < handle_database->handle_count; handle++) {
 		if (handle_database->handles[handle].state == QB_HDB_HANDLE_STATE_EMPTY) {
@@ -164,7 +120,7 @@ static inline int qb_hdb_handle_create (
 		new_handles = (struct qb_hdb_handle *)realloc (handle_database->handles,
 			sizeof (struct qb_hdb_handle) * handle_database->handle_count);
 		if (new_handles == NULL) {
-			qb_hdb_database_unlock (&handle_database->lock);
+			qb_thread_unlock (handle_database->lock);
 			errno = ENOMEM;
 			return (-1);
 		}
@@ -202,7 +158,7 @@ static inline int qb_hdb_handle_create (
 
 	*handle_id_out = (((unsigned long long)(check)) << 32) | handle;
 
-	qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 
 	return (0);
 }
@@ -217,19 +173,19 @@ static inline int qb_hdb_handle_get (
 
 	if (handle_database->first_run == 1) {
 		handle_database->first_run = 0;
-		qb_hdb_database_lock_init (&handle_database->lock);
+		handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 	}
-	qb_hdb_database_lock (&handle_database->lock);
+	qb_thread_lock (handle_database->lock);
 
 	*instance = NULL;
 	if (handle >= handle_database->handle_count) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
 
 	if (handle_database->handles[handle].state != QB_HDB_HANDLE_STATE_ACTIVE) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
@@ -237,7 +193,7 @@ static inline int qb_hdb_handle_get (
 	if (check != 0xffffffff &&
 		check != handle_database->handles[handle].check) {
 
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
@@ -246,7 +202,7 @@ static inline int qb_hdb_handle_get (
 
 	handle_database->handles[handle].ref_count += 1;
 
-	qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 	return (0);
 }
 
@@ -260,19 +216,19 @@ static inline int qb_hdb_handle_get_always (
 
 	if (handle_database->first_run == 1) {
 		handle_database->first_run = 0;
-		qb_hdb_database_lock_init (&handle_database->lock);
+		handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 	}
-	qb_hdb_database_lock (&handle_database->lock);
+	qb_thread_lock (handle_database->lock);
 
 	*instance = NULL;
 	if (handle >= handle_database->handle_count) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
 
 	if (handle_database->handles[handle].state == QB_HDB_HANDLE_STATE_EMPTY) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
@@ -280,7 +236,7 @@ static inline int qb_hdb_handle_get_always (
 	if (check != 0xffffffff &&
 		check != handle_database->handles[handle].check) {
 
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
@@ -289,7 +245,7 @@ static inline int qb_hdb_handle_get_always (
 
 	handle_database->handles[handle].ref_count += 1;
 
-	qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 	return (0);
 }
 
@@ -302,12 +258,12 @@ static inline int qb_hdb_handle_put (
 
 	if (handle_database->first_run == 1) {
 		handle_database->first_run = 0;
-		qb_hdb_database_lock_init (&handle_database->lock);
+		handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 	}
-	qb_hdb_database_lock (&handle_database->lock);
+	qb_thread_lock (handle_database->lock);
 
 	if (handle >= handle_database->handle_count) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 
 		errno = EBADF;
 		return (-1);
@@ -316,7 +272,7 @@ static inline int qb_hdb_handle_put (
 	if (check != 0xffffffff &&
 		check != handle_database->handles[handle].check) {
 
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
@@ -331,7 +287,7 @@ static inline int qb_hdb_handle_put (
 		free (handle_database->handles[handle].instance);
 		memset (&handle_database->handles[handle], 0, sizeof (struct qb_hdb_handle));
 	}
-	qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 	return (0);
 }
 
@@ -345,12 +301,12 @@ static inline int qb_hdb_handle_destroy (
 
 	if (handle_database->first_run == 1) {
 		handle_database->first_run = 0;
-		qb_hdb_database_lock_init (&handle_database->lock);
+		handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 	}
-	qb_hdb_database_lock (&handle_database->lock);
+	qb_thread_lock (handle_database->lock);
 
 	if (handle >= handle_database->handle_count) {
-		qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 
 		errno = EBADF;
 		return (-1);
@@ -358,13 +314,13 @@ static inline int qb_hdb_handle_destroy (
 
 	if (check != 0xffffffff &&
 		check != handle_database->handles[handle].check) {
-		qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
 
 	handle_database->handles[handle].state = QB_HDB_HANDLE_STATE_PENDINGREMOVAL;
-	qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 	res = qb_hdb_handle_put (handle_database, handle_in);
 	return (res);
 }
@@ -380,26 +336,26 @@ static inline int qb_hdb_handle_refcount_get (
 
 	if (handle_database->first_run == 1) {
 		handle_database->first_run = 0;
-		qb_hdb_database_lock_init (&handle_database->lock);
+		handle_database->lock = qb_thread_lock_create (QB_THREAD_LOCK_SHORT);
 	}
-	qb_hdb_database_lock (&handle_database->lock);
+	qb_thread_lock (handle_database->lock);
 
 	if (handle >= handle_database->handle_count) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
 
 	if (check != 0xffffffff &&
 		check != handle_database->handles[handle].check) {
-		qb_hdb_database_unlock (&handle_database->lock);
+		qb_thread_unlock (handle_database->lock);
 		errno = EBADF;
 		return (-1);
 	}
 
 	refcount = handle_database->handles[handle].ref_count;
 
-	qb_hdb_database_unlock (&handle_database->lock);
+	qb_thread_unlock (handle_database->lock);
 
 	return (refcount);
 }

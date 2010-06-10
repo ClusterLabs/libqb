@@ -20,10 +20,22 @@
 #ifndef QB_UTIL_H_DEFINED
 #define QB_UTIL_H_DEFINED
 
+/**
+ * @file qbutil.h
+ * @author Angus Salkeld <asalkeld@redhat.com>
+ *
+ * These are some convience functions used throughout libqb.
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/**
+ * @typedef qb_thread_lock_type_t
+ * QB_THREAD_LOCK_SHORT is a short term lock (spinlock if available on your system)
+ * QB_THREAD_LOCK_LONG is a mutex
+ */
 typedef enum {
 	QB_THREAD_LOCK_SHORT,
 	QB_THREAD_LOCK_LONG,
@@ -33,7 +45,7 @@ struct qb_thread_lock_s;
 typedef struct qb_thread_lock_s qb_thread_lock_t;
 
 /**
- * create a new lock.
+ * Create a new lock of the given type.
  * @param type QB_THREAD_LOCK_SHORT == spinlock (where available, else mutex)
  *        QB_THREAD_LOCK_LONG == mutex 
  * @return pointer to qb_thread_lock_type_t or NULL on error.
@@ -41,19 +53,24 @@ typedef struct qb_thread_lock_s qb_thread_lock_t;
 qb_thread_lock_t* qb_thread_lock_create (qb_thread_lock_type_t type);
 
 /**
- * calls either pthread_mutex_lock() or pthread_spin_lock.
+ * Calls either pthread_mutex_lock() or pthread_spin_lock().
  */
 int32_t qb_thread_lock (qb_thread_lock_t* tl);
 
 /**
- * calls either pthread_mutex_trylock() or pthread_spin_trylock.
+ * Calls either pthread_mutex_trylock() or pthread_spin_trylock().
  */
 int32_t qb_thread_trylock (qb_thread_lock_t* tl);
 
 /**
- * calls either pthread_mutex_unlock() or pthread_spin_unlock.
+ * Calls either pthread_mutex_unlock() or pthread_spin_unlock.
  */
 int32_t qb_thread_unlock (qb_thread_lock_t* tl);
+
+/**
+ * Calls either pthread_mutex_destro() or pthread_spin_destroy().
+ */
+int32_t qb_thread_lock_destroy (qb_thread_lock_t* tl);
 
 
 typedef void (* qb_util_log_fn_t)(const char *file_name,
@@ -62,9 +79,31 @@ typedef void (* qb_util_log_fn_t)(const char *file_name,
 	const char *msg);
 
 /**
- * Use this function output libqb internal log message as you wish.
+ * Use this function to output libqb internal log message as you wish.
  */
 void qb_util_set_log_function (qb_util_log_fn_t fn);
+
+/**
+ * Create a file to be used to back shared memory.
+ *
+ * @param path (out) the final absolute path of the file.
+ * @param file (in) the name of the file to be used.
+ * @param bytes the size to truncate the file to.
+ * @param file_flags same as passed into open()
+ * @return 0 (success) or -1 (error)
+ */
+int32_t qb_util_mmap_file_open (char *path, const char *file, size_t bytes, uint32_t file_flags);
+
+
+/**
+ * Create a shared mamory circular buffer.
+ *
+ * @param fd an open file to use to back the shared memory.
+ * @param buf (out) the pointer to the start of the memory.
+ * @param bytes the size of the shared memory.
+ * @return 0 (success) or -1 (error)
+ */
+int32_t qb_util_circular_mmap (int32_t fd, void **buf, size_t bytes);
 
 #ifdef __cplusplus
 }

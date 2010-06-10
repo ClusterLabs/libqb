@@ -24,5 +24,5 @@ inst_HEADERS		= qbtsafe.h qbhdb.h qblist.h qbpoll.h \
 			  qbtimer.h qbplugin.h qbplugin_comp.h \
 			  qbipcc.h qbipcs.h qbwthread.h qbqueue.h \
 			  qblogsys.h qbhash.h qbipc_common.h \
-			  qbutil.h
+			  qbrb.h qbutil.h
 
