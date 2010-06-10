@@ -51,47 +51,51 @@ do {								\
 	}							\
 } while (0)
 
-static void bm_start (struct bm_ctx *ctx)
+static void bm_start(struct bm_ctx *ctx)
 {
-        gettimeofday (&ctx->tv1, NULL);
+	gettimeofday(&ctx->tv1, NULL);
 }
-static void bm_finish (struct bm_ctx *ctx, const char *operation, int size)
+
+static void bm_finish(struct bm_ctx *ctx, const char *operation, int size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
 
-        gettimeofday (&ctx->tv2, NULL);
-        timersub (&ctx->tv2, &ctx->tv1, &ctx->tv_elapsed);
+	gettimeofday(&ctx->tv2, NULL);
+	timersub(&ctx->tv2, &ctx->tv1, &ctx->tv_elapsed);
 
-	ops_per_sec = 
-                ((float)ctx->counter) / (((float)ctx->tv_elapsed.tv_sec) + (((float)ctx->tv_elapsed.tv_usec) / 1000000.0));
+	ops_per_sec =
+	    ((float)ctx->counter) / (((float)ctx->tv_elapsed.tv_sec) +
+				     (((float)ctx->tv_elapsed.tv_usec) /
+				      1000000.0));
 
-	mbs_per_sec = 
-                ((((float)ctx->counter) * size) / (((float)ctx->tv_elapsed.tv_sec) + (((float)ctx->tv_elapsed.tv_usec) / 1000000.0))) / (1024.0*1024.0);
-
+	mbs_per_sec =
+	    ((((float)ctx->counter) * size) /
+	     (((float)ctx->tv_elapsed.tv_sec) +
+	      (((float)ctx->tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 *
+								  1024.0);
 
 	ctx->mbs = ops_per_sec;
 }
 
-static void bmc_connect (struct bm_ctx *ctx)
+static void bmc_connect(struct bm_ctx *ctx)
 {
 	unsigned int res;
 
-	res = qb_ipcc_service_connect ("qb_ipcs_bm",
-		0,
-		8192*128,
-		8192*128,
-		8192*128,
-		&ctx->bmc_ipc_handle);
+	res = qb_ipcc_service_connect("qb_ipcs_bm",
+				      0,
+				      8192 * 128,
+				      8192 * 128,
+				      8192 * 128, &ctx->bmc_ipc_handle);
 }
 
-static void bmc_disconnect (struct bm_ctx *ctx)
+static void bmc_disconnect(struct bm_ctx *ctx)
 {
-	qb_ipcc_service_disconnect (ctx->bmc_ipc_handle);
+	qb_ipcc_service_disconnect(ctx->bmc_ipc_handle);
 }
 
-static char buffer[1024*1024];
-static void bmc_send_nozc (struct bm_ctx *ctx, unsigned int size)
+static char buffer[1024 * 1024];
+static void bmc_send_nozc(struct bm_ctx *ctx, unsigned int size)
 {
 	struct iovec iov[2];
 	qb_ipc_request_header_t req_header;
@@ -99,32 +103,32 @@ static void bmc_send_nozc (struct bm_ctx *ctx, unsigned int size)
 	int res;
 
 	req_header.id = 0;
-	req_header.size = sizeof (qb_ipc_request_header_t) + size;
-	
+	req_header.size = sizeof(qb_ipc_request_header_t) + size;
+
 	iov[0].iov_base = &req_header;
-	iov[0].iov_len = sizeof (qb_ipc_request_header_t);
+	iov[0].iov_len = sizeof(qb_ipc_request_header_t);
 	iov[1].iov_base = buffer;
 	iov[1].iov_len = size;
 
 repeat_send:
-	res = qb_ipcc_msg_send_reply_receive (
-		ctx->bmc_ipc_handle,
-		iov,
-		2,
-		&res_header,
-		sizeof (qb_ipc_response_header_t));
+	res = qb_ipcc_msg_send_reply_receive(ctx->bmc_ipc_handle,
+					     iov,
+					     2,
+					     &res_header,
+					     sizeof(qb_ipc_response_header_t));
 	if (res != 0) {
 		goto repeat_send;
 	}
 }
 
 unsigned int alarm_notice = 0;
-static void sigalrm_handler (int num)
+static void sigalrm_handler(int num)
 {
 	alarm_notice = 1;
 }
 
-static void *benchmark (void *ctx) {
+static void *benchmark(void *ctx)
+{
 	struct bm_ctx *bm_ctx = (struct bm_ctx *)ctx;
 
 	bmc_connect(bm_ctx);
@@ -132,10 +136,10 @@ static void *benchmark (void *ctx) {
 	bm_start(bm_ctx);
 	for (;;) {
 		bm_ctx->counter++;
-		bmc_send_nozc (bm_ctx, 1000 * bm_ctx->multi);
+		bmc_send_nozc(bm_ctx, 1000 * bm_ctx->multi);
 		if (alarm_notice) {
-			bm_finish (bm_ctx, "send_nozc", 1000 * bm_ctx->multi);
-			bmc_disconnect (bm_ctx);
+			bm_finish(bm_ctx, "send_nozc", 1000 * bm_ctx->multi);
+			bmc_disconnect(bm_ctx);
 			return (NULL);
 		}
 	}
@@ -143,7 +147,7 @@ static void *benchmark (void *ctx) {
 
 #define THREADS 4
 
-int main (void)
+int main(void)
 {
 	struct bm_ctx bm_ctx[THREADS];
 	pthread_t threads[THREADS];
@@ -152,28 +156,29 @@ int main (void)
 	float total_mbs;
 	void *retval;
 
+	signal(SIGALRM, sigalrm_handler);
+	for (j = 0; j < 500; j++) {
+		alarm_notice = 0;
+		alarm(3);
+		for (i = 0; i < THREADS; i++) {
+			bm_ctx[i].multi = j + 100;
+			bm_ctx[i].counter = 0;
+			pthread_attr_init(&thread_attr[i]);
 
-        signal (SIGALRM, sigalrm_handler);
-	for (j = 0 ; j < 500; j++) { 
-	alarm_notice = 0;
-	alarm (3);
-	for (i = 0; i < THREADS; i++) {
-		bm_ctx[i].multi = j + 100;
-		bm_ctx[i].counter = 0;
-		pthread_attr_init (&thread_attr[i]);
-
-		pthread_attr_setdetachstate (&thread_attr[i], PTHREAD_CREATE_JOINABLE);
-		pthread_create (&threads[i], &thread_attr[i], benchmark, &bm_ctx[i]);
-	}
-	for (i = 0; i < THREADS; i++) {
-		pthread_join (threads[i], &retval);
-	}
-	total_mbs = 0;
-	for (i = 0; i < THREADS; i++) {
-		total_mbs = total_mbs + bm_ctx[i].mbs;
-	}
-	printf ("%d ", 1000 * bm_ctx[0].multi);
-	printf ("%9.3f\n", total_mbs);
+			pthread_attr_setdetachstate(&thread_attr[i],
+						    PTHREAD_CREATE_JOINABLE);
+			pthread_create(&threads[i], &thread_attr[i], benchmark,
+				       &bm_ctx[i]);
+		}
+		for (i = 0; i < THREADS; i++) {
+			pthread_join(threads[i], &retval);
+		}
+		total_mbs = 0;
+		for (i = 0; i < THREADS; i++) {
+			total_mbs = total_mbs + bm_ctx[i].mbs;
+		}
+		printf("%d ", 1000 * bm_ctx[0].multi);
+		printf("%9.3f\n", total_mbs);
 	}
 	return EXIT_SUCCESS;
 }

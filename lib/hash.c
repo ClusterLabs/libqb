@@ -32,7 +32,7 @@
 
 #define FNV_32_PRIME ((uint32_t)0x01000193)
 
-DECLARE_HDB_DATABASE(qb_hash_handle_db,NULL);
+DECLARE_HDB_DATABASE(qb_hash_handle_db, NULL);
 
 struct hash_node {
 	struct qb_list_head list;
@@ -54,13 +54,10 @@ struct hash_table {
 	struct hash_bucket hash_buckets[0];
 };
 
-static uint32_t hash_fnv (
-	const void *value,
-	uint32_t valuelen,
-	uint32_t order)
+static uint32_t hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
 {
-	uint8_t *cd = (uint8_t *)value;
-	uint8_t *ed = (uint8_t *)value + valuelen;
+	uint8_t *cd = (uint8_t *) value;
+	uint8_t *ed = (uint8_t *) value + valuelen;
 	uint32_t hash_result = 0x811c9dc5;
 	int res;
 
@@ -73,27 +70,28 @@ static uint32_t hash_fnv (
 	return (res);
 }
 
-int32_t qb_hash_initialize (
-	qb_hdb_handle_t *handle,
-	uint32_t order,
-	uint32_t context_size)
+int32_t qb_hash_initialize(qb_hdb_handle_t * handle,
+			   uint32_t order, uint32_t context_size)
 {
 	struct hash_table *hash_table;
 	int i;
 	uint64_t size;
 	int32_t res;
 
-	size = sizeof (struct hash_table) +
-		(sizeof (struct hash_bucket) * (1 << order));
+	size = sizeof(struct hash_table) +
+	    (sizeof(struct hash_bucket) * (1 << order));
 
-	res = qb_hdb_handle_create (&qb_hash_handle_db, size, handle);
+	res = qb_hdb_handle_create(&qb_hash_handle_db, size, handle);
 	if (res != 0) {
-		qb_util_log(LOG_ERR, "could not create handle (%s)", strerror(errno));
+		qb_util_log(LOG_ERR, "could not create handle (%s)",
+			    strerror(errno));
 		return (res);
 	}
-	res = qb_hdb_handle_get (&qb_hash_handle_db, *handle, (void *)&hash_table);
+	res =
+	    qb_hdb_handle_get(&qb_hash_handle_db, *handle, (void *)&hash_table);
 	if (res != 0) {
-		qb_util_log(LOG_ERR, "could not get handle (%s)", strerror(errno));
+		qb_util_log(LOG_ERR, "could not get handle (%s)",
+			    strerror(errno));
 		goto hash_destroy;
 	}
 
@@ -103,23 +101,20 @@ int32_t qb_hash_initialize (
 	hash_table->order = order;
 	hash_table->hash_buckets_len = 1 << order;
 	for (i = 0; i < hash_table->hash_buckets_len; i++) {
-		qb_list_init (&hash_table->hash_buckets[i].list_head);
-		pthread_mutex_init (&hash_table->hash_buckets[i].mutex, NULL);
+		qb_list_init(&hash_table->hash_buckets[i].list_head);
+		pthread_mutex_init(&hash_table->hash_buckets[i].mutex, NULL);
 	}
 
-	qb_hdb_handle_put (&qb_hash_handle_db, *handle);
+	qb_hdb_handle_put(&qb_hash_handle_db, *handle);
 	return (0);
 
 hash_destroy:
-	res = qb_hdb_handle_destroy (&qb_hash_handle_db,  *handle);
+	res = qb_hdb_handle_destroy(&qb_hash_handle_db, *handle);
 	return (-1);
 }
 
-int32_t qb_hash_key_set (
-	qb_hdb_handle_t handle,
-	const char *key,
-	const void *value,
-	uint32_t value_len)
+int32_t qb_hash_key_set(qb_hdb_handle_t handle,
+			const char *key, const void *value, uint32_t value_len)
 {
 	struct hash_table *hash_table;
 	uint32_t hash_entry;
@@ -128,64 +123,62 @@ int32_t qb_hash_key_set (
 	struct hash_node *hash_node;
 	int res = 0;
 
-	res = qb_hdb_handle_get (&qb_hash_handle_db, handle, (void *)&hash_table);
+	res =
+	    qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
 	if (res != 0) {
 		return (res);
 	}
-	hash_entry = hash_fnv (key, strlen (key), hash_table->order);
-	pthread_mutex_lock (&hash_table->hash_buckets[hash_entry].mutex);
+	hash_entry = hash_fnv(key, strlen(key), hash_table->order);
+	pthread_mutex_lock(&hash_table->hash_buckets[hash_entry].mutex);
 	for (list = hash_table->hash_buckets[hash_entry].list_head.next;
-		list != &hash_table->hash_buckets[hash_entry].list_head;
-		list = list->next) {
+	     list != &hash_table->hash_buckets[hash_entry].list_head;
+	     list = list->next) {
 
-		hash_node = qb_list_entry (list, struct hash_node, list);
+		hash_node = qb_list_entry(list, struct hash_node, list);
 
-		if (strcmp (hash_node->key, key) == 0) {
+		if (strcmp(hash_node->key, key) == 0) {
 			hash_table->memory_data -= value_len;
-			free (hash_node->value);
+			free(hash_node->value);
 			found = 1;
 			break;
 		}
 	}
 	if (found == 0) {
-		hash_node = malloc (sizeof (struct hash_node) + strlen (key) + 1);
+		hash_node = malloc(sizeof(struct hash_node) + strlen(key) + 1);
 		if (hash_node == 0) {
 			res = -1;
 			errno = -ENOMEM;
 			goto error_exit;
 		}
 
-		hash_table->memory_overhead += sizeof (struct hash_node);
-		hash_table->memory_data += strlen (key) + 1;
+		hash_table->memory_overhead += sizeof(struct hash_node);
+		hash_table->memory_data += strlen(key) + 1;
 
-		memcpy (&hash_node->key, key, strlen (key) + 1);
-		qb_list_add_tail (&hash_node->list,
-			&hash_table->hash_buckets[hash_entry].list_head);
+		memcpy(&hash_node->key, key, strlen(key) + 1);
+		qb_list_add_tail(&hash_node->list,
+				 &hash_table->hash_buckets[hash_entry].
+				 list_head);
 	}
 	if (value_len) {
-		hash_node->value = malloc (value_len);
+		hash_node->value = malloc(value_len);
 		hash_table->memory_data += value_len;
 	} else {
 		hash_node->value = NULL;
 	}
 	hash_node->value_len = value_len;
 	if (value) {
-		memcpy (hash_node->value, value, value_len);
+		memcpy(hash_node->value, value, value_len);
 	}
 
 error_exit:
-	pthread_mutex_unlock (&hash_table->hash_buckets[hash_entry].mutex);
-	qb_hdb_handle_put (&qb_hash_handle_db, handle);
+	pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].mutex);
+	qb_hdb_handle_put(&qb_hash_handle_db, handle);
 
 	return (res);
 }
 
-
-int32_t qb_hash_key_get (
-	qb_hdb_handle_t handle,
-	const char *key,
-	void **value,
-	uint64_t *value_len)
+int32_t qb_hash_key_get(qb_hdb_handle_t handle,
+			const char *key, void **value, uint64_t * value_len)
 {
 	struct hash_table *hash_table;
 	uint32_t hash_entry;
@@ -193,21 +186,22 @@ int32_t qb_hash_key_get (
 	struct qb_list_head *list;
 	struct hash_node *hash_node;
 
-	res = qb_hdb_handle_get (&qb_hash_handle_db, handle, (void *)&hash_table);
+	res =
+	    qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
 	if (res != 0) {
 		return (res);
 	}
 	res = -1;
 
-	hash_entry = hash_fnv (key, strlen (key), hash_table->order);
+	hash_entry = hash_fnv(key, strlen(key), hash_table->order);
 
-	pthread_mutex_lock (&hash_table->hash_buckets[hash_entry].mutex);
+	pthread_mutex_lock(&hash_table->hash_buckets[hash_entry].mutex);
 	for (list = hash_table->hash_buckets[hash_entry].list_head.next;
-		list != &hash_table->hash_buckets[hash_entry].list_head;
-		list = list->next) {
+	     list != &hash_table->hash_buckets[hash_entry].list_head;
+	     list = list->next) {
 
-		hash_node = qb_list_entry (list, struct hash_node, list);
-		if (strcmp (hash_node->key, key) == 0) {
+		hash_node = qb_list_entry(list, struct hash_node, list);
+		if (strcmp(hash_node->key, key) == 0) {
 			*value = hash_node->value;
 			*value_len = hash_node->value_len;
 			res = 0;
@@ -216,17 +210,15 @@ int32_t qb_hash_key_get (
 	}
 
 unlock_exit:
-	pthread_mutex_unlock (&hash_table->hash_buckets[hash_entry].mutex);
-	qb_hdb_handle_put (&qb_hash_handle_db, handle);
+	pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].mutex);
+	qb_hdb_handle_put(&qb_hash_handle_db, handle);
 	if (res == -1) {
 		errno = ENOENT;
 	}
 	return (res);
 }
 
-int32_t qb_hash_key_delete (
-	qb_hdb_handle_t handle,
-	const char *key)
+int32_t qb_hash_key_delete(qb_hdb_handle_t handle, const char *key)
 {
 	struct hash_table *hash_table;
 	struct qb_list_head *list;
@@ -234,47 +226,45 @@ int32_t qb_hash_key_delete (
 	uint32_t res = ENOENT;
 	struct hash_node *hash_node;
 
-	res = qb_hdb_handle_get (&qb_hash_handle_db, handle, (void *)&hash_table);
+	res =
+	    qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
 	if (res != 0) {
 		return (res);
 	}
 	res = -1;
 
-	hash_entry = hash_fnv (key, strlen (key), hash_table->order);
-	pthread_mutex_lock (&hash_table->hash_buckets[hash_entry].mutex);
+	hash_entry = hash_fnv(key, strlen(key), hash_table->order);
+	pthread_mutex_lock(&hash_table->hash_buckets[hash_entry].mutex);
 	for (list = hash_table->hash_buckets[hash_entry].list_head.next;
-		list != &hash_table->hash_buckets[hash_entry].list_head;
-		list = list->next) {
+	     list != &hash_table->hash_buckets[hash_entry].list_head;
+	     list = list->next) {
 
-		hash_node = qb_list_entry (list, struct hash_node, list);
-		if (strcmp (hash_node->key, key) == 0) {
-			free (hash_node->value);
-			qb_list_del (&hash_node->list);
-			free (hash_node);
+		hash_node = qb_list_entry(list, struct hash_node, list);
+		if (strcmp(hash_node->key, key) == 0) {
+			free(hash_node->value);
+			qb_list_del(&hash_node->list);
+			free(hash_node);
 			res = 0;
 			goto unlock_exit;
 		}
 	}
 
 unlock_exit:
-	pthread_mutex_unlock (&hash_table->hash_buckets[hash_entry].mutex);
-	qb_hdb_handle_put (&qb_hash_handle_db, handle);
-	if (res == -1)  {
+	pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].mutex);
+	qb_hdb_handle_put(&qb_hash_handle_db, handle);
+	if (res == -1) {
 		errno = ENOENT;
 	}
 	return (res);
 }
 
-int32_t qb_hash_key_context_get (
-	qb_hdb_handle_t handle,
-	const char *key,
-	void **context)
+int32_t qb_hash_key_context_get(qb_hdb_handle_t handle,
+				const char *key, void **context)
 {
 	struct hash_table *hash_table;
 	int res = 0;
 
-	qb_hdb_handle_get (&qb_hash_handle_db, handle, (void *)&hash_table);
-	qb_hdb_handle_put (&qb_hash_handle_db, handle);
+	qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
+	qb_hdb_handle_put(&qb_hash_handle_db, handle);
 	return (res);
 }
-

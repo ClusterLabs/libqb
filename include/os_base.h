@@ -47,4 +47,3 @@
 #include <assert.h>
 
 #endif /* QB_OS_BASE_H_DEFINED */
-

@@ -49,51 +49,51 @@ FILE *mbs_fp;
 
 FILE *ops_fp;
 
-static void bm_start (void)
+static void bm_start(void)
 {
-        gettimeofday (&tv1, NULL);
+	gettimeofday(&tv1, NULL);
 }
 
-static void bm_finish (const char *operation, int size)
+static void bm_finish(const char *operation, int size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
 
-        gettimeofday (&tv2, NULL);
-        timersub (&tv2, &tv1, &tv_elapsed);
+	gettimeofday(&tv2, NULL);
+	timersub(&tv2, &tv1, &tv_elapsed);
 
-	ops_per_sec = 
-                ((float)ITERATIONS) / (((float)tv_elapsed.tv_sec) + (((float)tv_elapsed.tv_usec) / 1000000.0));
+	ops_per_sec =
+	    ((float)ITERATIONS) / (((float)tv_elapsed.tv_sec) +
+				   (((float)tv_elapsed.tv_usec) / 1000000.0));
 
-	mbs_per_sec = 
-                ((((float)ITERATIONS) * size) / (((float)tv_elapsed.tv_sec) + (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0*1024.0);
+	mbs_per_sec =
+	    ((((float)ITERATIONS) * size) /
+	     (((float)tv_elapsed.tv_sec) +
+	      (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 * 1024.0);
 
+	fprintf(ops_fp, "%d %9.3f\n", size, ops_per_sec);
+	fflush(ops_fp);
+	fprintf(mbs_fp, "%d %9.3f\n", size, mbs_per_sec);
+	fflush(mbs_fp);
 
-	fprintf (ops_fp, "%d %9.3f\n", size, ops_per_sec);
-	fflush (ops_fp);
-	fprintf (mbs_fp, "%d %9.3f\n", size, mbs_per_sec);
-	fflush (mbs_fp);
-
-	printf ("write size %d OPs/sec %9.3f ", size, ops_per_sec);
-	printf ("MB/sec %9.3f\n", mbs_per_sec);
+	printf("write size %d OPs/sec %9.3f ", size, ops_per_sec);
+	printf("MB/sec %9.3f\n", mbs_per_sec);
 }
 
 qb_hdb_handle_t bmc_ipc_handle;
 
-static void bmc_connect (void)
+static void bmc_connect(void)
 {
 	unsigned int res;
 
-	res = qb_ipcc_service_connect ("qb_ipcs_bm",
-		0,
-		8192*128,
-		8192*128,
-		8192*128,
-		&bmc_ipc_handle);
+	res = qb_ipcc_service_connect("qb_ipcs_bm",
+				      0,
+				      8192 * 128,
+				      8192 * 128, 8192 * 128, &bmc_ipc_handle);
 }
 
-static char buffer[1024*1024];
-static void bmc_send_nozc (unsigned int size)
+static char buffer[1024 * 1024];
+static void bmc_send_nozc(unsigned int size)
 {
 	struct iovec iov[2];
 	qb_ipc_request_header_t req_header;
@@ -101,21 +101,22 @@ static void bmc_send_nozc (unsigned int size)
 	int res;
 
 	req_header.id = 0;
-	req_header.size = sizeof (qb_ipc_request_header_t) + size;
+	req_header.size = sizeof(qb_ipc_request_header_t) + size;
 
 	iov[0].iov_base = &req_header;
-	iov[0].iov_len = sizeof (qb_ipc_request_header_t);
+	iov[0].iov_len = sizeof(qb_ipc_request_header_t);
 	iov[1].iov_base = buffer;
 	iov[1].iov_len = size;
 
 repeat_send:
 	if (blocking) {
-		res = qb_ipcc_msg_send_reply_receive (bmc_ipc_handle,
-			iov, 2,
-			&res_header, sizeof (qb_ipc_response_header_t));
+		res = qb_ipcc_msg_send_reply_receive(bmc_ipc_handle,
+						     iov, 2,
+						     &res_header,
+						     sizeof
+						     (qb_ipc_response_header_t));
 	} else {
-		res = qb_ipcc_msg_send (bmc_ipc_handle,
-			iov, 2);
+		res = qb_ipcc_msg_send(bmc_ipc_handle, iov, 2);
 	}
 	if (res != 0) {
 		goto repeat_send;
@@ -137,19 +138,19 @@ static void show_usage(const char *name)
 	printf("\n");
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	const char *options = "nvh";
 	int opt;
 	int i, j;
 
 	if (argc == 1) {
-		show_usage (argv[0]);
+		show_usage(argv[0]);
 		exit(0);
 	}
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
-		case 'n': /* non-blocking */
+		case 'n':	/* non-blocking */
 			blocking = 0;
 			break;
 		case 'v':
@@ -157,7 +158,7 @@ int main (int argc, char *argv[])
 			break;
 		case 'h':
 		default:
-			show_usage (argv[0]);
+			show_usage(argv[0]);
 			exit(0);
 			break;
 		}
@@ -165,16 +166,15 @@ int main (int argc, char *argv[])
 
 	bmc_connect();
 
-	ops_fp = fopen ("opsec", "w");
-	mbs_fp = fopen ("mbsec", "w");
+	ops_fp = fopen("opsec", "w");
+	mbs_fp = fopen("mbsec", "w");
 
 	for (j = 1; j < 499; j++) {
 		bm_start();
 		for (i = 0; i < ITERATIONS; i++) {
-			bmc_send_nozc (1000 * j);
+			bmc_send_nozc(1000 * j);
 		}
 		bm_finish("send_nozc", 1000 * j);
 	}
 	return EXIT_SUCCESS;
 }
-

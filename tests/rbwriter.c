@@ -48,32 +48,32 @@ do {								\
 	}							\
 } while (0)
 
-static void sigterm_handler (int num)
+static void sigterm_handler(int num)
 {
-	printf ("writer: %s(%d)\n", __func__, num);
-	qb_rb_close (rb);
-	exit (0);
+	printf("writer: %s(%d)\n", __func__, num);
+	qb_rb_close(rb);
+	exit(0);
 }
 
-static void libqb_log_writer (const char *file_name,
-			      int32_t file_line,
-			      int32_t severity, const char *msg)
+static void libqb_log_writer(const char *file_name,
+			     int32_t file_line,
+			     int32_t severity, const char *msg)
 {
-	printf ("libqb:writer: %s:%d %s\n", file_name, file_line, msg);
+	printf("libqb:writer: %s:%d %s\n", file_name, file_line, msg);
 }
 
-static void bm_start (void)
+static void bm_start(void)
 {
-	gettimeofday (&tv1, NULL);
+	gettimeofday(&tv1, NULL);
 }
 
-static void bm_finish (const char *operation, int size)
+static void bm_finish(const char *operation, int size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
 
-	gettimeofday (&tv2, NULL);
-	timersub (&tv2, &tv1, &tv_elapsed);
+	gettimeofday(&tv2, NULL);
+	timersub(&tv2, &tv1, &tv_elapsed);
 
 	ops_per_sec =
 	    ((float)ITERATIONS) / (((float)tv_elapsed.tv_sec) +
@@ -84,74 +84,74 @@ static void bm_finish (const char *operation, int size)
 	     (((float)tv_elapsed.tv_sec) +
 	      (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 * 1024.0);
 
-	printf ("write size %d OPs/sec %9.3f ", size, ops_per_sec);
-	printf ("MB/sec %9.3f\n", mbs_per_sec);
+	printf("write size %d OPs/sec %9.3f ", size, ops_per_sec);
+	printf("MB/sec %9.3f\n", mbs_per_sec);
 }
 
-static void bmc_connect (void)
+static void bmc_connect(void)
 {
-	rb = qb_rb_open ("tester", BUFFER_CHUNK_SIZE * 3,
-			 QB_RB_FLAG_SHARED_PROCESS);
+	rb = qb_rb_open("tester", BUFFER_CHUNK_SIZE * 3,
+			QB_RB_FLAG_SHARED_PROCESS);
 
 	if (rb == NULL) {
-		printf ("writer: failed to create ringbuffer\n");
-		exit (1);
+		printf("writer: failed to create ringbuffer\n");
+		exit(1);
 	}
 
 }
 
 static char buffer[1024 * 1024];
-static void bmc_send_nozc (unsigned int size)
+static void bmc_send_nozc(unsigned int size)
 {
 	ssize_t res = 0;
 
 repeat_send:
-	res = qb_rb_chunk_write (rb, buffer, size);
+	res = qb_rb_chunk_write(rb, buffer, size);
 	if (res < size) {
 		//usleep(1);
 		goto repeat_send;
 	}
 }
 
-static void show_usage (const char *name)
+static void show_usage(const char *name)
 {
-	printf ("usage: \n");
-	printf ("%s <options>\n", name);
-	printf ("\n");
-	printf ("  options:\n");
-	printf ("\n");
-	printf ("  -n             non-blocking ipc (default blocking)\n");
-	printf ("  -v             verbose\n");
-	printf ("  -h             show this help text\n");
-	printf ("\n");
+	printf("usage: \n");
+	printf("%s <options>\n", name);
+	printf("\n");
+	printf("  options:\n");
+	printf("\n");
+	printf("  -n             non-blocking ipc (default blocking)\n");
+	printf("  -v             verbose\n");
+	printf("  -h             show this help text\n");
+	printf("\n");
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	const char *options = "vh";
 	int opt;
 	int i, j;
 	int size;
 
-	while ((opt = getopt (argc, argv, options)) != -1) {
+	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
 		case 'v':
-			qb_util_set_log_function (libqb_log_writer);
+			qb_util_set_log_function(libqb_log_writer);
 			break;
 		case 'h':
 		default:
-			show_usage (argv[0]);
-			exit (0);
+			show_usage(argv[0]);
+			exit(0);
 			break;
 		}
 	}
 
-	signal (SIGINT, sigterm_handler);
+	signal(SIGINT, sigterm_handler);
 
-	bmc_connect ();
+	bmc_connect();
 
 	for (j = 1; j < 49; j++) {
-		bm_start ();
+		bm_start();
 		size = 7 * (j + 1) * j;
 
 		if (size > BUFFER_CHUNK_SIZE) {
@@ -159,10 +159,10 @@ int main (int argc, char *argv[])
 		}
 
 		for (i = 0; i < ITERATIONS; i++) {
-			bmc_send_nozc (size);
+			bmc_send_nozc(size);
 		}
-		bm_finish ("ringbuffer", size);
+		bm_finish("ringbuffer", size);
 	}
-	qb_rb_close (rb);
+	qb_rb_close(rb);
 	return EXIT_SUCCESS;
 }

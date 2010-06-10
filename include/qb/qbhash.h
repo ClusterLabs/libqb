@@ -25,73 +25,59 @@
 #include <stdlib.h>
 #include <qb/qbhdb.h>
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
-extern int32_t qb_hash_initialize (
-	qb_hdb_handle_t *handle,
-	uint32_t order,
-	uint32_t context_size);
+extern int32_t qb_hash_initialize(qb_hdb_handle_t * handle,
+				  uint32_t order, uint32_t context_size);
 
-extern int32_t qb_hash_key_set (
-	qb_hdb_handle_t handle,
-	const char *key,
-	const void *value,
-	uint32_t value_len);
+extern int32_t qb_hash_key_set(qb_hdb_handle_t handle,
+			       const char *key,
+			       const void *value, uint32_t value_len);
 
-extern int32_t qb_hash_key_get (
-	qb_hdb_handle_t handle,
-	const char *key,
-	void **value,
-	uint64_t *value_len);
+extern int32_t qb_hash_key_get(qb_hdb_handle_t handle,
+			       const char *key,
+			       void **value, uint64_t * value_len);
 
-extern int32_t qb_hash_key_context_get (
-	qb_hdb_handle_t handle,
-	const char *key,
-	void **context);
+extern int32_t qb_hash_key_context_get(qb_hdb_handle_t handle,
+				       const char *key, void **context);
 
-extern int32_t qb_hash_key_delete (
-	qb_hdb_handle_t handle,
-	const char *key);
+extern int32_t qb_hash_key_delete(qb_hdb_handle_t handle, const char *key);
 
-extern int32_t qb_hash_edge_create (
-	qb_hdb_handle_t handle,
-	const char *source_key,
-	const char *dest_key,
-	const char *edge_name);
+extern int32_t qb_hash_edge_create(qb_hdb_handle_t handle,
+				   const char *source_key,
+				   const char *dest_key, const char *edge_name);
 
-extern int32_t qb_hash_edge_destroy (
-	qb_hdb_handle_t handle,
-	const char *source_key,
-	const char *dest_key,
-	const char *edge_name);
+extern int32_t qb_hash_edge_destroy(qb_hdb_handle_t handle,
+				    const char *source_key,
+				    const char *dest_key,
+				    const char *edge_name);
 
-extern int32_t qb_hash_edge_follow (
-	qb_hdb_handle_t handle,
-	const char *source_key,
-	const char *edge_name,
-	char **dest_key);
+extern int32_t qb_hash_edge_follow(qb_hdb_handle_t handle,
+				   const char *source_key,
+				   const char *edge_name, char **dest_key);
 
-extern int32_t qb_hash_edge_value_set (
-	qb_hdb_handle_t handle,
-	const char *source_key,
-	const char *dest_key,
-	const char *edge_name,
-	const void *edge_value,
-	uint64_t edge_value_len);
+extern int32_t qb_hash_edge_value_set(qb_hdb_handle_t handle,
+				      const char *source_key,
+				      const char *dest_key,
+				      const char *edge_name,
+				      const void *edge_value,
+				      uint64_t edge_value_len);
 
-extern int32_t qb_hash_edge_value_get (
-	qb_hdb_handle_t handle,
-	const char *source_key,
-	const char *dest_key,
-	const char *edge_name,
-	const void **edge_value,
-	uint64_t *edge_value_len);
+extern int32_t qb_hash_edge_value_get(qb_hdb_handle_t handle,
+				      const char *source_key,
+				      const char *dest_key,
+				      const char *edge_name,
+				      const void **edge_value,
+				      uint64_t * edge_value_len);
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_HASH_H_DEFINED */
-

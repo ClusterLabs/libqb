@@ -31,7 +31,7 @@ struct iface {
 	void (*func3) (void);
 };
 
-START_TEST (test_plugin)
+START_TEST(test_plugin)
 {
 	qb_hdb_handle_t a_ifact_handle_ver0;
 	qb_hdb_handle_t b_ifact_handle_ver0;
@@ -49,47 +49,31 @@ START_TEST (test_plugin)
 
 	unsigned int res;
 
-	setenv ("LD_LIBRARY_PATH", ".libs", 1);
+	setenv("LD_LIBRARY_PATH", ".libs", 1);
 	/*
 	 * Reference version 0 and 1 of A and B interfaces
 	 */
-	res = plugin_ifact_reference (
-		&a_ifact_handle_ver0,
-		"A_iface1",
-		0, /* version 0 */
-		&a_iface_ver0_p,
-		(void *)0xaaaa0000);
-	ck_assert_int_eq (res, 0);
+	res = plugin_ifact_reference(&a_ifact_handle_ver0, "A_iface1", 0,	/* version 0 */
+				     &a_iface_ver0_p, (void *)0xaaaa0000);
+	ck_assert_int_eq(res, 0);
 
 	a_iface_ver0 = (struct iface *)a_iface_ver0_p;
 
-	res = plugin_ifact_reference (
-		&b_ifact_handle_ver0,
-		"B_iface1",
-		0, /* version 0 */
-		&b_iface_ver0_p,
-		(void *)0xbbbb0000);
-	ck_assert_int_eq (res, 0);
+	res = plugin_ifact_reference(&b_ifact_handle_ver0, "B_iface1", 0,	/* version 0 */
+				     &b_iface_ver0_p, (void *)0xbbbb0000);
+	ck_assert_int_eq(res, 0);
 
 	b_iface_ver0 = (struct iface *)b_iface_ver0_p;
 
-	res = plugin_ifact_reference (
-		&a_ifact_handle_ver1,
-		"A_iface1",
-		1, /* version 1 */
-		&a_iface_ver1_p,
-		(void *)0xaaaa1111);
-	ck_assert_int_eq (res, 0);
+	res = plugin_ifact_reference(&a_ifact_handle_ver1, "A_iface1", 1,	/* version 1 */
+				     &a_iface_ver1_p, (void *)0xaaaa1111);
+	ck_assert_int_eq(res, 0);
 
 	a_iface_ver1 = (struct iface *)a_iface_ver1_p;
 
-	res = plugin_ifact_reference (
-		&b_ifact_handle_ver1,
-		"B_iface1",
-		1, /* version 1 */
-		&b_iface_ver1_p,
-		(void *)0xbbbb1111);
-	ck_assert_int_eq (res, 0);
+	res = plugin_ifact_reference(&b_ifact_handle_ver1, "B_iface1", 1,	/* version 1 */
+				     &b_iface_ver1_p, (void *)0xbbbb1111);
+	ck_assert_int_eq(res, 0);
 
 	b_iface_ver1 = (struct iface *)b_iface_ver1_p;
 
@@ -97,48 +81,46 @@ START_TEST (test_plugin)
 	a_iface_ver0->func2();
 	a_iface_ver0->func3();
 
-	plugin_ifact_release (a_ifact_handle_ver0);
+	plugin_ifact_release(a_ifact_handle_ver0);
 
 	a_iface_ver1->func1();
 	a_iface_ver1->func2();
 	a_iface_ver1->func3();
 
-	plugin_ifact_release (a_ifact_handle_ver1);
+	plugin_ifact_release(a_ifact_handle_ver1);
 
 	b_iface_ver0->func1();
 	b_iface_ver0->func2();
 	b_iface_ver0->func3();
 
-	plugin_ifact_release (b_ifact_handle_ver0);
+	plugin_ifact_release(b_ifact_handle_ver0);
 
 	b_iface_ver1->func1();
 	b_iface_ver1->func2();
 	b_iface_ver1->func3();
 
-	plugin_ifact_release (b_ifact_handle_ver1);
+	plugin_ifact_release(b_ifact_handle_ver1);
 }
-END_TEST
 
-static Suite *plugin_suite (void)
+END_TEST static Suite *plugin_suite(void)
 {
 	TCase *tc_plugin;
-	Suite *s = suite_create ("plugin");
-	tc_plugin = tcase_create ("load");
-	tcase_add_test (tc_plugin, test_plugin);
-	suite_add_tcase (s, tc_plugin);
+	Suite *s = suite_create("plugin");
+	tc_plugin = tcase_create("load");
+	tcase_add_test(tc_plugin, test_plugin);
+	suite_add_tcase(s, tc_plugin);
 
 	return s;
 }
 
-int main (void)
+int main(void)
 {
 	int number_failed;
 
-	Suite *s = plugin_suite ();
-	SRunner *sr = srunner_create (s);
-	srunner_run_all (sr, CK_NORMAL);
-	number_failed = srunner_ntests_failed (sr);
-	srunner_free (sr);
+	Suite *s = plugin_suite();
+	SRunner *sr = srunner_create(s);
+	srunner_run_all(sr, CK_NORMAL);
+	number_failed = srunner_ntests_failed(sr);
+	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
-

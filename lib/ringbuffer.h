@@ -71,18 +71,18 @@ union semun {
 	unsigned short int *array;
 	struct seminfo *__buf;
 };
-#endif				/* _SEM_SEMUN_UNDEFINED */
+#endif /* _SEM_SEMUN_UNDEFINED */
 
 #define RB_NS_IN_MSEC  1000000ULL
 
-int32_t my_lock_it_create (qb_ringbuffer_t * rb, uint32_t flags);
-int32_t my_lock_it (qb_ringbuffer_t * rb);
-int32_t my_unlock_it (qb_ringbuffer_t * rb);
-int32_t my_lock_it_destroy (qb_ringbuffer_t * rb);
+int32_t my_lock_it_create(qb_ringbuffer_t * rb, uint32_t flags);
+int32_t my_lock_it(qb_ringbuffer_t * rb);
+int32_t my_unlock_it(qb_ringbuffer_t * rb);
+int32_t my_lock_it_destroy(qb_ringbuffer_t * rb);
 
-int32_t my_sem_create (qb_ringbuffer_t * rb, uint32_t flags);
-int32_t my_sem_post (qb_ringbuffer_t * rb);
-int32_t my_sem_timedwait (qb_ringbuffer_t * rb, int32_t ms_timeout);
-int32_t my_sem_destroy (qb_ringbuffer_t * rb);
+int32_t my_sem_create(qb_ringbuffer_t * rb, uint32_t flags);
+int32_t my_sem_post(qb_ringbuffer_t * rb);
+int32_t my_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout);
+int32_t my_sem_destroy(qb_ringbuffer_t * rb);
 
-#endif				/* _RINGBUFFER_H_ */
+#endif /* _RINGBUFFER_H_ */

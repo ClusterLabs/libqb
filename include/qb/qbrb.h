@@ -36,9 +36,11 @@
  * is full.
  */
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
 /**
  * create a ring buffer (rather than open and existing one)
@@ -85,7 +87,7 @@ typedef struct qb_ringbuffer_s qb_ringbuffer_t;
  * @return a new ring buffer or NULL if there was a problem.
  * @see QB_RB_FLAG_CREATE, QB_RB_FLAG_OVERWRITE, QB_RB_FLAG_SHARED_THREAD, QB_RB_FLAG_SHARED_PROCESS
  */
-qb_ringbuffer_t* qb_rb_open (const char *name, size_t size, uint32_t flags);
+qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags);
 
 /**
  * Dereference the ringbuffer and if we are the last user destroy it.
@@ -94,7 +96,7 @@ qb_ringbuffer_t* qb_rb_open (const char *name, size_t size, uint32_t flags);
  *
  * @param rb ringbuffer instance
  */
-void qb_rb_close (qb_ringbuffer_t *rb);
+void qb_rb_close(qb_ringbuffer_t * rb);
 
 /**
  * Write a chunk to the ring buffer.
@@ -110,7 +112,7 @@ void qb_rb_close (qb_ringbuffer_t *rb);
  * @see qb_rb_chunk_writable_alloc()
  * @see qb_rb_chunk_writable_commit()
  */
-ssize_t qb_rb_chunk_write (qb_ringbuffer_t *rb, const void* data, size_t len);
+ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len);
 
 /**
  * Allocate space for a chunk of the given size.
@@ -125,14 +127,14 @@ ssize_t qb_rb_chunk_write (qb_ringbuffer_t *rb, const void* data, size_t len);
  *
  * @see qb_rb_chunk_writable_alloc()
  */
-void* qb_rb_chunk_writable_alloc (qb_ringbuffer_t *rb, size_t len);
+void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len);
 
 /**
  * finalize the chunk.
  * @param rb ringbuffer instance
  * @param len (in) the size of the chunk.
  */
-int32_t qb_rb_chunk_writable_commit (qb_ringbuffer_t *rb, size_t len);
+int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len);
 
 /**
  * Read (without reclaiming) the last chunk.
@@ -147,14 +149,14 @@ int32_t qb_rb_chunk_writable_commit (qb_ringbuffer_t *rb, size_t len);
  *
  * @return the size of the chunk (0 if buffer empty).
  */
-ssize_t qb_rb_chunk_peek (qb_ringbuffer_t *rb, void **data_out);
+ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out);
 
 /**
  * Reclaim the oldest chunk.
  * You will need to call this if using qb_rb_chunk_peek(). 
  * @param rb ringbuffer instance
  */
-void qb_rb_chunk_reclaim (qb_ringbuffer_t *rb);
+void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb);
 
 /**
  * Read the oldest chunk into data_out.
@@ -167,7 +169,8 @@ void qb_rb_chunk_reclaim (qb_ringbuffer_t *rb);
  * @param ms_timeout the amount od time to wait for new data.
  * @return the size of the chunk, or error.
  */
-ssize_t qb_rb_chunk_read (qb_ringbuffer_t *rb, void *data_out, size_t len, int32_t ms_timeout);
+ssize_t qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
+			 int32_t ms_timeout);
 
 /**
  * The amount of free space in the ring buffer.
@@ -175,7 +178,7 @@ ssize_t qb_rb_chunk_read (qb_ringbuffer_t *rb, void *data_out, size_t len, int32
  * @note Some of this space will be consumed by the chunk headers.
  * @param rb ringbuffer instance
  */
-ssize_t qb_rb_space_free (qb_ringbuffer_t *rb);
+ssize_t qb_rb_space_free(qb_ringbuffer_t * rb);
 
 /**
  * The total amount of data in the buffer.
@@ -183,7 +186,7 @@ ssize_t qb_rb_space_free (qb_ringbuffer_t *rb);
  * @note This includes the chunk headers (8 bytes per chunk).
  * @param rb ringbuffer instance
  */
-ssize_t qb_rb_space_used (qb_ringbuffer_t *rb);
+ssize_t qb_rb_space_used(qb_ringbuffer_t * rb);
 
 /**
  * Write the contents of the Ring Buffer to file.
@@ -191,7 +194,7 @@ ssize_t qb_rb_space_used (qb_ringbuffer_t *rb);
  * @param rb ringbuffer instance
  * @see qb_rb_create_from_file()
  */
-ssize_t qb_rb_write_to_file (qb_ringbuffer_t *rb, int32_t fd);
+ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd);
 
 /**
  * Load the saved ring buffer from file into tempory memory.
@@ -200,12 +203,13 @@ ssize_t qb_rb_write_to_file (qb_ringbuffer_t *rb, int32_t fd);
  * @return new ringbuffer instance
  * @see qb_rb_write_to_file()
  */
-qb_ringbuffer_t *qb_rb_create_from_file (int32_t fd, uint32_t flags);
+qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags);
 
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_RB_DEFINED */
-

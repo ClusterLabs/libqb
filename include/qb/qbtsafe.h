@@ -22,9 +22,11 @@
 #ifndef QB_TSAFE_H_DEFINED
 #define QB_TSAFE_H_DEFINED
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
 /**
  * Initialize the thread safe checker.
@@ -33,7 +35,7 @@ extern "C" {
  * and (if tsafe is on) use this copy for getenv() calls.
  * @param envp your environment (as passed into main())
  */
-extern void qb_tsafe_init (char **envp);
+extern void qb_tsafe_init(char **envp);
 
 /**
  * turn on the thread safe checker.
@@ -41,18 +43,19 @@ extern void qb_tsafe_init (char **envp);
  * It will assert() on any call to a thread unsafe system call
  * as defined in pthread(5)
  */
-extern void qb_tsafe_on (void);
+extern void qb_tsafe_on(void);
 
 /**
  * turn off the thread safe checker.
  *
  * It is fine to do this if you have only one thread.
  */
-extern void qb_tsafe_off (void);
+extern void qb_tsafe_off(void);
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_TSAFE_H_DEFINED */
-

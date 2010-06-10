@@ -23,7 +23,7 @@
 #include "ringbuffer.h"
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-static int32_t my_posix_sem_create (qb_ringbuffer_t * rb, uint32_t flags)
+static int32_t my_posix_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	int32_t pshared = 0;
 	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
@@ -32,67 +32,67 @@ static int32_t my_posix_sem_create (qb_ringbuffer_t * rb, uint32_t flags)
 		}
 		pshared = 1;
 	}
-	return sem_init (&rb->shared_hdr->posix_sem, pshared, 0);
+	return sem_init(&rb->shared_hdr->posix_sem, pshared, 0);
 }
 #else
-static int32_t my_sysv_sem_create (qb_ringbuffer_t * rb, uint32_t flags)
+static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	union semun options;
 	int32_t res;
 	key_t sem_key;
 
-	sem_key = ftok (rb->shared_hdr->hdr_path, (rb->shared_hdr->size + 1));
+	sem_key = ftok(rb->shared_hdr->hdr_path, (rb->shared_hdr->size + 1));
 
 	if (sem_key == -1) {
-		qb_util_log (LOG_ERR, "couldn't get a sem id %s",
-			     strerror (errno));
+		qb_util_log(LOG_ERR, "couldn't get a sem id %s",
+			    strerror(errno));
 		return -1;
 	}
 
 	if (flags & QB_RB_FLAG_CREATE) {
-		rb->sem_id = semget (sem_key, 1, IPC_CREAT | IPC_EXCL | 0600);
+		rb->sem_id = semget(sem_key, 1, IPC_CREAT | IPC_EXCL | 0600);
 		if (rb->sem_id == -1) {
-			qb_util_log (LOG_ERR, "couldn't create a semaphore %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR, "couldn't create a semaphore %s",
+				    strerror(errno));
 			return -1;
 		}
 		options.val = 0;
-		res = semctl (rb->sem_id, 0, SETVAL, options);
+		res = semctl(rb->sem_id, 0, SETVAL, options);
 	} else {
-		rb->sem_id = semget (sem_key, 0, 0600);
+		rb->sem_id = semget(sem_key, 0, 0600);
 		if (rb->sem_id == -1) {
-			qb_util_log (LOG_ERR, "couldn't get a sem id %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR, "couldn't get a sem id %s",
+				    strerror(errno));
 			return -1;
 		}
 		res = 0;
 	}
-	qb_util_log (LOG_INFO, "sem key:%d, id:%d, value:%d",
-		     sem_key, rb->sem_id, semctl (rb->sem_id, 0, GETVAL, 0));
+	qb_util_log(LOG_INFO, "sem key:%d, id:%d, value:%d",
+		    sem_key, rb->sem_id, semctl(rb->sem_id, 0, GETVAL, 0));
 
 	return res;
 }
 #endif
 
-int32_t my_sem_create (qb_ringbuffer_t * rb, uint32_t flags)
+int32_t my_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return my_posix_sem_create (rb, flags);
+	return my_posix_sem_create(rb, flags);
 #else
-	return my_sysv_sem_create (rb, flags);
+	return my_sysv_sem_create(rb, flags);
 #endif
 }
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-static int32_t my_posix_sem_post (qb_ringbuffer_t * rb)
+static int32_t my_posix_sem_post(qb_ringbuffer_t * rb)
 {
-	return sem_post (&rb->shared_hdr->posix_sem);
+	return sem_post(&rb->shared_hdr->posix_sem);
 }
 #else
-static int32_t my_sysv_sem_post (qb_ringbuffer_t * rb)
+static int32_t my_sysv_sem_post(qb_ringbuffer_t * rb)
 {
 	struct sembuf sops[1];
 
@@ -105,13 +105,13 @@ static int32_t my_sysv_sem_post (qb_ringbuffer_t * rb)
 	sops[0].sem_flg = 0;
 
 semop_again:
-	if (semop (rb->sem_id, sops, 1) == -1) {
+	if (semop(rb->sem_id, sops, 1) == -1) {
 		if (errno == EINTR) {
 			goto semop_again;
 		} else {
-			qb_util_log (LOG_ERR,
-				     "could not increment semaphore : %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR,
+				    "could not increment semaphore : %s",
+				    strerror(errno));
 		}
 
 		return -1;
@@ -120,36 +120,36 @@ semop_again:
 }
 #endif
 
-int32_t my_sem_post (qb_ringbuffer_t * rb)
+int32_t my_sem_post(qb_ringbuffer_t * rb)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return my_posix_sem_post (rb);
+	return my_posix_sem_post(rb);
 #else
-	return my_sysv_sem_post (rb);
+	return my_sysv_sem_post(rb);
 #endif
 }
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-static int32_t my_posix_sem_timedwait (qb_ringbuffer_t * rb, int32_t ms_timeout)
+static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct timespec ts_timeout;
 
 	if (ms_timeout >= 0) {
-		ts_timeout.tv_sec = time (NULL);
+		ts_timeout.tv_sec = time(NULL);
 		ts_timeout.tv_sec += (ms_timeout / 1000);
 		ts_timeout.tv_nsec = (ms_timeout % 1000) * RB_NS_IN_MSEC;
-		return sem_timedwait (&rb->shared_hdr->posix_sem, &ts_timeout);
+		return sem_timedwait(&rb->shared_hdr->posix_sem, &ts_timeout);
 	} else {
-		return sem_wait (&rb->shared_hdr->posix_sem);
+		return sem_wait(&rb->shared_hdr->posix_sem);
 	}
 }
 
 #else
 
-static int32_t my_sysv_sem_timedwait (qb_ringbuffer_t * rb, int32_t ms_timeout)
+static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct sembuf sops[1];
 	struct timespec ts_timeout;
@@ -176,16 +176,16 @@ static int32_t my_sysv_sem_timedwait (qb_ringbuffer_t * rb, int32_t ms_timeout)
 	sops[0].sem_flg = 0;
 
 semop_again:
-	if (semtimedop (rb->sem_id, sops, 1, ts_pt) == -1) {
+	if (semtimedop(rb->sem_id, sops, 1, ts_pt) == -1) {
 		if (errno == EINTR) {
 			goto semop_again;
 		} else if (errno == EAGAIN) {
 			/* make consistent with sem_timedwait */
 			errno = ETIMEDOUT;
 		} else {
-			qb_util_log (LOG_ERR,
-				     "error waiting for semaphore : %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR,
+				    "error waiting for semaphore : %s",
+				    strerror(errno));
 		}
 
 		return -1;
@@ -195,96 +195,96 @@ semop_again:
 }
 #endif
 
-int32_t my_sem_timedwait (qb_ringbuffer_t * rb, int32_t ms_timeout)
+int32_t my_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return my_posix_sem_timedwait (rb, ms_timeout);
+	return my_posix_sem_timedwait(rb, ms_timeout);
 #else
-	return my_sysv_sem_timedwait (rb, ms_timeout);
+	return my_sysv_sem_timedwait(rb, ms_timeout);
 #endif
 }
 
-int32_t my_sem_destroy (qb_ringbuffer_t * rb)
+int32_t my_sem_destroy(qb_ringbuffer_t * rb)
 {
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return sem_destroy (&rb->shared_hdr->posix_sem);
+	return sem_destroy(&rb->shared_hdr->posix_sem);
 #else
-	return semctl (rb->sem_id, 0, IPC_RMID, 0);
+	return semctl(rb->sem_id, 0, IPC_RMID, 0);
 #endif
 }
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-static int32_t my_posix_lock_it_create (qb_ringbuffer_t * rb, uint32_t flags)
+static int32_t my_posix_lock_it_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	if (flags & QB_RB_FLAG_CREATE) {
-		return pthread_spin_init (&rb->shared_hdr->spinlock,
-					  PTHREAD_PROCESS_SHARED);
+		return pthread_spin_init(&rb->shared_hdr->spinlock,
+					 PTHREAD_PROCESS_SHARED);
 	} else {
 		return 0;
 	}
 }
 #else
-static int32_t my_sysv_lock_it_create (qb_ringbuffer_t * rb, uint32_t flags)
+static int32_t my_sysv_lock_it_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	union semun options;
 	int32_t res;
 	key_t sem_key;
 
-	sem_key = ftok (rb->shared_hdr->hdr_path, rb->shared_hdr->size);
+	sem_key = ftok(rb->shared_hdr->hdr_path, rb->shared_hdr->size);
 
 	if (sem_key == -1) {
-		qb_util_log (LOG_ERR, "couldn't get a sem id %s",
-			     strerror (errno));
+		qb_util_log(LOG_ERR, "couldn't get a sem id %s",
+			    strerror(errno));
 		return -1;
 	}
 
 	if (flags & QB_RB_FLAG_CREATE) {
-		rb->lock_id = semget (sem_key, 1, IPC_CREAT | IPC_EXCL | 0600);
+		rb->lock_id = semget(sem_key, 1, IPC_CREAT | IPC_EXCL | 0600);
 		if (rb->lock_id == -1) {
-			qb_util_log (LOG_ERR, "couldn't create a semaphore %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR, "couldn't create a semaphore %s",
+				    strerror(errno));
 			return -1;
 		}
 		options.val = 0;
-		res = semctl (rb->lock_id, 0, SETVAL, options);
+		res = semctl(rb->lock_id, 0, SETVAL, options);
 	} else {
-		rb->lock_id = semget (sem_key, 0, 0600);
+		rb->lock_id = semget(sem_key, 0, 0600);
 		if (rb->lock_id == -1) {
-			qb_util_log (LOG_ERR, "couldn't get a sem id %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR, "couldn't get a sem id %s",
+				    strerror(errno));
 			return -1;
 		}
 		res = 0;
 	}
-	qb_util_log (LOG_INFO, "sem key:%d, id:%d, value:%d",
-		     sem_key, rb->lock_id, semctl (rb->lock_id, 0, GETVAL, 0));
+	qb_util_log(LOG_INFO, "sem key:%d, id:%d, value:%d",
+		    sem_key, rb->lock_id, semctl(rb->lock_id, 0, GETVAL, 0));
 
 	return res;
 }
 #endif
 
-int32_t my_lock_it_create (qb_ringbuffer_t * rb, uint32_t flags)
+int32_t my_lock_it_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return my_posix_lock_it_create (rb, flags);
+	return my_posix_lock_it_create(rb, flags);
 #else
-	return my_sysv_lock_it_create (rb, flags);
+	return my_sysv_lock_it_create(rb, flags);
 #endif
 }
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-static int32_t my_posix_lock_it (qb_ringbuffer_t * rb)
+static int32_t my_posix_lock_it(qb_ringbuffer_t * rb)
 {
-	return pthread_spin_lock (&rb->shared_hdr->spinlock);
+	return pthread_spin_lock(&rb->shared_hdr->spinlock);
 }
 #else
-static int32_t my_sysv_lock_it (qb_ringbuffer_t * rb)
+static int32_t my_sysv_lock_it(qb_ringbuffer_t * rb)
 {
 	struct sembuf sops[2];
 
@@ -300,12 +300,12 @@ static int32_t my_sysv_lock_it (qb_ringbuffer_t * rb)
 	sops[1].sem_flg = 0;
 
 semop_again:
-	if (semop (rb->lock_id, sops, 2) == -1) {
+	if (semop(rb->lock_id, sops, 2) == -1) {
 		if (errno == EINTR) {
 			goto semop_again;
 		} else {
-			qb_util_log (LOG_ERR, "could not lock it : %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR, "could not lock it : %s",
+				    strerror(errno));
 		}
 		return -1;
 	}
@@ -313,25 +313,25 @@ semop_again:
 }
 #endif
 
-int32_t my_lock_it (qb_ringbuffer_t * rb)
+int32_t my_lock_it(qb_ringbuffer_t * rb)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return my_posix_lock_it (rb);
+	return my_posix_lock_it(rb);
 #else
-	return my_sysv_lock_it (rb);
+	return my_sysv_lock_it(rb);
 #endif
 }
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-static int32_t my_posix_unlock_it (qb_ringbuffer_t * rb)
+static int32_t my_posix_unlock_it(qb_ringbuffer_t * rb)
 {
-	return pthread_spin_unlock (&rb->shared_hdr->spinlock);
+	return pthread_spin_unlock(&rb->shared_hdr->spinlock);
 }
 #else
-static int32_t my_sysv_unlock_it (qb_ringbuffer_t * rb)
+static int32_t my_sysv_unlock_it(qb_ringbuffer_t * rb)
 {
 	struct sembuf lock_it;
 
@@ -340,12 +340,12 @@ static int32_t my_sysv_unlock_it (qb_ringbuffer_t * rb)
 	lock_it.sem_flg = IPC_NOWAIT;
 
 semop_again:
-	if (semop (rb->lock_id, &lock_it, 1) == -1) {
+	if (semop(rb->lock_id, &lock_it, 1) == -1) {
 		if (errno == EINTR) {
 			goto semop_again;
 		} else {
-			qb_util_log (LOG_ERR, "could not unlock it : %s",
-				     strerror (errno));
+			qb_util_log(LOG_ERR, "could not unlock it : %s",
+				    strerror(errno));
 		}
 		return -1;
 	}
@@ -353,26 +353,26 @@ semop_again:
 }
 #endif
 
-int32_t my_unlock_it (qb_ringbuffer_t * rb)
+int32_t my_unlock_it(qb_ringbuffer_t * rb)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return my_posix_unlock_it (rb);
+	return my_posix_unlock_it(rb);
 #else
-	return my_sysv_unlock_it (rb);
+	return my_sysv_unlock_it(rb);
 #endif
 }
 
-int32_t my_lock_it_destroy (qb_ringbuffer_t * rb)
+int32_t my_lock_it_destroy(qb_ringbuffer_t * rb)
 {
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
 		return 0;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	return pthread_spin_destroy (&rb->shared_hdr->spinlock);
+	return pthread_spin_destroy(&rb->shared_hdr->spinlock);
 #else
-	return semctl (rb->lock_id, 0, IPC_RMID, 0);
+	return semctl(rb->lock_id, 0, IPC_RMID, 0);
 #endif
 }

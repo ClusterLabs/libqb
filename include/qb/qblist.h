@@ -21,9 +21,11 @@
 #ifndef QB_LIST_H_DEFINED
 #define QB_LIST_H_DEFINED
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
 /**
  * @file qblist.h
@@ -31,7 +33,6 @@ extern "C" {
  *
  * This is a kernel style list implementation.
  */
-
 
 struct qb_list_head {
 	struct qb_list_head *next;
@@ -49,7 +50,7 @@ struct qb_list_head {
  * Initialize the list entry.
  * Points next and prev pointers to head.
  */
-static void inline qb_list_init (struct qb_list_head *head)
+static void inline qb_list_init(struct qb_list_head *head)
 {
 	head->next = head;
 	head->prev = head;
@@ -61,7 +62,8 @@ static void inline qb_list_init (struct qb_list_head *head)
  * @param element the new element to insert.
  * @param head the list head to add to.
  */
-static void inline qb_list_add (struct qb_list_head *element, struct qb_list_head *head)
+static void inline qb_list_add(struct qb_list_head *element,
+			       struct qb_list_head *head)
 {
 	head->next->prev = element;
 	element->next = head->next;
@@ -73,7 +75,8 @@ static void inline qb_list_add (struct qb_list_head *element, struct qb_list_hea
  * Add to the list (but at the end of the list).
  * @see qb_list_add()
  */
-static void inline qb_list_add_tail (struct qb_list_head *element, struct qb_list_head *head)
+static void inline qb_list_add_tail(struct qb_list_head *element,
+				    struct qb_list_head *head)
 {
 	head->prev->next = element;
 	element->next = head;
@@ -102,7 +105,7 @@ static void inline qb_list_add_tail (struct qb_list_head *element, struct qb_lis
  *
  * @endcode
  */
-static void inline qb_list_del (struct qb_list_head *_remove)
+static void inline qb_list_del(struct qb_list_head *_remove)
 {
 	_remove->next->prev = _remove->prev;
 	_remove->prev->next = _remove->next;
@@ -144,7 +147,8 @@ static inline int qb_list_empty(const struct qb_list_head *l)
 	return l->next == l;
 }
 
-static inline void qb_list_splice (struct qb_list_head *list, struct qb_list_head *head)
+static inline void qb_list_splice(struct qb_list_head *list,
+				  struct qb_list_head *head)
 {
 	struct qb_list_head *first;
 	struct qb_list_head *last;
@@ -160,9 +164,10 @@ static inline void qb_list_splice (struct qb_list_head *list, struct qb_list_hea
 	current->prev = last;
 }
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_LIST_H_DEFINED */
-

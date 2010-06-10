@@ -25,9 +25,11 @@
 #include <stdlib.h>
 #include <qb/qbipc_common.h>
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
 struct iovec;
 
@@ -41,76 +43,68 @@ struct qb_ipcs_init_state {
 	const struct sched_param *sched_param;
 	void *(*malloc) (size_t size);
 	void (*free) (void *ptr);
-	int (*service_available)(unsigned int service);
-	int (*private_data_size_get)(unsigned int service);
-	int (*security_valid)(int uid, int gid);
-	void (*serialize_lock)(void);
-	void (*serialize_unlock)(void);
-	int (*sending_allowed)(unsigned int service, unsigned int id,
-		const void *msg, void *sending_allowed_private_data);
-	void (*sending_allowed_release)(void *sending_allowed_private_data);
-	void (*poll_accept_add)(int fd);
-	void (*poll_dispatch_add)(int fd, void *context);
-	void (*poll_dispatch_modify)(int fd, int events);
-	void (*poll_dispatch_destroy)(int fd, void *context);
-	void (*fatal_error)(const char *error_msg);
-	qb_ipcs_init_fn_lvalue (*init_fn_get)(unsigned int service);
-	qb_ipcs_exit_fn_lvalue (*exit_fn_get)(unsigned int service);
-	qb_ipcs_handler_fn_lvalue (*handler_fn_get)(unsigned int service, unsigned int id);
-	qb_hdb_handle_t (*stats_create_connection) (const char* name,
-		pid_t pid, int fd);
+	int (*service_available) (unsigned int service);
+	int (*private_data_size_get) (unsigned int service);
+	int (*security_valid) (int uid, int gid);
+	void (*serialize_lock) (void);
+	void (*serialize_unlock) (void);
+	int (*sending_allowed) (unsigned int service, unsigned int id,
+				const void *msg,
+				void *sending_allowed_private_data);
+	void (*sending_allowed_release) (void *sending_allowed_private_data);
+	void (*poll_accept_add) (int fd);
+	void (*poll_dispatch_add) (int fd, void *context);
+	void (*poll_dispatch_modify) (int fd, int events);
+	void (*poll_dispatch_destroy) (int fd, void *context);
+	void (*fatal_error) (const char *error_msg);
+	 qb_ipcs_init_fn_lvalue(*init_fn_get) (unsigned int service);
+	 qb_ipcs_exit_fn_lvalue(*exit_fn_get) (unsigned int service);
+	 qb_ipcs_handler_fn_lvalue(*handler_fn_get) (unsigned int service,
+						     unsigned int id);
+	 qb_hdb_handle_t(*stats_create_connection) (const char *name, pid_t pid,
+						    int fd);
 	void (*stats_destroy_connection) (qb_hdb_handle_t handle);
 	void (*stats_update_value) (qb_hdb_handle_t handle,
-		const char *name, const void *value, size_t value_len);
-	void (*stats_increment_value) (qb_hdb_handle_t handle, const char* name);
-	void (*stats_decrement_value) (qb_hdb_handle_t handle, const char* name);
+				    const char *name, const void *value,
+				    size_t value_len);
+	void (*stats_increment_value) (qb_hdb_handle_t handle,
+				       const char *name);
+	void (*stats_decrement_value) (qb_hdb_handle_t handle,
+				       const char *name);
 };
 
-extern void qb_ipcs_ipc_init (
-        struct qb_ipcs_init_state *init_state);
+extern void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state);
 
-extern void *qb_ipcs_private_data_get (void *conn);
+extern void *qb_ipcs_private_data_get(void *conn);
 
-extern int qb_ipcs_response_send (
-	void *conn,
-	const void *msg,
-	size_t mlen);
+extern int qb_ipcs_response_send(void *conn, const void *msg, size_t mlen);
 
-extern int qb_ipcs_response_iov_send (
-	void *conn,
-	const struct iovec *iov,
-	unsigned int iov_len);
+extern int qb_ipcs_response_iov_send(void *conn,
+				     const struct iovec *iov,
+				     unsigned int iov_len);
 
-extern int qb_ipcs_dispatch_send (
-	void *conn,
-	const void *msg,
-	size_t mlen);
+extern int qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen);
 
-extern int qb_ipcs_dispatch_iov_send (
-	void *conn,
-	const struct iovec *iov,
-	unsigned int iov_len);
+extern int qb_ipcs_dispatch_iov_send(void *conn,
+				     const struct iovec *iov,
+				     unsigned int iov_len);
 
-extern void qb_ipcs_refcount_inc (void *conn);
+extern void qb_ipcs_refcount_inc(void *conn);
 
-extern void qb_ipcs_refcount_dec (void *conn);
+extern void qb_ipcs_refcount_dec(void *conn);
 
-extern void qb_ipcs_ipc_exit (void);
+extern void qb_ipcs_ipc_exit(void);
 
-extern int qb_ipcs_ipc_service_exit (unsigned int service);
+extern int qb_ipcs_ipc_service_exit(unsigned int service);
 
-extern int qb_ipcs_handler_accept (
-	int fd,
-	int revent,
-	void *context);
+extern int qb_ipcs_handler_accept(int fd, int revent, void *context);
 
-extern int qb_ipcs_handler_dispatch (
-	int fd,
-	int revent,
-	void *context);
+extern int qb_ipcs_handler_dispatch(int fd, int revent, void *context);
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif
+/* *INDENT-ON* */
 
 #endif /* QB_IPCS_H_DEFINED */

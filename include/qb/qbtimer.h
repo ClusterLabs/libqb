@@ -22,44 +22,43 @@
 #ifndef QB_TIMER_H_DEFINED
 #define QB_TIMER_H_DEFINED
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
-typedef void * qb_timer_handle;
+typedef void *qb_timer_handle;
 
-extern int qb_timer_init (
-        void (*serialize_lock) (void),
-        void (*serialize_unlock) (void),
-	int sched_priority);
+extern int qb_timer_init(void (*serialize_lock) (void),
+			 void (*serialize_unlock) (void), int sched_priority);
 
-extern int qb_timer_add_duration (
-	unsigned long long nanosec_duration,
-	void *data,
-	void (*timer_fn) (void *data),
-	qb_timer_handle *handle);
+extern int qb_timer_add_duration(unsigned long long nanosec_duration,
+				 void *data,
+				 void (*timer_fn) (void *data),
+				 qb_timer_handle * handle);
 
-extern int qb_timer_add_absolute (
-	unsigned long long nanoseconds_from_epoch,
-	void *data,
-	void (*timer_fn) (void *data),
-	qb_timer_handle *handle);
+extern int qb_timer_add_absolute(unsigned long long nanoseconds_from_epoch,
+				 void *data,
+				 void (*timer_fn) (void *data),
+				 qb_timer_handle * handle);
 
-extern void qb_timer_delete (qb_timer_handle handle);
+extern void qb_timer_delete(qb_timer_handle handle);
 
-extern void qb_timer_delete_data (qb_timer_handle handle);
+extern void qb_timer_delete_data(qb_timer_handle handle);
 
-extern void qb_timer_lock (void);
+extern void qb_timer_lock(void);
 
-extern void qb_timer_unlock (void);
+extern void qb_timer_unlock(void);
 
-extern unsigned long long qb_timer_time_get (void);
+extern unsigned long long qb_timer_time_get(void);
 
-extern unsigned long long qb_timer_expire_time_get (qb_timer_handle handle);
+extern unsigned long long qb_timer_expire_time_get(qb_timer_handle handle);
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_TIMER_H_DEFINED */
-

@@ -24,15 +24,14 @@
 #define QB_IPC_COMMON_H_DEFINED
 
 typedef struct {
-	int size __attribute__((aligned(8)));
-	int id __attribute__((aligned(8)));
-} qb_ipc_request_header_t __attribute__((aligned(8)));
+	int size __attribute__ ((aligned(8)));
+	int id __attribute__ ((aligned(8)));
+} qb_ipc_request_header_t __attribute__ ((aligned(8)));
 
 typedef struct {
-	int size __attribute__((aligned(8)));
-	int id __attribute__((aligned(8)));
-	int32_t error __attribute__((aligned(8)));
-} qb_ipc_response_header_t __attribute__((aligned(8)));
+	int size __attribute__ ((aligned(8)));
+	int id __attribute__ ((aligned(8)));
+	int32_t error __attribute__ ((aligned(8)));
+} qb_ipc_response_header_t __attribute__ ((aligned(8)));
 
 #endif /* QB_IPC_COMMON_H_DEFINED */
-

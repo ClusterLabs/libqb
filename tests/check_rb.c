@@ -29,62 +29,63 @@
 #include <qb/qbipc_common.h>
 #include <qb/qbutil.h>
 
-START_TEST (test_ring_buffer1)
+START_TEST(test_ring_buffer1)
 {
 	char my_buf[512];
 	qb_ipc_request_header_t *hdr;
 	char *str;
-	qb_ringbuffer_t * rb;
+	qb_ringbuffer_t *rb;
 	int i;
 	int b;
 	ssize_t actual;
 	ssize_t avail;
 
-	rb = qb_rb_open ("test1", 200, QB_RB_FLAG_CREATE);
-	fail_if (rb == NULL);
+	rb = qb_rb_open("test1", 200, QB_RB_FLAG_CREATE);
+	fail_if(rb == NULL);
 
 	for (b = 0; b < 3; b++) {
-		hdr = (qb_ipc_request_header_t*)my_buf;
-		str = my_buf + sizeof (qb_ipc_request_header_t);
+		hdr = (qb_ipc_request_header_t *) my_buf;
+		str = my_buf + sizeof(qb_ipc_request_header_t);
 
 		for (i = 0; i < 900; i++) {
 			hdr->id = __LINE__ + i;
-			hdr->size = sprintf (str, "ID: %d (%s + i(%d)) -- %s-%s!",
-				hdr->id, "actually the line number", i,
-				__func__, __FILE__) + 1;
-			hdr->size += sizeof (qb_ipc_request_header_t);
-			avail = qb_rb_space_free (rb);
-			actual = qb_rb_chunk_write (rb, hdr, hdr->size);
-			if (avail < (hdr->size + (2*sizeof(uint32_t)))) {
-				ck_assert_int_eq (actual, -1);
+			hdr->size =
+			    sprintf(str, "ID: %d (%s + i(%d)) -- %s-%s!",
+				    hdr->id, "actually the line number", i,
+				    __func__, __FILE__) + 1;
+			hdr->size += sizeof(qb_ipc_request_header_t);
+			avail = qb_rb_space_free(rb);
+			actual = qb_rb_chunk_write(rb, hdr, hdr->size);
+			if (avail < (hdr->size + (2 * sizeof(uint32_t)))) {
+				ck_assert_int_eq(actual, -1);
 			} else {
-				ck_assert_int_eq (actual, hdr->size);
+				ck_assert_int_eq(actual, hdr->size);
 			}
 		}
 
-		memset (my_buf, 0, sizeof(my_buf));
+		memset(my_buf, 0, sizeof(my_buf));
 
-		hdr = (qb_ipc_request_header_t*)my_buf;
-		str = my_buf + sizeof (qb_ipc_request_header_t);
+		hdr = (qb_ipc_request_header_t *) my_buf;
+		str = my_buf + sizeof(qb_ipc_request_header_t);
 
 		for (i = 0; i < 15; i++) {
-			actual = qb_rb_chunk_read (rb, hdr, 512, 0);
+			actual = qb_rb_chunk_read(rb, hdr, 512, 0);
 			if (actual == -1) {
 				break;
 			}
-			str[actual - sizeof (qb_ipc_request_header_t)] = '\0';
+			str[actual - sizeof(qb_ipc_request_header_t)] = '\0';
 
-			ck_assert_int_eq (actual, hdr->size);
+			ck_assert_int_eq(actual, hdr->size);
 		}
 	}
-	qb_rb_close (rb);
+	qb_rb_close(rb);
 }
-END_TEST
 
+END_TEST
 /*
  * nice size (int64)
  */
-START_TEST (test_ring_buffer2)
+START_TEST(test_ring_buffer2)
 {
 	qb_ringbuffer_t *t;
 	int32_t i;
@@ -92,72 +93,71 @@ START_TEST (test_ring_buffer2)
 	int64_t *new_data;
 	ssize_t l;
 
-	t = qb_rb_open ("test2", 200 * sizeof(int64_t), QB_RB_FLAG_CREATE);
-	fail_if (t == NULL);
+	t = qb_rb_open("test2", 200 * sizeof(int64_t), QB_RB_FLAG_CREATE);
+	fail_if(t == NULL);
 	for (i = 0; i < 200; i++) {
-		l = qb_rb_chunk_write (t, &v, sizeof (v));
-		ck_assert_int_eq (l, sizeof (v));
+		l = qb_rb_chunk_write(t, &v, sizeof(v));
+		ck_assert_int_eq(l, sizeof(v));
 	}
 	for (i = 0; i < 100; i++) {
-		l = qb_rb_chunk_peek (t, (void**)&new_data);
+		l = qb_rb_chunk_peek(t, (void **)&new_data);
 		if (l == -1) {
 			/* no more to read */
 			break;
 		}
-		ck_assert_int_eq (l, sizeof (v));
-		fail_unless (v == *new_data);
-		qb_rb_chunk_reclaim (t);
+		ck_assert_int_eq(l, sizeof(v));
+		fail_unless(v == *new_data);
+		qb_rb_chunk_reclaim(t);
 	}
 	for (i = 0; i < 100; i++) {
-		l = qb_rb_chunk_write (t, &v, sizeof (v));
-		ck_assert_int_eq (l, sizeof (v));
+		l = qb_rb_chunk_write(t, &v, sizeof(v));
+		ck_assert_int_eq(l, sizeof(v));
 	}
 	for (i = 0; i < 100; i++) {
-		l = qb_rb_chunk_peek (t, (void**)&new_data);
+		l = qb_rb_chunk_peek(t, (void **)&new_data);
 		if (l == -1) {
 			/* no more to read */
 			break;
 		}
-		ck_assert_int_eq (l, sizeof (v));
-		fail_unless (v == *new_data);
-		qb_rb_chunk_reclaim (t);
+		ck_assert_int_eq(l, sizeof(v));
+		fail_unless(v == *new_data);
+		qb_rb_chunk_reclaim(t);
 	}
-	qb_rb_close (t);
+	qb_rb_close(t);
 }
-END_TEST
 
+END_TEST
 /*
  * odd size (10)
  */
-START_TEST (test_ring_buffer3)
+START_TEST(test_ring_buffer3)
 {
 	qb_ringbuffer_t *t;
 	int32_t i;
 	char v[] = "1234567891";
 	char out[32];
 	ssize_t l;
-	size_t len = strlen (v) + 1;
+	size_t len = strlen(v) + 1;
 
-	t = qb_rb_open ("test3", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE);
-	fail_if (t == NULL);
+	t = qb_rb_open("test3", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE);
+	fail_if(t == NULL);
 	for (i = 0; i < 9000; i++) {
-		l = qb_rb_chunk_write (t, v, len);
-		ck_assert_int_eq (l, len);
+		l = qb_rb_chunk_write(t, v, len);
+		ck_assert_int_eq(l, len);
 	}
 	for (i = 0; i < 2000; i++) {
-		l = qb_rb_chunk_read (t, (void*)out, 32, 0);
+		l = qb_rb_chunk_read(t, (void *)out, 32, 0);
 		if (l == -1) {
 			/* no more to read */
 			break;
 		}
-		ck_assert_int_eq (l, len);
-		ck_assert_str_eq (v, out);
+		ck_assert_int_eq(l, len);
+		ck_assert_str_eq(v, out);
 	}
-	qb_rb_close (t);
+	qb_rb_close(t);
 }
-END_TEST
 
-START_TEST (test_ring_buffer4)
+END_TEST START_TEST(test_ring_buffer4)
 {
 	qb_ringbuffer_t *t;
 	char data[] = "1234567891";
@@ -165,63 +165,58 @@ START_TEST (test_ring_buffer4)
 	char *new_data;
 	ssize_t l;
 
-	t = qb_rb_open ("test4", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE);
-	fail_if (t == NULL);
+	t = qb_rb_open("test4", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE);
+	fail_if(t == NULL);
 	for (i = 0; i < 2000; i++) {
-		l = qb_rb_chunk_write (t, data, strlen (data));
-		ck_assert_int_eq (l, strlen (data));
+		l = qb_rb_chunk_write(t, data, strlen(data));
+		ck_assert_int_eq(l, strlen(data));
 		if (i == 0) {
-			data[0]='b';
+			data[0] = 'b';
 		}
 	}
 	for (i = 0; i < 2000; i++) {
-		l = qb_rb_chunk_peek (t, (void**)&new_data);
+		l = qb_rb_chunk_peek(t, (void **)&new_data);
 		if (l == -1 && errno == ENODATA) {
 			break;
 		}
-		ck_assert_int_eq (l, strlen (data));
-		qb_rb_chunk_reclaim (t);
+		ck_assert_int_eq(l, strlen(data));
+		qb_rb_chunk_reclaim(t);
 	}
-	qb_rb_close (t);
+	qb_rb_close(t);
 }
-END_TEST
 
-static Suite *rb_suite (void)
+END_TEST static Suite *rb_suite(void)
 {
 	TCase *tc_load;
-	Suite *s = suite_create ("ringbuffer");
+	Suite *s = suite_create("ringbuffer");
 
-	tc_load = tcase_create ("test01");
-	tcase_add_test (tc_load, test_ring_buffer1);
-	tcase_add_test (tc_load, test_ring_buffer2);
-	tcase_add_test (tc_load, test_ring_buffer3);
-	tcase_add_test (tc_load, test_ring_buffer4);
-	suite_add_tcase (s, tc_load);
+	tc_load = tcase_create("test01");
+	tcase_add_test(tc_load, test_ring_buffer1);
+	tcase_add_test(tc_load, test_ring_buffer2);
+	tcase_add_test(tc_load, test_ring_buffer3);
+	tcase_add_test(tc_load, test_ring_buffer4);
+	suite_add_tcase(s, tc_load);
 
 	return s;
 }
 
 static void libqb_log_fn(const char *file_name,
-	int32_t file_line,
-	int32_t severity,
-	const char *msg)
+			 int32_t file_line, int32_t severity, const char *msg)
 {
-	printf ("libqb: %s:%d %s\n", file_name, file_line, msg);
+	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
 }
 
-
-int main (void)
+int main(void)
 {
 	int number_failed;
 
-	Suite *s = rb_suite ();
-	SRunner *sr = srunner_create (s);
+	Suite *s = rb_suite();
+	SRunner *sr = srunner_create(s);
 
-	qb_util_set_log_function (libqb_log_fn);
+	qb_util_set_log_function(libqb_log_fn);
 
-	srunner_run_all (sr, CK_NORMAL);
-	number_failed = srunner_ntests_failed (sr);
-	srunner_free (sr);
+	srunner_run_all(sr, CK_NORMAL);
+	number_failed = srunner_ntests_failed(sr);
+	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
-

@@ -22,9 +22,11 @@
 #ifndef QB_WTHREAD_H_DEFINED
 #define QB_WTHREAD_H_DEFINED
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
 struct qb_wthread_group {
 	int threadcount;
@@ -33,31 +35,29 @@ struct qb_wthread_group {
 	void (*worker_fn) (void *thread_state, void *work_item);
 };
 
-extern int qb_wthread_group_init (
-	struct qb_wthread_group *worker_thread_group,
-	int threads,
-	int items_max,
-	int item_size,
-	int thread_state_size,
-	void (*thread_state_constructor)(void *),
-	void (*worker_fn)(void *thread_state, void *work_item));
+extern int qb_wthread_group_init(struct qb_wthread_group *worker_thread_group,
+				 int threads,
+				 int items_max,
+				 int item_size,
+				 int thread_state_size,
+				 void (*thread_state_constructor) (void *),
+				 void (*worker_fn) (void *thread_state,
+						    void *work_item));
 
-extern int qb_wthread_group_work_add (
-	struct qb_wthread_group *worker_thread_group,
-	void *item);
+extern int qb_wthread_group_work_add(struct qb_wthread_group
+				     *worker_thread_group, void *item);
 
-extern void qb_wthread_group_wait (
-	struct qb_wthread_group *worker_thread_group);
+extern void qb_wthread_group_wait(struct qb_wthread_group *worker_thread_group);
 
-extern void qb_wthread_group_exit (
-	struct qb_wthread_group *worker_thread_group);
+extern void qb_wthread_group_exit(struct qb_wthread_group *worker_thread_group);
 
-extern void qb_wthread_group_atsegv (
-	struct qb_wthread_group *worker_thread_group);
+extern void qb_wthread_group_atsegv(struct qb_wthread_group
+				    *worker_thread_group);
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_WTHREAD_H_DEFINED */
-

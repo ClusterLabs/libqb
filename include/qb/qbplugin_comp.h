@@ -20,23 +20,25 @@
 #ifndef QB_PLUGIN_COMP_H_DEFINED
 #define QB_PLUGIN_COMP_H_DEFINED
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* *INDENT-ON* */
 
 /*
  * plugin Interface
  */
 struct plugin_iface {
-	const char *name;			/* Name of the interface */
-	int version;			/* Version of this interface */
-	int *versions_replace;		/* Versions that this interface can replace */
+	const char *name;	/* Name of the interface */
+	int version;		/* Version of this interface */
+	int *versions_replace;	/* Versions that this interface can replace */
 	int versions_replace_count;	/* Count of entries in version_replace */
-	char **dependencies;		/* Dependent interfaces */
+	char **dependencies;	/* Dependent interfaces */
 	size_t dependency_count;	/* Count of entires in dependencies */
 	int (*constructor) (void *context);	/* Constructor for this interface */
 	void (*destructor) (void *context);	/* Constructor for this interface */
-	void **interfaces;		/* List of functions in interface */
+	void **interfaces;	/* List of functions in interface */
 };
 
 /*
@@ -44,19 +46,21 @@ struct plugin_iface {
  */
 struct plugin_comp {
 	struct plugin_iface *ifaces;	/* List of interfaces in this component */
-	size_t iface_count;		/* size of ifaces list */
+	size_t iface_count;	/* size of ifaces list */
 };
 
-extern void plugin_component_register (struct plugin_comp *comp);
+extern void plugin_component_register(struct plugin_comp *comp);
 
-static inline void plugin_interfaces_set (struct plugin_iface *iface, void *iface_list)
+static inline void plugin_interfaces_set(struct plugin_iface *iface,
+					 void *iface_list)
 {
 	iface->interfaces = (void **)iface_list;
 }
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+/* *INDENT-ON* */
 
 #endif /* QB_PLUGIN_COMP_H_DEFINED */
-
