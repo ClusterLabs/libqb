@@ -35,7 +35,7 @@ extern "C" {
  * and (if tsafe is on) use this copy for getenv() calls.
  * @param envp your environment (as passed into main())
  */
-extern void qb_tsafe_init(char **envp);
+void qb_tsafe_init(char **envp);
 
 /**
  * turn on the thread safe checker.
@@ -43,14 +43,14 @@ extern void qb_tsafe_init(char **envp);
  * It will assert() on any call to a thread unsafe system call
  * as defined in pthread(5)
  */
-extern void qb_tsafe_on(void);
+void qb_tsafe_on(void);
 
 /**
  * turn off the thread safe checker.
  *
  * It is fine to do this if you have only one thread.
  */
-extern void qb_tsafe_off(void);
+void qb_tsafe_off(void);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

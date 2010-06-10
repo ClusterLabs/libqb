@@ -49,7 +49,7 @@ struct plugin_comp {
 	size_t iface_count;	/* size of ifaces list */
 };
 
-extern void plugin_component_register(struct plugin_comp *comp);
+void plugin_component_register(struct plugin_comp *comp);
 
 static inline void plugin_interfaces_set(struct plugin_iface *iface,
 					 void *iface_list)

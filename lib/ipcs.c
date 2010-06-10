@@ -867,7 +867,7 @@ static int conn_info_create(int fd)
 /*
  * Exported functions
  */
-extern void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state)
+void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state)
 {
 	int server_fd;
 	struct sockaddr_un un_addr;

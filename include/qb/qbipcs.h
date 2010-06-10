@@ -73,33 +73,31 @@ struct qb_ipcs_init_state {
 				       const char *name);
 };
 
-extern void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state);
+void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state);
 
-extern void *qb_ipcs_private_data_get(void *conn);
+void *qb_ipcs_private_data_get(void *conn);
 
-extern int qb_ipcs_response_send(void *conn, const void *msg, size_t mlen);
+int qb_ipcs_response_send(void *conn, const void *msg, size_t mlen);
 
-extern int qb_ipcs_response_iov_send(void *conn,
-				     const struct iovec *iov,
-				     unsigned int iov_len);
+int qb_ipcs_response_iov_send(void *conn,
+			      const struct iovec *iov, unsigned int iov_len);
 
-extern int qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen);
+int qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen);
 
-extern int qb_ipcs_dispatch_iov_send(void *conn,
-				     const struct iovec *iov,
-				     unsigned int iov_len);
+int qb_ipcs_dispatch_iov_send(void *conn,
+			      const struct iovec *iov, unsigned int iov_len);
 
-extern void qb_ipcs_refcount_inc(void *conn);
+void qb_ipcs_refcount_inc(void *conn);
 
-extern void qb_ipcs_refcount_dec(void *conn);
+void qb_ipcs_refcount_dec(void *conn);
 
-extern void qb_ipcs_ipc_exit(void);
+void qb_ipcs_ipc_exit(void);
 
-extern int qb_ipcs_ipc_service_exit(unsigned int service);
+int qb_ipcs_ipc_service_exit(unsigned int service);
 
-extern int qb_ipcs_handler_accept(int fd, int revent, void *context);
+int qb_ipcs_handler_accept(int fd, int revent, void *context);
 
-extern int qb_ipcs_handler_dispatch(int fd, int revent, void *context);
+int qb_ipcs_handler_dispatch(int fd, int revent, void *context);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

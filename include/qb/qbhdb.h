@@ -120,7 +120,8 @@ static inline int qb_hdb_handle_create(struct qb_hdb_handle_database
 		    (struct qb_hdb_handle *)realloc(handle_database->handles,
 						    sizeof(struct qb_hdb_handle)
 						    *
-						    handle_database->handle_count);
+						    handle_database->
+						    handle_count);
 		if (new_handles == NULL) {
 			qb_thread_unlock(handle_database->lock);
 			errno = ENOMEM;
@@ -289,9 +290,8 @@ static inline int qb_hdb_handle_put(struct qb_hdb_handle_database
 
 	if (handle_database->handles[handle].ref_count == 0) {
 		if (handle_database->destructor) {
-			handle_database->
-			    destructor(handle_database->handles[handle].
-				       instance);
+			handle_database->destructor(handle_database->
+						    handles[handle].instance);
 		}
 		free(handle_database->handles[handle].instance);
 		memset(&handle_database->handles[handle], 0,
@@ -390,9 +390,8 @@ static inline int qb_hdb_iterator_next(struct qb_hdb_handle_database
 	while (handle_database->iterator < handle_database->handle_count) {
 		*handle =
 		    ((unsigned long
-		      long)(handle_database->handles[handle_database->
-						     iterator].check) << 32) |
-		    handle_database->iterator;
+		      long)(handle_database->handles[handle_database->iterator].
+			    check) << 32) | handle_database->iterator;
 		res = qb_hdb_handle_get(handle_database, *handle, instance);
 
 		handle_database->iterator += 1;

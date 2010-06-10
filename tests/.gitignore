@@ -1,5 +1,6 @@
 check_plugin
 check_hash
+check_rb
 bmc
 bmcpt
 bms
