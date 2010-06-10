@@ -27,14 +27,14 @@
 #include <sys/time.h>
 #include <syslog.h>
 #include <pthread.h>
+#include <semaphore.h>
 
+#include <qb/qbutil.h>
+#include <qb/qblist.h>
+#include <qb/qbrb.h>
 #include <qb/qblogsys.h>
 
-#define YIELD_AFTER_LOG_OPS 10
-
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
-
-#define ROUNDUP(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
 
 /*
  * syslog prioritynames, facility names to value mapping
@@ -43,7 +43,7 @@
  */
 struct syslog_names {
 	const char *c_name;
-	int c_val;
+	int32_t c_val;
 };
 
 struct syslog_names prioritynames[] = {
@@ -81,26 +81,14 @@ struct syslog_names facilitynames[] = {
 	{NULL, -1}
 };
 
-/*
- * These are not static so they can be read from the core file
- */
-int *flt_data;
-
-unsigned int flt_data_size;
-
-#define COMBINE_BUFFER_SIZE 2048
-
-/* values for qb_logsys_logger init_status */
-#define QB_LOGSYS_LOGGER_INIT_DONE		0
-#define QB_LOGSYS_LOGGER_NEEDS_INIT	1
-
-static int qb_logsys_system_needs_init = QB_LOGSYS_LOGGER_NEEDS_INIT;
-
-static int qb_logsys_sched_param_queued = 0;
-static int qb_logsys_sched_policy;
-static struct sched_param qb_logsys_sched_param;
-
-static int qb_logsys_after_log_ops_yield = 10;
+struct record {
+	uint32_t rec_ident;
+	const char *file_name;
+	const char *function_name;
+	int32_t file_line;
+	char *buffer;
+	struct qb_list_head list;
+};
 
 /*
  * need unlogical order to preserve 64bit alignment
@@ -109,82 +97,86 @@ struct qb_logsys_logger {
 	char subsys[QB_LOGSYS_MAX_SUBSYS_NAMELEN];	/* subsystem name */
 	char *logfile;		/* log to file */
 	FILE *logfile_fp;	/* track file descriptor */
-	unsigned int mode;	/* subsystem mode */
-	unsigned int debug;	/* debug on|off */
-	int syslog_facility;	/* facility */
-	int syslog_priority;	/* priority */
-	int logfile_priority;	/* priority to file */
-	int init_status;	/* internal field to handle init queues
+	uint32_t mode;		/* subsystem mode */
+	uint32_t debug;		/* debug on|off */
+	int32_t syslog_facility;	/* facility */
+	int32_t syslog_priority;	/* priority */
+	int32_t logfile_priority;	/* priority to file */
+	int32_t init_status;	/* internal field to handle init queues
 				   for subsystems */
 };
 
-/*
- * operating global variables
- */
+static qb_ringbuffer_t *rb = NULL;
 
-static struct qb_logsys_logger qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT +
-						 1];
+#define COMBINE_BUFFER_SIZE 2048
 
-static int wthread_active = 0;
+/* values for logsys_logger init_status */
+#define LOGSYS_LOGGER_INIT_DONE		0
+#define LOGSYS_LOGGER_NEEDS_INIT	1
 
-static int wthread_should_exit = 0;
+static int32_t logsys_system_needs_init = LOGSYS_LOGGER_NEEDS_INIT;
+
+static int32_t logsys_memory_used = 0;
+
+static int32_t logsys_sched_param_queued = 0;
+
+static int32_t logsys_sched_policy;
+
+static struct sched_param logsys_sched_param;
+
+static int32_t logsys_after_log_ops_yield = 10;
+
+static struct qb_logsys_logger logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT + 1];
+
+static int32_t wthread_active = 0;
+
+static int32_t wthread_should_exit = 0;
 
 static pthread_mutex_t qb_logsys_config_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static unsigned int records_written = 1;
+static uint32_t records_written = 1;
 
-static pthread_t qb_logsys_thread_id;
+static pthread_t logsys_thread_id;
 
-static pthread_cond_t qb_logsys_cond;
+static sem_t logsys_thread_start;
 
-static pthread_mutex_t qb_logsys_cond_mutex;
+static sem_t logsys_print_finished;
 
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
-static pthread_spinlock_t qb_logsys_idx_spinlock;
-#else
-static pthread_mutex_t qb_logsys_idx_mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
-
-static unsigned int log_rec_idx;
-
-static int qb_logsys_buffer_full = 0;
+static qb_thread_lock_t *logsys_flt_lock;
+static qb_thread_lock_t *logsys_wthread_lock;
 
 static char *format_buffer = NULL;
 
-static int log_requests_pending = 0;
-
-static int log_requests_lost = 0;
+static int32_t logsys_dropped_messages = 0;
 
 void *qb_logsys_rec_end;
 
-#define FDHEAD_INDEX	(flt_data_size)
-
-#define FDTAIL_INDEX 	(flt_data_size + 1)
+static QB_DECLARE_LIST_INIT(logsys_print_finished_records);
 
 #define FDMAX_ARGS	64
 
 /* forward declarations */
-static void qb_logsys_close_logfile(int subsysid);
+static void qb_logsys_close_logfile(int32_t subsysid);
 
 #ifdef QB_LOGSYS_DEBUG
-static char *decode_mode(int subsysid, char *buf, size_t buflen)
+static char *decode_mode(int32_t subsysid, char *buf, size_t buflen)
 {
 	memset(buf, 0, buflen);
 
-	if (qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_FILE)
+	if (logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_FILE)
 		snprintf(buf + strlen(buf), buflen, "FILE,");
 
-	if (qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_STDERR)
+	if (logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_STDERR)
 		snprintf(buf + strlen(buf), buflen, "STDERR,");
 
-	if (qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_SYSLOG)
+	if (logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_SYSLOG)
 		snprintf(buf + strlen(buf), buflen, "SYSLOG,");
 
 	if (subsysid == QB_LOGSYS_MAX_SUBSYS_COUNT) {
-		if (qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_FORK)
+		if (logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_FORK)
 			snprintf(buf + strlen(buf), buflen, "FORK,");
 
-		if (qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_THREADED)
+		if (logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_THREADED)
 			snprintf(buf + strlen(buf), buflen, "THREADED,");
 	}
 
@@ -193,23 +185,23 @@ static char *decode_mode(int subsysid, char *buf, size_t buflen)
 	return buf;
 }
 
-static const char *decode_debug(int subsysid)
+static const char *decode_debug(int32_t subsysid)
 {
-	if (qb_logsys_loggers[subsysid].debug)
+	if (logsys_loggers[subsysid].debug)
 		return "on";
 
 	return "off";
 }
 
-static const char *decode_status(int subsysid)
+static const char *decode_status(int32_t subsysid)
 {
-	if (!qb_logsys_loggers[subsysid].init_status)
+	if (!logsys_loggers[subsysid].init_status)
 		return "INIT_DONE";
 
 	return "NEEDS_INIT";
 }
 
-static void dump_subsys_config(int subsysid)
+static void dump_subsys_config(int32_t subsysid)
 {
 	char modebuf[1024];
 
@@ -225,143 +217,36 @@ static void dump_subsys_config(int subsysid)
 		"logfile_pri: %s\n"
 		"init_status: %s\n",
 		subsysid,
-		qb_logsys_loggers[subsysid].subsys,
-		qb_logsys_loggers[subsysid].logfile,
-		qb_logsys_loggers[subsysid].logfile_fp,
+		logsys_loggers[subsysid].subsys,
+		logsys_loggers[subsysid].logfile,
+		logsys_loggers[subsysid].logfile_fp,
 		decode_mode(subsysid, modebuf, sizeof(modebuf)),
 		decode_debug(subsysid),
-		qb_logsys_facility_name_get(qb_logsys_loggers[subsysid].
-					    syslog_facility),
-		qb_logsys_priority_name_get(qb_logsys_loggers[subsysid].
-					    syslog_priority),
-		qb_logsys_priority_name_get(qb_logsys_loggers[subsysid].
-					    logfile_priority),
+		qb_logsys_facility_name_get(logsys_loggers
+					    [subsysid].syslog_facility),
+		qb_logsys_priority_name_get(logsys_loggers
+					    [subsysid].syslog_priority),
+		qb_logsys_priority_name_get(logsys_loggers
+					    [subsysid].logfile_priority),
 		decode_status(subsysid));
 }
 
 static void dump_full_config(void)
 {
-	int i;
+	int32_t i;
 
 	for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-		if (strlen(qb_logsys_loggers[i].subsys) > 0)
+		if (strlen(logsys_loggers[i].subsys) > 0)
 			dump_subsys_config(i);
 	}
 }
 #endif
 
 /*
- * Helpers for _logsys_log_rec functionality
- */
-static inline void my_memcpy_32bit(int *dest, const int *src,
-				   unsigned int words)
-{
-	unsigned int word_idx;
-	for (word_idx = 0; word_idx < words; word_idx++) {
-		dest[word_idx] = src[word_idx];
-	}
-}
-
-static inline void my_memcpy_8bit(char *dest, const char *src,
-				  unsigned int bytes)
-{
-	unsigned int byte_idx;
-
-	for (byte_idx = 0; byte_idx < bytes; byte_idx++) {
-		dest[byte_idx] = src[byte_idx];
-	}
-}
-
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
-static void qb_logsys_lock(void)
-{
-	pthread_spin_lock(&qb_logsys_idx_spinlock);
-}
-
-static void qb_logsys_unlock(void)
-{
-	pthread_spin_unlock(&qb_logsys_idx_spinlock);
-}
-#else
-static void qb_logsys_lock(void)
-{
-	pthread_mutex_lock(&qb_logsys_idx_mutex);
-}
-
-static void qb_logsys_unlock(void)
-{
-	pthread_mutex_unlock(&qb_logsys_idx_mutex);
-}
-#endif
-
-/*
- * Before any write operation, a reclaim on the buffer area must be executed
- */
-static inline void records_reclaim(unsigned int idx, unsigned int words)
-{
-	unsigned int should_reclaim;
-
-	should_reclaim = 0;
-
-	if ((idx + words) >= flt_data_size) {
-		qb_logsys_buffer_full = 1;
-	}
-	if (qb_logsys_buffer_full == 0) {
-		return;
-	}
-
-	qb_logsys_lock();
-	if (flt_data[FDTAIL_INDEX] > flt_data[FDHEAD_INDEX]) {
-		if (idx + words >= flt_data[FDTAIL_INDEX]) {
-			should_reclaim = 1;
-		}
-	} else {
-		if ((idx + words) >= (flt_data[FDTAIL_INDEX] + flt_data_size)) {
-			should_reclaim = 1;
-		}
-	}
-
-	if (should_reclaim) {
-		int words_needed = 0;
-
-		words_needed = words + 1;
-		do {
-			unsigned int old_tail;
-
-			words_needed -= flt_data[flt_data[FDTAIL_INDEX]];
-			old_tail = flt_data[FDTAIL_INDEX];
-			flt_data[FDTAIL_INDEX] =
-			    (flt_data[FDTAIL_INDEX] +
-			     flt_data[flt_data[FDTAIL_INDEX]]) %
-			    (flt_data_size);
-			if (log_rec_idx == old_tail) {
-				log_requests_lost += 1;
-				log_rec_idx = flt_data[FDTAIL_INDEX];
-			}
-		} while (words_needed > 0);
-	}
-	qb_logsys_unlock();
-}
-
-#define idx_word_step(idx)						\
-do {									\
-	if (idx > (flt_data_size - 1)) {				\
-		idx = 0;						\
-	}								\
-} while (0);
-
-#define idx_buffer_step(idx)						\
-do {									\
-	if (idx > (flt_data_size - 1)) {				\
-		idx = ((idx) % (flt_data_size));			\
-	}								\
-} while (0);
-
-/*
  * Internal threaded logging implementation
  */
-static inline int strcpy_cutoff(char *dest, const char *src, size_t cutoff,
-				size_t buf_len)
+static inline int32_t strcpy_cutoff(char *dest, const char *src, size_t cutoff,
+				    size_t buf_len)
 {
 	size_t len = strlen(src);
 	if (buf_len <= 1) {
@@ -399,24 +284,24 @@ static const char log_month_name[][4] = {
  *
  * any number between % and character specify field length to pad or chop
 */
-static void log_printf_to_logs(unsigned int rec_ident,
+static void log_printf_to_logs(uint32_t rec_ident,
 			       const char *file_name,
 			       const char *function_name,
-			       int file_line, const char *buffer)
+			       int32_t file_line, const char *buffer)
 {
 	char normal_output_buffer[COMBINE_BUFFER_SIZE];
 	char syslog_output_buffer[COMBINE_BUFFER_SIZE];
 	char char_time[128];
 	char line_no[30];
-	unsigned int format_buffer_idx = 0;
-	unsigned int normal_output_buffer_idx = 0;
-	unsigned int syslog_output_buffer_idx = 0;
+	uint32_t format_buffer_idx = 0;
+	uint32_t normal_output_buffer_idx = 0;
+	uint32_t syslog_output_buffer_idx = 0;
 	struct timeval tv;
 	size_t cutoff;
-	unsigned int normal_len, syslog_len;
-	int subsysid;
-	unsigned int level;
-	int c;
+	uint32_t normal_len, syslog_len;
+	int32_t subsysid;
+	uint32_t level;
+	int32_t c;
 	struct tm tm_res;
 
 	if (QB_LOGSYS_DECODE_RECID(rec_ident) != QB_LOGSYS_RECID_LOG) {
@@ -446,8 +331,8 @@ static void log_printf_to_logs(unsigned int rec_ident,
 
 			switch (format_buffer[format_buffer_idx]) {
 			case 's':
-				normal_p = qb_logsys_loggers[subsysid].subsys;
-				syslog_p = qb_logsys_loggers[subsysid].subsys;
+				normal_p = logsys_loggers[subsysid].subsys;
+				syslog_p = logsys_loggers[subsysid].subsys;
 				break;
 
 			case 'n':
@@ -491,7 +376,7 @@ static void log_printf_to_logs(unsigned int rec_ident,
 
 			case 'p':
 				normal_p =
-				    qb_logsys_loggers
+				    logsys_loggers
 				    [QB_LOGSYS_MAX_SUBSYS_COUNT].subsys;
 				syslog_p = "";
 				break;
@@ -533,11 +418,11 @@ static void log_printf_to_logs(unsigned int rec_ident,
 	/*
 	 * Output to syslog
 	 */
-	if ((qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_SYSLOG) &&
-	    ((level <= qb_logsys_loggers[subsysid].syslog_priority) ||
-	     (qb_logsys_loggers[subsysid].debug != 0))) {
-		syslog(level | qb_logsys_loggers[subsysid].syslog_facility,
-		       "%s", syslog_output_buffer);
+	if ((logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_SYSLOG) &&
+	    ((level <= logsys_loggers[subsysid].syslog_priority) ||
+	     (logsys_loggers[subsysid].debug != 0))) {
+		syslog(level | logsys_loggers[subsysid].syslog_facility, "%s",
+		       syslog_output_buffer);
 	}
 
 	/*
@@ -549,18 +434,17 @@ static void log_printf_to_logs(unsigned int rec_ident,
 	/*
 	 * Output to configured file
 	 */
-	if (((qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_FILE) &&
-	     (qb_logsys_loggers[subsysid].logfile_fp != NULL)) &&
-	    ((level <= qb_logsys_loggers[subsysid].logfile_priority) ||
-	     (qb_logsys_loggers[subsysid].debug != 0))) {
+	if (((logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_FILE) &&
+	     (logsys_loggers[subsysid].logfile_fp != NULL)) &&
+	    ((level <= logsys_loggers[subsysid].logfile_priority) ||
+	     (logsys_loggers[subsysid].debug != 0))) {
 		/*
 		 * Output to a file
 		 */
 		if ((fwrite
 		     (normal_output_buffer, strlen(normal_output_buffer), 1,
-		      qb_logsys_loggers[subsysid].logfile_fp) < 1)
-		    || (fflush(qb_logsys_loggers[subsysid].logfile_fp) ==
-			EOF)) {
+		      logsys_loggers[subsysid].logfile_fp) < 1)
+		    || (fflush(logsys_loggers[subsysid].logfile_fp) == EOF)) {
 			char tmpbuffer[1024];
 			/*
 			 * if we are here, it's bad.. it's really really bad.
@@ -569,11 +453,11 @@ static void log_printf_to_logs(unsigned int rec_ident,
 			 */
 			snprintf(tmpbuffer, sizeof(tmpbuffer),
 				 "QB_LOGSYS EMERGENCY: %s Unable to write to %s.",
-				 qb_logsys_loggers[subsysid].subsys,
-				 qb_logsys_loggers[subsysid].logfile);
+				 logsys_loggers[subsysid].subsys,
+				 logsys_loggers[subsysid].logfile);
 			pthread_mutex_lock(&qb_logsys_config_mutex);
 			qb_logsys_close_logfile(subsysid);
-			qb_logsys_loggers[subsysid].mode &=
+			logsys_loggers[subsysid].mode &=
 			    ~QB_LOGSYS_MODE_OUTPUT_FILE;
 			pthread_mutex_unlock(&qb_logsys_config_mutex);
 			log_printf_to_logs(QB_LOGSYS_ENCODE_RECID
@@ -586,9 +470,9 @@ static void log_printf_to_logs(unsigned int rec_ident,
 	/*
 	 * Output to stderr
 	 */
-	if ((qb_logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_STDERR) &&
-	    ((level <= qb_logsys_loggers[subsysid].logfile_priority) ||
-	     (qb_logsys_loggers[subsysid].debug != 0))) {
+	if ((logsys_loggers[subsysid].mode & QB_LOGSYS_MODE_OUTPUT_STDERR) &&
+	    ((level <= logsys_loggers[subsysid].logfile_priority) ||
+	     (logsys_loggers[subsysid].debug != 0))) {
 		if (write
 		    (STDERR_FILENO, normal_output_buffer,
 		     strlen(normal_output_buffer)) < 0) {
@@ -599,12 +483,12 @@ static void log_printf_to_logs(unsigned int rec_ident,
 			 * in the calendar and pray a lot...
 			 */
 			pthread_mutex_lock(&qb_logsys_config_mutex);
-			qb_logsys_loggers[subsysid].mode &=
+			logsys_loggers[subsysid].mode &=
 			    ~QB_LOGSYS_MODE_OUTPUT_STDERR;
 			pthread_mutex_unlock(&qb_logsys_config_mutex);
 			snprintf(tmpbuffer, sizeof(tmpbuffer),
 				 "QB_LOGSYS EMERGENCY: %s Unable to write to STDERR.",
-				 qb_logsys_loggers[subsysid].subsys);
+				 logsys_loggers[subsysid].subsys);
 			log_printf_to_logs(QB_LOGSYS_ENCODE_RECID
 					   (QB_LOGSYS_LEVEL_EMERG, subsysid,
 					    QB_LOGSYS_RECID_LOG), __FILE__,
@@ -613,166 +497,102 @@ static void log_printf_to_logs(unsigned int rec_ident,
 	}
 }
 
-static void record_print(const char *buf)
+static void log_printf_to_logs_wthread(uint32_t rec_ident,
+				       const char *file_name,
+				       const char *function_name,
+				       int32_t file_line, const char *buffer)
 {
-	const int *buf_uint32t = (const int *)buf;
-	unsigned int rec_size = buf_uint32t[0];
-	unsigned int rec_ident = buf_uint32t[1];
-	unsigned int file_line = buf_uint32t[2];
-	unsigned int i;
-	unsigned int words_processed;
-	unsigned int arg_size_idx;
-	const void *arguments[FDMAX_ARGS];
-	unsigned int arg_count;
+	struct record *rec;
+	uint32_t length;
 
-	arg_size_idx = 4;
-	words_processed = 4;
-	arg_count = 0;
-
-	for (i = 0; words_processed < rec_size; i++) {
-		arguments[arg_count++] = &buf_uint32t[arg_size_idx + 1];
-		arg_size_idx += buf_uint32t[arg_size_idx] + 1;
-		words_processed += buf_uint32t[arg_size_idx] + 1;
-	}
-
-	/*
-	 * (char *)arguments[0] -> subsystem
-	 * (char *)arguments[1] -> file_name
-	 * (char *)arguments[2] -> function_name
-	 * (char *)arguments[3] -> message
-	 */
-
-	log_printf_to_logs(rec_ident,
-			   (char *)arguments[1],
-			   (char *)arguments[2],
-			   file_line, (char *)arguments[3]);
-}
-
-static int record_read(char *buf, int rec_idx, int *log_msg)
-{
-	unsigned int rec_size;
-	unsigned int rec_ident;
-	int firstcopy, secondcopy;
-
-	rec_size = flt_data[rec_idx];
-	rec_ident = flt_data[(rec_idx + 1) % flt_data_size];
-
-	/*
-	 * Not a log record
-	 */
-	if (QB_LOGSYS_DECODE_RECID(rec_ident) != QB_LOGSYS_RECID_LOG) {
-		*log_msg = 0;
-		return ((rec_idx + rec_size) % flt_data_size);
-	}
-
-	/*
-	 * A log record
-	 */
-	*log_msg = 1;
-
-	firstcopy = rec_size;
-	secondcopy = 0;
-	if (firstcopy + rec_idx > flt_data_size) {
-		firstcopy = flt_data_size - rec_idx;
-		secondcopy -= firstcopy - rec_size;
-	}
-	memcpy(&buf[0], &flt_data[rec_idx], firstcopy << 2);
-	if (secondcopy) {
-		memcpy(&buf[(firstcopy << 2)], &flt_data[0], secondcopy << 2);
-	}
-	return ((rec_idx + rec_size) % flt_data_size);
-}
-
-static inline void wthread_signal(void)
-{
-	if (wthread_active == 0) {
+	rec = malloc(sizeof(struct record));
+	if (rec == NULL) {
 		return;
 	}
-	pthread_mutex_lock(&qb_logsys_cond_mutex);
-	pthread_cond_signal(&qb_logsys_cond);
-	pthread_mutex_unlock(&qb_logsys_cond_mutex);
+
+	length = strlen(buffer);
+
+	rec->rec_ident = rec_ident;
+	rec->file_name = file_name;
+	rec->function_name = function_name;
+	rec->file_line = file_line;
+	rec->buffer = malloc(length + 1);
+	if (rec->buffer == NULL) {
+		free(rec);
+		return;
+	}
+	memcpy(rec->buffer, buffer, length + 1);
+
+	qb_list_init(&rec->list);
+	qb_thread_lock(logsys_wthread_lock);
+	logsys_memory_used += length + 1 + sizeof(struct record);
+	if (logsys_memory_used > 512000) {
+		free(rec->buffer);
+		free(rec);
+		logsys_memory_used =
+		    logsys_memory_used - length - 1 - sizeof(struct record);
+		logsys_dropped_messages += 1;
+		qb_thread_unlock(logsys_wthread_lock);
+		return;
+
+	} else {
+		qb_list_add_tail(&rec->list, &logsys_print_finished_records);
+	}
+	qb_thread_unlock(logsys_wthread_lock);
+
+	sem_post(&logsys_print_finished);
 }
 
-static inline void wthread_wait(void)
+static void *logsys_worker_thread(void *data) __attribute__ ((noreturn));
+static void *logsys_worker_thread(void *data)
 {
-	pthread_mutex_lock(&qb_logsys_cond_mutex);
-	pthread_cond_wait(&qb_logsys_cond, &qb_logsys_cond_mutex);
-	pthread_mutex_unlock(&qb_logsys_cond_mutex);
-}
-
-static inline void wthread_wait_locked(void)
-{
-	pthread_cond_wait(&qb_logsys_cond, &qb_logsys_cond_mutex);
-	pthread_mutex_unlock(&qb_logsys_cond_mutex);
-}
-
-static void *qb_logsys_worker_thread(void *data) __attribute__ ((__noreturn__));
-static void *qb_logsys_worker_thread(void *data)
-{
-	int log_msg;
-	char buf[COMBINE_BUFFER_SIZE];
+	struct record *rec;
+	int32_t dropped = 0;
+	int32_t res;
 
 	/*
 	 * Signal wthread_create that the initialization process may continue
 	 */
-	wthread_signal();
-	qb_logsys_lock();
-	log_rec_idx = flt_data[FDTAIL_INDEX];
-	qb_logsys_unlock();
-
+	sem_post(&logsys_thread_start);
 	for (;;) {
-		wthread_wait();
-		/*
-		 * Read and copy the logging record index position
-		 * It may have been updated by records_reclaim if
-		 * messages were lost or or log_rec on the first new
-		 * logging record available
-		 */
-		/*
-		 * Process any pending log messages here
-		 */
-		for (;;) {
-			int yield_counter = 1;
+		dropped = 0;
+		sem_wait(&logsys_print_finished);
 
-			qb_logsys_lock();
-			if (log_requests_lost > 0) {
-				printf("lost %d log requests\n",
-				       log_requests_lost);
-				log_requests_pending -= log_requests_lost;
-				log_requests_lost = 0;
-			}
-			if (log_requests_pending == 0) {
-				qb_logsys_unlock();
-				break;
-			}
-			log_rec_idx = record_read(buf, log_rec_idx, &log_msg);
-			if (log_msg) {
-				log_requests_pending -= 1;
-			}
-			qb_logsys_unlock();
-
-			/*
-			 * print the stored buffer
-			 */
-			if (log_msg) {
-				record_print(buf);
-				if (yield_counter++ >
-				    qb_logsys_after_log_ops_yield) {
-					yield_counter = 0;
-					sched_yield();
-				}
-			}
-		}
-
+		qb_thread_lock(logsys_wthread_lock);
 		if (wthread_should_exit) {
-			pthread_exit(NULL);
+			int32_t value;
+
+			res = sem_getvalue(&logsys_print_finished, &value);
+			if (value == 0) {
+				qb_thread_unlock(logsys_wthread_lock);
+				pthread_exit(NULL);
+			}
 		}
+
+		rec =
+		    qb_list_entry(logsys_print_finished_records.next,
+				  struct record, list);
+		qb_list_del(&rec->list);
+		logsys_memory_used = logsys_memory_used - strlen(rec->buffer) -
+		    sizeof(struct record) - 1;
+		dropped = logsys_dropped_messages;
+		logsys_dropped_messages = 0;
+		qb_thread_unlock(logsys_wthread_lock);
+		if (dropped) {
+			printf("%d messages lost\n", dropped);
+		}
+		log_printf_to_logs(rec->rec_ident,
+				   rec->file_name,
+				   rec->function_name,
+				   rec->file_line, rec->buffer);
+		free(rec->buffer);
+		free(rec);
 	}
 }
 
 static void wthread_create(void)
 {
-	int res;
+	int32_t res;
 
 	if (wthread_active) {
 		return;
@@ -780,47 +600,39 @@ static void wthread_create(void)
 
 	wthread_active = 1;
 
-	pthread_mutex_init(&qb_logsys_cond_mutex, NULL);
-	pthread_cond_init(&qb_logsys_cond, NULL);
-	pthread_mutex_lock(&qb_logsys_cond_mutex);
-
 	/*
 	 * TODO: propagate pthread_create errors back to the caller
 	 */
-	res = pthread_create(&qb_logsys_thread_id, NULL,
-			     qb_logsys_worker_thread, NULL);
+	res = pthread_create(&logsys_thread_id, NULL,
+			     logsys_worker_thread, NULL);
+	sem_wait(&logsys_thread_start);
 
 	if (res == 0) {
-		/*
-		 * Wait for thread to be started
-		 */
-		wthread_wait_locked();
-		if (qb_logsys_sched_param_queued == 1) {
+		if (logsys_sched_param_queued == 1) {
 			/*
-			 * TODO: propagate qb_logsys_thread_priority_set errors back to
+			 * TODO: propagate logsys_thread_priority_set errors back to
 			 * the caller
 			 */
-			res =
-			    qb_logsys_thread_priority_set
-			    (qb_logsys_sched_policy, &qb_logsys_sched_param,
-			     qb_logsys_after_log_ops_yield);
-			qb_logsys_sched_param_queued = 0;
+			res = qb_logsys_thread_priority_set(logsys_sched_policy,
+							    &logsys_sched_param,
+							    logsys_after_log_ops_yield);
+			logsys_sched_param_queued = 0;
 		}
 	} else {
 		wthread_active = 0;
 	}
 }
 
-static int _logsys_config_subsys_get_unlocked(const char *subsys)
+static int32_t _logsys_config_subsys_get_unlocked(const char *subsys)
 {
-	unsigned int i;
+	uint32_t i;
 
 	if (!subsys) {
 		return QB_LOGSYS_MAX_SUBSYS_COUNT;
 	}
 
 	for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-		if (strcmp(qb_logsys_loggers[i].subsys, subsys) == 0) {
+		if (strcmp(logsys_loggers[i].subsys, subsys) == 0) {
 			return i;
 		}
 	}
@@ -831,21 +643,21 @@ static int _logsys_config_subsys_get_unlocked(const char *subsys)
 static void syslog_facility_reconf(void)
 {
 	closelog();
-	openlog(qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].subsys,
+	openlog(logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].subsys,
 		LOG_CONS | LOG_PID,
-		qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].syslog_facility);
+		logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].syslog_facility);
 }
 
 /*
  * this is always invoked within the mutex, so it's safe to parse the
  * whole thing as we need.
  */
-static void qb_logsys_close_logfile(int subsysid)
+static void qb_logsys_close_logfile(int32_t subsysid)
 {
-	int i;
+	int32_t i;
 
-	if ((qb_logsys_loggers[subsysid].logfile_fp == NULL) &&
-	    (qb_logsys_loggers[subsysid].logfile == NULL)) {
+	if ((logsys_loggers[subsysid].logfile_fp == NULL) &&
+	    (logsys_loggers[subsysid].logfile == NULL)) {
 		return;
 	}
 
@@ -856,11 +668,10 @@ static void qb_logsys_close_logfile(int subsysid)
 	 * Only the last users will be allowed to perform the fclose.
 	 */
 	for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-		if ((qb_logsys_loggers[i].logfile_fp ==
-		     qb_logsys_loggers[subsysid].logfile_fp)
-		    && (i != subsysid)) {
-			qb_logsys_loggers[subsysid].logfile = NULL;
-			qb_logsys_loggers[subsysid].logfile_fp = NULL;
+		if ((logsys_loggers[i].logfile_fp ==
+		     logsys_loggers[subsysid].logfile_fp) && (i != subsysid)) {
+			logsys_loggers[subsysid].logfile = NULL;
+			logsys_loggers[subsysid].logfile_fp = NULL;
 			return;
 		}
 	}
@@ -869,27 +680,27 @@ static void qb_logsys_close_logfile(int subsysid)
 	 * if we are here, we are the last users of that fp, so we can safely
 	 * close it.
 	 */
-	fclose(qb_logsys_loggers[subsysid].logfile_fp);
-	qb_logsys_loggers[subsysid].logfile_fp = NULL;
-	free(qb_logsys_loggers[subsysid].logfile);
-	qb_logsys_loggers[subsysid].logfile = NULL;
+	fclose(logsys_loggers[subsysid].logfile_fp);
+	logsys_loggers[subsysid].logfile_fp = NULL;
+	free(logsys_loggers[subsysid].logfile);
+	logsys_loggers[subsysid].logfile = NULL;
 }
 
 /*
  * we need a version that can work when somebody else is already
  * holding a config mutex lock or we will never get out of here
  */
-static int qb_logsys_config_file_set_unlocked(int subsysid,
-					      const char **error_string,
-					      const char *file)
+static int32_t qb_logsys_config_file_set_unlocked(int32_t subsysid,
+						  const char **error_string,
+						  const char *file)
 {
 	static char error_string_response[512];
-	int i;
+	int32_t i;
 
 	qb_logsys_close_logfile(subsysid);
 
 	if ((file == NULL) ||
-	    (strcmp(qb_logsys_loggers[subsysid].subsys, "") == 0)) {
+	    (strcmp(logsys_loggers[subsysid].subsys, "") == 0)) {
 		return (0);
 	}
 
@@ -897,25 +708,25 @@ static int qb_logsys_config_file_set_unlocked(int subsysid,
 		snprintf(error_string_response,
 			 sizeof(error_string_response),
 			 "%s: logfile name exceed maximum system filename lenght\n",
-			 qb_logsys_loggers[subsysid].subsys);
+			 logsys_loggers[subsysid].subsys);
 		*error_string = error_string_response;
 		return (-1);
 	}
 
 	for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-		if ((qb_logsys_loggers[i].logfile != NULL) &&
-		    (strcmp(qb_logsys_loggers[i].logfile, file) == 0) &&
+		if ((logsys_loggers[i].logfile != NULL) &&
+		    (strcmp(logsys_loggers[i].logfile, file) == 0) &&
 		    (i != subsysid)) {
-			qb_logsys_loggers[subsysid].logfile =
-			    qb_logsys_loggers[i].logfile;
-			qb_logsys_loggers[subsysid].logfile_fp =
-			    qb_logsys_loggers[i].logfile_fp;
+			logsys_loggers[subsysid].logfile =
+			    logsys_loggers[i].logfile;
+			logsys_loggers[subsysid].logfile_fp =
+			    logsys_loggers[i].logfile_fp;
 			return (0);
 		}
 	}
 
-	qb_logsys_loggers[subsysid].logfile = strdup(file);
-	if (qb_logsys_loggers[subsysid].logfile == NULL) {
+	logsys_loggers[subsysid].logfile = strdup(file);
+	if (logsys_loggers[subsysid].logfile == NULL) {
 		snprintf(error_string_response,
 			 sizeof(error_string_response),
 			 "Unable to allocate memory for logfile '%s'\n", file);
@@ -923,12 +734,12 @@ static int qb_logsys_config_file_set_unlocked(int subsysid,
 		return (-1);
 	}
 
-	qb_logsys_loggers[subsysid].logfile_fp = fopen(file, "a+");
-	if (qb_logsys_loggers[subsysid].logfile_fp == NULL) {
+	logsys_loggers[subsysid].logfile_fp = fopen(file, "a+");
+	if (logsys_loggers[subsysid].logfile_fp == NULL) {
 		char error_str[100];
 		strerror_r(errno, error_str, 100);
-		free(qb_logsys_loggers[subsysid].logfile);
-		qb_logsys_loggers[subsysid].logfile = NULL;
+		free(logsys_loggers[subsysid].logfile);
+		logsys_loggers[subsysid].logfile = NULL;
 		snprintf(error_string_response,
 			 sizeof(error_string_response),
 			 "Can't open logfile '%s' for reason (%s).\n",
@@ -940,19 +751,17 @@ static int qb_logsys_config_file_set_unlocked(int subsysid,
 	return (0);
 }
 
-static void qb_logsys_subsys_init(const char *subsys, int subsysid)
+static void qb_logsys_subsys_init(const char *subsys, int32_t subsysid)
 {
-	if (qb_logsys_system_needs_init == QB_LOGSYS_LOGGER_NEEDS_INIT) {
-		qb_logsys_loggers[subsysid].init_status =
-		    QB_LOGSYS_LOGGER_NEEDS_INIT;
+	if (logsys_system_needs_init == LOGSYS_LOGGER_NEEDS_INIT) {
+		logsys_loggers[subsysid].init_status = LOGSYS_LOGGER_NEEDS_INIT;
 	} else {
-		memcpy(&qb_logsys_loggers[subsysid],
-		       &qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT],
-		       sizeof(qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT]));
-		qb_logsys_loggers[subsysid].init_status =
-		    QB_LOGSYS_LOGGER_INIT_DONE;
+		memcpy(&logsys_loggers[subsysid],
+		       &logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT],
+		       sizeof(logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT]));
+		logsys_loggers[subsysid].init_status = LOGSYS_LOGGER_INIT_DONE;
 	}
-	strncpy(qb_logsys_loggers[subsysid].subsys, subsys,
+	strncpy(logsys_loggers[subsysid].subsys, subsys,
 		QB_LOGSYS_MAX_SUBSYS_NAMELEN);
 }
 
@@ -960,14 +769,14 @@ static void qb_logsys_subsys_init(const char *subsys, int subsysid)
  * Internal API - exported
  */
 
-int _logsys_system_setup(const char *mainsystem,
-			 unsigned int mode,
-			 unsigned int debug,
-			 const char *logfile,
-			 int logfile_priority,
-			 int syslog_facility, int syslog_priority)
+int32_t _logsys_system_setup(const char *mainsystem,
+			     uint32_t mode,
+			     uint32_t debug,
+			     const char *logfile,
+			     int32_t logfile_priority,
+			     int32_t syslog_facility, int32_t syslog_priority)
 {
-	int i;
+	int32_t i;
 	const char *errstr;
 	char tempsubsys[QB_LOGSYS_MAX_SUBSYS_NAMELEN];
 
@@ -980,32 +789,32 @@ int _logsys_system_setup(const char *mainsystem,
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 
-	snprintf(qb_logsys_loggers[i].subsys,
+	snprintf(logsys_loggers[i].subsys,
 		 QB_LOGSYS_MAX_SUBSYS_NAMELEN, "%s", mainsystem);
 
-	qb_logsys_loggers[i].mode = mode;
+	logsys_loggers[i].mode = mode;
 
-	qb_logsys_loggers[i].debug = debug;
+	logsys_loggers[i].debug = debug;
 
 	if (qb_logsys_config_file_set_unlocked(i, &errstr, logfile) < 0) {
 		pthread_mutex_unlock(&qb_logsys_config_mutex);
 		return (-1);
 	}
-	qb_logsys_loggers[i].logfile_priority = logfile_priority;
+	logsys_loggers[i].logfile_priority = logfile_priority;
 
-	qb_logsys_loggers[i].syslog_facility = syslog_facility;
-	qb_logsys_loggers[i].syslog_priority = syslog_priority;
+	logsys_loggers[i].syslog_facility = syslog_facility;
+	logsys_loggers[i].syslog_priority = syslog_priority;
 	syslog_facility_reconf();
 
-	qb_logsys_loggers[i].init_status = QB_LOGSYS_LOGGER_INIT_DONE;
+	logsys_loggers[i].init_status = LOGSYS_LOGGER_INIT_DONE;
 
-	qb_logsys_system_needs_init = QB_LOGSYS_LOGGER_INIT_DONE;
+	logsys_system_needs_init = LOGSYS_LOGGER_INIT_DONE;
 
 	for (i = 0; i < QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-		if ((strcmp(qb_logsys_loggers[i].subsys, "") != 0) &&
-		    (qb_logsys_loggers[i].init_status ==
-		     QB_LOGSYS_LOGGER_NEEDS_INIT)) {
-			strncpy(tempsubsys, qb_logsys_loggers[i].subsys,
+		if ((strcmp(logsys_loggers[i].subsys, "") != 0) &&
+		    (logsys_loggers[i].init_status ==
+		     LOGSYS_LOGGER_NEEDS_INIT)) {
+			strncpy(tempsubsys, logsys_loggers[i].subsys,
 				QB_LOGSYS_MAX_SUBSYS_NAMELEN);
 			qb_logsys_subsys_init(tempsubsys, i);
 		}
@@ -1016,9 +825,9 @@ int _logsys_system_setup(const char *mainsystem,
 	return (0);
 }
 
-unsigned int _logsys_subsys_create(const char *subsys)
+uint32_t _logsys_subsys_create(const char *subsys)
 {
-	int i;
+	int32_t i;
 
 	if ((subsys == NULL) ||
 	    (strlen(subsys) >= QB_LOGSYS_MAX_SUBSYS_NAMELEN)) {
@@ -1034,7 +843,7 @@ unsigned int _logsys_subsys_create(const char *subsys)
 	}
 
 	for (i = 0; i < QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-		if (strcmp(qb_logsys_loggers[i].subsys, "") == 0) {
+		if (strcmp(logsys_loggers[i].subsys, "") == 0) {
 			qb_logsys_subsys_init(subsys, i);
 			break;
 		}
@@ -1048,68 +857,30 @@ unsigned int _logsys_subsys_create(const char *subsys)
 	return i;
 }
 
-int _logsys_wthread_create(void)
+int32_t _logsys_wthread_create(void)
 {
-	if (((qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].
-	      mode & QB_LOGSYS_MODE_FORK) == 0)
+	if (((logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].mode &
+	      QB_LOGSYS_MODE_FORK) == 0)
 	    &&
-	    ((qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].
-	      mode & QB_LOGSYS_MODE_THREADED) != 0)) {
+	    ((logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].mode &
+	      QB_LOGSYS_MODE_THREADED) != 0)) {
 		wthread_create();
 		atexit(qb_logsys_atexit);
 	}
 	return (0);
 }
 
-int _logsys_rec_init(unsigned int fltsize)
+int32_t _logsys_rec_init(uint32_t fltsize)
 {
-	/*
-	 * we need to allocate:
-	 * - requested size +
-	 *   2 extra unsigned ints for HEAD/TAIL tracking
-	 *
-	 * then round it up to the next PAGESIZE
-	 */
-	size_t flt_real_size;
+	sem_init(&logsys_thread_start, 0, 0);
 
-	/*
-	 * XXX: kill me for 1.1 because I am a dirty hack
-	 * temporary workaround that will be replaced by supporting
-	 * 0 byte size flight recorder buffer.
-	 * 0 byte size buffer will enable direct printing to logs
-	 *   without flight recoder.
-	 */
-	if (fltsize < 64000) {
-		fltsize = 64000;
-	}
+	sem_init(&logsys_print_finished, 0, 0);
 
-	flt_real_size = ROUNDUP((fltsize + (2 * sizeof(unsigned int))),
-				sysconf(_SC_PAGESIZE));
+	logsys_flt_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
+	logsys_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 
-	flt_data = malloc(flt_real_size);
-	if (flt_data == NULL) {
-		return (-1);
-	}
-
-	/*
-	 * flt_data_size tracks data by ints and not bytes/chars.
-	 *
-	 * the last 2 ints are reserved to store HEAD/TAIL information.
-	 * hide them from the rotating buffer.
-	 */
-
-	flt_data_size = ((flt_real_size / sizeof(unsigned int)) - 2);
-
-	/*
-	 * First record starts at zero
-	 * Last record ends at zero
-	 */
-	flt_data[FDHEAD_INDEX] = 0;
-	flt_data[FDTAIL_INDEX] = 0;
-
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
-	pthread_spin_init(&qb_logsys_idx_spinlock, 0);
-#endif
+	rb = qb_rb_open("logsys", fltsize,
+			QB_RB_FLAG_OVERWRITE | QB_RB_FLAG_CREATE);
 
 	return (0);
 }
@@ -1130,20 +901,19 @@ int _logsys_rec_init(unsigned int fltsize)
  * ... repeats length & arg
  */
 
-void _logsys_log_rec(unsigned int rec_ident,
+void _logsys_log_rec(uint32_t rec_ident,
 		     const char *function_name,
-		     const char *file_name, int file_line, ...)
+		     const char *file_name, int32_t file_line, ...)
 {
 	va_list ap;
 	const void *buf_args[FDMAX_ARGS];
-	unsigned int buf_len[FDMAX_ARGS];
-	unsigned int i;
-	unsigned int idx;
-	unsigned int arguments = 0;
-	unsigned int record_reclaim_size = 0;
-	unsigned int index_start;
-	int words_written;
-	int subsysid;
+	uint32_t buf_len[FDMAX_ARGS];
+	uint32_t i;
+	uint32_t idx;
+	uint32_t arguments = 0;
+	uint32_t record_reclaim_size = 0;
+	int32_t subsysid;
+	int32_t *flt_data;
 
 	subsysid = QB_LOGSYS_DECODE_SUBSYSID(rec_ident);
 
@@ -1157,7 +927,7 @@ void _logsys_log_rec(unsigned int rec_ident,
 		if (buf_args[arguments] == QB_LOGSYS_REC_END) {
 			break;
 		}
-		buf_len[arguments] = va_arg(ap, int);
+		buf_len[arguments] = va_arg(ap, int32_t);
 		record_reclaim_size += ((buf_len[arguments] + 3) >> 2) + 1;
 		arguments++;
 		if (arguments >= FDMAX_ARGS) {
@@ -1169,8 +939,8 @@ void _logsys_log_rec(unsigned int rec_ident,
 	/*
 	 * Encode qb_logsys subsystem identity, filename, and function
 	 */
-	buf_args[0] = qb_logsys_loggers[subsysid].subsys;
-	buf_len[0] = strlen(qb_logsys_loggers[subsysid].subsys) + 1;
+	buf_args[0] = logsys_loggers[subsysid].subsys;
+	buf_len[0] = strlen(logsys_loggers[subsysid].subsys) + 1;
 	buf_args[1] = file_name;
 	buf_len[1] = strlen(file_name) + 1;
 	buf_args[2] = function_name;
@@ -1179,136 +949,70 @@ void _logsys_log_rec(unsigned int rec_ident,
 		record_reclaim_size += ((buf_len[i] + 3) >> 2) + 1;
 	}
 
-	idx = flt_data[FDHEAD_INDEX];
-	index_start = idx;
+	record_reclaim_size += 4;
+	qb_thread_lock(logsys_flt_lock);
 
-	/*
-	 * Reclaim data needed for record including 4 words for the header
-	 */
-	records_reclaim(idx, record_reclaim_size + 4);
-
-	/*
-	 * Write record size of zero and rest of header information
-	 */
-	flt_data[idx++] = 0;
-	idx_word_step(idx);
+	flt_data =
+	    qb_rb_chunk_writable_alloc(rb,
+				       (record_reclaim_size *
+					sizeof(uint32_t)));
+	assert(flt_data != NULL);
+	idx = 0;
 
 	flt_data[idx++] = rec_ident;
-	idx_word_step(idx);
-
 	flt_data[idx++] = file_line;
-	idx_word_step(idx);
-
 	flt_data[idx++] = records_written;
-	idx_word_step(idx);
 	/*
 	 * Encode all of the arguments into the log message
 	 */
 	for (i = 0; i < arguments; i++) {
-		unsigned int bytes;
-		unsigned int full_words;
-		unsigned int total_words;
+		uint32_t bytes;
+		uint32_t full_words;
+		uint32_t total_words;
 
 		bytes = buf_len[i];
 		full_words = bytes >> 2;
 		total_words = (bytes + 3) >> 2;
 
 		flt_data[idx++] = total_words;
-		idx_word_step(idx);
+		memcpy(&flt_data[idx], buf_args[i], buf_len[i]);
 
-		/*
-		 * determine if this is a wrapped write or normal write
-		 */
-		if (idx + total_words < flt_data_size) {
-			/*
-			 * dont need to wrap buffer
-			 */
-			my_memcpy_32bit(&flt_data[idx], buf_args[i],
-					full_words);
-			if (bytes % 4) {
-				my_memcpy_8bit((char *)
-					       &flt_data[idx + full_words],
-					       ((const char *)buf_args[i]) +
-					       (full_words << 2), bytes % 4);
-			}
-		} else {
-			/*
-			 * need to wrap buffer
-			 */
-			unsigned int first;
-			unsigned int second;
-
-			first = flt_data_size - idx;
-			if (first > full_words) {
-				first = full_words;
-			}
-			second = full_words - first;
-			my_memcpy_32bit(&flt_data[idx],
-					(const int *)buf_args[i], first);
-			my_memcpy_32bit(&flt_data[0],
-					(const int
-					 *)(((const unsigned char *)buf_args[i])
-					    + (first << 2)), second);
-			if (bytes % 4) {
-				my_memcpy_8bit((char *)&flt_data[0 + second],
-					       ((const char *)buf_args[i]) +
-					       (full_words << 2), bytes % 4);
-			}
-		}
 		idx += total_words;
-		idx_buffer_step(idx);
-	}
-	words_written = idx - index_start;
-	if (words_written < 0) {
-		words_written += flt_data_size;
 	}
 
 	/*
 	 * Commit the write of the record size now that the full record
 	 * is in the memory buffer
 	 */
-	flt_data[index_start] = words_written;
+	if (record_reclaim_size < idx) {
+		printf("record_reclaim_size:%u idx:%d commit_size:%lu",
+		       record_reclaim_size, idx, (idx * sizeof(uint32_t)));
+		sleep(1);
+		assert(0);
+	}
+	qb_rb_chunk_writable_commit(rb, (idx * sizeof(uint32_t)));
 
-	/*
-	 * If the index of the current head equals the current log_rec_idx,
-	 * and this is not a log_printf operation, set the log_rec_idx to
-	 * the new head position and commit the new head.
-	 */
-	qb_logsys_lock();
-	if (QB_LOGSYS_DECODE_RECID(rec_ident) == QB_LOGSYS_RECID_LOG) {
-		log_requests_pending += 1;
-	}
-	if (log_requests_pending == 0) {
-		log_rec_idx = idx;
-	}
-	flt_data[FDHEAD_INDEX] = idx;
-	qb_logsys_unlock();
+	qb_thread_unlock(logsys_flt_lock);
 	records_written++;
 }
 
-void _logsys_log_vprintf(unsigned int rec_ident,
+void _logsys_log_vprintf(uint32_t rec_ident,
 			 const char *function_name,
 			 const char *file_name,
-			 int file_line, const char *format, va_list ap)
+			 int32_t file_line, const char *format, va_list ap)
 {
-	char qb_logsys_print_buffer[COMBINE_BUFFER_SIZE];
-	unsigned int len;
-	unsigned int level;
-	int subsysid;
+	char logsys_print_buffer[COMBINE_BUFFER_SIZE];
+	uint32_t len;
+	uint32_t level;
+	int32_t subsysid;
 	const char *short_file_name;
 
 	subsysid = QB_LOGSYS_DECODE_SUBSYSID(rec_ident);
 	level = QB_LOGSYS_DECODE_LEVEL(rec_ident);
 
-	if ((level > qb_logsys_loggers[subsysid].syslog_priority) &&
-	    (level > qb_logsys_loggers[subsysid].logfile_priority) &&
-	    (qb_logsys_loggers[subsysid].debug == 0)) {
-		return;
-	}
-
-	len = vsprintf(qb_logsys_print_buffer, format, ap);
-	if (qb_logsys_print_buffer[len - 1] == '\n') {
-		qb_logsys_print_buffer[len - 1] = '\0';
+	len = vsprintf(logsys_print_buffer, format, ap);
+	if (logsys_print_buffer[len - 1] == '\n') {
+		logsys_print_buffer[len - 1] = '\0';
 		len -= 1;
 	}
 #ifdef BUILDING_IN_PLACE
@@ -1328,29 +1032,46 @@ void _logsys_log_vprintf(unsigned int rec_ident,
 			function_name,
 			short_file_name,
 			file_line,
-			qb_logsys_print_buffer, len + 1, QB_LOGSYS_REC_END);
+			logsys_print_buffer, len + 1, QB_LOGSYS_REC_END);
 
-	if ((qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].
-	     mode & QB_LOGSYS_MODE_THREADED) == 0) {
+	/*
+	 * If logsys is not going to print a message to a log target don't
+	 * queue one
+	 */
+	if ((level > logsys_loggers[subsysid].syslog_priority &&
+	     level > logsys_loggers[subsysid].logfile_priority &&
+	     logsys_loggers[subsysid].debug == 0) ||
+	    (level == QB_LOGSYS_LEVEL_DEBUG &&
+	     logsys_loggers[subsysid].debug == 0)) {
+
+		return;
+	}
+
+	if ((logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].mode &
+	     QB_LOGSYS_MODE_THREADED) == 0) {
 		/*
 		 * Output (and block) if the log mode is not threaded otherwise
 		 * expect the worker thread to output the log data once signaled
 		 */
 		log_printf_to_logs(rec_ident,
-				   short_file_name, function_name, file_line,
-				   qb_logsys_print_buffer);
+				   short_file_name,
+				   function_name,
+				   file_line, logsys_print_buffer);
 	} else {
 		/*
 		 * Signal worker thread to display logging output
 		 */
-		wthread_signal();
+		log_printf_to_logs_wthread(rec_ident,
+					   short_file_name,
+					   function_name,
+					   file_line, logsys_print_buffer);
 	}
 }
 
-void _logsys_log_printf(unsigned int rec_ident,
+void _logsys_log_printf(uint32_t rec_ident,
 			const char *function_name,
 			const char *file_name,
-			int file_line, const char *format, ...)
+			int32_t file_line, const char *format, ...)
 {
 	va_list ap;
 
@@ -1360,9 +1081,9 @@ void _logsys_log_printf(unsigned int rec_ident,
 	va_end(ap);
 }
 
-int _logsys_config_subsys_get(const char *subsys)
+int32_t _logsys_config_subsys_get(const char *subsys)
 {
-	unsigned int i;
+	uint32_t i;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 
@@ -1378,25 +1099,24 @@ int _logsys_config_subsys_get(const char *subsys)
  */
 void qb_logsys_fork_completed(void)
 {
-	qb_logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].mode &=
-	    ~QB_LOGSYS_MODE_FORK;
+	logsys_loggers[QB_LOGSYS_MAX_SUBSYS_COUNT].mode &= ~QB_LOGSYS_MODE_FORK;
 	_logsys_wthread_create();
 }
 
-unsigned int qb_logsys_config_mode_set(const char *subsys, unsigned int mode)
+int32_t qb_logsys_config_mode_set(const char *subsys, uint32_t mode)
 {
-	int i;
+	int32_t i;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 	if (subsys != NULL) {
 		i = _logsys_config_subsys_get_unlocked(subsys);
 		if (i >= 0) {
-			qb_logsys_loggers[i].mode = mode;
+			logsys_loggers[i].mode = mode;
 			i = 0;
 		}
 	} else {
 		for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-			qb_logsys_loggers[i].mode = mode;
+			logsys_loggers[i].mode = mode;
 		}
 		i = 0;
 	}
@@ -1405,23 +1125,23 @@ unsigned int qb_logsys_config_mode_set(const char *subsys, unsigned int mode)
 	return i;
 }
 
-unsigned int qb_logsys_config_mode_get(const char *subsys)
+uint32_t qb_logsys_config_mode_get(const char *subsys)
 {
-	int i;
+	int32_t i;
 
 	i = _logsys_config_subsys_get(subsys);
 	if (i < 0) {
 		return i;
 	}
 
-	return qb_logsys_loggers[i].mode;
+	return logsys_loggers[i].mode;
 }
 
-int qb_logsys_config_file_set(const char *subsys,
-			      const char **error_string, const char *file)
+int32_t qb_logsys_config_file_set(const char *subsys,
+				  const char **error_string, const char *file)
 {
-	int i;
-	int res;
+	int32_t i;
+	int32_t res;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 
@@ -1449,9 +1169,9 @@ int qb_logsys_config_file_set(const char *subsys,
 	return res;
 }
 
-int qb_logsys_format_set(const char *format)
+int32_t qb_logsys_format_set(const char *format)
 {
-	int ret = 0;
+	int32_t ret = 0;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 
@@ -1474,16 +1194,16 @@ char *qb_logsys_format_get(void)
 	return format_buffer;
 }
 
-unsigned int qb_logsys_config_syslog_facility_set(const char *subsys,
-						  unsigned int facility)
+int32_t qb_logsys_config_syslog_facility_set(const char *subsys,
+					     uint32_t facility)
 {
-	int i;
+	int32_t i;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 	if (subsys != NULL) {
 		i = _logsys_config_subsys_get_unlocked(subsys);
 		if (i >= 0) {
-			qb_logsys_loggers[i].syslog_facility = facility;
+			logsys_loggers[i].syslog_facility = facility;
 			if (i == QB_LOGSYS_MAX_SUBSYS_COUNT) {
 				syslog_facility_reconf();
 			}
@@ -1491,7 +1211,7 @@ unsigned int qb_logsys_config_syslog_facility_set(const char *subsys,
 		}
 	} else {
 		for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-			qb_logsys_loggers[i].syslog_facility = facility;
+			logsys_loggers[i].syslog_facility = facility;
 		}
 		syslog_facility_reconf();
 		i = 0;
@@ -1501,21 +1221,21 @@ unsigned int qb_logsys_config_syslog_facility_set(const char *subsys,
 	return i;
 }
 
-unsigned int qb_logsys_config_syslog_priority_set(const char *subsys,
-						  unsigned int priority)
+int32_t qb_logsys_config_syslog_priority_set(const char *subsys,
+					     uint32_t priority)
 {
-	int i;
+	int32_t i;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 	if (subsys != NULL) {
 		i = _logsys_config_subsys_get_unlocked(subsys);
 		if (i >= 0) {
-			qb_logsys_loggers[i].syslog_priority = priority;
+			logsys_loggers[i].syslog_priority = priority;
 			i = 0;
 		}
 	} else {
 		for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-			qb_logsys_loggers[i].syslog_priority = priority;
+			logsys_loggers[i].syslog_priority = priority;
 		}
 		i = 0;
 	}
@@ -1524,21 +1244,21 @@ unsigned int qb_logsys_config_syslog_priority_set(const char *subsys,
 	return i;
 }
 
-unsigned int qb_logsys_config_logfile_priority_set(const char *subsys,
-						   unsigned int priority)
+int32_t qb_logsys_config_logfile_priority_set(const char *subsys,
+					      uint32_t priority)
 {
-	int i;
+	int32_t i;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 	if (subsys != NULL) {
 		i = _logsys_config_subsys_get_unlocked(subsys);
 		if (i >= 0) {
-			qb_logsys_loggers[i].logfile_priority = priority;
+			logsys_loggers[i].logfile_priority = priority;
 			i = 0;
 		}
 	} else {
 		for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-			qb_logsys_loggers[i].logfile_priority = priority;
+			logsys_loggers[i].logfile_priority = priority;
 		}
 		i = 0;
 	}
@@ -1547,20 +1267,20 @@ unsigned int qb_logsys_config_logfile_priority_set(const char *subsys,
 	return i;
 }
 
-unsigned int qb_logsys_config_debug_set(const char *subsys, unsigned int debug)
+int32_t qb_logsys_config_debug_set(const char *subsys, uint32_t debug)
 {
-	int i;
+	int32_t i;
 
 	pthread_mutex_lock(&qb_logsys_config_mutex);
 	if (subsys != NULL) {
 		i = _logsys_config_subsys_get_unlocked(subsys);
 		if (i >= 0) {
-			qb_logsys_loggers[i].debug = debug;
+			logsys_loggers[i].debug = debug;
 			i = 0;
 		}
 	} else {
 		for (i = 0; i <= QB_LOGSYS_MAX_SUBSYS_COUNT; i++) {
-			qb_logsys_loggers[i].debug = debug;
+			logsys_loggers[i].debug = debug;
 		}
 		i = 0;
 	}
@@ -1569,9 +1289,9 @@ unsigned int qb_logsys_config_debug_set(const char *subsys, unsigned int debug)
 	return i;
 }
 
-int qb_logsys_facility_id_get(const char *name)
+int32_t qb_logsys_facility_id_get(const char *name)
 {
-	unsigned int i;
+	uint32_t i;
 
 	for (i = 0; facilitynames[i].c_name != NULL; i++) {
 		if (strcasecmp(name, facilitynames[i].c_name) == 0) {
@@ -1581,9 +1301,9 @@ int qb_logsys_facility_id_get(const char *name)
 	return (-1);
 }
 
-const char *qb_logsys_facility_name_get(unsigned int facility)
+const char *qb_logsys_facility_name_get(uint32_t facility)
 {
-	unsigned int i;
+	uint32_t i;
 
 	for (i = 0; facilitynames[i].c_name != NULL; i++) {
 		if (facility == facilitynames[i].c_val) {
@@ -1593,9 +1313,9 @@ const char *qb_logsys_facility_name_get(unsigned int facility)
 	return (NULL);
 }
 
-int qb_logsys_priority_id_get(const char *name)
+int32_t qb_logsys_priority_id_get(const char *name)
 {
-	unsigned int i;
+	uint32_t i;
 
 	for (i = 0; prioritynames[i].c_name != NULL; i++) {
 		if (strcasecmp(name, prioritynames[i].c_name) == 0) {
@@ -1605,9 +1325,9 @@ int qb_logsys_priority_id_get(const char *name)
 	return (-1);
 }
 
-const char *qb_logsys_priority_name_get(unsigned int priority)
+const char *qb_logsys_priority_name_get(uint32_t priority)
 {
-	unsigned int i;
+	uint32_t i;
 
 	for (i = 0; prioritynames[i].c_name != NULL; i++) {
 		if (priority == prioritynames[i].c_val) {
@@ -1617,11 +1337,11 @@ const char *qb_logsys_priority_name_get(unsigned int priority)
 	return (NULL);
 }
 
-int qb_logsys_thread_priority_set(int policy,
-				  const struct sched_param *param,
-				  unsigned int after_log_ops_yield)
+int32_t qb_logsys_thread_priority_set(int32_t policy,
+				      const struct sched_param * param,
+				      uint32_t after_log_ops_yield)
 {
-	int res = 0;
+	int32_t res = 0;
 
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 	if (wthread_active == 0) {
@@ -1635,35 +1355,26 @@ int qb_logsys_thread_priority_set(int policy,
 #endif
 
 	if (after_log_ops_yield > 0) {
-		qb_logsys_after_log_ops_yield = after_log_ops_yield;
+		logsys_after_log_ops_yield = after_log_ops_yield;
 	}
 
 	return (res);
 }
 
-int qb_logsys_log_rec_store(const char *filename)
+int32_t qb_logsys_log_rec_store(const char *filename)
 {
-	int fd;
+	int32_t fd;
 	ssize_t written_size;
-	size_t size_to_write = (flt_data_size + 2) * sizeof(unsigned int);
 
 	fd = open(filename, O_CREAT | O_RDWR, 0700);
 	if (fd < 0) {
 		return (-1);
 	}
 
-	written_size = write(fd, &flt_data_size, sizeof(unsigned int));
-	if ((written_size < 0) || (written_size != sizeof(unsigned int))) {
-		close(fd);
-		return (-1);
-	}
-
-	written_size = write(fd, flt_data, size_to_write);
+	written_size = qb_rb_write_to_file(rb, fd);
 	if (close(fd) != 0)
 		return (-1);
 	if (written_size < 0) {
-		return (-1);
-	} else if ((size_t) written_size != size_to_write) {
 		return (-1);
 	}
 
@@ -1672,14 +1383,43 @@ int qb_logsys_log_rec_store(const char *filename)
 
 void qb_logsys_atexit(void)
 {
-	if (wthread_active) {
+	int32_t res;
+	int32_t value;
+	struct record *rec;
+
+	if (wthread_active == 0) {
+		for (;;) {
+			qb_thread_lock(logsys_wthread_lock);
+
+			res = sem_getvalue(&logsys_print_finished, &value);
+			if (value == 0) {
+				qb_thread_unlock(logsys_wthread_lock);
+				return;
+			}
+			sem_wait(&logsys_print_finished);
+
+			rec =
+			    qb_list_entry(logsys_print_finished_records.next,
+					  struct record, list);
+			qb_list_del(&rec->list);
+			logsys_memory_used =
+			    logsys_memory_used - strlen(rec->buffer) -
+			    sizeof(struct record) - 1;
+			qb_thread_unlock(logsys_wthread_lock);
+			log_printf_to_logs(rec->rec_ident,
+					   rec->file_name,
+					   rec->function_name,
+					   rec->file_line, rec->buffer);
+			free(rec->buffer);
+			free(rec);
+		}
+	} else {
 		wthread_should_exit = 1;
-		wthread_signal();
-		pthread_join(qb_logsys_thread_id, NULL);
+		sem_post(&logsys_print_finished);
+		pthread_join(logsys_thread_id, NULL);
 	}
 }
 
 void qb_logsys_flush(void)
 {
-	wthread_signal();
 }

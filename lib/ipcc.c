@@ -255,11 +255,16 @@ circular_memory_map(char *path, const char *file, void **buf, size_t bytes)
 	}
 
 	res = ftruncate(fd, bytes);
+	if (res == -1) {
+		close(fd);
+		return (-1);
+	}
 
 	addr_orig = mmap(NULL, bytes << 1, PROT_NONE,
 			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
+		close(fd);
 		return (-1);
 	}
 
@@ -267,6 +272,7 @@ circular_memory_map(char *path, const char *file, void **buf, size_t bytes)
 		    MAP_FIXED | MAP_SHARED, fd, 0);
 
 	if (addr != addr_orig) {
+		close(fd);
 		return (-1);
 	}
 #ifdef QB_BSD
@@ -276,6 +282,10 @@ circular_memory_map(char *path, const char *file, void **buf, size_t bytes)
 	addr = mmap(((char *)addr_orig) + bytes,
 		    bytes, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_SHARED, fd, 0);
+	if (addr == MAP_FAILED) {
+		close(fd);
+		return (-1);
+	}
 #ifdef QB_BSD
 	madvise(((char *)addr_orig) + bytes, bytes, MADV_NOSYNC);
 #endif
@@ -329,11 +339,16 @@ static int memory_map(char *path, const char *file, void **buf, size_t bytes)
 	}
 
 	res = ftruncate(fd, bytes);
+	if (res == -1) {
+		close(fd);
+		return (-1);
+	}
 
 	addr_orig = mmap(NULL, bytes, PROT_NONE,
 			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
+		close(fd);
 		return (-1);
 	}
 
@@ -341,6 +356,7 @@ static int memory_map(char *path, const char *file, void **buf, size_t bytes)
 		    MAP_FIXED | MAP_SHARED, fd, 0);
 
 	if (addr != addr_orig) {
+		close(fd);
 		return (-1);
 	}
 #ifdef QB_BSD
@@ -405,45 +421,66 @@ retry_semop:
 	return 0;
 }
 
-static int32_t
-reply_receive(struct ipc_instance *ipc_instance, void *res_msg, size_t res_len)
+static int32_t ipc_sem_wait(struct ipc_instance *ipc_instance, int sem_num)
 {
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	struct sembuf sop;
 #else
 	struct timespec timeout;
 	struct pollfd pfd;
+	sem_t *sem = NULL;
 #endif
-	qb_ipc_response_header_t *response_header;
 	int res;
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
+	switch (sem_num) {
+	case 0:
+		sem = &ipc_instance->control_buffer->sem0;
+		break;
+	case 1:
+		sem = &ipc_instance->control_buffer->sem1;
+		break;
+	case 2:
+		sem = &ipc_instance->control_buffer->sem2;
+		break;
+	}
+
 retry_semwait:
 	timeout.tv_sec = time(NULL) + IPC_SEMWAIT_TIMEOUT;
 	timeout.tv_nsec = 0;
 
-	res = sem_timedwait(&ipc_instance->control_buffer->sem1, &timeout);
+	res = sem_timedwait(sem, &timeout);
 	if (res == -1 && errno == ETIMEDOUT) {
 		pfd.fd = ipc_instance->fd;
 		pfd.events = 0;
 
-		poll(&pfd, 1, 0);
-		if (pfd.revents == POLLERR || pfd.revents == POLLHUP) {
+		res = poll(&pfd, 1, 0);
+
+		if (res == -1 && errno == EINTR) {
+			return EAGAIN;
+		} else if (res == -1) {
 			return EBADE;
 		}
 
-		goto retry_semwait;
-	}
+		if (res == 1) {
+			if (pfd.revents == POLLERR || pfd.revents == POLLHUP
+			    || pfd.revents == POLLNVAL) {
+				return EBADE;
+			}
+		}
 
-	if (res == -1 && errno == EINTR) {
 		goto retry_semwait;
+	} else if (res == -1 && errno == EINTR) {
+		return EAGAIN;
+	} else if (res == -1) {
+		return EBADE;
 	}
 #else
 	/*
-	 * Wait for semaphore #1 indicating a new message from server
-	 * to client in the response queue
+	 * Wait for semaphore indicating a new message from server
+	 * to client in queue
 	 */
-	sop.sem_num = 1;
+	sop.sem_num = sem_num;
 	sop.sem_op = -1;
 	sop.sem_flg = 0;
 
@@ -455,14 +492,26 @@ retry_semop:
 		priv_change_send(ipc_instance);
 		goto retry_semop;
 	} else if (res == -1) {
-		return (EBADE);
+		return EBAD;
 	}
 #endif
+	return 0;
+}
+
+static int32_t
+reply_receive(struct ipc_instance *ipc_instance, void *res_msg, size_t res_len)
+{
+	qb_ipc_response_header_t *response_header;
+	int32_t err = 0;
+
+	if ((err = ipc_sem_wait(ipc_instance, 1)) != 0) {
+		return (err);
+	}
 
 	response_header =
 	    (qb_ipc_response_header_t *) ipc_instance->response_buffer;
 	if (response_header->error == EAGAIN) {
-		return EAGAIN;
+		return (EAGAIN);
 	}
 
 	memcpy(res_msg, ipc_instance->response_buffer, res_len);
@@ -472,55 +521,11 @@ retry_semop:
 static int32_t
 reply_receive_in_buf(struct ipc_instance *ipc_instance, void **res_msg)
 {
-#if _POSIX_THREAD_PROCESS_SHARED < 1
-	struct sembuf sop;
-#else
-	struct timespec timeout;
-	struct pollfd pfd;
-#endif
-	int res;
+	int32_t err;
 
-#if _POSIX_THREAD_PROCESS_SHARED > 0
-retry_semwait:
-	timeout.tv_sec = time(NULL) + IPC_SEMWAIT_TIMEOUT;
-	timeout.tv_nsec = 0;
-
-	res = sem_timedwait(&ipc_instance->control_buffer->sem1, &timeout);
-	if (res == -1 && errno == ETIMEDOUT) {
-		pfd.fd = ipc_instance->fd;
-		pfd.events = 0;
-
-		poll(&pfd, 1, 0);
-		if (pfd.revents == POLLERR || pfd.revents == POLLHUP) {
-			return EBADE;
-		}
-
-		goto retry_semwait;
+	if ((err = ipc_sem_wait(ipc_instance, 1)) != 0) {
+		return (err);
 	}
-
-	if (res == -1 && errno == EINTR) {
-		goto retry_semwait;
-	}
-#else
-	/*
-	 * Wait for semaphore #1 indicating a new message from server
-	 * to client in the response queue
-	 */
-	sop.sem_num = 1;
-	sop.sem_op = -1;
-	sop.sem_flg = 0;
-
-retry_semop:
-	res = semop(ipc_instance->semid, &sop, 1);
-	if (res == -1 && errno == EINTR) {
-		return (EAGAIN);
-	} else if (res == -1 && errno == EACCES) {
-		priv_change_send(ipc_instance);
-		goto retry_semop;
-	} else if (res == -1) {
-		return (EBADE);
-	}
-#endif
 
 	*res_msg = (char *)ipc_instance->response_buffer;
 	return 0;
@@ -632,7 +637,6 @@ qb_ipcc_service_connect(const char *socket_name,
 	sem_init(&ipc_instance->control_buffer->sem1, 1, 0);
 	sem_init(&ipc_instance->control_buffer->sem2, 1, 0);
 #else
-
 	/*
 	 * Allocate a semaphore segment
 	 */
@@ -651,6 +655,7 @@ qb_ipcc_service_connect(const char *socket_name,
 		 * an existing shared memory segment for which we have access
 		 */
 		if (errno != EEXIST && errno != EACCES) {
+			res = EBAD;
 			goto error_exit;
 		}
 	}
@@ -658,11 +663,13 @@ qb_ipcc_service_connect(const char *socket_name,
 	semun.val = 0;
 	res = semctl(ipc_instance->semid, 0, SETVAL, semun);
 	if (res != 0) {
+		res = EBAD;
 		goto error_exit;
 	}
 
 	res = semctl(ipc_instance->semid, 1, SETVAL, semun);
 	if (res != 0) {
+		res = EBAD;
 		goto error_exit;
 	}
 #endif
@@ -877,12 +884,9 @@ error_put:
 
 int32_t qb_ipcc_dispatch_put(qb_hdb_handle_t handle)
 {
-#if _POSIX_THREAD_PROCESS_SHARED < 1
-	struct sembuf sop;
-#endif
 	qb_ipc_response_header_t *header;
 	struct ipc_instance *ipc_instance;
-	int res;
+	int32_t res;
 	char *addr;
 	unsigned int read_idx;
 
@@ -891,29 +895,10 @@ int32_t qb_ipcc_dispatch_put(qb_hdb_handle_t handle)
 	if (res != 0) {
 		return (res);
 	}
-#if _POSIX_THREAD_PROCESS_SHARED > 0
-retry_semwait:
-	res = sem_wait(&ipc_instance->control_buffer->sem2);
-	if (res == -1 && errno == EINTR) {
-		goto retry_semwait;
-	}
-#else
-	sop.sem_num = 2;
-	sop.sem_op = -1;
-	sop.sem_flg = 0;
-retry_semop:
-	res = semop(ipc_instance->semid, &sop, 1);
-	if (res == -1 && errno == EINTR) {
-		res = EAGAIN;
-		goto error_exit;
-	} else if (res == -1 && errno == EACCES) {
-		priv_change_send(ipc_instance);
-		goto retry_semop;
-	} else if (res == -1) {
-		res = EBADE;
+
+	if ((res = ipc_sem_wait(ipc_instance, 2)) != 0) {
 		goto error_exit;
 	}
-#endif
 
 	addr = ipc_instance->dispatch_buffer;
 
@@ -926,9 +911,7 @@ retry_semop:
 	 */
 	res = 0;
 
-#if _POSIX_THREAD_PROCESS_SHARED < 1
 error_exit:
-#endif
 	qb_hdb_handle_put(&ipc_hdb, handle);
 	qb_hdb_handle_put(&ipc_hdb, handle);
 

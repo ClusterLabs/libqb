@@ -23,6 +23,7 @@
 #define QB_LOGSYS_H_DEFINED
 
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <pthread.h>
@@ -96,7 +97,7 @@ extern "C" {
 /*
  * rec_ident explained:
  *
- * rec_ident is an unsigned int and carries bitfields information
+ * rec_ident is an uint32_t and carries bitfields information
  * on subsys_id, log priority (level) and type of message (RECID).
  *
  * level values are imported from syslog.h.
@@ -141,38 +142,40 @@ extern "C" {
 
 #ifndef QB_LOGSYS_UTILS_ONLY
 
-int _logsys_system_setup(const char *mainsystem,
-			 unsigned int mode,
-			 unsigned int debug,
-			 const char *logfile,
-			 int logfile_priority,
-			 int syslog_facility, int syslog_priority);
+int32_t _logsys_system_setup(const char *mainsystem,
+			     uint32_t mode,
+			     uint32_t debug,
+			     const char *logfile,
+			     int32_t logfile_priority,
+			     int32_t syslog_facility, int32_t syslog_priority);
 
-int _logsys_config_subsys_get(const char *subsys);
+int32_t _logsys_config_subsys_get(const char *subsys);
 
-unsigned int _logsys_subsys_create(const char *subsys);
+uint32_t _logsys_subsys_create(const char *subsys);
 
-int _logsys_rec_init(unsigned int size);
+int32_t _logsys_rec_init(uint32_t size);
 
-void _logsys_log_vprintf(unsigned int rec_ident,
+void _logsys_log_vprintf(uint32_t rec_ident,
 			 const char *function_name,
 			 const char *file_name,
-			 int file_line, const char *format, va_list ap)
-    __attribute__ ((format(printf, 5, 0)));
+			 int32_t file_line,
+			 const char *format,
+			 va_list ap) __attribute__ ((format(printf, 5, 0)));
 
-void _logsys_log_printf(unsigned int rec_ident,
+void _logsys_log_printf(uint32_t rec_ident,
 			const char *function_name,
 			const char *file_name,
-			int file_line, const char *format, ...)
-    __attribute__ ((format(printf, 5, 6)));
+			int32_t file_line,
+			const char *format,
+			...) __attribute__ ((format(printf, 5, 6)));
 
-void _logsys_log_rec(unsigned int rec_ident,
+void _logsys_log_rec(uint32_t rec_ident,
 		     const char *function_name,
-		     const char *file_name, int file_line, ...);
+		     const char *file_name, int32_t file_line, ...);
 
-int _logsys_wthread_create(void);
+int32_t _logsys_wthread_create(void);
 
-static int qb_logsys_subsys_id __attribute__ ((unused)) =
+static int32_t qb_logsys_subsys_id __attribute__ ((unused)) =
     QB_LOGSYS_MAX_SUBSYS_COUNT;
 
 /*
@@ -192,7 +195,7 @@ void qb_logsys_atexit(void);
  */
 void qb_logsys_flush(void);
 
-int qb_logsys_log_rec_store(const char *filename);
+int32_t qb_logsys_log_rec_store(const char *filename);
 
 /*
  * External API - configuration
@@ -201,7 +204,7 @@ int qb_logsys_log_rec_store(const char *filename);
 /*
  * configuration bits that can only be done for the whole system
  */
-int qb_logsys_format_set(const char *format);
+int32_t qb_logsys_format_set(const char *format);
 
 char *qb_logsys_format_get(void);
 
@@ -213,52 +216,50 @@ char *qb_logsys_format_get(void);
  *
  * Pass a NULL subsystem to change them all
  */
-unsigned int qb_logsys_config_syslog_facility_set(const char
-						  *subsys,
-						  unsigned int facility);
+int32_t qb_logsys_config_syslog_facility_set(const char *subsys,
+					     uint32_t facility);
 
-unsigned int qb_logsys_config_syslog_priority_set(const char
-						  *subsys,
-						  unsigned int priority);
+int32_t qb_logsys_config_syslog_priority_set(const char *subsys,
+					     uint32_t priority);
 
-unsigned int qb_logsys_config_mode_set(const char *subsys, unsigned int mode);
+int32_t qb_logsys_config_mode_set(const char *subsys, uint32_t mode);
 
-unsigned int qb_logsys_config_mode_get(const char *subsys);
+uint32_t qb_logsys_config_mode_get(const char *subsys);
 
 /*
  * to close a logfile, just invoke this function with a NULL
  * file or if you want to change logfile, the old one will
  * be closed for you.
  */
-int qb_logsys_config_file_set(const char *subsys,
-			      const char **error_string, const char *file);
+int32_t qb_logsys_config_file_set(const char *subsys,
+				  const char **error_string, const char *file);
 
-unsigned int qb_logsys_config_logfile_priority_set(const char
-						   *subsys,
-						   unsigned int priority);
+int32_t qb_logsys_config_logfile_priority_set(const char *subsys,
+					      uint32_t priority);
 
 /*
  * enabling debug, disable message priority filtering.
  * everything is sent everywhere. priority values
  * for file and syslog are not overwritten.
  */
-unsigned int qb_logsys_config_debug_set(const char *subsys, unsigned int value);
+int32_t qb_logsys_config_debug_set(const char *subsys, uint32_t value);
 
 /*
  * External API - helpers
  *
  * convert facility/priority to/from name/values
  */
-int qb_logsys_facility_id_get(const char *name);
+int32_t qb_logsys_facility_id_get(const char *name);
 
-const char *qb_logsys_facility_name_get(unsigned int facility);
+const char *qb_logsys_facility_name_get(uint32_t facility);
 
-int qb_logsys_priority_id_get(const char *name);
+int32_t qb_logsys_priority_id_get(const char *name);
 
-const char *qb_logsys_priority_name_get(unsigned int priority);
+const char *qb_logsys_priority_name_get(uint32_t priority);
 
-int qb_logsys_thread_priority_set(int policy, const struct sched_param
-				  *param, unsigned int after_log_ops_yield);
+int32_t qb_logsys_thread_priority_set(int32_t policy,
+				      const struct sched_param *param,
+				      uint32_t after_log_ops_yield);
 
 /*
  * External definitions

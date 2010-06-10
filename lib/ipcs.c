@@ -199,12 +199,21 @@ static int memory_map(const char *path, size_t bytes, void **buf)
 
 	unlink(path);
 
+	if (fd == -1) {
+		return (-1);
+	}
+
 	res = ftruncate(fd, bytes);
+	if (res == -1) {
+		close(fd);
+		return (-1);
+	}
 
 	addr_orig = mmap(NULL, bytes, PROT_NONE,
 			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
+		close(fd);
 		return (-1);
 	}
 
@@ -212,6 +221,7 @@ static int memory_map(const char *path, size_t bytes, void **buf)
 		    MAP_FIXED | MAP_SHARED, fd, 0);
 
 	if (addr != addr_orig) {
+		close(fd);
 		return (-1);
 	}
 #ifdef QB_BSD
@@ -237,12 +247,20 @@ static int circular_memory_map(const char *path, size_t bytes, void **buf)
 
 	unlink(path);
 
+	if (fd == -1) {
+		return (-1);
+	}
 	res = ftruncate(fd, bytes);
+	if (res == -1) {
+		close(fd);
+		return (-1);
+	}
 
 	addr_orig = mmap(NULL, bytes << 1, PROT_NONE,
 			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
+		close(fd);
 		return (-1);
 	}
 
@@ -250,6 +268,7 @@ static int circular_memory_map(const char *path, size_t bytes, void **buf)
 		    MAP_FIXED | MAP_SHARED, fd, 0);
 
 	if (addr != addr_orig) {
+		close(fd);
 		return (-1);
 	}
 #ifdef QB_BSD
@@ -259,6 +278,10 @@ static int circular_memory_map(const char *path, size_t bytes, void **buf)
 	addr = mmap(((char *)addr_orig) + bytes,
 		    bytes, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_SHARED, fd, 0);
+	if (addr == MAP_FAILED) {
+		close(fd);
+		return (-1);
+	}
 #ifdef QB_BSD
 	madvise(((char *)addr_orig) + bytes, bytes, MADV_NOSYNC);
 #endif
@@ -613,8 +636,7 @@ retry_semop:
 		send_ok = api->sending_allowed(conn_info->service,
 					       header->id,
 					       header,
-					       conn_info->
-					       sending_allowed_private_data);
+					       conn_info->sending_allowed_private_data);
 
 		/*
 		 * This happens when the message contains some kind of invalid
@@ -650,8 +672,9 @@ retry_semop:
 					      sizeof(qb_ipc_response_header_t));
 		}
 
-		api->sending_allowed_release(conn_info->
-					     sending_allowed_private_data);
+		api->
+		    sending_allowed_release
+		    (conn_info->sending_allowed_private_data);
 		qb_ipcs_refcount_dec(conn);
 	}
 	pthread_exit(0);
@@ -662,6 +685,7 @@ static int req_setup_send(struct conn_info *conn_info, int error)
 	mar_res_setup_t res_setup;
 	unsigned int res;
 
+	memset(&res_setup, 0, sizeof(res_setup));
 	res_setup.error = error;
 
 retry_send:
@@ -867,7 +891,7 @@ static int conn_info_create(int fd)
 /*
  * Exported functions
  */
-void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state)
+extern void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state)
 {
 	int server_fd;
 	struct sockaddr_un un_addr;
@@ -900,8 +924,7 @@ void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state)
 		qb_util_log(LOG_CRIT,
 			    "Could not set non-blocking operation on server socket: %s\n",
 			    error_str);
-		api->
-		    fatal_error
+		api->fatal_error
 		    ("Could not set non-blocking operation on server socket");
 	}
 
