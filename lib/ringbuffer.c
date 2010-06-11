@@ -32,7 +32,6 @@ do {				\
 #define DEBUG_PRINTF(format, args...)
 #endif /* CRAZY_DEBUG_PRINTFS */
 
-
 /* the chunk header is two words
  * 1) the chunk data size
  * 2) the magic number
@@ -40,11 +39,13 @@ do {				\
 #define QB_RB_CHUNK_HEADER_WORDS 2
 #define QB_RB_CHUNK_HEADER_SIZE (sizeof(uint32_t) * QB_RB_CHUNK_HEADER_WORDS)
 #define QB_RB_CHUNK_MAGIC		0xAAAAAAAA
-#define QB_RB_CHUNK_SIZE_GET(rb, pointer) rb->shared_data[pointer]
-#define QB_RB_CHUNK_MAGIC_GET(rb, pointer) rb->shared_data[(pointer + 1) % rb->shared_hdr->size]
+#define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
+	rb->shared_data[pointer]
+#define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
+	rb->shared_data[(pointer + 1) % rb->shared_hdr->size]
 
-#define FDHEAD_INDEX		(rb->shared_hdr->size)
-#define FDTAIL_INDEX		(rb->shared_hdr->size + 1)
+#define QB_RB_WRITE_PT_INDEX (rb->shared_hdr->size)
+#define QB_RB_READ_PT_INDEX (rb->shared_hdr->size + 1)
 
 #define idx_step(idx)					\
 do {							\
@@ -77,8 +78,9 @@ do {							\
 } while (0)
 #endif
 
-static void _check_chunk_locked_(qb_ringbuffer_t * rb, uint32_t pointer);
+static size_t _qb_rb_space_free_locked_(qb_ringbuffer_t * rb);
 static size_t _qb_rb_space_used_locked_(qb_ringbuffer_t * rb);
+static void _qb_rb_chunk_check_locked_(qb_ringbuffer_t * rb, uint32_t pointer);
 static void _qb_rb_chunk_reclaim_locked_(qb_ringbuffer_t * rb);
 
 qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
@@ -157,7 +159,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
 		goto cleanup_hdr;
 	}
 
-	qb_util_log(LOG_INFO,
+	qb_util_log(LOG_DEBUG,
 		    "shm \n size:%zd\n real_size:%zd\n rb->size:%d\n", size,
 		    real_size, rb->shared_hdr->size);
 
@@ -204,14 +206,14 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 
 	rb->lock_fn(rb);
 	rb->shared_hdr->ref_count--;
-	qb_util_log(LOG_INFO, "ref_count:%d", rb->shared_hdr->ref_count);
+	qb_util_log(LOG_DEBUG, "ref_count:%d", rb->shared_hdr->ref_count);
 	if (rb->shared_hdr->ref_count == 0) {
 		destroy_it = 1;
 	}
 	rb->unlock_fn(rb);
 
 	if (destroy_it) {
-		qb_util_log(LOG_INFO, "Destroying ringbuffer");
+		qb_util_log(LOG_DEBUG, "Destroying ringbuffer");
 		rb->lock_destroy_fn(rb);
 		rb->sem_destroy_fn(rb);
 
@@ -310,7 +312,7 @@ ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
 
 void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len)
 {
-	uint32_t idx;
+	uint32_t write_pt;
 
 	rb->lock_fn(rb);
 	/*
@@ -329,24 +331,24 @@ void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len)
 		}
 	}
 
-	idx = rb->shared_hdr->write_pt;
+	write_pt = rb->shared_hdr->write_pt;
 	/*
 	 * insert the chunk header
 	 */
-	rb->shared_data[idx++] = 0;
-	idx_step(idx);
-	rb->shared_data[idx++] = QB_RB_CHUNK_MAGIC;
-	idx_step(idx);
+	rb->shared_data[write_pt++] = 0;
+	idx_step(write_pt);
+	rb->shared_data[write_pt++] = QB_RB_CHUNK_MAGIC;
+	idx_step(write_pt);
 
 	/*
 	 * return a pointer to the begining of the chunk data
 	 */
-	return (void *)&rb->shared_data[idx];
+	return (void *)&rb->shared_data[write_pt];
 
 }
 
 static uint32_t
-_qb_rb_chunk_step_to_next_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
+_qb_rb_chunk_step_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
 {
 	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
 	/*
@@ -381,8 +383,7 @@ int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len)
 	/*
 	 * commit the new write pointer
 	 */
-	rb->shared_hdr->write_pt =
-	    _qb_rb_chunk_step_to_next_locked_(rb, rb->shared_hdr->write_pt);
+	rb->shared_hdr->write_pt = _qb_rb_chunk_step_locked_(rb, old_write_pt);
 
 	DEBUG_PRINTF("%s: read: %u, write: %u (was:%u)\n", __func__,
 		     rb->shared_hdr->read_pt, rb->shared_hdr->write_pt,
@@ -408,9 +409,6 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 		return -1;
 	}
 
-	/*
-	 * copy the data
-	 */
 	memcpy(dest, data, len);
 
 	qb_rb_chunk_writable_commit(rb, len);
@@ -426,10 +424,9 @@ static void _qb_rb_chunk_reclaim_locked_(qb_ringbuffer_t * rb)
 		return;
 	}
 
-	_check_chunk_locked_(rb, rb->shared_hdr->read_pt);
+	_qb_rb_chunk_check_locked_(rb, old_read_pt);
 
-	rb->shared_hdr->read_pt =
-	    _qb_rb_chunk_step_to_next_locked_(rb, rb->shared_hdr->read_pt);
+	rb->shared_hdr->read_pt = _qb_rb_chunk_step_locked_(rb, old_read_pt);
 	rb->shared_hdr->count--;
 
 	/*
@@ -452,11 +449,11 @@ void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 
 ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out)
 {
-	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, rb->shared_hdr->read_pt);
-	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, rb->shared_hdr->read_pt);
+	uint32_t read_pt = rb->shared_hdr->read_pt;
+	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
+	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 
-	*data_out =
-	    &rb->shared_data[rb->shared_hdr->read_pt + QB_RB_CHUNK_HEADER_WORDS];
+	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
 
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
 		errno = ENODATA;
@@ -470,12 +467,16 @@ ssize_t
 qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 		 int32_t timeout)
 {
+	uint32_t read_pt;
 	uint32_t chunk_size;
 	int32_t res;
 
 	res = rb->sem_timedwait_fn(rb, timeout);
 	if (res == -1 && errno != EIDRM) {
-		printf("%s:%d %s\n", __func__, __LINE__, strerror(errno));
+		if (errno != ETIMEDOUT) {
+			qb_util_log(LOG_ERR,
+				    "sem_timedwait %s", strerror(errno));
+		}
 		return -1;
 	}
 
@@ -487,25 +488,24 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 		return -1;
 	}
 	if (_qb_rb_space_used_locked_(rb) == 0) {
-		printf("%s:%d count:%d\n", __func__, __LINE__,
-		       rb->shared_hdr->count);
 		rb->unlock_fn(rb);
 		errno = ENODATA;
 		return -1;
 	}
 
-	_check_chunk_locked_(rb, rb->shared_hdr->read_pt);
-	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, rb->shared_hdr->read_pt);
+	read_pt = rb->shared_hdr->read_pt;
+	_qb_rb_chunk_check_locked_(rb, read_pt);
+	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 
 	if (len < chunk_size) {
-		printf("%s:%d\n", __func__, __LINE__);
 		rb->unlock_fn(rb);
-		return 0;
+		errno = ENOBUFS;
+		return -1;
 	}
 
 	memcpy(data_out,
-	       &rb->shared_data[rb->shared_hdr->read_pt +
-				QB_RB_CHUNK_HEADER_WORDS], chunk_size);
+	       &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS],
+	       chunk_size);
 
 	_qb_rb_chunk_reclaim_locked_(rb);
 	rb->unlock_fn(rb);
@@ -529,7 +529,7 @@ static void print_header(qb_ringbuffer_t * rb)
 	printf(" =>used [%zu bytes]\n", qb_rb_space_used(rb));
 }
 
-static void _check_chunk_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
+static void _qb_rb_chunk_check_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
 {
 	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
 	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, pointer);
@@ -594,29 +594,30 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	n_required = sizeof(uint32_t);
 	n_read = read(fd, &rb->shared_hdr->size, n_required);
 	if (n_read != n_required) {
-		fprintf(stderr, "Unable to read fdata header\n");
+		qb_util_log(LOG_ERR, "Unable to read fdata header %s",
+			    strerror(errno));
 		return NULL;
 	}
 
 	n_required = ((rb->shared_hdr->size + 2) * sizeof(uint32_t));
 
 	if ((rb->shared_data = malloc(n_required)) == NULL) {
-		fprintf(stderr, "exhausted virtual memory\n");
+		qb_util_log(LOG_ERR, "exhausted virtual memory");
 		return NULL;
 	}
 	n_read = read(fd, rb->shared_data, n_required);
 	if (n_read < 0) {
-		fprintf(stderr, "reading file failed: %s\n", strerror(errno));
+		qb_util_log(LOG_ERR, "file read failed: %s", strerror(errno));
 		return NULL;
 	}
 
 	if (n_read != n_required) {
-		printf("Warning: read %lu bytes, but expected %lu\n",
-		       (unsigned long)n_read, (unsigned long)n_required);
+		qb_util_log(LOG_WARNING, "read %zd bytes, but expected %zu",
+			    n_read, n_required);
 	}
 
-	rb->shared_hdr->write_pt = rb->shared_data[FDHEAD_INDEX];
-	rb->shared_hdr->read_pt = rb->shared_data[FDTAIL_INDEX];
+	rb->shared_hdr->write_pt = rb->shared_data[QB_RB_WRITE_PT_INDEX];
+	rb->shared_hdr->read_pt = rb->shared_data[QB_RB_READ_PT_INDEX];
 
 	print_header(rb);
 
