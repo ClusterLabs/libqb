@@ -34,8 +34,6 @@
 #include <qb/qbrb.h>
 #include <qb/qblogsys.h>
 
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
-
 /*
  * syslog prioritynames, facility names to value mapping
  * Some C libraries build this in to their headers, but it is non-portable
@@ -259,8 +257,8 @@ static inline int32_t strcpy_cutoff(char *dest, const char *src, size_t cutoff,
 		cutoff = len;
 	}
 
-	cutoff = MIN(cutoff, buf_len - 1);
-	len = MIN(len, cutoff);
+	cutoff = QB_MIN(cutoff, buf_len - 1);
+	len = QB_MIN(len, cutoff);
 	memcpy(dest, src, len);
 	memset(dest + len, ' ', cutoff - len);
 	dest[cutoff] = '\0';
