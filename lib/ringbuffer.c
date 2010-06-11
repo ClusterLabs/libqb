@@ -128,13 +128,13 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
 		rb->shared_hdr->count = 0;
 		strncpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
 	}
-	if (my_lock_it_create(rb, flags) == -1) {
+	if (qb_rb_lock_create(rb, flags) == -1) {
 		qb_util_log(LOG_ERR, "couldn't get a shared lock %s",
 			    strerror(errno));
 		goto cleanup_hdr;
 	}
 
-	if (my_sem_create(rb, flags) == -1) {
+	if (qb_rb_sem_create(rb, flags) == -1) {
 		qb_util_log(LOG_ERR, "couldn't get a semaphore %s",
 			    strerror(errno));
 		goto cleanup_hdr;
@@ -172,9 +172,9 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
 		rb->shared_data[rb->shared_hdr->size] = 5;
 		rb->shared_hdr->ref_count = 1;
 	} else {
-		my_lock_it(rb);
+		rb->lock_fn(rb);
 		rb->shared_hdr->ref_count++;
-		my_unlock_it(rb);
+		rb->unlock_fn(rb);
 	}
 
 	return rb;
@@ -189,8 +189,8 @@ cleanup_hdr:
 	close(fd_hdr);
 	if (flags & QB_RB_FLAG_CREATE) {
 		unlink(rb->shared_hdr->hdr_path);
-		my_lock_it_destroy(rb);
-		my_sem_destroy(rb);
+		rb->lock_destroy_fn(rb);
+		rb->sem_destroy_fn(rb);
 	}
 	if (rb && (rb->shared_hdr != MAP_FAILED && rb->shared_hdr != NULL)) {
 		munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
@@ -203,18 +203,18 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 {
 	int32_t destroy_it = 0;
 
-	my_lock_it(rb);
+	rb->lock_fn(rb);
 	rb->shared_hdr->ref_count--;
 	qb_util_log(LOG_INFO, "ref_count:%d", rb->shared_hdr->ref_count);
 	if (rb->shared_hdr->ref_count == 0) {
 		destroy_it = 1;
 	}
-	my_unlock_it(rb);
+	rb->unlock_fn(rb);
 
 	if (destroy_it) {
 		qb_util_log(LOG_INFO, "Destroying ringbuffer");
-		my_lock_it_destroy(rb);
-		my_sem_destroy(rb);
+		rb->lock_destroy_fn(rb);
+		rb->sem_destroy_fn(rb);
 
 		unlink(rb->shared_hdr->data_path);
 		unlink(rb->shared_hdr->hdr_path);
@@ -252,11 +252,11 @@ ssize_t qb_rb_space_free(qb_ringbuffer_t * rb)
 {
 	size_t space_free;
 
-	if (my_lock_it(rb) == -1) {
+	if (rb->lock_fn(rb) == -1) {
 		return -1;
 	}
 	space_free = _qb_rb_space_free_locked_(rb);
-	if (my_unlock_it(rb) == -1) {
+	if (rb->unlock_fn(rb) == -1) {
 		/* aarg stuck locked! */
 		qb_util_log(LOG_ERR, "failed to unlock ringbuffer lock %s",
 			    strerror(errno));
@@ -296,11 +296,11 @@ ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
 {
 	size_t used;
 
-	if (my_lock_it(rb) == -1) {
+	if (rb->lock_fn(rb) == -1) {
 		return -1;
 	}
 	used = _qb_rb_space_used_locked_(rb);
-	if (my_unlock_it(rb) == -1) {
+	if (rb->unlock_fn(rb) == -1) {
 		/* aarg stuck locked! */
 		qb_util_log(LOG_ERR, "failed to unlock ringbuffer lock %s",
 			    strerror(errno));
@@ -313,7 +313,7 @@ void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t idx;
 
-	my_lock_it(rb);
+	rb->lock_fn(rb);
 	/*
 	 * Reclaim data if we are over writing and we need space
 	 */
@@ -325,7 +325,7 @@ void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len)
 	} else {
 		if (_qb_rb_space_free_locked_(rb) <
 		    (len + RB_CHUNK_HEADER_SIZE + 4)) {
-			my_unlock_it(rb);
+			rb->unlock_fn(rb);
 			return NULL;
 		}
 	}
@@ -389,7 +389,7 @@ int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len)
 		     rb->shared_hdr->read_pt, rb->shared_hdr->write_pt,
 		     old_write_pt);
 
-	if (my_unlock_it(rb) != 0) {
+	if (rb->unlock_fn(rb) != 0) {
 		qb_util_log(LOG_ERR, "failed to unlock ringbuffer lock %s",
 			    strerror(errno));
 		return -1;
@@ -398,7 +398,7 @@ int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len)
 	/*
 	 * post the notification to the reader
 	 */
-	return my_sem_post(rb);
+	return rb->sem_post_fn(rb);
 }
 
 ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
@@ -446,9 +446,9 @@ static void _qb_rb_chunk_reclaim_locked_(qb_ringbuffer_t * rb)
 
 void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 {
-	my_lock_it(rb);
+	rb->lock_fn(rb);
 	_qb_rb_chunk_reclaim_locked_(rb);
-	my_unlock_it(rb);
+	rb->unlock_fn(rb);
 }
 
 ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out)
@@ -474,13 +474,13 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 	uint32_t chunk_size;
 	int32_t res;
 
-	res = my_sem_timedwait(rb, timeout);
+	res = rb->sem_timedwait_fn(rb, timeout);
 	if (res == -1 && errno != EIDRM) {
 		printf("%s:%d %s\n", __func__, __LINE__, strerror(errno));
 		return -1;
 	}
 
-	if (my_lock_it(rb) == -1) {
+	if (rb->lock_fn(rb) == -1) {
 		res = errno;
 		qb_util_log(LOG_ERR, "could not lock ringbuffer %s",
 			    strerror(errno));
@@ -490,7 +490,7 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 	if (_qb_rb_space_used_locked_(rb) == 0) {
 		printf("%s:%d count:%d\n", __func__, __LINE__,
 		       rb->shared_hdr->count);
-		my_unlock_it(rb);
+		rb->unlock_fn(rb);
 		errno = ENODATA;
 		return -1;
 	}
@@ -500,7 +500,7 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 
 	if (len < chunk_size) {
 		printf("%s:%d\n", __func__, __LINE__);
-		my_unlock_it(rb);
+		rb->unlock_fn(rb);
 		return 0;
 	}
 
@@ -509,7 +509,7 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 				RB_CHUNK_HEADER_WORDS], chunk_size);
 
 	_qb_rb_chunk_reclaim_locked_(rb);
-	my_unlock_it(rb);
+	rb->unlock_fn(rb);
 
 	return chunk_size;
 }
@@ -539,7 +539,7 @@ static void _check_chunk_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
 		printf("size: %x\n", chunk_size);
 		printf("magic: %x\n", chunk_magic);
 		print_header(rb);
-		my_unlock_it(rb);
+		rb->unlock_fn(rb);
 		assert(0);
 	}
 }
