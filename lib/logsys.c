@@ -950,10 +950,8 @@ void _logsys_log_rec(uint32_t rec_ident,
 	record_reclaim_size += 4;
 	qb_thread_lock(logsys_flt_lock);
 
-	flt_data =
-	    qb_rb_chunk_writable_alloc(rb,
-				       (record_reclaim_size *
-					sizeof(uint32_t)));
+	flt_data = qb_rb_chunk_alloc(rb,
+				       (record_reclaim_size * sizeof(uint32_t)));
 	assert(flt_data != NULL);
 	idx = 0;
 
@@ -988,7 +986,7 @@ void _logsys_log_rec(uint32_t rec_ident,
 		sleep(1);
 		assert(0);
 	}
-	qb_rb_chunk_writable_commit(rb, (idx * sizeof(uint32_t)));
+	qb_rb_chunk_commit(rb, (idx * sizeof(uint32_t)));
 
 	qb_thread_unlock(logsys_flt_lock);
 	records_written++;

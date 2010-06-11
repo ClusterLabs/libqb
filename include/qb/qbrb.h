@@ -101,16 +101,16 @@ void qb_rb_close(qb_ringbuffer_t * rb);
 /**
  * Write a chunk to the ring buffer.
  *
- * This simply calls qb_rb_chunk_writable_alloc() and then
- * qb_rb_chunk_writable_commit().
+ * This simply calls qb_rb_chunk_alloc() and then
+ * qb_rb_chunk_commit().
  *
  * @param rb ringbuffer instance
  * @param data (in) the data to write
  * @param len (in) the size of the chunk.
  * @return the amount of bytes actually buffered (either len or -1).
  *
- * @see qb_rb_chunk_writable_alloc()
- * @see qb_rb_chunk_writable_commit()
+ * @see qb_rb_chunk_alloc()
+ * @see qb_rb_chunk_commit()
  */
 ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len);
 
@@ -125,16 +125,16 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len);
  * @param len (in) the size to allocate.
  * @return pointer to chunk to write to, or NULL (if no space).
  *
- * @see qb_rb_chunk_writable_alloc()
+ * @see qb_rb_chunk_alloc()
  */
-void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len);
+void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len);
 
 /**
  * finalize the chunk.
  * @param rb ringbuffer instance
  * @param len (in) the size of the chunk.
  */
-int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len);
+int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len);
 
 /**
  * Read (without reclaiming) the last chunk.

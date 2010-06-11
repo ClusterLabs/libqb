@@ -310,7 +310,7 @@ ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
 	return used;
 }
 
-void *qb_rb_chunk_writable_alloc(qb_ringbuffer_t * rb, size_t len)
+void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t write_pt;
 
@@ -370,7 +370,7 @@ _qb_rb_chunk_step_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
 	return pointer;
 }
 
-int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len)
+int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t old_write_pt = rb->shared_hdr->write_pt;
 	/*
@@ -403,7 +403,7 @@ int32_t qb_rb_chunk_writable_commit(qb_ringbuffer_t * rb, size_t len)
 
 ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 {
-	char *dest = qb_rb_chunk_writable_alloc(rb, len);
+	char *dest = qb_rb_chunk_alloc(rb, len);
 
 	if (dest == NULL) {
 		return -1;
@@ -411,7 +411,7 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 
 	memcpy(dest, data, len);
 
-	qb_rb_chunk_writable_commit(rb, len);
+	qb_rb_chunk_commit(rb, len);
 
 	return len;
 }
