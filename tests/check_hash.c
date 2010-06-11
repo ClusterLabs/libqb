@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 #include <check.h>
 #include <qb/qbhash.h>
 
@@ -31,6 +32,11 @@ START_TEST(test_hash_load)
 	qb_hdb_handle_t handle = 0;
 	void *value;
 	uint64_t value_len;
+
+	if (access("/usr/shar/dict/words", R_OK) != 0 ) {
+		printf("no dict/words - not testing\n");
+		return;
+	}
 
 	res = qb_hash_initialize(&handle, 17, 0);
 
