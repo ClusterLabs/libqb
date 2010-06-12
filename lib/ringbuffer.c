@@ -226,6 +226,11 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 	free(rb);
 }
 
+char* qb_rb_name_get(qb_ringbuffer_t * rb)
+{
+	return rb->shared_hdr->hdr_path;
+}
+
 static size_t _qb_rb_space_free_locked_(qb_ringbuffer_t * rb)
 {
 	uint32_t write_size;

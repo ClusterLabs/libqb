@@ -126,6 +126,13 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags);
 void qb_rb_close(qb_ringbuffer_t * rb);
 
 /**
+ * Get the name of the ringbuffer.
+ * @param rb ringbuffer instance
+ * @return name.
+ */
+char* qb_rb_name_get(qb_ringbuffer_t * rb);
+
+/**
  * Write a chunk to the ring buffer.
  *
  * This simply calls qb_rb_chunk_alloc() and then
