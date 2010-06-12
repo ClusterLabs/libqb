@@ -26,14 +26,46 @@
 
 /**
  * @file qbrb.h
- * @author Angus Salkeld <asalkeld@redhat.com>
- *
  * This implements a ring buffer that works in "chunks" not bytes.
  * So you write/read a complete chunk or not at all.
  * There are two types of ring buffer normal and overwrite.
  * Overwrite will reclaim the oldest chunks inorder to make way for new ones,
  * the normal version will refuse to write a new chunk if the ring buffer
  * is full.
+ *
+ * This implementation is capable of working across processes, but one process
+ * must only write and the other prrocess read.
+ *
+ * The read process will do the following:
+ * @code
+ *	rb = qb_rb_open("test2", 2000, QB_RB_FLAG_SHARED_PROCESS|QB_RB_FLAG_CREATE);
+ *	for (i = 0; i < 200; i++) {
+ *	try_read_again:
+ *		l = qb_rb_chunk_read(rb, (void *)out, 32, 1000);
+ *		if (l < 0) {
+ *			goto try_read_again;
+ *		}
+ *	}
+ *	...
+ *	qb_rb_close(rb);
+ * 
+ * @endcode
+ *
+ * The write process will do the following:
+ * @code
+ *	rb = qb_rb_open("test2", 2000, QB_RB_FLAG_SHARED_PROCESS);
+ *	for (i = 0; i < 200; i++) {
+ * try_write_again:
+ *		l = qb_rb_chunk_write(rb, &v, sizeof(v));
+ *		if (l < sizeof(v)) {
+ *			goto try_write_again;
+ *		}
+ *	}
+ *	...
+ *	qb_rb_close(rb);
+ * @endcode
+ *
+ * @author Angus Salkeld <asalkeld@redhat.com>
  */
 
 /* *INDENT-OFF* */
@@ -66,12 +98,7 @@ extern "C" {
  * @see qb_rb_open()
  */
 #define QB_RB_FLAG_SHARED_PROCESS	0x04
-/*
-PTHREAD_LOCK_SHARED
-PROCESS_LOCK_SHARED
-SEMAPHORE_SIGNAL
-FD_SIGNAL
-*/
+
 struct qb_ringbuffer_s;
 typedef struct qb_ringbuffer_s qb_ringbuffer_t;
 
@@ -117,7 +144,7 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len);
 /**
  * Allocate space for a chunk of the given size.
  *
- * If type == QB_RB_OVERWRITE then this will always return non-null
+ * If type == QB_RB_FLAG_OVERWRITE then this will always return non-null
  * but if it's type is QB_RB_NORMAL then when there is not enough space then
  * it will return NULL.
  *
