@@ -287,10 +287,6 @@ int main(int argc, char *argv[])
 	const char *options = "nvh";
 	int opt;
 
-	if (argc == 1) {
-		show_usage(argv[0]);
-		exit(0);
-	}
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
 		case 'n':	/* non-blocking */
