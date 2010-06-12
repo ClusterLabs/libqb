@@ -29,9 +29,9 @@ extern "C" {
 
 /**
  * @file qblist.h
- * @author Steven Dake <sdake@redhat.com>
- *
  * This is a kernel style list implementation.
+ *
+ * @author Steven Dake <sdake@redhat.com>
  */
 
 struct qb_list_head {
@@ -49,6 +49,7 @@ struct qb_list_head {
 /**
  * Initialize the list entry.
  * Points next and prev pointers to head.
+ * @param head pointer to the list head
  */
 static void inline qb_list_init(struct qb_list_head *head)
 {
@@ -60,7 +61,7 @@ static void inline qb_list_init(struct qb_list_head *head)
  * Add this element to the list.
  *
  * @param element the new element to insert.
- * @param head the list head to add to.
+ * @param head pointer to the list head
  */
 static void inline qb_list_add(struct qb_list_head *element,
 			       struct qb_list_head *head)
@@ -73,6 +74,7 @@ static void inline qb_list_add(struct qb_list_head *element,
 
 /**
  * Add to the list (but at the end of the list).
+ * @param head pointer to the list head
  * @see qb_list_add()
  */
 static void inline qb_list_add_tail(struct qb_list_head *element,
@@ -87,6 +89,7 @@ static void inline qb_list_add_tail(struct qb_list_head *element,
 /**
  * Delete an entry from the list.
  *
+ * @param _remove the list item to remove
  * The code below shows howto delete an entry safely from within a list.
  * @code
  *	struct my_struct *mine;
@@ -141,12 +144,19 @@ static void inline qb_list_del(struct qb_list_head *_remove)
 
 /**
  * A quick test to see if the list is empty (pointing to it's self).
+ * @param head pointer to the list head
+ * @return boolean true/false
  */
-static inline int qb_list_empty(const struct qb_list_head *l)
+static inline int qb_list_empty(const struct qb_list_head *head)
 {
-	return l->next == l;
+	return head->next == head;
 }
 
+/**
+ * join two lists together.
+ * @param list new list to insert into head
+ * @param head pointer to the list head
+ */
 static inline void qb_list_splice(struct qb_list_head *list,
 				  struct qb_list_head *head)
 {
