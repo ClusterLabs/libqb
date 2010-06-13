@@ -452,12 +452,29 @@ void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 	rb->unlock_fn(rb);
 }
 
-ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out)
+ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t
+		timeout)
 {
-	uint32_t read_pt = rb->shared_hdr->read_pt;
-	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
-	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
+	uint32_t read_pt;
+	uint32_t chunk_size;
+	uint32_t chunk_magic;
+	int32_t res;
 
+	res = rb->sem_timedwait_fn(rb, timeout);
+	if (res == -1 && errno == ETIMEDOUT && rb->shared_hdr->count > 0) {
+		qb_util_log(LOG_ERR,
+			"sem timedout but count is %d",
+			rb->shared_hdr->count);
+	} else if (res == -1 && errno != EIDRM) {
+		if (errno != ETIMEDOUT) {
+			qb_util_log(LOG_ERR,
+				    "sem_timedwait %s", strerror(errno));
+		}
+		return -1;
+	}
+	read_pt = rb->shared_hdr->read_pt;
+	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
+	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
 
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {

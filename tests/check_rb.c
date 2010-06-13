@@ -100,7 +100,7 @@ START_TEST(test_ring_buffer2)
 		ck_assert_int_eq(l, sizeof(v));
 	}
 	for (i = 0; i < 100; i++) {
-		l = qb_rb_chunk_peek(t, (void **)&new_data);
+		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
 		if (l == -1) {
 			/* no more to read */
 			break;
@@ -114,7 +114,7 @@ START_TEST(test_ring_buffer2)
 		ck_assert_int_eq(l, sizeof(v));
 	}
 	for (i = 0; i < 100; i++) {
-		l = qb_rb_chunk_peek(t, (void **)&new_data);
+		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
 		if (l == -1) {
 			/* no more to read */
 			break;
@@ -175,7 +175,7 @@ END_TEST START_TEST(test_ring_buffer4)
 		}
 	}
 	for (i = 0; i < 2000; i++) {
-		l = qb_rb_chunk_peek(t, (void **)&new_data);
+		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
 		if (l == -1 && errno == ENODATA) {
 			break;
 		}

@@ -183,7 +183,7 @@ int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len);
  *
  * @return the size of the chunk (0 if buffer empty).
  */
-ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out);
+ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t ms_timeout);
 
 /**
  * Reclaim the oldest chunk.
