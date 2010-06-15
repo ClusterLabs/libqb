@@ -32,7 +32,7 @@
 #define ITERATIONS 10000000
 
 struct bm_ctx {
-	qb_hdb_handle_t bmc_ipc_handle;
+	qb_handle_t bmc_ipc_handle;
 	struct timeval tv1;
 	struct timeval tv2;
 	struct timeval tv_elapsed;

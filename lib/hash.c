@@ -32,7 +32,7 @@
 
 #define FNV_32_PRIME ((uint32_t)0x01000193)
 
-DECLARE_HDB_DATABASE(qb_hash_handle_db, NULL);
+QB_HDB_DECLARE(qb_hash_handle_db, NULL);
 
 struct hash_node {
 	struct qb_list_head list;
@@ -70,7 +70,7 @@ static uint32_t hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
 	return (res);
 }
 
-int32_t qb_hash_initialize(qb_hdb_handle_t * handle,
+int32_t qb_hash_initialize(qb_handle_t * handle,
 			   uint32_t order, uint32_t context_size)
 {
 	struct hash_table *hash_table;
@@ -113,7 +113,7 @@ hash_destroy:
 	return (-1);
 }
 
-int32_t qb_hash_key_set(qb_hdb_handle_t handle,
+int32_t qb_hash_key_set(qb_handle_t handle,
 			const char *key, const void *value, uint32_t value_len)
 {
 	struct hash_table *hash_table;
@@ -177,7 +177,7 @@ error_exit:
 	return (res);
 }
 
-int32_t qb_hash_key_get(qb_hdb_handle_t handle,
+int32_t qb_hash_key_get(qb_handle_t handle,
 			const char *key, void **value, uint64_t * value_len)
 {
 	struct hash_table *hash_table;
@@ -218,7 +218,7 @@ unlock_exit:
 	return (res);
 }
 
-int32_t qb_hash_key_delete(qb_hdb_handle_t handle, const char *key)
+int32_t qb_hash_key_delete(qb_handle_t handle, const char *key)
 {
 	struct hash_table *hash_table;
 	struct qb_list_head *list;
@@ -258,7 +258,7 @@ unlock_exit:
 	return (res);
 }
 
-int32_t qb_hash_key_context_get(qb_hdb_handle_t handle,
+int32_t qb_hash_key_context_get(qb_handle_t handle,
 				const char *key, void **context)
 {
 	struct hash_table *hash_table;

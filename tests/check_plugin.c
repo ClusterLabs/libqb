@@ -33,15 +33,15 @@ struct iface {
 
 START_TEST(test_plugin)
 {
-	qb_hdb_handle_t a_ifact_handle_ver0;
-	qb_hdb_handle_t b_ifact_handle_ver0;
+	qb_handle_t a_ifact_handle_ver0;
+	qb_handle_t b_ifact_handle_ver0;
 	struct iface *a_iface_ver0;
 	struct iface *a_iface_ver1;
 	void *a_iface_ver0_p;
 	void *a_iface_ver1_p;
 
-	qb_hdb_handle_t a_ifact_handle_ver1;
-	qb_hdb_handle_t b_ifact_handle_ver1;
+	qb_handle_t a_ifact_handle_ver1;
+	qb_handle_t b_ifact_handle_ver1;
 	struct iface *b_iface_ver0;
 	struct iface *b_iface_ver1;
 	void *b_iface_ver0_p;

@@ -40,18 +40,18 @@
 #include <qb/qbutil.h>
 #include <qb/qbrb.h>
 
-
 struct qb_ringbuffer_s;
 
-int32_t qb_rb_lock_create(struct qb_ringbuffer_s * rb, uint32_t flags);
-typedef int32_t (*qb_rb_lock_fn_t) (struct qb_ringbuffer_s * rb);
-typedef int32_t (*qb_rb_unlock_fn_t) (struct qb_ringbuffer_s * rb);
-typedef int32_t (*qb_rb_lock_destroy_fn_t) (struct qb_ringbuffer_s * rb);
+int32_t qb_rb_lock_create(struct qb_ringbuffer_s *rb, uint32_t flags);
+typedef int32_t(*qb_rb_lock_fn_t) (struct qb_ringbuffer_s * rb);
+typedef int32_t(*qb_rb_unlock_fn_t) (struct qb_ringbuffer_s * rb);
+typedef int32_t(*qb_rb_lock_destroy_fn_t) (struct qb_ringbuffer_s * rb);
 
-int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags);
-typedef int32_t (*qb_rb_sem_post_fn_t) (struct qb_ringbuffer_s * rb);
-typedef int32_t (*qb_rb_sem_timedwait_fn_t) (struct qb_ringbuffer_s * rb, int32_t ms_timeout);
-typedef int32_t (*qb_rb_sem_destroy_fn_t) (struct qb_ringbuffer_s * rb);
+int32_t qb_rb_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags);
+typedef int32_t(*qb_rb_sem_post_fn_t) (struct qb_ringbuffer_s * rb);
+typedef int32_t(*qb_rb_sem_timedwait_fn_t) (struct qb_ringbuffer_s * rb,
+					    int32_t ms_timeout);
+typedef int32_t(*qb_rb_sem_destroy_fn_t) (struct qb_ringbuffer_s * rb);
 
 struct qb_ringbuffer_shared_s {
 	volatile uint32_t write_pt;
@@ -92,6 +92,4 @@ union semun {
 
 #define RB_NS_IN_MSEC  1000000ULL
 
-
 #endif /* _RINGBUFFER_H_ */
-

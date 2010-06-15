@@ -29,11 +29,11 @@ START_TEST(test_hash_load)
 	char word[1000];
 	FILE *fp;
 	int res = 0;
-	qb_hdb_handle_t handle = 0;
+	qb_handle_t handle = 0;
 	void *value;
 	uint64_t value_len;
 
-	if (access("/usr/shar/dict/words", R_OK) != 0 ) {
+	if (access("/usr/share/dict/words", R_OK) != 0) {
 		printf("no dict/words - not testing\n");
 		return;
 	}

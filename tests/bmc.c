@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <qb/qbipcc.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -81,7 +82,7 @@ static void bm_finish(const char *operation, int size)
 	printf("MB/sec %9.3f\n", mbs_per_sec);
 }
 
-qb_hdb_handle_t bmc_ipc_handle;
+qb_handle_t bmc_ipc_handle;
 
 static void bmc_connect(void)
 {

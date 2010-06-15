@@ -39,45 +39,43 @@ qb_ipcc_service_connect(const char *socket_name,
 			uint32_t service,
 			size_t request_size,
 			size_t respnse__size,
-			size_t dispatch_size, qb_hdb_handle_t * handle);
+			size_t dispatch_size, qb_handle_t * handle);
 
-int32_t qb_ipcc_service_disconnect(qb_hdb_handle_t handle);
+int32_t qb_ipcc_service_disconnect(qb_handle_t handle);
 
-int32_t qb_ipcc_fd_get(qb_hdb_handle_t handle, int32_t * fd);
+int32_t qb_ipcc_fd_get(qb_handle_t handle, int32_t * fd);
 
-int32_t qb_ipcc_dispatch_get(qb_hdb_handle_t handle, void **buf,
-			     int32_t timeout);
+int32_t qb_ipcc_dispatch_get(qb_handle_t handle, void **buf, int32_t timeout);
 
-int32_t qb_ipcc_dispatch_put(qb_hdb_handle_t handle);
+int32_t qb_ipcc_dispatch_put(qb_handle_t handle);
 
 int32_t
-qb_ipcc_dispatch_flow_control_get(qb_hdb_handle_t handle,
+qb_ipcc_dispatch_flow_control_get(qb_handle_t handle,
 				  uint32_t * flow_control_state);
 
 int32_t
-qb_ipcc_msg_send(qb_hdb_handle_t handle,
-		 const struct iovec *iov, uint32_t iov_len);
+qb_ipcc_msg_send(qb_handle_t handle, const struct iovec *iov, uint32_t iov_len);
 
 int32_t
-qb_ipcc_msg_send_reply_receive(qb_hdb_handle_t handle,
+qb_ipcc_msg_send_reply_receive(qb_handle_t handle,
 			       const struct iovec *iov,
 			       uint32_t iov_len, void *res_msg, size_t res_len);
 
 int32_t
-qb_ipcc_msg_send_reply_receive_in_buf_get(qb_hdb_handle_t handle,
+qb_ipcc_msg_send_reply_receive_in_buf_get(qb_handle_t handle,
 					  const struct iovec *iov,
 					  uint32_t iov_len, void **res_msg);
 
-int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_hdb_handle_t handle);
+int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_handle_t handle);
 
 int32_t
-qb_ipcc_zcb_alloc(qb_hdb_handle_t handle,
+qb_ipcc_zcb_alloc(qb_handle_t handle,
 		  void **buffer, size_t size, size_t header_size);
 
-int32_t qb_ipcc_zcb_free(qb_hdb_handle_t handle, void *buffer);
+int32_t qb_ipcc_zcb_free(qb_handle_t handle, void *buffer);
 
 int32_t
-qb_ipcc_zcb_msg_send_reply_receive(qb_hdb_handle_t handle,
+qb_ipcc_zcb_msg_send_reply_receive(qb_handle_t handle,
 				   void *msg, void *res_msg, size_t res_len);
 
 /* *INDENT-OFF* */

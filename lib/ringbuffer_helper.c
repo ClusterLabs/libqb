@@ -44,7 +44,7 @@ static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 		ts_timeout.tv_nsec = (ms_timeout % 1000) * RB_NS_IN_MSEC;
 	}
 
- sem_wait_again:
+sem_wait_again:
 	if (ms_timeout > 0) {
 		res = sem_timedwait(&rb->shared_hdr->posix_sem, &ts_timeout);
 	} else if (ms_timeout == 0) {
@@ -57,8 +57,8 @@ static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 			goto sem_wait_again;
 		} else if (errno != ETIMEDOUT) {
 			qb_util_log(LOG_ERR,
-				"error waiting for semaphore : %s",
-				strerror(errno));
+				    "error waiting for semaphore : %s",
+				    strerror(errno));
 		}
 	}
 	return res;

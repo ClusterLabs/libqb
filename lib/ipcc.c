@@ -62,7 +62,7 @@ struct ipc_instance {
 
 void ipc_hdb_destructor(void *context);
 
-DECLARE_HDB_DATABASE(ipc_hdb, ipc_hdb_destructor);
+QB_HDB_DECLARE(ipc_hdb, ipc_hdb_destructor);
 
 #if defined(QB_LINUX) || defined(QB_SOLARIS)
 #define QB_SUN_LEN(a) sizeof(*(a))
@@ -515,7 +515,7 @@ qb_ipcc_service_connect(const char *socket_name,
 			uint32_t service,
 			size_t request_size,
 			size_t response_size,
-			size_t dispatch_size, qb_hdb_handle_t * handle)
+			size_t dispatch_size, qb_handle_t * handle)
 {
 	int32_t request_fd;
 	struct sockaddr_un address;
@@ -718,7 +718,7 @@ error_connect:
 	return (res);
 }
 
-int32_t qb_ipcc_service_disconnect(qb_hdb_handle_t handle)
+int32_t qb_ipcc_service_disconnect(qb_handle_t handle)
 {
 	int32_t res;
 	struct ipc_instance *ipc_instance;
@@ -736,7 +736,7 @@ int32_t qb_ipcc_service_disconnect(qb_hdb_handle_t handle)
 }
 
 int32_t
-qb_ipcc_dispatch_flow_control_get(qb_hdb_handle_t handle,
+qb_ipcc_dispatch_flow_control_get(qb_handle_t handle,
 				  uint32_t * flow_control_state)
 {
 	struct ipc_instance *ipc_instance;
@@ -753,7 +753,7 @@ qb_ipcc_dispatch_flow_control_get(qb_hdb_handle_t handle,
 	return (res);
 }
 
-int32_t qb_ipcc_fd_get(qb_hdb_handle_t handle, int32_t * fd)
+int32_t qb_ipcc_fd_get(qb_handle_t handle, int32_t * fd)
 {
 	struct ipc_instance *ipc_instance;
 	int32_t res;
@@ -769,8 +769,7 @@ int32_t qb_ipcc_fd_get(qb_hdb_handle_t handle, int32_t * fd)
 	return (res);
 }
 
-int32_t qb_ipcc_dispatch_get(qb_hdb_handle_t handle, void **data,
-			     int32_t timeout)
+int32_t qb_ipcc_dispatch_get(qb_handle_t handle, void **data, int32_t timeout)
 {
 	struct pollfd ufds;
 	int32_t poll_events;
@@ -861,7 +860,7 @@ error_put:
 	return (error);
 }
 
-int32_t qb_ipcc_dispatch_put(qb_hdb_handle_t handle)
+int32_t qb_ipcc_dispatch_put(qb_handle_t handle)
 {
 	qb_ipc_response_header_t *header;
 	struct ipc_instance *ipc_instance;
@@ -898,8 +897,7 @@ error_exit:
 }
 
 int32_t
-qb_ipcc_msg_send(qb_hdb_handle_t handle,
-		 const struct iovec * iov, uint32_t iov_len)
+qb_ipcc_msg_send(qb_handle_t handle, const struct iovec * iov, uint32_t iov_len)
 {
 	int32_t res;
 	struct ipc_instance *ipc_instance;
@@ -920,7 +918,7 @@ qb_ipcc_msg_send(qb_hdb_handle_t handle,
 }
 
 int32_t
-qb_ipcc_msg_send_reply_receive(qb_hdb_handle_t handle,
+qb_ipcc_msg_send_reply_receive(qb_handle_t handle,
 			       const struct iovec * iov,
 			       uint32_t iov_len, void *res_msg, size_t res_len)
 {
@@ -949,7 +947,7 @@ error_exit:
 }
 
 int32_t
-qb_ipcc_msg_send_reply_receive_in_buf_get(qb_hdb_handle_t handle,
+qb_ipcc_msg_send_reply_receive_in_buf_get(qb_handle_t handle,
 					  const struct iovec * iov,
 					  uint32_t iov_len, void **res_msg)
 {
@@ -976,7 +974,7 @@ error_exit:
 	return (res);
 }
 
-int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_hdb_handle_t handle)
+int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_handle_t handle)
 {
 	int32_t res;
 	struct ipc_instance *ipc_instance;
@@ -992,7 +990,7 @@ int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_hdb_handle_t handle)
 }
 
 int32_t
-qb_ipcc_zcb_alloc(qb_hdb_handle_t handle,
+qb_ipcc_zcb_alloc(qb_handle_t handle,
 		  void **buffer, size_t size, size_t header_size)
 {
 	struct ipc_instance *ipc_instance;
@@ -1035,7 +1033,7 @@ qb_ipcc_zcb_alloc(qb_hdb_handle_t handle,
 	return (res);
 }
 
-int32_t qb_ipcc_zcb_free(qb_hdb_handle_t handle, void *buffer)
+int32_t qb_ipcc_zcb_free(qb_handle_t handle, void *buffer)
 {
 	struct ipc_instance *ipc_instance;
 	mar_req_qb_ipcc_zc_free_t req_qb_ipcc_zc_free;
@@ -1073,7 +1071,7 @@ int32_t qb_ipcc_zcb_free(qb_hdb_handle_t handle, void *buffer)
 }
 
 int32_t
-qb_ipcc_zcb_msg_send_reply_receive(qb_hdb_handle_t handle,
+qb_ipcc_zcb_msg_send_reply_receive(qb_handle_t handle,
 				   void *msg, void *res_msg, size_t res_len)
 {
 	struct ipc_instance *ipc_instance;

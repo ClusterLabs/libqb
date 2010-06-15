@@ -32,37 +32,36 @@ extern "C" {
 
 typedef void *qb_poll_timer_handle;
 
-qb_hdb_handle_t qb_poll_create(void);
+qb_handle_t qb_poll_create(void);
 
-int qb_poll_destroy(qb_hdb_handle_t hdb_handle);
+int qb_poll_destroy(qb_handle_t hdb_handle);
 
-int qb_poll_dispatch_add(qb_hdb_handle_t handle,
+int qb_poll_dispatch_add(qb_handle_t handle,
 			 int fd,
 			 int events,
 			 void *data,
-			 int (*dispatch_fn) (qb_hdb_handle_t handle,
+			 int (*dispatch_fn) (qb_handle_t handle,
 					     int fd, int revents, void *data));
 
-int qb_poll_dispatch_modify(qb_hdb_handle_t handle,
+int qb_poll_dispatch_modify(qb_handle_t handle,
 			    int fd,
 			    int events,
-			    int (*dispatch_fn) (qb_hdb_handle_t hdb_handle_t,
+			    int (*dispatch_fn) (qb_handle_t hdb_handle_t,
 						int fd,
 						int revents, void *data));
 
-int qb_poll_dispatch_delete(qb_hdb_handle_t handle, int fd);
+int qb_poll_dispatch_delete(qb_handle_t handle, int fd);
 
-int qb_poll_timer_add(qb_hdb_handle_t handle,
+int qb_poll_timer_add(qb_handle_t handle,
 		      int msec_in_future, void *data,
 		      void (*timer_fn) (void *data),
 		      qb_poll_timer_handle * timer_handle_out);
 
-int qb_poll_timer_delete(qb_hdb_handle_t handle,
-			 qb_poll_timer_handle timer_handle);
+int qb_poll_timer_delete(qb_handle_t handle, qb_poll_timer_handle timer_handle);
 
-int qb_poll_run(qb_hdb_handle_t handle);
+int qb_poll_run(qb_handle_t handle);
 
-int qb_poll_stop(qb_hdb_handle_t handle);
+int qb_poll_stop(qb_handle_t handle);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

@@ -226,7 +226,7 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 	free(rb);
 }
 
-char* qb_rb_name_get(qb_ringbuffer_t * rb)
+char *qb_rb_name_get(qb_ringbuffer_t * rb)
 {
 	return rb->shared_hdr->hdr_path;
 }
@@ -452,8 +452,7 @@ void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 	rb->unlock_fn(rb);
 }
 
-ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t
-		timeout)
+ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
@@ -463,8 +462,8 @@ ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t
 	res = rb->sem_timedwait_fn(rb, timeout);
 	if (res == -1 && errno == ETIMEDOUT && rb->shared_hdr->count > 0) {
 		qb_util_log(LOG_ERR,
-			"sem timedout but count is %d",
-			rb->shared_hdr->count);
+			    "sem timedout but count is %d",
+			    rb->shared_hdr->count);
 	} else if (res == -1 && errno != EIDRM) {
 		if (errno != ETIMEDOUT) {
 			qb_util_log(LOG_ERR,

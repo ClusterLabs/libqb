@@ -28,11 +28,11 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-int plugin_ifact_reference(qb_hdb_handle_t * handle,
+int plugin_ifact_reference(qb_handle_t * handle,
 			   const char *iface_name,
 			   int version, void **interface, void *context);
 
-int plugin_ifact_release(qb_hdb_handle_t handle);
+int plugin_ifact_release(qb_handle_t handle);
 
 
 /* *INDENT-OFF* */

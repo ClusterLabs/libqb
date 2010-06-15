@@ -951,7 +951,7 @@ void _logsys_log_rec(uint32_t rec_ident,
 	qb_thread_lock(logsys_flt_lock);
 
 	flt_data = qb_rb_chunk_alloc(rb,
-				       (record_reclaim_size * sizeof(uint32_t)));
+				     (record_reclaim_size * sizeof(uint32_t)));
 	assert(flt_data != NULL);
 	idx = 0;
 

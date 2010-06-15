@@ -49,7 +49,7 @@
 int blocking = 1;
 int verbose = 0;
 
-static qb_hdb_handle_t bms_poll_handle;
+static qb_handle_t bms_poll_handle;
 
 struct lib_handler {
 	void (*lib_handler_fn) (void *conn, const void *msg);
@@ -212,7 +212,7 @@ static void ipc_fatal_error(const char *error_msg)
 	exit(1);
 }
 
-static int bms_poll_handler_accept(qb_hdb_handle_t handle,
+static int bms_poll_handler_accept(qb_handle_t handle,
 				   int fd, int revent, void *context)
 {
 	if (verbose) {
@@ -221,7 +221,7 @@ static int bms_poll_handler_accept(qb_hdb_handle_t handle,
 	return (qb_ipcs_handler_accept(fd, revent, context));
 }
 
-static int bms_poll_handler_dispatch(qb_hdb_handle_t handle,
+static int bms_poll_handler_dispatch(qb_handle_t handle,
 				     int fd, int revent, void *context)
 {
 	return (qb_ipcs_handler_dispatch(fd, revent, context));

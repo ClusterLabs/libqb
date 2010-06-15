@@ -28,6 +28,7 @@
 #include "os_base.h"
 #include <sys/mman.h>
 #include <sys/poll.h>
+#include <pthread.h>
 #if defined(HAVE_GETPEERUCRED)
 #include <ucred.h>
 #endif
@@ -103,7 +104,7 @@ struct conn_info {
 	int32_t notify_flow_control_enabled;
 	int32_t flow_control_state;
 	int32_t refcount;
-	qb_hdb_handle_t stats_handle;
+	qb_handle_t stats_handle;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	key_t semkey;
 	int32_t semid;
@@ -139,24 +140,23 @@ static void ipc_disconnect(struct conn_info *conn_info);
 static void msg_send(void *conn, const struct iovec *iov, uint32_t iov_len,
 		     int32_t locked);
 
-static qb_hdb_handle_t dummy_stats_create_connection(const char *name,
-						     pid_t pid, int32_t fd)
+static qb_handle_t dummy_stats_create_connection(const char *name,
+						 pid_t pid, int32_t fd)
 {
 	return (0ULL);
 }
 
-static void dummy_stats_destroy_connection(qb_hdb_handle_t handle)
+static void dummy_stats_destroy_connection(qb_handle_t handle)
 {
 }
 
-static void dummy_stats_update_value(qb_hdb_handle_t handle,
+static void dummy_stats_update_value(qb_handle_t handle,
 				     const char *name,
 				     const void *value, size_t value_size)
 {
 }
 
-static void dummy_stats_increment_value(qb_hdb_handle_t handle,
-					const char *name)
+static void dummy_stats_increment_value(qb_handle_t handle, const char *name)
 {
 }
 

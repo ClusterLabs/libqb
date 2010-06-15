@@ -37,21 +37,21 @@
 struct plugin_component_instance {
 	struct plugin_iface *ifaces;
 	int iface_count;
-	qb_hdb_handle_t comp_handle;
+	qb_handle_t comp_handle;
 	void *dl_handle;
 	int refcount;
 	char library_name[256];
 };
 
 struct plugin_iface_instance {
-	qb_hdb_handle_t component_handle;
+	qb_handle_t component_handle;
 	void *context;
 	void (*destructor) (void *context);
 };
 
-DECLARE_HDB_DATABASE(plugin_component_instance_database, NULL);
+QB_HDB_DECLARE(plugin_component_instance_database, NULL);
 
-DECLARE_HDB_DATABASE(plugin_iface_instance_database, NULL);
+QB_HDB_DECLARE(plugin_iface_instance_database, NULL);
 
 /*
 static struct hdb_handle_database plugin_component_instance_database = {
@@ -67,7 +67,7 @@ static struct hdb_handle_database plugin_iface_instance_database = {
 };
 */
 
-static qb_hdb_handle_t g_component_handle = 0xFFFFFFFF;
+static qb_handle_t g_component_handle = 0xFFFFFFFF;
 
 #if defined(QB_LINUX) || defined(QB_SOLARIS)
 static int plugin_select_so(const struct dirent *dirent)
@@ -110,7 +110,7 @@ static inline struct plugin_component_instance *plugin_comp_find(const char
 {
 	struct plugin_component_instance *instance;
 	void *instance_p = NULL;
-	qb_hdb_handle_t component_handle = 0;
+	qb_handle_t component_handle = 0;
 	int i;
 
 	/*
@@ -141,7 +141,7 @@ static inline int plugin_lib_loaded(char *library_name)
 {
 	struct plugin_component_instance *instance;
 	void *instance_p = NULL;
-	qb_hdb_handle_t component_handle = 0;
+	qb_handle_t component_handle = 0;
 
 	/*
 	 * Try to find interface in already loaded component
@@ -450,7 +450,7 @@ found:
 
 static unsigned int plugin_initialized = 0;
 
-int plugin_ifact_reference(qb_hdb_handle_t * iface_handle,
+int plugin_ifact_reference(qb_handle_t * iface_handle,
 			   const char *iface_name,
 			   int version, void **iface, void *context)
 {
@@ -511,7 +511,7 @@ found:
 	return (0);
 }
 
-int plugin_ifact_release(qb_hdb_handle_t handle)
+int plugin_ifact_release(qb_handle_t handle)
 {
 	struct plugin_iface_instance *iface_instance;
 	int res = 0;
@@ -534,7 +534,7 @@ int plugin_ifact_release(qb_hdb_handle_t handle)
 void plugin_component_register(struct plugin_comp *comp)
 {
 	struct plugin_component_instance *instance;
-	static qb_hdb_handle_t comp_handle;
+	static qb_handle_t comp_handle;
 
 	qb_hdb_handle_create(&plugin_component_instance_database,
 			     sizeof(struct plugin_component_instance),

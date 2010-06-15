@@ -34,7 +34,7 @@
 #include "tlist.h"
 #include "util_int.h"
 
-typedef int (*dispatch_fn_t) (qb_hdb_handle_t hdb_handle, int fd, int revents,
+typedef int (*dispatch_fn_t) (qb_handle_t hdb_handle, int fd, int revents,
 			      void *data);
 
 struct qb_poll_entry {
@@ -51,11 +51,11 @@ struct qb_poll_instance {
 	int stop_requested;
 };
 
-DECLARE_HDB_DATABASE(poll_instance_database, NULL);
+QB_HDB_DECLARE(poll_instance_database, NULL);
 
-qb_hdb_handle_t qb_poll_create(void)
+qb_handle_t qb_poll_create(void)
 {
-	qb_hdb_handle_t handle;
+	qb_handle_t handle;
 	struct qb_poll_instance *poll_instance;
 	unsigned int res;
 
@@ -85,7 +85,7 @@ error_exit:
 	return (-1);
 }
 
-int qb_poll_destroy(qb_hdb_handle_t handle)
+int qb_poll_destroy(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
 	int res = 0;
@@ -108,11 +108,11 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_dispatch_add(qb_hdb_handle_t handle,
+int qb_poll_dispatch_add(qb_handle_t handle,
 			 int fd,
 			 int events,
 			 void *data,
-			 int (*dispatch_fn) (qb_hdb_handle_t hdb_handle_t,
+			 int (*dispatch_fn) (qb_handle_t hdb_handle_t,
 					     int fd, int revents, void *data))
 {
 	struct qb_poll_instance *poll_instance;
@@ -183,10 +183,10 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_dispatch_modify(qb_hdb_handle_t handle,
+int qb_poll_dispatch_modify(qb_handle_t handle,
 			    int fd,
 			    int events,
-			    int (*dispatch_fn) (qb_hdb_handle_t hdb_handle_t,
+			    int (*dispatch_fn) (qb_handle_t hdb_handle_t,
 						int fd,
 						int revents, void *data))
 {
@@ -223,7 +223,7 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_dispatch_delete(qb_hdb_handle_t handle, int fd)
+int qb_poll_dispatch_delete(qb_handle_t handle, int fd)
 {
 	struct qb_poll_instance *poll_instance;
 	int i;
@@ -257,7 +257,7 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_timer_add(qb_hdb_handle_t handle,
+int qb_poll_timer_add(qb_handle_t handle,
 		      int msec_duration, void *data,
 		      void (*timer_fn) (void *data),
 		      qb_poll_timer_handle * timer_handle_out)
@@ -287,7 +287,7 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_timer_delete(qb_hdb_handle_t handle, qb_poll_timer_handle th)
+int qb_poll_timer_delete(qb_handle_t handle, qb_poll_timer_handle th)
 {
 	struct qb_poll_instance *poll_instance;
 	int res = 0;
@@ -310,7 +310,7 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_stop(qb_hdb_handle_t handle)
+int qb_poll_stop(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
 	unsigned int res;
@@ -329,7 +329,7 @@ error_exit:
 	return (res);
 }
 
-int qb_poll_run(qb_hdb_handle_t handle)
+int qb_poll_run(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
 	int i;
@@ -401,7 +401,7 @@ error_exit:
 }
 
 #ifdef COMPILE_OUT
-void qb_poll_print_state(qb_hdb_handle_t handle, int fd)
+void qb_poll_print_state(qb_handle_t handle, int fd)
 {
 	struct qb_poll_instance *poll_instance;
 	int i;
