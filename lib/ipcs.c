@@ -76,9 +76,9 @@ struct zcb_mapped {
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 #if defined(_SEM_SEMUN_UNDEFINED)
 union semun {
-	int val;
+	int32_t val;
 	struct semid_ds *buf;
-	unsigned short int *array;
+	unsigned short int32_t *array;
 	struct seminfo *__buf;
 };
 #endif
@@ -94,21 +94,21 @@ enum conn_state {
 };
 
 struct conn_info {
-	int fd;
+	int32_t fd;
 	pthread_t thread;
 	pid_t client_pid;
 	pthread_attr_t thread_attr;
-	unsigned int service;
+	uint32_t service;
 	enum conn_state state;
-	int notify_flow_control_enabled;
-	int flow_control_state;
-	int refcount;
+	int32_t notify_flow_control_enabled;
+	int32_t flow_control_state;
+	int32_t refcount;
 	qb_hdb_handle_t stats_handle;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	key_t semkey;
-	int semid;
+	int32_t semid;
 #endif
-	unsigned int pending_semops;
+	uint32_t pending_semops;
 	pthread_mutex_t mutex;
 	struct control_buffer *control_buffer;
 	qb_ringbuffer_t *request_rb;
@@ -122,24 +122,25 @@ struct conn_info {
 	void *private_data;
 	struct qb_list_head list;
 	char setup_msg[sizeof(mar_req_setup_t)];
-	unsigned int setup_bytes_read;
+	uint32_t setup_bytes_read;
 	struct qb_list_head zcb_mapped_qb_list_head;
 	char *sending_allowed_private_data[64];
 };
 
-static int shared_mem_dispatch_bytes_left(const struct conn_info *conn_info);
+static int32_t shared_mem_dispatch_bytes_left(const struct conn_info
+					      *conn_info);
 
 static void outq_flush(struct conn_info *conn_info);
 
-static int priv_change(struct conn_info *conn_info);
+static int32_t priv_change(struct conn_info *conn_info);
 
 static void ipc_disconnect(struct conn_info *conn_info);
 
-static void msg_send(void *conn, const struct iovec *iov, unsigned int iov_len,
-		     int locked);
+static void msg_send(void *conn, const struct iovec *iov, uint32_t iov_len,
+		     int32_t locked);
 
 static qb_hdb_handle_t dummy_stats_create_connection(const char *name,
-						     pid_t pid, int fd)
+						     pid_t pid, int32_t fd)
 {
 	return (0ULL);
 }
@@ -167,12 +168,12 @@ static void sem_post_exit_thread(struct conn_info *conn_info)
 	qb_rb_chunk_write(conn_info->request_rb, conn_info, 4);
 }
 
-static int memory_map(const char *path, size_t bytes, void **buf)
+static int32_t memory_map(const char *path, size_t bytes, void **buf)
 {
-	int fd;
+	int32_t fd;
 	void *addr_orig;
 	void *addr;
-	int res;
+	int32_t res;
 
 	fd = open(path, O_RDWR, 0600);
 
@@ -215,12 +216,12 @@ static int memory_map(const char *path, size_t bytes, void **buf)
 	return (0);
 }
 
-static int circular_memory_map(const char *path, size_t bytes, void **buf)
+static int32_t circular_memory_map(const char *path, size_t bytes, void **buf)
 {
-	int fd;
+	int32_t fd;
 	void *addr_orig;
 	void *addr;
-	int res;
+	int32_t res;
 
 	fd = open(path, O_RDWR, 0600);
 
@@ -273,18 +274,18 @@ static int circular_memory_map(const char *path, size_t bytes, void **buf)
 	return (0);
 }
 
-static inline int circular_memory_unmap(void *buf, size_t bytes)
+static inline int32_t circular_memory_unmap(void *buf, size_t bytes)
 {
-	int res;
+	int32_t res;
 
 	res = munmap(buf, bytes << 1);
 
 	return (res);
 }
 
-static inline int zcb_free(struct zcb_mapped *zcb_mapped)
+static inline int32_t zcb_free(struct zcb_mapped *zcb_mapped)
 {
-	unsigned int res;
+	uint32_t res;
 
 	res = munmap(zcb_mapped->addr, zcb_mapped->size);
 	qb_list_del(&zcb_mapped->list);
@@ -292,11 +293,11 @@ static inline int zcb_free(struct zcb_mapped *zcb_mapped)
 	return (res);
 }
 
-static inline int zcb_by_addr_free(struct conn_info *conn_info, void *addr)
+static inline int32_t zcb_by_addr_free(struct conn_info *conn_info, void *addr)
 {
 	struct qb_list_head *list;
 	struct zcb_mapped *zcb_mapped;
-	unsigned int res = 0;
+	uint32_t res = 0;
 
 	for (list = conn_info->zcb_mapped_qb_list_head.next;
 	     list != &conn_info->zcb_mapped_qb_list_head; list = list->next) {
@@ -312,7 +313,7 @@ static inline int zcb_by_addr_free(struct conn_info *conn_info, void *addr)
 	return (res);
 }
 
-static inline int zcb_all_free(struct conn_info *conn_info)
+static inline int32_t zcb_all_free(struct conn_info *conn_info)
 {
 	struct qb_list_head *list;
 	struct zcb_mapped *zcb_mapped;
@@ -329,11 +330,12 @@ static inline int zcb_all_free(struct conn_info *conn_info)
 	return (0);
 }
 
-static inline int zcb_alloc(struct conn_info *conn_info,
-			    const char *path_to_file, size_t size, void **addr)
+static inline int32_t zcb_alloc(struct conn_info *conn_info,
+				const char *path_to_file,
+				size_t size, void **addr)
 {
 	struct zcb_mapped *zcb_mapped;
-	unsigned int res;
+	uint32_t res;
 
 	zcb_mapped = malloc(sizeof(struct zcb_mapped));
 	if (zcb_mapped == NULL) {
@@ -354,10 +356,10 @@ static inline int zcb_alloc(struct conn_info *conn_info,
 	return (0);
 }
 
-static int ipc_thread_active(void *conn)
+static int32_t ipc_thread_active(void *conn)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
-	int retval = 0;
+	int32_t retval = 0;
 
 	pthread_mutex_lock(&conn_info->mutex);
 	if (conn_info->state == CONN_STATE_THREAD_ACTIVE) {
@@ -367,10 +369,10 @@ static int ipc_thread_active(void *conn)
 	return (retval);
 }
 
-static int ipc_thread_exiting(void *conn)
+static int32_t ipc_thread_exiting(void *conn)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
-	int retval = 1;
+	int32_t retval = 1;
 
 	pthread_mutex_lock(&conn_info->mutex);
 	if (conn_info->state == CONN_STATE_THREAD_INACTIVE) {
@@ -385,9 +387,9 @@ static int ipc_thread_exiting(void *conn)
 /*
  * returns 0 if should be called again, -1 if finished
  */
-static inline int conn_info_destroy(struct conn_info *conn_info)
+static inline int32_t conn_info_destroy(struct conn_info *conn_info)
 {
-	unsigned int res;
+	uint32_t res;
 	void *retval;
 
 	qb_list_del(&conn_info->list);
@@ -491,9 +493,8 @@ static void *serveraddr2void(uint64_t server_addr)
 };
 
 static void zerocopy_operations_process(struct conn_info *conn_info,
-				       qb_ipc_request_header_t **
-				       header_out,
-				       unsigned int *new_message)
+					qb_ipc_request_header_t **
+					header_out, uint32_t * new_message)
 {
 	qb_ipc_request_header_t *header;
 
@@ -504,7 +505,7 @@ static void zerocopy_operations_process(struct conn_info *conn_info,
 		qb_ipc_response_header_t res_header;
 		void *addr = NULL;
 		struct qb_ipcs_zc_header *zc_header;
-		unsigned int res;
+		uint32_t res;
 
 		res = zcb_alloc(conn_info, hdr->path_to_file, hdr->map_size,
 				&addr);
@@ -554,6 +555,7 @@ static void *pthread_ipc_consumer(void *conn)
 	int32_t send_ok;
 	uint32_t new_message;
 	ssize_t size;
+	void *pri_data = NULL;
 
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 	if (api->sched_policy != 0) {
@@ -564,10 +566,10 @@ static void *pthread_ipc_consumer(void *conn)
 #endif
 
 	for (;;) {
-		size = qb_rb_chunk_peek(conn_info->request_rb, (void**)&header, 2000);
+		size = qb_rb_chunk_peek(conn_info->request_rb,
+					(void **)&header, 2000);
 
 		if (ipc_thread_active(conn_info) == 0) {
-			qb_util_log(LOG_DEBUG,"thread not active");
 			qb_ipcs_refcount_dec(conn_info);
 			pthread_exit(0);
 		}
@@ -588,18 +590,16 @@ static void *pthread_ipc_consumer(void *conn)
 
 		qb_ipcs_refcount_inc(conn);
 
+		pri_data = conn_info->sending_allowed_private_data;
 		send_ok = api->sending_allowed(conn_info->service,
-					       header->id,
-					       header,
-					       conn_info->sending_allowed_private_data);
+					       header->id, header, pri_data);
 
 		/*
 		 * This happens when the message contains some kind of invalid
 		 * parameter, such as an invalid size
 		 */
 		if (send_ok == -1) {
-			response_header.size =
-			    sizeof(qb_ipc_response_header_t);
+			response_header.size = sizeof(qb_ipc_response_header_t);
 			response_header.id = 0;
 			response_header.error = EINVAL;
 			qb_ipcs_response_send(conn_info,
@@ -620,8 +620,7 @@ static void *pthread_ipc_consumer(void *conn)
 			 */
 			api->stats_increment_value(conn_info->stats_handle,
 						   "sem_retry_count");
-			response_header.size =
-			    sizeof(qb_ipc_response_header_t);
+			response_header.size = sizeof(qb_ipc_response_header_t);
 			response_header.id = 0;
 			response_header.error = EAGAIN;
 			qb_ipcs_response_send(conn_info,
@@ -630,18 +629,17 @@ static void *pthread_ipc_consumer(void *conn)
 			qb_rb_chunk_reclaim(conn_info->request_rb);
 		}
 
-		api->
-		    sending_allowed_release
+		api->sending_allowed_release
 		    (conn_info->sending_allowed_private_data);
 		qb_ipcs_refcount_dec(conn);
 	}
 	pthread_exit(0);
 }
 
-static int req_setup_send(struct conn_info *conn_info, int error)
+static int32_t req_setup_send(struct conn_info *conn_info, int32_t error)
 {
 	mar_res_setup_t res_setup;
-	unsigned int res;
+	uint32_t res;
 
 	memset(&res_setup, 0, sizeof(res_setup));
 	res_setup.error = error;
@@ -662,18 +660,18 @@ retry_send:
 	return (0);
 }
 
-static int req_setup_recv(struct conn_info *conn_info)
+static int32_t req_setup_recv(struct conn_info *conn_info)
 {
-	int res;
+	int32_t res;
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
-	int authenticated = 0;
+	int32_t authenticated = 0;
 
 #ifdef QB_LINUX
 	struct cmsghdr *cmsg;
 	char cmsg_cred[CMSG_SPACE(sizeof(struct ucred))];
-	int off = 0;
-	int on = 1;
+	int32_t off = 0;
+	int32_t on = 1;
 	struct ucred *cred;
 #endif
 
@@ -814,7 +812,7 @@ static void ipc_disconnect(struct conn_info *conn_info)
 	sem_post_exit_thread(conn_info);
 }
 
-static int conn_info_create(int fd)
+static int32_t conn_info_create(int32_t fd)
 {
 	struct conn_info *conn_info;
 
@@ -851,9 +849,9 @@ static int conn_info_create(int fd)
  */
 extern void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state)
 {
-	int server_fd;
+	int32_t server_fd;
 	struct sockaddr_un un_addr;
-	int res;
+	int32_t res;
 
 	api = init_state;
 	api->stats_create_connection = dummy_stats_create_connection;
@@ -938,7 +936,7 @@ void qb_ipcs_ipc_exit(void)
 {
 	struct qb_list_head *list;
 	struct conn_info *conn_info;
-	unsigned int res;
+	uint32_t res;
 
 	for (list = conn_info_qb_list_head.next;
 	     list != &conn_info_qb_list_head; list = list->next) {
@@ -970,7 +968,7 @@ void qb_ipcs_ipc_exit(void)
 	}
 }
 
-int qb_ipcs_ipc_service_exit(unsigned int service)
+int32_t qb_ipcs_ipc_service_exit(uint32_t service)
 {
 	struct qb_list_head *list, *list_next;
 	struct conn_info *conn_info;
@@ -1025,13 +1023,13 @@ void *qb_ipcs_private_data_get(void *conn)
 	return (conn_info->private_data);
 }
 
-int qb_ipcs_response_send(void *conn, const void *msg, size_t mlen)
+int32_t qb_ipcs_response_send(void *conn, const void *msg, size_t mlen)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	struct sembuf sop;
 #endif
-	int res;
+	int32_t res;
 
 	memcpy(conn_info->response_buffer, msg, mlen);
 
@@ -1059,16 +1057,16 @@ retry_semop:
 	return (0);
 }
 
-int qb_ipcs_response_iov_send(void *conn, const struct iovec *iov,
-			      unsigned int iov_len)
+int32_t qb_ipcs_response_iov_send(void *conn, const struct iovec * iov,
+				  uint32_t iov_len)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	struct sembuf sop;
 #endif
-	int res;
-	int write_idx = 0;
-	int i;
+	int32_t res;
+	int32_t write_idx = 0;
+	int32_t i;
 
 	for (i = 0; i < iov_len; i++) {
 		memcpy(&conn_info->response_buffer[write_idx],
@@ -1100,11 +1098,11 @@ retry_semop:
 	return (0);
 }
 
-static int shared_mem_dispatch_bytes_left(const struct conn_info *conn_info)
+static int32_t shared_mem_dispatch_bytes_left(const struct conn_info *conn_info)
 {
-	unsigned int n_read;
-	unsigned int n_write;
-	unsigned int bytes_left;
+	uint32_t n_read;
+	uint32_t n_write;
+	uint32_t bytes_left;
 
 	n_read = conn_info->control_buffer->read;
 	n_write = conn_info->control_buffer->write;
@@ -1121,10 +1119,9 @@ static int shared_mem_dispatch_bytes_left(const struct conn_info *conn_info)
 	return (bytes_left);
 }
 
-static void memcpy_dwrap(struct conn_info *conn_info, void *msg,
-			 unsigned int len)
+static void memcpy_dwrap(struct conn_info *conn_info, void *msg, uint32_t len)
 {
-	unsigned int write_idx;
+	uint32_t write_idx;
 
 	write_idx = conn_info->control_buffer->write;
 
@@ -1136,9 +1133,9 @@ static void memcpy_dwrap(struct conn_info *conn_info, void *msg,
 /**
  * simulate the behaviour in qb_ipcc.c
  */
-static int flow_control_event_send(struct conn_info *conn_info, char event)
+static int32_t flow_control_event_send(struct conn_info *conn_info, char event)
 {
-	int new_fc = 0;
+	int32_t new_fc = 0;
 
 	if (event == MESSAGE_RES_OUTQ_NOT_EMPTY ||
 	    event == MESSAGE_RES_ENABLE_FLOWCONTROL) {
@@ -1166,15 +1163,15 @@ static int flow_control_event_send(struct conn_info *conn_info, char event)
 	return send(conn_info->fd, &event, 1, MSG_NOSIGNAL);
 }
 
-static void msg_send(void *conn, const struct iovec *iov, unsigned int iov_len,
-		     int locked)
+static void msg_send(void *conn, const struct iovec *iov, uint32_t iov_len,
+		     int32_t locked)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	struct sembuf sop;
 #endif
-	int res;
-	int i;
+	int32_t res;
+	int32_t i;
 
 	for (i = 0; i < iov_len; i++) {
 		memcpy_dwrap(conn_info, iov[i].iov_base, iov[i].iov_len);
@@ -1225,9 +1222,9 @@ static void outq_flush(struct conn_info *conn_info)
 {
 	struct qb_list_head *list, *list_next;
 	struct outq_item *outq_item;
-	unsigned int bytes_left;
+	uint32_t bytes_left;
 	struct iovec iov;
-	int res;
+	int32_t res;
 
 	pthread_mutex_lock(&conn_info->mutex);
 	if (qb_list_empty(&conn_info->outq_head)) {
@@ -1259,14 +1256,14 @@ static void outq_flush(struct conn_info *conn_info)
 	pthread_mutex_unlock(&conn_info->mutex);
 }
 
-static int priv_change(struct conn_info *conn_info)
+static int32_t priv_change(struct conn_info *conn_info)
 {
 	mar_req_priv_change req_priv_change;
-	unsigned int res;
+	uint32_t res;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	union semun semun;
 	struct semid_ds ipc_set;
-	int i;
+	int32_t i;
 #endif
 
 retry_recv:
@@ -1311,12 +1308,12 @@ retry_recv:
 }
 
 static void msg_send_or_queue(void *conn, const struct iovec *iov,
-			      unsigned int iov_len)
+			      uint32_t iov_len)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
-	unsigned int bytes_left;
-	unsigned int bytes_msg = 0;
-	int i;
+	uint32_t bytes_left;
+	uint32_t bytes_msg = 0;
+	int32_t i;
 	struct outq_item *outq_item;
 	char *write_buf = 0;
 
@@ -1384,7 +1381,7 @@ void qb_ipcs_refcount_dec(void *conn)
 	pthread_mutex_unlock(&conn_info->mutex);
 }
 
-int qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen)
+int32_t qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen)
 {
 	struct iovec iov;
 
@@ -1395,22 +1392,22 @@ int qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen)
 	return (0);
 }
 
-int qb_ipcs_dispatch_iov_send(void *conn, const struct iovec *iov,
-			      unsigned int iov_len)
+int32_t qb_ipcs_dispatch_iov_send(void *conn, const struct iovec * iov,
+				  uint32_t iov_len)
 {
 	msg_send_or_queue(conn, iov, iov_len);
 	return (0);
 }
 
-int qb_ipcs_handler_accept(int fd, int revent, void *data)
+int32_t qb_ipcs_handler_accept(int32_t fd, int32_t revent, void *data)
 {
 	socklen_t addrlen;
 	struct sockaddr_un un_addr;
-	int new_fd;
+	int32_t new_fd;
 #ifdef QB_LINUX
-	int on = 1;
+	int32_t on = 1;
 #endif
-	int res;
+	int32_t res;
 
 	addrlen = sizeof(struct sockaddr_un);
 
@@ -1524,11 +1521,11 @@ static void qb_ipcs_init_conn_stats(struct conn_info *conn)
 				&conn->service, sizeof(conn->service));
 }
 
-int qb_ipcs_handler_dispatch(int fd, int revent, void *context)
+int32_t qb_ipcs_handler_dispatch(int32_t fd, int32_t revent, void *context)
 {
 	mar_req_setup_t *req_setup;
 	struct conn_info *conn_info = (struct conn_info *)context;
-	int res;
+	int32_t res;
 	char buf;
 
 	if (ipc_thread_exiting(conn_info)) {
@@ -1581,8 +1578,8 @@ int qb_ipcs_handler_dispatch(int fd, int revent, void *context)
 		conn_info->control_size = req_setup->control_size;
 
 		conn_info->request_rb = qb_rb_open(req_setup->request_file,
-				 req_setup->request_size,
-				 QB_RB_FLAG_SHARED_PROCESS);
+						   req_setup->request_size,
+						   QB_RB_FLAG_SHARED_PROCESS);
 		conn_info->request_size = req_setup->request_size;
 
 		res = memory_map(req_setup->response_file,

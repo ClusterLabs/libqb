@@ -43,13 +43,13 @@
 #define IPC_SEMWAIT_TIMEOUT 2
 
 struct ipc_instance {
-	int fd;
+	int32_t fd;
 #if _POSIX_THREAD_PROCESS_SHARED < 1
-	int semid;
+	int32_t semid;
 #endif
-	int flow_control_state;
+	int32_t flow_control_state;
 	struct control_buffer *control_buffer;
-	qb_ringbuffer_t * request_rb;
+	qb_ringbuffer_t *request_rb;
 	char *response_buffer;
 	char *dispatch_buffer;
 	size_t control_size;
@@ -71,9 +71,9 @@ DECLARE_HDB_DATABASE(ipc_hdb, ipc_hdb_destructor);
 #endif
 
 #ifdef SO_NOSIGPIPE
-static void socket_nosigpipe(int s)
+static void socket_nosigpipe(int32_t s)
 {
-	int on = 1;
+	int32_t on = 1;
 	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
 }
 #endif
@@ -82,14 +82,14 @@ static void socket_nosigpipe(int s)
 #define MSG_NOSIGNAL 0
 #endif
 
-static int32_t socket_send(int s, void *msg, size_t len)
+static int32_t socket_send(int32_t s, void *msg, size_t len)
 {
 	int32_t res = 0;
-	int result;
+	int32_t result;
 	struct msghdr msg_send;
 	struct iovec iov_send;
 	char *rbuf = msg;
-	int processed = 0;
+	int32_t processed = 0;
 
 	msg_send.msg_iov = &iov_send;
 	msg_send.msg_iovlen = 1;
@@ -135,14 +135,14 @@ res_exit:
 	return (res);
 }
 
-static int32_t socket_recv(int s, void *msg, size_t len)
+static int32_t socket_recv(int32_t s, void *msg, size_t len)
 {
 	int32_t res = 0;
-	int result;
+	int32_t result;
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
 	char *rbuf = msg;
-	int processed = 0;
+	int32_t processed = 0;
 
 	msg_recv.msg_iov = &iov_recv;
 	msg_recv.msg_iovlen = 1;
@@ -195,11 +195,11 @@ res_exit:
 }
 
 #if _POSIX_THREAD_PROCESS_SHARED < 1
-static int priv_change_send(struct ipc_instance *ipc_instance)
+static int32_t priv_change_send(struct ipc_instance *ipc_instance)
 {
 	char buf_req;
 	mar_req_priv_change req_priv_change;
-	unsigned int res;
+	int32_t res;
 
 	req_priv_change.euid = geteuid();
 	/*
@@ -228,21 +228,21 @@ static int priv_change_send(struct ipc_instance *ipc_instance)
 
 #if defined(_SEM_SEMUN_UNDEFINED)
 union semun {
-	int val;
+	int32_t val;
 	struct semid_ds *buf;
-	unsigned short int *array;
+	unsigned short int32_t *array;
 	struct seminfo *__buf;
 };
 #endif
 #endif
 
-static int
+static int32_t
 circular_memory_map(char *path, const char *file, void **buf, size_t bytes)
 {
-	int fd;
+	int32_t fd;
 	void *addr_orig;
 	void *addr;
-	int res;
+	int32_t res;
 
 	sprintf(path, "/dev/shm/%s", file);
 
@@ -301,7 +301,7 @@ circular_memory_map(char *path, const char *file, void **buf, size_t bytes)
 
 static void memory_unmap(void *addr, size_t bytes)
 {
-	int res;
+	int32_t res;
 
 	res = munmap(addr, bytes);
 }
@@ -321,12 +321,13 @@ void ipc_hdb_destructor(void *context)
 		     (ipc_instance->dispatch_size) << 1);
 }
 
-static int memory_map(char *path, const char *file, void **buf, size_t bytes)
+static int32_t memory_map(char *path, const char *file, void **buf,
+			  size_t bytes)
 {
-	int fd;
+	int32_t fd;
 	void *addr_orig;
 	void *addr;
-	int res;
+	int32_t res;
 
 	sprintf(path, "/dev/shm/%s", file);
 
@@ -374,7 +375,7 @@ static int memory_map(char *path, const char *file, void **buf, size_t bytes)
 
 static int32_t
 msg_send(struct ipc_instance *ipc_instance,
-	 const struct iovec *iov, unsigned int iov_len)
+	 const struct iovec *iov, uint32_t iov_len)
 {
 	int32_t i;
 	size_t size = 0;
@@ -399,7 +400,7 @@ msg_send(struct ipc_instance *ipc_instance,
 	return qb_rb_chunk_commit(ipc_instance->request_rb, size);
 }
 
-static int32_t ipc_sem_wait(struct ipc_instance *ipc_instance, int sem_num)
+static int32_t ipc_sem_wait(struct ipc_instance *ipc_instance, int32_t sem_num)
 {
 #if _POSIX_THREAD_PROCESS_SHARED < 1
 	struct sembuf sop;
@@ -408,7 +409,7 @@ static int32_t ipc_sem_wait(struct ipc_instance *ipc_instance, int sem_num)
 	struct pollfd pfd;
 	sem_t *sem = NULL;
 #endif
-	int res;
+	int32_t res;
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 	switch (sem_num) {
@@ -511,12 +512,12 @@ reply_receive_in_buf(struct ipc_instance *ipc_instance, void **res_msg)
  */
 int32_t
 qb_ipcc_service_connect(const char *socket_name,
-			unsigned int service,
+			uint32_t service,
 			size_t request_size,
 			size_t response_size,
 			size_t dispatch_size, qb_hdb_handle_t * handle)
 {
-	int request_fd;
+	int32_t request_fd;
 	struct sockaddr_un address;
 	int32_t res;
 	struct ipc_instance *ipc_instance;
@@ -524,7 +525,7 @@ qb_ipcc_service_connect(const char *socket_name,
 	key_t semkey = 0;
 	union semun semun;
 #endif
-	int sys_res;
+	int32_t sys_res;
 	mar_req_setup_t req_setup;
 	mar_res_setup_t res_setup;
 	char control_map_path[128];
@@ -585,8 +586,9 @@ qb_ipcc_service_connect(const char *socket_name,
 
 	/* RB request */
 	ipc_instance->request_rb = qb_rb_open("request_ringbuffer-XXXXXX",
-			request_size,
-			QB_RB_FLAG_CREATE|QB_RB_FLAG_SHARED_PROCESS);
+					      request_size,
+					      QB_RB_FLAG_CREATE |
+					      QB_RB_FLAG_SHARED_PROCESS);
 	if (ipc_instance->request_rb == NULL) {
 		res = EBADE;
 		goto error_request_buffer;
@@ -735,7 +737,7 @@ int32_t qb_ipcc_service_disconnect(qb_hdb_handle_t handle)
 
 int32_t
 qb_ipcc_dispatch_flow_control_get(qb_hdb_handle_t handle,
-				  unsigned int *flow_control_state)
+				  uint32_t * flow_control_state)
 {
 	struct ipc_instance *ipc_instance;
 	int32_t res;
@@ -751,7 +753,7 @@ qb_ipcc_dispatch_flow_control_get(qb_hdb_handle_t handle,
 	return (res);
 }
 
-int32_t qb_ipcc_fd_get(qb_hdb_handle_t handle, int *fd)
+int32_t qb_ipcc_fd_get(qb_hdb_handle_t handle, int32_t * fd)
 {
 	struct ipc_instance *ipc_instance;
 	int32_t res;
@@ -767,13 +769,14 @@ int32_t qb_ipcc_fd_get(qb_hdb_handle_t handle, int *fd)
 	return (res);
 }
 
-int32_t qb_ipcc_dispatch_get(qb_hdb_handle_t handle, void **data, int timeout)
+int32_t qb_ipcc_dispatch_get(qb_hdb_handle_t handle, void **data,
+			     int32_t timeout)
 {
 	struct pollfd ufds;
-	int poll_events;
+	int32_t poll_events;
 	char buf;
 	struct ipc_instance *ipc_instance;
-	int res;
+	int32_t res;
 	char buf_two = 1;
 	char *data_addr;
 	int32_t error = 0;
@@ -864,7 +867,7 @@ int32_t qb_ipcc_dispatch_put(qb_hdb_handle_t handle)
 	struct ipc_instance *ipc_instance;
 	int32_t res;
 	char *addr;
-	unsigned int read_idx;
+	uint32_t read_idx;
 
 	res =
 	    qb_hdb_handle_get_always(&ipc_hdb, handle, (void **)&ipc_instance);
@@ -896,7 +899,7 @@ error_exit:
 
 int32_t
 qb_ipcc_msg_send(qb_hdb_handle_t handle,
-		 const struct iovec * iov, unsigned int iov_len)
+		 const struct iovec * iov, uint32_t iov_len)
 {
 	int32_t res;
 	struct ipc_instance *ipc_instance;
@@ -919,8 +922,7 @@ qb_ipcc_msg_send(qb_hdb_handle_t handle,
 int32_t
 qb_ipcc_msg_send_reply_receive(qb_hdb_handle_t handle,
 			       const struct iovec * iov,
-			       unsigned int iov_len,
-			       void *res_msg, size_t res_len)
+			       uint32_t iov_len, void *res_msg, size_t res_len)
 {
 	int32_t res;
 	struct ipc_instance *ipc_instance;
@@ -949,9 +951,9 @@ error_exit:
 int32_t
 qb_ipcc_msg_send_reply_receive_in_buf_get(qb_hdb_handle_t handle,
 					  const struct iovec * iov,
-					  unsigned int iov_len, void **res_msg)
+					  uint32_t iov_len, void **res_msg)
 {
-	unsigned int res;
+	int32_t res;
 	struct ipc_instance *ipc_instance;
 
 	res = qb_hdb_handle_get(&ipc_hdb, handle, (void **)&ipc_instance);
@@ -976,7 +978,7 @@ error_exit:
 
 int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_hdb_handle_t handle)
 {
-	unsigned int res;
+	int32_t res;
 	struct ipc_instance *ipc_instance;
 
 	res = qb_hdb_handle_get(&ipc_hdb, handle, (void **)&ipc_instance);
@@ -996,7 +998,7 @@ qb_ipcc_zcb_alloc(qb_hdb_handle_t handle,
 	struct ipc_instance *ipc_instance;
 	void *buf = NULL;
 	char path[128];
-	unsigned int res;
+	int32_t res;
 	mar_req_qb_ipcc_zc_alloc_t req_qb_ipcc_zc_alloc;
 	qb_ipc_response_header_t res_qb_ipcs_zc_alloc;
 	size_t map_size;
@@ -1039,7 +1041,7 @@ int32_t qb_ipcc_zcb_free(qb_hdb_handle_t handle, void *buffer)
 	mar_req_qb_ipcc_zc_free_t req_qb_ipcc_zc_free;
 	qb_ipc_response_header_t res_qb_ipcs_zc_free;
 	struct iovec iovec;
-	unsigned int res;
+	int32_t res;
 	struct qb_ipcs_zc_header *header =
 	    (struct qb_ipcs_zc_header *)((char *)buffer -
 					 sizeof(struct qb_ipcs_zc_header));

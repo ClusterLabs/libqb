@@ -33,36 +33,36 @@ extern "C" {
 
 struct iovec;
 
-typedef int (*qb_ipcs_init_fn_lvalue) (void *conn);
-typedef int (*qb_ipcs_exit_fn_lvalue) (void *conn);
+typedef int32_t(*qb_ipcs_init_fn_lvalue) (void *conn);
+typedef int32_t(*qb_ipcs_exit_fn_lvalue) (void *conn);
 typedef void (*qb_ipcs_handler_fn_lvalue) (void *conn, const void *msg);
 
 struct qb_ipcs_init_state {
 	const char *socket_name;
-	int sched_policy;
+	int32_t sched_policy;
 	const struct sched_param *sched_param;
 	void *(*malloc) (size_t size);
 	void (*free) (void *ptr);
-	int (*service_available) (unsigned int service);
-	int (*private_data_size_get) (unsigned int service);
-	int (*security_valid) (int uid, int gid);
+	int32_t(*service_available) (uint32_t service);
+	int32_t(*private_data_size_get) (uint32_t service);
+	int32_t(*security_valid) (int32_t uid, int32_t gid);
 	void (*serialize_lock) (void);
 	void (*serialize_unlock) (void);
-	int (*sending_allowed) (unsigned int service, unsigned int id,
-				const void *msg,
-				void *sending_allowed_private_data);
+	int32_t(*sending_allowed) (uint32_t service, uint32_t id,
+				   const void *msg,
+				   void *sending_allowed_private_data);
 	void (*sending_allowed_release) (void *sending_allowed_private_data);
-	void (*poll_accept_add) (int fd);
-	void (*poll_dispatch_add) (int fd, void *context);
-	void (*poll_dispatch_modify) (int fd, int events);
-	void (*poll_dispatch_destroy) (int fd, void *context);
+	void (*poll_accept_add) (int32_t fd);
+	void (*poll_dispatch_add) (int32_t fd, void *context);
+	void (*poll_dispatch_modify) (int32_t fd, int32_t events);
+	void (*poll_dispatch_destroy) (int32_t fd, void *context);
 	void (*fatal_error) (const char *error_msg);
-	 qb_ipcs_init_fn_lvalue(*init_fn_get) (unsigned int service);
-	 qb_ipcs_exit_fn_lvalue(*exit_fn_get) (unsigned int service);
-	 qb_ipcs_handler_fn_lvalue(*handler_fn_get) (unsigned int service,
-						     unsigned int id);
-	 qb_hdb_handle_t(*stats_create_connection) (const char *name, pid_t pid,
-						    int fd);
+	qb_ipcs_init_fn_lvalue(*init_fn_get) (uint32_t service);
+	qb_ipcs_exit_fn_lvalue(*exit_fn_get) (uint32_t service);
+	qb_ipcs_handler_fn_lvalue(*handler_fn_get) (uint32_t service,
+						    uint32_t id);
+	qb_hdb_handle_t(*stats_create_connection) (const char *name, pid_t pid,
+						   int32_t fd);
 	void (*stats_destroy_connection) (qb_hdb_handle_t handle);
 	void (*stats_update_value) (qb_hdb_handle_t handle,
 				    const char *name, const void *value,
@@ -77,15 +77,15 @@ void qb_ipcs_ipc_init(struct qb_ipcs_init_state *init_state);
 
 void *qb_ipcs_private_data_get(void *conn);
 
-int qb_ipcs_response_send(void *conn, const void *msg, size_t mlen);
+int32_t qb_ipcs_response_send(void *conn, const void *msg, size_t mlen);
 
-int qb_ipcs_response_iov_send(void *conn,
-			      const struct iovec *iov, unsigned int iov_len);
+int32_t qb_ipcs_response_iov_send(void *conn,
+				  const struct iovec *iov, uint32_t iov_len);
 
-int qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen);
+int32_t qb_ipcs_dispatch_send(void *conn, const void *msg, size_t mlen);
 
-int qb_ipcs_dispatch_iov_send(void *conn,
-			      const struct iovec *iov, unsigned int iov_len);
+int32_t qb_ipcs_dispatch_iov_send(void *conn,
+				  const struct iovec *iov, uint32_t iov_len);
 
 void qb_ipcs_refcount_inc(void *conn);
 
@@ -93,11 +93,11 @@ void qb_ipcs_refcount_dec(void *conn);
 
 void qb_ipcs_ipc_exit(void);
 
-int qb_ipcs_ipc_service_exit(unsigned int service);
+int32_t qb_ipcs_ipc_service_exit(uint32_t service);
 
-int qb_ipcs_handler_accept(int fd, int revent, void *context);
+int32_t qb_ipcs_handler_accept(int32_t fd, int32_t revent, void *context);
 
-int qb_ipcs_handler_dispatch(int fd, int revent, void *context);
+int32_t qb_ipcs_handler_dispatch(int32_t fd, int32_t revent, void *context);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
