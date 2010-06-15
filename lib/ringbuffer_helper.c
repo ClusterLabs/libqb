@@ -36,15 +36,32 @@ static int32_t my_null_sem_timedwait(struct qb_ringbuffer_s *rb,
 static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct timespec ts_timeout;
+	int32_t res;
 
-	if (ms_timeout >= 0) {
+	if (ms_timeout > 0) {
 		ts_timeout.tv_sec = time(NULL);
 		ts_timeout.tv_sec += (ms_timeout / 1000);
 		ts_timeout.tv_nsec = (ms_timeout % 1000) * RB_NS_IN_MSEC;
-		return sem_timedwait(&rb->shared_hdr->posix_sem, &ts_timeout);
-	} else {
-		return sem_wait(&rb->shared_hdr->posix_sem);
 	}
+
+ sem_wait_again:
+	if (ms_timeout > 0) {
+		res = sem_timedwait(&rb->shared_hdr->posix_sem, &ts_timeout);
+	} else if (ms_timeout == 0) {
+		return sem_trywait(&rb->shared_hdr->posix_sem);
+	} else {
+		res = sem_wait(&rb->shared_hdr->posix_sem);
+	}
+	if (res == -1) {
+		if (errno == EINTR) {
+			goto sem_wait_again;
+		} else if (errno != ETIMEDOUT) {
+			qb_util_log(LOG_ERR,
+				"error waiting for semaphore : %s",
+				strerror(errno));
+		}
+	}
+	return res;
 }
 
 static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
