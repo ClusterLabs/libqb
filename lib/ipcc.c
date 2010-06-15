@@ -933,11 +933,7 @@ qb_ipcc_msg_send(qb_hdb_handle_t handle,
 	pthread_mutex_lock(&ipc_instance->mutex);
 
 	res = msg_send(ipc_instance, iov, iov_len);
-	if (res != 0) {
-		goto error_exit;
-	}
 
-error_exit:
 	qb_hdb_handle_put(&ipc_hdb, handle);
 	pthread_mutex_unlock(&ipc_instance->mutex);
 
