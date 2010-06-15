@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <signal.h>
 
 int blocking = 1;
 int verbose = 0;
@@ -118,8 +119,13 @@ repeat_send:
 	} else {
 		res = qb_ipcc_msg_send(bmc_ipc_handle, iov, 2);
 	}
-	if (res != 0) {
-		goto repeat_send;
+	if (res == -1) {
+		if (errno == ENOMEM) {
+			goto repeat_send;
+		} else {
+			printf("qb_ipcc_msg_send: %d(%s)\n", res, strerror(res));
+			goto repeat_send;
+		}
 	}
 }
 
@@ -138,11 +144,28 @@ static void show_usage(const char *name)
 	printf("\n");
 }
 
+static void sigterm_handler(int num)
+{
+	printf("writer: %s(%d)\n", __func__, num);
+	qb_ipcc_service_disconnect(bmc_ipc_handle);
+	exit(0);
+}
+
+static void libqb_log_writer(const char *file_name,
+			     int32_t file_line,
+			     int32_t severity, const char *msg)
+{
+	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
+}
+
 int main(int argc, char *argv[])
 {
 	const char *options = "nvh";
 	int opt;
 	int i, j;
+	size_t size;
+
+	qb_util_set_log_function(libqb_log_writer);
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
@@ -160,17 +183,22 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	signal(SIGINT, sigterm_handler);
+	signal(SIGILL, sigterm_handler);
+	signal(SIGTERM, sigterm_handler);
 	bmc_connect();
 
 	ops_fp = fopen("opsec", "w");
 	mbs_fp = fopen("mbsec", "w");
 
-	for (j = 1; j < 499; j++) {
+	for (j = 1; j < 49; j++) {
+		size = 10 * j * j;
 		bm_start();
 		for (i = 0; i < ITERATIONS; i++) {
-			bmc_send_nozc(1000 * j);
+			bmc_send_nozc(size);
 		}
-		bm_finish("send_nozc", 1000 * j);
+		bm_finish("send_nozc", size);
 	}
+	qb_ipcc_service_disconnect(bmc_ipc_handle);
 	return EXIT_SUCCESS;
 }

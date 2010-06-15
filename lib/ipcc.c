@@ -27,6 +27,7 @@
 
 #include <qb/qbipcc.h>
 #include <qb/qbhdb.h>
+#include <qb/qbrb.h>
 #include "ipc_int.h"
 #include "util_int.h"
 
@@ -48,7 +49,7 @@ struct ipc_instance {
 #endif
 	int flow_control_state;
 	struct control_buffer *control_buffer;
-	char *request_buffer;
+	qb_ringbuffer_t * request_rb;
 	char *response_buffer;
 	char *dispatch_buffer;
 	size_t control_size;
@@ -313,7 +314,7 @@ void ipc_hdb_destructor(void *context)
 	 * << 1 (or multiplied by 2) because this is a wrapped memory buffer
 	 */
 	memory_unmap(ipc_instance->control_buffer, ipc_instance->control_size);
-	memory_unmap(ipc_instance->request_buffer, ipc_instance->request_size);
+	qb_rb_close(ipc_instance->request_rb);
 	memory_unmap(ipc_instance->response_buffer,
 		     ipc_instance->response_size);
 	memory_unmap(ipc_instance->dispatch_buffer,
@@ -375,50 +376,27 @@ static int32_t
 msg_send(struct ipc_instance *ipc_instance,
 	 const struct iovec *iov, unsigned int iov_len)
 {
-#if _POSIX_THREAD_PROCESS_SHARED < 1
-	struct sembuf sop;
-#endif
-
-	int i;
-	int res;
-	int req_buffer_idx = 0;
+	int32_t i;
+	size_t size = 0;
+	char *chunk_pt;
 
 	for (i = 0; i < iov_len; i++) {
-		if ((req_buffer_idx + iov[i].iov_len) >
-		    ipc_instance->request_size) {
-			return (EINVAL);
+		if ((size + iov[i].iov_len) > ipc_instance->request_size) {
+			errno = EINVAL;
+			return -1;
 		}
-		memcpy(&ipc_instance->request_buffer[req_buffer_idx],
-		       iov[i].iov_base, iov[i].iov_len);
-		req_buffer_idx += iov[i].iov_len;
+		size += iov[i].iov_len;
 	}
-
-#if _POSIX_THREAD_PROCESS_SHARED > 0
-	res = sem_post(&ipc_instance->control_buffer->sem0);
-	if (res == -1) {
-		return EBADE;
+	chunk_pt = qb_rb_chunk_alloc(ipc_instance->request_rb, size);
+	if (chunk_pt == NULL) {
+		errno = ENOMEM;
+		return -1;
 	}
-#else
-	/*
-	 * Signal semaphore #0 indicting a new message from client
-	 * to server request queue
-	 */
-	sop.sem_num = 0;
-	sop.sem_op = 1;
-	sop.sem_flg = 0;
-
-retry_semop:
-	res = semop(ipc_instance->semid, &sop, 1);
-	if (res == -1 && errno == EINTR) {
-		return (EAGAIN);
-	} else if (res == -1 && errno == EACCES) {
-		priv_change_send(ipc_instance);
-		goto retry_semop;
-	} else if (res == -1) {
-		return (EBADE);
+	for (i = 0; i < iov_len; i++) {
+		memcpy(chunk_pt, iov[i].iov_base, iov[i].iov_len);
+		chunk_pt += iov[i].iov_len;
 	}
-#endif
-	return 0;
+	return qb_rb_chunk_commit(ipc_instance->request_rb, size);
 }
 
 static int32_t ipc_sem_wait(struct ipc_instance *ipc_instance, int sem_num)
@@ -434,9 +412,6 @@ static int32_t ipc_sem_wait(struct ipc_instance *ipc_instance, int sem_num)
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 	switch (sem_num) {
-	case 0:
-		sem = &ipc_instance->control_buffer->sem0;
-		break;
 	case 1:
 		sem = &ipc_instance->control_buffer->sem1;
 		break;
@@ -608,13 +583,15 @@ qb_ipcc_service_connect(const char *socket_name,
 		goto error_connect;
 	}
 
-	res = memory_map(request_map_path,
-			 "request_buffer-XXXXXX",
-			 (void *)&ipc_instance->request_buffer, request_size);
-	if (res == -1) {
+	/* RB request */
+	ipc_instance->request_rb = qb_rb_open("request_ringbuffer-XXXXXX",
+			request_size,
+			QB_RB_FLAG_CREATE|QB_RB_FLAG_SHARED_PROCESS);
+	if (ipc_instance->request_rb == NULL) {
 		res = EBADE;
 		goto error_request_buffer;
 	}
+	strcpy(request_map_path, qb_rb_name_get(ipc_instance->request_rb));
 
 	res = memory_map(response_map_path,
 			 "response_buffer-XXXXXX",
@@ -633,7 +610,6 @@ qb_ipcc_service_connect(const char *socket_name,
 		goto error_dispatch_buffer;
 	}
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	sem_init(&ipc_instance->control_buffer->sem0, 1, 0);
 	sem_init(&ipc_instance->control_buffer->sem1, 1, 0);
 	sem_init(&ipc_instance->control_buffer->sem2, 1, 0);
 #else
@@ -728,7 +704,7 @@ error_exit:
 error_dispatch_buffer:
 	memory_unmap(ipc_instance->response_buffer, response_size);
 error_response_buffer:
-	memory_unmap(ipc_instance->request_buffer, request_size);
+	qb_rb_close(ipc_instance->request_rb);
 error_request_buffer:
 	memory_unmap(ipc_instance->control_buffer, 8192);
 error_connect:

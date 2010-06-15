@@ -36,6 +36,7 @@
 #include <qb/qblist.h>
 #include <qb/qbhdb.h>
 #include <qb/qbipcs.h>
+#include <qb/qbrb.h>
 #include "ipc_int.h"
 #include "util_int.h"
 
@@ -110,7 +111,7 @@ struct conn_info {
 	unsigned int pending_semops;
 	pthread_mutex_t mutex;
 	struct control_buffer *control_buffer;
-	char *request_buffer;
+	qb_ringbuffer_t *request_rb;
 	char *response_buffer;
 	char *dispatch_buffer;
 	size_t control_size;
@@ -158,34 +159,12 @@ static void dummy_stats_increment_value(qb_hdb_handle_t handle,
 {
 }
 
+/*
+ * Just rite some junk to the ringbuffer to kick it out of a sem_wait
+ */
 static void sem_post_exit_thread(struct conn_info *conn_info)
 {
-#if _POSIX_THREAD_PROCESS_SHARED < 1
-	struct sembuf sop;
-#endif
-	int res;
-
-#if _POSIX_THREAD_PROCESS_SHARED > 0
-retry_semop:
-	res = sem_post(&conn_info->control_buffer->sem0);
-	if (res == -1 && errno == EINTR) {
-		api->stats_increment_value(conn_info->stats_handle,
-					   "sem_retry_count");
-		goto retry_semop;
-	}
-#else
-	sop.sem_num = 0;
-	sop.sem_op = 1;
-	sop.sem_flg = 0;
-
-retry_semop:
-	res = semop(conn_info->semid, &sop, 1);
-	if ((res == -1) && (errno == EINTR || errno == EAGAIN)) {
-		api->stats_increment_value(conn_info->stats_handle,
-					   "sem_retry_count");
-		goto retry_semop;
-	}
-#endif
+	qb_rb_chunk_write(conn_info->request_rb, conn_info, 4);
 }
 
 static int memory_map(const char *path, size_t bytes, void **buf)
@@ -459,7 +438,6 @@ static inline int conn_info_destroy(struct conn_info *conn_info)
 	pthread_mutex_unlock(&conn_info->mutex);
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	sem_destroy(&conn_info->control_buffer->sem0);
 	sem_destroy(&conn_info->control_buffer->sem1);
 	sem_destroy(&conn_info->control_buffer->sem2);
 #else
@@ -470,8 +448,7 @@ static inline int conn_info_destroy(struct conn_info *conn_info)
 	 */
 	res =
 	    munmap((void *)conn_info->control_buffer, conn_info->control_size);
-	res =
-	    munmap((void *)conn_info->request_buffer, conn_info->request_size);
+	qb_rb_close(conn_info->request_rb);
 	res =
 	    munmap((void *)conn_info->response_buffer,
 		   conn_info->response_size);
@@ -513,14 +490,14 @@ static void *serveraddr2void(uint64_t server_addr)
 	return (u.server_ptr);
 };
 
-static inline void zerocopy_operations_process(struct conn_info *conn_info,
-					       qb_ipc_request_header_t **
-					       header_out,
-					       unsigned int *new_message)
+static void zerocopy_operations_process(struct conn_info *conn_info,
+				       qb_ipc_request_header_t **
+				       header_out,
+				       unsigned int *new_message)
 {
 	qb_ipc_request_header_t *header;
 
-	header = (qb_ipc_request_header_t *) conn_info->request_buffer;
+	header = *header_out;
 	if (header->id == ZC_ALLOC_HEADER) {
 		mar_req_qb_ipcc_zc_alloc_t *hdr =
 		    (mar_req_qb_ipcc_zc_alloc_t *) header;
@@ -572,14 +549,11 @@ static inline void zerocopy_operations_process(struct conn_info *conn_info,
 static void *pthread_ipc_consumer(void *conn)
 {
 	struct conn_info *conn_info = (struct conn_info *)conn;
-#if _POSIX_THREAD_PROCESS_SHARED < 1
-	struct sembuf sop;
-#endif
-	int res;
 	qb_ipc_request_header_t *header;
-	qb_ipc_response_header_t qb_ipc_response_header;
-	int send_ok;
-	unsigned int new_message;
+	qb_ipc_response_header_t response_header;
+	int32_t send_ok;
+	uint32_t new_message;
+	ssize_t size;
 
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 	if (api->sched_policy != 0) {
@@ -590,44 +564,25 @@ static void *pthread_ipc_consumer(void *conn)
 #endif
 
 	for (;;) {
-#if _POSIX_THREAD_PROCESS_SHARED > 0
-retry_semwait:
-		res = sem_wait(&conn_info->control_buffer->sem0);
-		if (ipc_thread_active(conn_info) == 0) {
-			qb_ipcs_refcount_dec(conn_info);
-			pthread_exit(0);
-		}
-		if ((res == -1) && (errno == EINTR)) {
-			api->stats_increment_value(conn_info->stats_handle,
-						   "sem_retry_count");
-			goto retry_semwait;
-		}
-#else
+		size = qb_rb_chunk_peek(conn_info->request_rb, (void**)&header, 2000);
 
-		sop.sem_num = 0;
-		sop.sem_op = -1;
-		sop.sem_flg = 0;
-retry_semop:
-		res = semop(conn_info->semid, &sop, 1);
 		if (ipc_thread_active(conn_info) == 0) {
+			qb_util_log(LOG_DEBUG,"thread not active");
 			qb_ipcs_refcount_dec(conn_info);
 			pthread_exit(0);
 		}
-		if ((res == -1) && (errno == EINTR || errno == EAGAIN)) {
+		if (size <= 0) {
 			api->stats_increment_value(conn_info->stats_handle,
 						   "sem_retry_count");
-			goto retry_semop;
-		} else if ((res == -1) && (errno == EINVAL || errno == EIDRM)) {
-			qb_ipcs_refcount_dec(conn_info);
-			pthread_exit(0);
+			continue;
 		}
-#endif
 
 		zerocopy_operations_process(conn_info, &header, &new_message);
 		/*
 		 * There is no new message to process, continue for loop
 		 */
 		if (new_message == 0) {
+			qb_rb_chunk_reclaim(conn_info->request_rb);
 			continue;
 		}
 
@@ -643,33 +598,36 @@ retry_semop:
 		 * parameter, such as an invalid size
 		 */
 		if (send_ok == -1) {
-			qb_ipc_response_header.size =
+			response_header.size =
 			    sizeof(qb_ipc_response_header_t);
-			qb_ipc_response_header.id = 0;
-			qb_ipc_response_header.error = EINVAL;
+			response_header.id = 0;
+			response_header.error = EINVAL;
 			qb_ipcs_response_send(conn_info,
-					      &qb_ipc_response_header,
+					      &response_header,
 					      sizeof(qb_ipc_response_header_t));
+			qb_rb_chunk_reclaim(conn_info->request_rb);
 		} else if (send_ok) {
 			api->serialize_lock();
 			api->stats_increment_value(conn_info->stats_handle,
 						   "requests");
 			api->handler_fn_get(conn_info->service,
 					    header->id) (conn_info, header);
+			qb_rb_chunk_reclaim(conn_info->request_rb);
 			api->serialize_unlock();
 		} else {
 			/*
-			 * Overload, tell library to retry
+			 * Overload, don't call qb_rb_chunk_reclaim()
 			 */
 			api->stats_increment_value(conn_info->stats_handle,
 						   "sem_retry_count");
-			qb_ipc_response_header.size =
+			response_header.size =
 			    sizeof(qb_ipc_response_header_t);
-			qb_ipc_response_header.id = 0;
-			qb_ipc_response_header.error = EAGAIN;
+			response_header.id = 0;
+			response_header.error = EAGAIN;
 			qb_ipcs_response_send(conn_info,
-					      &qb_ipc_response_header,
+					      &response_header,
 					      sizeof(qb_ipc_response_header_t));
+			qb_rb_chunk_reclaim(conn_info->request_rb);
 		}
 
 		api->
@@ -993,7 +951,6 @@ void qb_ipcs_ipc_exit(void)
 		ipc_disconnect(conn_info);
 
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-		sem_destroy(&conn_info->control_buffer->sem0);
 		sem_destroy(&conn_info->control_buffer->sem1);
 		sem_destroy(&conn_info->control_buffer->sem2);
 #else
@@ -1005,8 +962,7 @@ void qb_ipcs_ipc_exit(void)
 		 */
 		res = munmap((void *)conn_info->control_buffer,
 			     conn_info->control_size);
-		res = munmap((void *)conn_info->request_buffer,
-			     conn_info->request_size);
+		qb_rb_close(conn_info->request_rb);
 		res = munmap((void *)conn_info->response_buffer,
 			     conn_info->response_size);
 		res = circular_memory_unmap(conn_info->dispatch_buffer,
@@ -1624,9 +1580,9 @@ int qb_ipcs_handler_dispatch(int fd, int revent, void *context)
 				 (void *)&conn_info->control_buffer);
 		conn_info->control_size = req_setup->control_size;
 
-		res = memory_map(req_setup->request_file,
+		conn_info->request_rb = qb_rb_open(req_setup->request_file,
 				 req_setup->request_size,
-				 (void *)&conn_info->request_buffer);
+				 QB_RB_FLAG_SHARED_PROCESS);
 		conn_info->request_size = req_setup->request_size;
 
 		res = memory_map(req_setup->response_file,

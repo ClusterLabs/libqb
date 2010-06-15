@@ -66,7 +66,13 @@ static void bms_benchmark_one_fn(void *conn, const void *msg)
 {
 	qb_ipc_response_header_t res;
 
-	if (blocking) {
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
+	res.size = sizeof(qb_ipc_response_header_t);
+	res.id = 0;
+	res.error = 0;
+	if (blocking == 1) {
 		qb_ipcs_response_send(conn, &res, sizeof(res));
 	}
 }
@@ -80,6 +86,9 @@ static void bms_benchmark_two_fn(void *conn, const void *msg)
 
 	qb_ipc_response_header_t res;
 	struct iovec iovec[2];
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 
 	res.size =
 	    req->size - sizeof(qb_ipc_request_header_t) +
@@ -98,11 +107,17 @@ static void bms_benchmark_two_fn(void *conn, const void *msg)
 
 static int bms_lib_init_fn(void *conn)
 {
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	return (0);
 }
 
 static int bms_lib_exit_fn(void *conn)
 {
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
 	return (0);
 }
 
@@ -110,7 +125,7 @@ static struct lib_handler bms_lib_engine_one[] = {
 	{			/* entry 0 */
 	 .lib_handler_fn = bms_benchmark_one_fn,
 	 },
-	{			/* entry 0 */
+	{			/* entry 1 */
 	 .lib_handler_fn = bms_benchmark_two_fn,
 	 }
 };
@@ -188,7 +203,7 @@ static void bms_sending_allowed_release(void *sending_allowed_private_data)
 static void ipc_log_fn(const char *file_name,
 		       int32_t file_line, int32_t severity, const char *msg)
 {
-	fprintf(stderr, "%s:%d [%d] %s", file_name, file_line, severity, msg);
+	fprintf(stderr, "%s:%d [%d] %s\n", file_name, file_line, severity, msg);
 }
 
 static void ipc_fatal_error(const char *error_msg)
@@ -267,6 +282,9 @@ struct qb_ipcs_init_state ipc_init_state = {
 
 static void sigusr1_handler(int num)
 {
+	printf("%s(%d)\n", __func__, num);
+	qb_ipcs_ipc_exit();
+	exit(0);
 }
 
 static void show_usage(const char *name)
@@ -302,7 +320,9 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	signal(SIGUSR1, sigusr1_handler);
+	signal(SIGINT, sigusr1_handler);
+	signal(SIGILL, sigusr1_handler);
+	signal(SIGTERM, sigusr1_handler);
 
 	qb_util_set_log_function(ipc_log_fn);
 

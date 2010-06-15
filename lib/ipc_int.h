@@ -58,7 +58,6 @@ struct control_buffer {
 	unsigned int read;
 	unsigned int write;
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	sem_t sem0;
 	sem_t sem1;
 	sem_t sem2;
 #endif
