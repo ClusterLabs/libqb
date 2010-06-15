@@ -91,13 +91,13 @@ extern "C" {
  * This effects the type of locks/semaphores that are used.
  * @see qb_rb_open()
  */
-#define QB_RB_FLAG_SHARED_THREAD	0x03
+#define QB_RB_FLAG_SHARED_THREAD	0x04
 /**
  * The ringbuffer will be shared between processes.
  * This effects the type of locks/semaphores that are used.
  * @see qb_rb_open()
  */
-#define QB_RB_FLAG_SHARED_PROCESS	0x04
+#define QB_RB_FLAG_SHARED_PROCESS	0x08
 
 struct qb_ringbuffer_s;
 typedef struct qb_ringbuffer_s qb_ringbuffer_t;
