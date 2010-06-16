@@ -58,9 +58,9 @@
 
 static struct qb_ipcs_init_state *api = NULL;
 
-QB_DECLARE_LIST_INIT(conn_info_qb_list_head);
+QB_LIST_DECLARE(conn_info_qb_list_head);
 
-QB_DECLARE_LIST_INIT(conn_info_exit_qb_list_head);
+QB_LIST_DECLARE(conn_info_exit_qb_list_head);
 
 struct outq_item {
 	void *msg;

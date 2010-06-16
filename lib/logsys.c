@@ -149,7 +149,7 @@ static int32_t logsys_dropped_messages = 0;
 
 void *qb_logsys_rec_end;
 
-static QB_DECLARE_LIST_INIT(logsys_print_finished_records);
+static QB_LIST_DECLARE(logsys_print_finished_records);
 
 #define FDMAX_ARGS	64
 

@@ -40,10 +40,10 @@ struct qb_list_head {
 };
 
 /**
- * @def QB_DECLARE_LIST_INIT()
+ * @def QB_LIST_DECLARE()
  * Declare and initialize a list head.
  */
-#define QB_DECLARE_LIST_INIT(name) \
+#define QB_LIST_DECLARE(name) \
     struct qb_list_head name = { &(name), &(name) }
 
 /**
