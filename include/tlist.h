@@ -55,7 +55,7 @@ struct timerlist {
 
 struct timerlist_timer {
 	struct qb_list_head list;
-	unsigned long long expire_time;
+	uint64_t expire_time;
 	int is_absolute_timer;
 	void (*timer_fn) (void *data);
 	void *data;
@@ -67,9 +67,9 @@ static inline void timerlist_init(struct timerlist *timerlist)
 	qb_list_init(&timerlist->timer_head);
 }
 
-static inline unsigned long long timerlist_nano_from_epoch(void)
+static inline uint64_t timerlist_nano_from_epoch(void)
 {
-	unsigned long long nano_from_epoch;
+	uint64_t nano_from_epoch;
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
 
@@ -80,21 +80,21 @@ static inline unsigned long long timerlist_nano_from_epoch(void)
 }
 
 #if defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
-static inline unsigned long long timerlist_nano_current_get(void)
+static inline uint64_t timerlist_nano_current_get(void)
 {
-	unsigned long long nano_monotonic;
+	uint64_t nano_monotonic;
 	struct timespec ts;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
 	nano_monotonic =
-	    (ts.tv_sec * TIMERLIST_NS_IN_SEC) + (unsigned long long)ts.tv_nsec;
+	    (ts.tv_sec * TIMERLIST_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
 	return (nano_monotonic);
 }
 
-static inline unsigned long long timerlist_nano_monotonic_hz(void)
+static inline uint64_t timerlist_nano_monotonic_hz(void)
 {
-	unsigned long long nano_monotonic_hz;
+	uint64_t nano_monotonic_hz;
 	struct timespec ts;
 
 	clock_getres(CLOCK_MONOTONIC, &ts);
@@ -107,12 +107,12 @@ static inline unsigned long long timerlist_nano_monotonic_hz(void)
 }
 #else
 #warning "Your system doesn't support monotonic timer. gettimeofday will be used"
-static inline unsigned long long timerlist_nano_current_get(void)
+static inline uint64_t timerlist_nano_current_get(void)
 {
 	return (timerlist_nano_from_epoch());
 }
 
-static inline unsigned long long timerlist_nano_monotonic_hz(void)
+static inline uint64_t timerlist_nano_monotonic_hz(void)
 {
 	return HZ;
 }
@@ -146,7 +146,7 @@ static inline void timerlist_add(struct timerlist *timerlist,
 static inline int timerlist_add_absolute(struct timerlist *timerlist,
 					 void (*timer_fn) (void *data),
 					 void *data,
-					 unsigned long long nano_from_epoch,
+					 uint64_t nano_from_epoch,
 					 timer_handle * handle)
 {
 	struct timerlist_timer *timer;
@@ -172,7 +172,7 @@ static inline int timerlist_add_absolute(struct timerlist *timerlist,
 static inline int timerlist_add_duration(struct timerlist *timerlist,
 					 void (*timer_fn) (void *data),
 					 void *data,
-					 unsigned long long nano_duration,
+					 uint64_t nano_duration,
 					 timer_handle * handle)
 {
 	struct timerlist_timer *timer;
@@ -214,7 +214,7 @@ static inline void timerlist_del(struct timerlist *timerlist,
 	free(timer);
 }
 
-static inline unsigned long long timerlist_expire_time(struct timerlist
+static inline uint64_t timerlist_expire_time(struct timerlist
 						       *timerlist,
 						       timer_handle
 						       _timer_handle)
@@ -245,13 +245,13 @@ static inline void timerlist_post_dispatch(struct timerlist *timerlist,
 /*
  * returns the number of msec until the next timer will expire for use with poll
  */
-static inline unsigned long long timerlist_msec_duration_to_expire(struct
+static inline uint64_t timerlist_msec_duration_to_expire(struct
 								   timerlist
 								   *timerlist)
 {
 	struct timerlist_timer *timer_from_list;
-	volatile unsigned long long current_time;
-	volatile unsigned long long msec_duration_to_expire;
+	volatile uint64_t current_time;
+	volatile uint64_t msec_duration_to_expire;
 
 	/*
 	 * empty list, no expire
@@ -288,9 +288,9 @@ static inline unsigned long long timerlist_msec_duration_to_expire(struct
 static inline void timerlist_expire(struct timerlist *timerlist)
 {
 	struct timerlist_timer *timer_from_list;
-	unsigned long long current_time_from_epoch;
-	unsigned long long current_monotonic_time;
-	unsigned long long current_time;
+	uint64_t current_time_from_epoch;
+	uint64_t current_monotonic_time;
+	uint64_t current_time;
 
 	current_monotonic_time = timerlist_nano_current_get();
 	current_time_from_epoch = current_time = timerlist_nano_from_epoch();

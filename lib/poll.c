@@ -279,7 +279,7 @@ int qb_poll_timer_add(qb_handle_t handle,
 
 	timerlist_add_duration(&poll_instance->timerlist,
 			       timer_fn, data,
-			       ((unsigned long long)msec_duration) * 1000000ULL,
+			       ((uint64_t)msec_duration) * 1000000ULL,
 			       timer_handle_out);
 
 	qb_hdb_handle_put(&poll_instance_database, handle);
@@ -333,7 +333,7 @@ int qb_poll_run(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
 	int i;
-	unsigned long long expire_timeout_msec = -1;
+	uint64_t expire_timeout_msec = -1;
 	int res;
 	int poll_entry_count;
 

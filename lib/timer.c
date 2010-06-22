@@ -59,7 +59,7 @@ extern void pthread_exit(void *) __attribute__ ((noreturn));
 static void *prioritized_timer_thread(void *data)
 {
 	int fds;
-	unsigned long long timeout;
+	uint64_t timeout;
 
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 	if (sched_priority != 0) {
@@ -126,7 +126,7 @@ int qb_timer_init(void (*serialize_lock_fn) (void),
 	return (res);
 }
 
-int qb_timer_add_absolute(unsigned long long nanosec_from_epoch,
+int qb_timer_add_absolute(uint64_t nanosec_from_epoch,
 			  void *data,
 			  void (*timer_fn) (void *data), timer_handle * handle)
 {
@@ -153,7 +153,7 @@ int qb_timer_add_absolute(unsigned long long nanosec_from_epoch,
 	return (res);
 }
 
-int qb_timer_add_duration(unsigned long long nanosec_duration,
+int qb_timer_add_duration(uint64_t nanosec_duration,
 			  void *data,
 			  void (*timer_fn) (void *data), timer_handle * handle)
 {
@@ -211,15 +211,15 @@ void qb_timer_unlock(void)
 	pthread_mutex_unlock(&timer_mutex);
 }
 
-unsigned long long qb_timer_time_get(void)
+uint64_t qb_timer_time_get(void)
 {
 	return (timerlist_nano_from_epoch());
 }
 
-unsigned long long qb_timer_expire_time_get(timer_handle th)
+uint64_t qb_timer_expire_time_get(timer_handle th)
 {
 	int unlock;
-	unsigned long long expire;
+	uint64_t expire;
 
 	if (th == 0) {
 		return (0);
