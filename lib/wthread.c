@@ -26,6 +26,7 @@
 
 #include <config.h>
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
@@ -211,7 +212,7 @@ void qb_wthread_group_atsegv(struct qb_wthread_group *worker_thread_group)
 {
 	void *data_for_worker_fn;
 	struct qb_wthread_t *worker_thread;
-	unsigned int i;
+	uint32_t i;
 
 	for (i = 0; i < worker_thread_group->threadcount; i++) {
 		worker_thread = &worker_thread_group->threads[i];

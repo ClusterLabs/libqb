@@ -86,7 +86,7 @@ qb_handle_t bmc_ipc_handle;
 
 static void bmc_connect(void)
 {
-	unsigned int res;
+	uint32_t res;
 
 	res = qb_ipcc_service_connect("qb_ipcs_bm",
 				      0,
@@ -95,7 +95,7 @@ static void bmc_connect(void)
 }
 
 static char buffer[1024 * 1024];
-static void bmc_send_nozc(unsigned int size)
+static void bmc_send_nozc(uint32_t size)
 {
 	struct iovec iov[2];
 	qb_ipc_request_header_t req_header;

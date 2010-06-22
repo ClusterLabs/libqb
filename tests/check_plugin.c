@@ -47,7 +47,7 @@ START_TEST(test_plugin)
 	void *b_iface_ver0_p;
 	void *b_iface_ver1_p;
 
-	unsigned int res;
+	int32_t res;
 
 	setenv("LD_LIBRARY_PATH", ".libs", 1);
 	/*

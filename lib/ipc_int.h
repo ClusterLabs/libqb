@@ -55,8 +55,8 @@ enum req_init_types {
 #define MESSAGE_RES_OUTQ_FLUSH_NR      3
 
 struct control_buffer {
-	unsigned int read;
-	unsigned int write;
+	uint32_t read;
+	uint32_t write;
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 	sem_t sem1;
 	sem_t sem2;

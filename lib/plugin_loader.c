@@ -75,7 +75,7 @@ static int plugin_select_so(const struct dirent *dirent)
 static int plugin_select_so(struct dirent *dirent)
 #endif
 {
-	unsigned int len;
+	size_t len;
 	/*
 	 * TODO check .lcrso > .so
 	 */
@@ -103,9 +103,9 @@ static int pathlist_select(struct dirent *dirent)
 
 static inline struct plugin_component_instance *plugin_comp_find(const char
 								 *iface_name,
-								 unsigned int
+								 uint32_t
 								 version,
-								 unsigned int
+								 uint32_t
 								 *iface_number)
 {
 	struct plugin_component_instance *instance;
@@ -166,7 +166,7 @@ static inline int plugin_lib_loaded(char *library_name)
 
 enum { PATH_LIST_SIZE = 128 };
 const char *path_list[PATH_LIST_SIZE];
-unsigned int path_list_entries = 0;
+uint32_t path_list_entries = 0;
 
 static void defaults_path_build(void)
 {
@@ -218,7 +218,7 @@ static int ldso_path_build(const char *path, const char *filename)
 	char *new_filename;
 	int j;
 	struct dirent **scandir_list;
-	unsigned int scandir_entries;
+	uint32_t scandir_entries;
 
 	snprintf(filename_cat, sizeof(filename_cat), "%s/%s", path, filename);
 	if (filename[0] == '*') {
@@ -302,7 +302,7 @@ static int scandir(const char *dir, struct dirent ***namelist,
 		if (namelist_items >= namelist_size) {
 			struct dirent **tmp;
 			namelist_size += 512;
-			if ((unsigned long)namelist_size > INT_MAX) {
+			if ((uint32_t)namelist_size > INT_MAX) {
 				errno = EOVERFLOW;
 				goto fail;
 			}
@@ -357,13 +357,13 @@ static int alphasort(const struct dirent **a, const struct dirent **b)
 static int interface_find_and_load(const char *path,
 				   const char *iface_name,
 				   int version, struct plugin_component_instance
-				   **instance_ret, unsigned int *iface_number)
+				   **instance_ret, uint32_t *iface_number)
 {
 	struct plugin_component_instance *instance;
 	void *dl_handle;
 	struct dirent **scandir_list;
 	int scandir_entries;
-	unsigned int libs_to_scan;
+	uint32_t libs_to_scan;
 	char dl_name[1024];
 #ifdef QB_SOLARIS
 	void (*comp_reg) (void);
@@ -448,7 +448,7 @@ found:
 	return 0;
 }
 
-static unsigned int plugin_initialized = 0;
+static uint32_t plugin_initialized = 0;
 
 int plugin_ifact_reference(qb_handle_t * iface_handle,
 			   const char *iface_name,
@@ -456,9 +456,9 @@ int plugin_ifact_reference(qb_handle_t * iface_handle,
 {
 	struct plugin_iface_instance *iface_instance;
 	struct plugin_component_instance *instance;
-	unsigned int iface_number;
-	unsigned int res;
-	unsigned int i;
+	uint32_t iface_number;
+	int32_t res;
+	uint32_t i;
 
 	/*
 	 * Determine if the component is already loaded

@@ -57,7 +57,7 @@ qb_handle_t qb_poll_create(void)
 {
 	qb_handle_t handle;
 	struct qb_poll_instance *poll_instance;
-	unsigned int res;
+	int32_t res;
 
 	res = qb_hdb_handle_create(&poll_instance_database,
 				   sizeof(struct qb_poll_instance), &handle);
@@ -313,7 +313,7 @@ error_exit:
 int qb_poll_stop(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
-	unsigned int res;
+	int32_t res;
 
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);

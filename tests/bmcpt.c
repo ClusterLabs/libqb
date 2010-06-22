@@ -38,7 +38,7 @@ struct bm_ctx {
 	struct timeval tv_elapsed;
 	float mbs;
 	int multi;
-	unsigned int counter;
+	uint32_t counter;
 };
 
 #define timersub(a, b, result)					\
@@ -80,7 +80,7 @@ static void bm_finish(struct bm_ctx *ctx, const char *operation, int size)
 
 static void bmc_connect(struct bm_ctx *ctx)
 {
-	unsigned int res;
+	uint32_t res;
 
 	res = qb_ipcc_service_connect("qb_ipcs_bm",
 				      0,
@@ -95,7 +95,7 @@ static void bmc_disconnect(struct bm_ctx *ctx)
 }
 
 static char buffer[1024 * 1024];
-static void bmc_send_nozc(struct bm_ctx *ctx, unsigned int size)
+static void bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
 {
 	struct iovec iov[2];
 	qb_ipc_request_header_t req_header;
@@ -121,7 +121,7 @@ repeat_send:
 	}
 }
 
-unsigned int alarm_notice = 0;
+uint32_t alarm_notice = 0;
 static void sigalrm_handler(int num)
 {
 	alarm_notice = 1;

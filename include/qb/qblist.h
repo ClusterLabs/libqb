@@ -140,7 +140,7 @@ static void inline qb_list_del(struct qb_list_head *_remove)
  * @endcode
  */
 #define qb_list_entry(ptr,type,member)\
-	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
+	((type *)((char *)(ptr)-(char*)(&((type *)0)->member)))
 
 /**
  * A quick test to see if the list is empty (pointing to it's self).

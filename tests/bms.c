@@ -56,7 +56,7 @@ struct lib_handler {
 };
 
 struct service_engine {
-	unsigned int private_data_size;
+	uint32_t private_data_size;
 	int (*lib_init_fn) (void *conn);
 	int (*lib_exit_fn) (void *conn);
 	struct lib_handler *lib_engine;
@@ -150,23 +150,23 @@ static void bms_serialize_unlock(void)
 /*
  * Provides the glue from bms to the IPC Service
  */
-static int bms_private_data_size_get(unsigned int service)
+static int bms_private_data_size_get(uint32_t service)
 {
 	return (services[service].private_data_size);
 }
 
-static qb_ipcs_init_fn_lvalue bms_init_fn_get(unsigned int service)
+static qb_ipcs_init_fn_lvalue bms_init_fn_get(uint32_t service)
 {
 	return (services[service].lib_init_fn);
 }
 
-static qb_ipcs_exit_fn_lvalue bms_exit_fn_get(unsigned int service)
+static qb_ipcs_exit_fn_lvalue bms_exit_fn_get(uint32_t service)
 {
 	return (services[service].lib_exit_fn);
 }
 
-static qb_ipcs_handler_fn_lvalue bms_handler_fn_get(unsigned int service,
-						    unsigned int id)
+static qb_ipcs_handler_fn_lvalue bms_handler_fn_get(uint32_t service,
+						    uint32_t id)
 {
 	return (services[service].lib_engine[id].lib_handler_fn);
 }
@@ -180,7 +180,7 @@ static int bms_security_valid(int euid, int egid)
 	return (0);
 }
 
-static int bms_service_available(unsigned int service)
+static int bms_service_available(uint32_t service)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -188,8 +188,8 @@ static int bms_service_available(unsigned int service)
 	return (service < 1);
 }
 
-static int bms_sending_allowed(unsigned int service,
-			       unsigned int id,
+static int bms_sending_allowed(uint32_t service,
+			       uint32_t id,
 			       const void *msg,
 			       void *sending_allowed_private_data)
 {

@@ -101,7 +101,7 @@ static void bmc_connect(void)
 }
 
 static char buffer[1024 * 1024];
-static void bmc_send_nozc(unsigned int size)
+static void bmc_send_nozc(size_t size)
 {
 	ssize_t res = 0;
 
