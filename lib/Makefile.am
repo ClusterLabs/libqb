@@ -21,7 +21,7 @@
 
 MAINTAINERCLEANFILES	= Makefile.in
 
-noinst_HEADERS          = ipc_int.h util_int.h ringbuffer.h
+noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h
 
 lib_LIBRARIES		= libqbplugin.a
 

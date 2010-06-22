@@ -20,7 +20,7 @@
  */
 #include <config.h>
 
-#include "ringbuffer.h"
+#include "ringbuffer_int.h"
 
 static int32_t my_null_fn(struct qb_ringbuffer_s *rb)
 {

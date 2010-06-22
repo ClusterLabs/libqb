@@ -20,7 +20,7 @@
  */
 #include <config.h>
 
-#include "ringbuffer.h"
+#include "ringbuffer_int.h"
 
 //#define CRAZY_DEBUG_PRINTFS 1
 #ifdef CRAZY_DEBUG_PRINTFS
