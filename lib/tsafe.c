@@ -67,8 +67,8 @@
  * known not to be thread safe (see man pthreads).
  */
 
-static int tsafe_disabled = 1;
-static int tsafe_inited = 0;
+static int32_t tsafe_disabled = 1;
+static int32_t tsafe_inited = 0;
 static char **coro_environ;
 static void atfork_prepare(void);
 static void atfork_parent(void);
@@ -82,8 +82,8 @@ static pthread_mutex_t tsafe_enabled_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void qb_tsafe_init(char **envp)
 {
-	int i;
-	int size = 1;
+	int32_t i;
+	int32_t size = 1;
 
 	for (i = 0; envp[i] != NULL; i++) {
 		size++;
@@ -212,8 +212,8 @@ int pthread_create(pthread_t * thread, const pthread_attr_t * attr,
 char *getenv(const char *name)
 {
 	static char *(*real_getenv) (const char *name) = NULL;
-	int entry;
-	int found = 0;
+	int32_t entry;
+	int32_t found = 0;
 	char *eq;
 	size_t name_len;
 

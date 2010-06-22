@@ -31,8 +31,8 @@
 #include <unistd.h>
 #include <signal.h>
 
-int blocking = 1;
-int verbose = 0;
+int32_t blocking = 1;
+int32_t verbose = 0;
 #define ITERATIONS 10000
 
 static struct timeval tv1, tv2, tv_elapsed;
@@ -56,7 +56,7 @@ static void bm_start(void)
 	gettimeofday(&tv1, NULL);
 }
 
-static void bm_finish(const char *operation, int size)
+static void bm_finish(const char *operation, int32_t size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
@@ -100,7 +100,7 @@ static void bmc_send_nozc(uint32_t size)
 	struct iovec iov[2];
 	qb_ipc_request_header_t req_header;
 	qb_ipc_response_header_t res_header;
-	int res;
+	int32_t res;
 
 	req_header.id = 0;
 	req_header.size = sizeof(qb_ipc_request_header_t) + size;
@@ -145,7 +145,7 @@ static void show_usage(const char *name)
 	printf("\n");
 }
 
-static void sigterm_handler(int num)
+static void sigterm_handler(int32_t num)
 {
 	printf("writer: %s(%d)\n", __func__, num);
 	qb_ipcc_service_disconnect(bmc_ipc_handle);
@@ -159,11 +159,11 @@ static void libqb_log_writer(const char *file_name,
 	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "nvh";
-	int opt;
-	int i, j;
+	int32_t opt;
+	int32_t i, j;
 	size_t size;
 
 	qb_util_set_log_function(libqb_log_writer);

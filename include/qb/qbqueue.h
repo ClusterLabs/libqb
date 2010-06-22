@@ -32,19 +32,19 @@ extern "C" {
 /* *INDENT-ON* */
 
 struct qb_queue {
-	int head;
-	int tail;
-	int used;
-	int usedhw;
-	int size;
+	int32_t head;
+	int32_t tail;
+	int32_t used;
+	int32_t usedhw;
+	int32_t size;
 	void *items;
-	int size_per_item;
-	int iterator;
+	int32_t size_per_item;
+	int32_t iterator;
 	pthread_mutex_t mutex;
 };
 
-static inline int qb_queue_init(struct qb_queue *qb_queue, int qb_queue_items,
-				int size_per_item)
+static inline int32_t qb_queue_init(struct qb_queue *qb_queue, int32_t qb_queue_items,
+				int32_t size_per_item)
 {
 	qb_queue->head = 0;
 	qb_queue->tail = qb_queue_items - 1;
@@ -62,7 +62,7 @@ static inline int qb_queue_init(struct qb_queue *qb_queue, int qb_queue_items,
 	return (0);
 }
 
-static inline int qb_queue_reinit(struct qb_queue *qb_queue)
+static inline int32_t qb_queue_reinit(struct qb_queue *qb_queue)
 {
 	pthread_mutex_lock(&qb_queue->mutex);
 	qb_queue->head = 0;
@@ -81,9 +81,9 @@ static inline void qb_queue_free(struct qb_queue *qb_queue)
 	free(qb_queue->items);
 }
 
-static inline int qb_queue_is_full(struct qb_queue *qb_queue)
+static inline int32_t qb_queue_is_full(struct qb_queue *qb_queue)
 {
-	int full;
+	int32_t full;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	full = ((qb_queue->size - 1) == qb_queue->used);
@@ -91,9 +91,9 @@ static inline int qb_queue_is_full(struct qb_queue *qb_queue)
 	return (full);
 }
 
-static inline int qb_queue_is_empty(struct qb_queue *qb_queue)
+static inline int32_t qb_queue_is_empty(struct qb_queue *qb_queue)
 {
-	int empty;
+	int32_t empty;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	empty = (qb_queue->used == 0);
@@ -104,7 +104,7 @@ static inline int qb_queue_is_empty(struct qb_queue *qb_queue)
 static inline void qb_queue_item_add(struct qb_queue *qb_queue, void *item)
 {
 	char *qb_queue_item;
-	int qb_queue_position;
+	int32_t qb_queue_position;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	qb_queue_position = qb_queue->head;
@@ -125,7 +125,7 @@ static inline void qb_queue_item_add(struct qb_queue *qb_queue, void *item)
 static inline void *qb_queue_item_get(struct qb_queue *qb_queue)
 {
 	char *qb_queue_item;
-	int qb_queue_position;
+	int32_t qb_queue_position;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	qb_queue_position = (qb_queue->tail + 1) % qb_queue->size;
@@ -148,7 +148,7 @@ static inline void qb_queue_item_remove(struct qb_queue *qb_queue)
 }
 
 static inline void qb_queue_items_remove(struct qb_queue *qb_queue,
-					 int rel_count)
+					 int32_t rel_count)
 {
 	pthread_mutex_lock(&qb_queue->mutex);
 	qb_queue->tail = (qb_queue->tail + rel_count) % qb_queue->size;
@@ -169,7 +169,7 @@ static inline void qb_queue_item_iterator_init(struct qb_queue *qb_queue)
 static inline void *qb_queue_item_iterator_get(struct qb_queue *qb_queue)
 {
 	char *qb_queue_item;
-	int qb_queue_position;
+	int32_t qb_queue_position;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	qb_queue_position = (qb_queue->iterator) % qb_queue->size;
@@ -183,9 +183,9 @@ static inline void *qb_queue_item_iterator_get(struct qb_queue *qb_queue)
 	return ((void *)qb_queue_item);
 }
 
-static inline int qb_queue_item_iterator_next(struct qb_queue *qb_queue)
+static inline int32_t qb_queue_item_iterator_next(struct qb_queue *qb_queue)
 {
-	int next_res;
+	int32_t next_res;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	qb_queue->iterator = (qb_queue->iterator + 1) % qb_queue->size;
@@ -195,7 +195,7 @@ static inline int qb_queue_item_iterator_next(struct qb_queue *qb_queue)
 	return (next_res);
 }
 
-static inline void qb_queue_avail(struct qb_queue *qb_queue, int *avail)
+static inline void qb_queue_avail(struct qb_queue *qb_queue, int32_t *avail)
 {
 	pthread_mutex_lock(&qb_queue->mutex);
 	*avail = qb_queue->size - qb_queue->used - 2;
@@ -203,9 +203,9 @@ static inline void qb_queue_avail(struct qb_queue *qb_queue, int *avail)
 	pthread_mutex_unlock(&qb_queue->mutex);
 }
 
-static inline int qb_queue_used(struct qb_queue *qb_queue)
+static inline int32_t qb_queue_used(struct qb_queue *qb_queue)
 {
-	int used;
+	int32_t used;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	used = qb_queue->used;
@@ -214,9 +214,9 @@ static inline int qb_queue_used(struct qb_queue *qb_queue)
 	return (used);
 }
 
-static inline int qb_queue_usedhw(struct qb_queue *qb_queue)
+static inline int32_t qb_queue_usedhw(struct qb_queue *qb_queue)
 {
-	int usedhw;
+	int32_t usedhw;
 
 	pthread_mutex_lock(&qb_queue->mutex);
 	usedhw = qb_queue->usedhw;

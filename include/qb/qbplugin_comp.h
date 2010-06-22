@@ -31,12 +31,12 @@ extern "C" {
  */
 struct plugin_iface {
 	const char *name;	/* Name of the interface */
-	int version;		/* Version of this interface */
-	int *versions_replace;	/* Versions that this interface can replace */
-	int versions_replace_count;	/* Count of entries in version_replace */
+	int32_t version;		/* Version of this interface */
+	int32_t *versions_replace;	/* Versions that this interface can replace */
+	int32_t versions_replace_count;	/* Count of entries in version_replace */
 	char **dependencies;	/* Dependent interfaces */
 	size_t dependency_count;	/* Count of entires in dependencies */
-	int (*constructor) (void *context);	/* Constructor for this interface */
+	int32_t (*constructor) (void *context);	/* Constructor for this interface */
 	void (*destructor) (void *context);	/* Constructor for this interface */
 	void **interfaces;	/* List of functions in interface */
 };

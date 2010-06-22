@@ -35,8 +35,8 @@ START_TEST(test_ring_buffer1)
 	qb_ipc_request_header_t *hdr;
 	char *str;
 	qb_ringbuffer_t *rb;
-	int i;
-	int b;
+	int32_t i;
+	int32_t b;
 	ssize_t actual;
 	ssize_t avail;
 
@@ -161,7 +161,7 @@ END_TEST START_TEST(test_ring_buffer4)
 {
 	qb_ringbuffer_t *t;
 	char data[] = "1234567891";
-	int i;
+	int32_t i;
 	char *new_data;
 	ssize_t l;
 
@@ -206,9 +206,9 @@ static void libqb_log_fn(const char *file_name,
 	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
 }
 
-int main(void)
+int32_t main(void)
 {
-	int number_failed;
+	int32_t number_failed;
 
 	Suite *s = rb_suite();
 	SRunner *sr = srunner_create(s);

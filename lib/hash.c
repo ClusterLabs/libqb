@@ -59,7 +59,7 @@ static uint32_t hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
 	uint8_t *cd = (uint8_t *) value;
 	uint8_t *ed = (uint8_t *) value + valuelen;
 	uint32_t hash_result = 0x811c9dc5;
-	int res;
+	int32_t res;
 
 	while (cd < ed) {
 		hash_result ^= *cd;
@@ -74,7 +74,7 @@ int32_t qb_hash_initialize(qb_handle_t * handle,
 			   uint32_t order, uint32_t context_size)
 {
 	struct hash_table *hash_table;
-	int i;
+	int32_t i;
 	uint64_t size;
 	int32_t res;
 
@@ -119,9 +119,9 @@ int32_t qb_hash_key_set(qb_handle_t handle,
 	struct hash_table *hash_table;
 	uint32_t hash_entry;
 	struct qb_list_head *list;
-	int found = 0;
+	int32_t found = 0;
 	struct hash_node *hash_node;
-	int res = 0;
+	int32_t res = 0;
 
 	res =
 	    qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
@@ -262,7 +262,7 @@ int32_t qb_hash_key_context_get(qb_handle_t handle,
 				const char *key, void **context)
 {
 	struct hash_table *hash_table;
-	int res = 0;
+	int32_t res = 0;
 
 	qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
 	qb_hdb_handle_put(&qb_hash_handle_db, handle);

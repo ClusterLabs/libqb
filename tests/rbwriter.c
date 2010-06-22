@@ -48,7 +48,7 @@ do {								\
 	}							\
 } while (0)
 
-static void sigterm_handler(int num)
+static void sigterm_handler(int32_t num)
 {
 	printf("writer: %s(%d)\n", __func__, num);
 	qb_rb_close(rb);
@@ -67,7 +67,7 @@ static void bm_start(void)
 	gettimeofday(&tv1, NULL);
 }
 
-static void bm_finish(const char *operation, int size)
+static void bm_finish(const char *operation, int32_t size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
@@ -126,12 +126,12 @@ static void show_usage(const char *name)
 	printf("\n");
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "vh";
-	int opt;
-	int i, j;
-	int size;
+	int32_t opt;
+	int32_t i, j;
+	int32_t size;
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {

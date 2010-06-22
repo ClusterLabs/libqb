@@ -25,7 +25,7 @@
 /*
  * Version 0 of the interface
  */
-static int iface1_constructor(void *context);
+static int32_t iface1_constructor(void *context);
 
 static void iface1_destructor(void *context);
 
@@ -38,7 +38,7 @@ static void iface1_func3(void);
 /*
  * Version 1 of the interface
  */
-static int iface1_ver1_constructor(void *context);
+static int32_t iface1_ver1_constructor(void *context);
 
 static void iface1_ver1_destructor(void *context);
 
@@ -102,7 +102,7 @@ static struct plugin_comp test_comp = {
 	.ifaces = iface1
 };
 
-static int iface1_constructor(void *context)
+static int32_t iface1_constructor(void *context)
 {
 	printf("A - version 0 constructor context %p\n", context);
 	return (0);
@@ -128,7 +128,7 @@ static void iface1_func3(void)
 	printf("A - version 0 func3\n");
 }
 
-static int iface1_ver1_constructor(void *context)
+static int32_t iface1_ver1_constructor(void *context)
 {
 	printf("A - version 1 constructor context %p\n", context);
 	return (0);

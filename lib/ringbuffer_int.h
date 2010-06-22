@@ -83,7 +83,7 @@ struct qb_ringbuffer_s {
 
 #if defined(_SEM_SEMUN_UNDEFINED)
 union semun {
-	int val;
+	int32_t val;
 	struct semid_ds *buf;
 	unsigned short int *array;
 	struct seminfo *__buf;

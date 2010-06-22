@@ -30,15 +30,15 @@ extern "C" {
 
 typedef void *qb_timer_handle;
 
-int qb_timer_init(void (*serialize_lock) (void),
-		  void (*serialize_unlock) (void), int sched_priority);
+int32_t qb_timer_init(void (*serialize_lock) (void),
+		  void (*serialize_unlock) (void), int32_t sched_priority);
 
-int qb_timer_add_duration(uint64_t nanosec_duration,
+int32_t qb_timer_add_duration(uint64_t nanosec_duration,
 			  void *data,
 			  void (*timer_fn) (void *data),
 			  qb_timer_handle * handle);
 
-int qb_timer_add_absolute(uint64_t nanoseconds_from_epoch,
+int32_t qb_timer_add_absolute(uint64_t nanoseconds_from_epoch,
 			  void *data,
 			  void (*timer_fn) (void *data),
 			  qb_timer_handle * handle);

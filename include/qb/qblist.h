@@ -147,7 +147,7 @@ static void inline qb_list_del(struct qb_list_head *_remove)
  * @param head pointer to the list head
  * @return boolean true/false
  */
-static inline int qb_list_empty(const struct qb_list_head *head)
+static inline int32_t qb_list_empty(const struct qb_list_head *head)
 {
 	return head->next == head;
 }

@@ -43,7 +43,7 @@ static pthread_attr_t thread_attr;
 
 static struct timerlist timers_timerlist;
 
-static int sched_priority = 0;
+static int32_t sched_priority = 0;
 
 static void (*timer_serialize_lock_fn) (void);
 
@@ -58,7 +58,7 @@ extern void pthread_exit(void *) __attribute__ ((noreturn));
  */
 static void *prioritized_timer_thread(void *data)
 {
-	int fds;
+	int32_t fds;
 	uint64_t timeout;
 
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
@@ -95,7 +95,7 @@ static void *prioritized_timer_thread(void *data)
 	}
 }
 
-static void sigusr1_handler(int num)
+static void sigusr1_handler(int32_t num)
 {
 #ifdef qb_SOLARIS
 	/* Rearm the signal facility */
@@ -103,10 +103,10 @@ static void sigusr1_handler(int num)
 #endif
 }
 
-int qb_timer_init(void (*serialize_lock_fn) (void),
-		  void (*serialize_unlock_fn) (void), int sched_priority_in)
+int32_t qb_timer_init(void (*serialize_lock_fn) (void),
+		  void (*serialize_unlock_fn) (void), int32_t sched_priority_in)
 {
-	int res;
+	int32_t res;
 
 	timer_serialize_lock_fn = serialize_lock_fn;
 	timer_serialize_unlock_fn = serialize_unlock_fn;
@@ -126,12 +126,12 @@ int qb_timer_init(void (*serialize_lock_fn) (void),
 	return (res);
 }
 
-int qb_timer_add_absolute(uint64_t nanosec_from_epoch,
+int32_t qb_timer_add_absolute(uint64_t nanosec_from_epoch,
 			  void *data,
 			  void (*timer_fn) (void *data), timer_handle * handle)
 {
-	int res;
-	int unlock;
+	int32_t res;
+	int32_t unlock;
 
 	if (pthread_equal(pthread_self(), expiry_thread) != 0) {
 		unlock = 0;
@@ -153,12 +153,12 @@ int qb_timer_add_absolute(uint64_t nanosec_from_epoch,
 	return (res);
 }
 
-int qb_timer_add_duration(uint64_t nanosec_duration,
+int32_t qb_timer_add_duration(uint64_t nanosec_duration,
 			  void *data,
 			  void (*timer_fn) (void *data), timer_handle * handle)
 {
-	int res;
-	int unlock;
+	int32_t res;
+	int32_t unlock;
 
 	if (pthread_equal(pthread_self(), expiry_thread) != 0) {
 		unlock = 0;
@@ -181,7 +181,7 @@ int qb_timer_add_duration(uint64_t nanosec_duration,
 
 void qb_timer_delete(timer_handle th)
 {
-	int unlock;
+	int32_t unlock;
 
 	if (th == 0) {
 		return;
@@ -218,7 +218,7 @@ uint64_t qb_timer_time_get(void)
 
 uint64_t qb_timer_expire_time_get(timer_handle th)
 {
-	int unlock;
+	int32_t unlock;
 	uint64_t expire;
 
 	if (th == 0) {

@@ -48,7 +48,7 @@ struct qb_thread_lock_s {
 qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 {
 	struct qb_thread_lock_s *tl = malloc(sizeof(struct qb_thread_lock_s));
-	int res;
+	int32_t res;
 
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (type == QB_THREAD_LOCK_SHORT) {
@@ -70,7 +70,7 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 
 int32_t qb_thread_lock(qb_thread_lock_t * tl)
 {
-	int res;
+	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = pthread_spin_lock(&tl->spinlock);
@@ -84,7 +84,7 @@ int32_t qb_thread_lock(qb_thread_lock_t * tl)
 
 int32_t qb_thread_unlock(qb_thread_lock_t * tl)
 {
-	int res;
+	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = pthread_spin_unlock(&tl->spinlock);
@@ -98,7 +98,7 @@ int32_t qb_thread_unlock(qb_thread_lock_t * tl)
 
 int32_t qb_thread_trylock(qb_thread_lock_t * tl)
 {
-	int res;
+	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = pthread_spin_trylock(&tl->spinlock);

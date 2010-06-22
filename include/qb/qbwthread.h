@@ -29,22 +29,22 @@ extern "C" {
 /* *INDENT-ON* */
 
 struct qb_wthread_group {
-	int threadcount;
-	int last_scheduled;
+	int32_t threadcount;
+	int32_t last_scheduled;
 	struct qb_wthread_t *threads;
 	void (*worker_fn) (void *thread_state, void *work_item);
 };
 
-int qb_wthread_group_init(struct qb_wthread_group *worker_thread_group,
-			  int threads,
-			  int items_max,
-			  int item_size,
-			  int thread_state_size,
+int32_t qb_wthread_group_init(struct qb_wthread_group *worker_thread_group,
+			  int32_t threads,
+			  int32_t items_max,
+			  int32_t item_size,
+			  int32_t thread_state_size,
 			  void (*thread_state_constructor) (void *),
 			  void (*worker_fn) (void *thread_state,
 					     void *work_item));
 
-int qb_wthread_group_work_add(struct qb_wthread_group
+int32_t qb_wthread_group_work_add(struct qb_wthread_group
 			      *worker_thread_group, void *item);
 
 void qb_wthread_group_wait(struct qb_wthread_group *worker_thread_group);

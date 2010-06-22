@@ -36,10 +36,10 @@
 
 struct plugin_component_instance {
 	struct plugin_iface *ifaces;
-	int iface_count;
+	int32_t iface_count;
 	qb_handle_t comp_handle;
 	void *dl_handle;
-	int refcount;
+	int32_t refcount;
 	char library_name[256];
 };
 
@@ -70,9 +70,9 @@ static struct hdb_handle_database plugin_iface_instance_database = {
 static qb_handle_t g_component_handle = 0xFFFFFFFF;
 
 #if defined(QB_LINUX) || defined(QB_SOLARIS)
-static int plugin_select_so(const struct dirent *dirent)
+static int32_t plugin_select_so(const struct dirent *dirent)
 #else
-static int plugin_select_so(struct dirent *dirent)
+static int32_t plugin_select_so(struct dirent *dirent)
 #endif
 {
 	size_t len;
@@ -89,9 +89,9 @@ static int plugin_select_so(struct dirent *dirent)
 }
 
 #if defined(QB_LINUX) || defined(QB_SOLARIS)
-static int pathlist_select(const struct dirent *dirent)
+static int32_t pathlist_select(const struct dirent *dirent)
 #else
-static int pathlist_select(struct dirent *dirent)
+static int32_t pathlist_select(struct dirent *dirent)
 #endif
 {
 	if (fnmatch("*.conf", dirent->d_name, 0) == 0) {
@@ -111,7 +111,7 @@ static inline struct plugin_component_instance *plugin_comp_find(const char
 	struct plugin_component_instance *instance;
 	void *instance_p = NULL;
 	qb_handle_t component_handle = 0;
-	int i;
+	int32_t i;
 
 	/*
 	 * Try to find interface in already loaded component
@@ -137,7 +137,7 @@ static inline struct plugin_component_instance *plugin_comp_find(const char
 	return (NULL);
 }
 
-static inline int plugin_lib_loaded(char *library_name)
+static inline int32_t plugin_lib_loaded(char *library_name)
 {
 	struct plugin_component_instance *instance;
 	void *instance_p = NULL;
@@ -208,7 +208,7 @@ static void ld_library_path_build(void)
 	free(my_ld_library_path);
 }
 
-static int ldso_path_build(const char *path, const char *filename)
+static int32_t ldso_path_build(const char *path, const char *filename)
 {
 	FILE *fp;
 	char string[1024];
@@ -216,7 +216,7 @@ static int ldso_path_build(const char *path, const char *filename)
 	char newpath[1024];
 	char *newpath_tmp;
 	char *new_filename;
-	int j;
+	int32_t j;
 	struct dirent **scandir_list;
 	uint32_t scandir_entries;
 
@@ -269,18 +269,18 @@ static int ldso_path_build(const char *path, const char *filename)
 }
 
 #if defined (QB_SOLARIS) && !defined(HAVE_SCANDIR)
-static int scandir(const char *dir, struct dirent ***namelist,
-		   int (*filter) (const struct dirent *),
-		   int (*compar) (const struct dirent **,
+static int32_t scandir(const char *dir, struct dirent ***namelist,
+		   int32_t (*filter) (const struct dirent *),
+		   int32_t (*compar) (const struct dirent **,
 				  const struct dirent **))
 {
 	DIR *d;
 	struct dirent *entry;
 	struct dirent *result;
 	struct dirent **names = NULL;
-	int namelist_items = 0, namelist_size = 0;
+	int32_t namelist_items = 0, namelist_size = 0;
 	size_t len;
-	int return_code;
+	int32_t return_code;
 
 	d = opendir(dir);
 	if (d == NULL)
@@ -323,7 +323,7 @@ static int scandir(const char *dir, struct dirent ***namelist,
 	(void)closedir(d);
 	if ((namelist_items > 1) && (compar != NULL)) {
 		qsort(names, namelist_items, sizeof(struct dirent *),
-		      (int (*)(const void *, const void *))compar);
+		      (int32_t (*)(const void *, const void *))compar);
 	}
 
 	*namelist = names;
@@ -332,7 +332,7 @@ static int scandir(const char *dir, struct dirent ***namelist,
 
 fail:
 	{
-		int err = errno;
+		int32_t err = errno;
 		(void)closedir(d);
 		while (namelist_items != 0) {
 			namelist_items--;
@@ -348,21 +348,21 @@ fail:
 #endif
 
 #if defined (QB_SOLARIS) && !defined(HAVE_ALPHASORT)
-static int alphasort(const struct dirent **a, const struct dirent **b)
+static int32_t alphasort(const struct dirent **a, const struct dirent **b)
 {
 	return strcmp((*a)->d_name, (*b)->d_name);
 }
 #endif
 
-static int interface_find_and_load(const char *path,
+static int32_t interface_find_and_load(const char *path,
 				   const char *iface_name,
-				   int version, struct plugin_component_instance
+				   int32_t version, struct plugin_component_instance
 				   **instance_ret, uint32_t *iface_number)
 {
 	struct plugin_component_instance *instance;
 	void *dl_handle;
 	struct dirent **scandir_list;
-	int scandir_entries;
+	int32_t scandir_entries;
 	uint32_t libs_to_scan;
 	char dl_name[1024];
 #ifdef QB_SOLARIS
@@ -426,7 +426,7 @@ static int interface_find_and_load(const char *path,
 
 	/* scanning for pluginso loop */
 	if (scandir_entries > 0) {
-		int i;
+		int32_t i;
 		for (i = 0; i < scandir_entries; i++) {
 			free(scandir_list[i]);
 		}
@@ -438,7 +438,7 @@ static int interface_find_and_load(const char *path,
 found:
 	*instance_ret = instance;
 	if (scandir_entries > 0) {
-		int i;
+		int32_t i;
 		for (i = 0; i < scandir_entries; i++) {
 			free(scandir_list[i]);
 		}
@@ -450,9 +450,9 @@ found:
 
 static uint32_t plugin_initialized = 0;
 
-int plugin_ifact_reference(qb_handle_t * iface_handle,
+int32_t plugin_ifact_reference(qb_handle_t * iface_handle,
 			   const char *iface_name,
-			   int version, void **iface, void *context)
+			   int32_t version, void **iface, void *context)
 {
 	struct plugin_iface_instance *iface_instance;
 	struct plugin_component_instance *instance;
@@ -511,10 +511,10 @@ found:
 	return (0);
 }
 
-int plugin_ifact_release(qb_handle_t handle)
+int32_t plugin_ifact_release(qb_handle_t handle)
 {
 	struct plugin_iface_instance *iface_instance;
-	int res = 0;
+	int32_t res = 0;
 
 	res = qb_hdb_handle_get(&plugin_iface_instance_database,
 				handle, (void *)&iface_instance);

@@ -56,7 +56,7 @@ struct timerlist {
 struct timerlist_timer {
 	struct qb_list_head list;
 	uint64_t expire_time;
-	int is_absolute_timer;
+	int32_t is_absolute_timer;
 	void (*timer_fn) (void *data);
 	void *data;
 	timer_handle handle_addr;
@@ -123,7 +123,7 @@ static inline void timerlist_add(struct timerlist *timerlist,
 {
 	struct qb_list_head *timer_list = 0;
 	struct timerlist_timer *timer_from_list;
-	int found;
+	int32_t found;
 
 	for (found = 0, timer_list = timerlist->timer_head.next;
 	     timer_list != &timerlist->timer_head;
@@ -143,7 +143,7 @@ static inline void timerlist_add(struct timerlist *timerlist,
 	}
 }
 
-static inline int timerlist_add_absolute(struct timerlist *timerlist,
+static inline int32_t timerlist_add_absolute(struct timerlist *timerlist,
 					 void (*timer_fn) (void *data),
 					 void *data,
 					 uint64_t nano_from_epoch,
@@ -169,7 +169,7 @@ static inline int timerlist_add_absolute(struct timerlist *timerlist,
 	return (0);
 }
 
-static inline int timerlist_add_duration(struct timerlist *timerlist,
+static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 					 void (*timer_fn) (void *data),
 					 void *data,
 					 uint64_t nano_duration,

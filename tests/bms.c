@@ -46,8 +46,8 @@
 #include <qb/qbpoll.h>
 #include <qb/qbipcs.h>
 
-int blocking = 1;
-int verbose = 0;
+int32_t blocking = 1;
+int32_t verbose = 0;
 
 static qb_handle_t bms_poll_handle;
 
@@ -57,8 +57,8 @@ struct lib_handler {
 
 struct service_engine {
 	uint32_t private_data_size;
-	int (*lib_init_fn) (void *conn);
-	int (*lib_exit_fn) (void *conn);
+	int32_t (*lib_init_fn) (void *conn);
+	int32_t (*lib_exit_fn) (void *conn);
 	struct lib_handler *lib_engine;
 };
 
@@ -77,7 +77,7 @@ static void bms_benchmark_one_fn(void *conn, const void *msg)
 	}
 }
 
-int ii = 0;
+int32_t ii = 0;
 static void bms_benchmark_two_fn(void *conn, const void *msg)
 {
 	const qb_ipc_request_header_t *req = msg;
@@ -105,7 +105,7 @@ static void bms_benchmark_two_fn(void *conn, const void *msg)
 	qb_ipcs_response_send(conn, &res_done, sizeof(res_done));
 }
 
-static int bms_lib_init_fn(void *conn)
+static int32_t bms_lib_init_fn(void *conn)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -113,7 +113,7 @@ static int bms_lib_init_fn(void *conn)
 	return (0);
 }
 
-static int bms_lib_exit_fn(void *conn)
+static int32_t bms_lib_exit_fn(void *conn)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -150,7 +150,7 @@ static void bms_serialize_unlock(void)
 /*
  * Provides the glue from bms to the IPC Service
  */
-static int bms_private_data_size_get(uint32_t service)
+static int32_t bms_private_data_size_get(uint32_t service)
 {
 	return (services[service].private_data_size);
 }
@@ -171,7 +171,7 @@ static qb_ipcs_handler_fn_lvalue bms_handler_fn_get(uint32_t service,
 	return (services[service].lib_engine[id].lib_handler_fn);
 }
 
-static int bms_security_valid(int euid, int egid)
+static int32_t bms_security_valid(int32_t euid, int32_t egid)
 {
 	if (euid == 0 || egid == 0) {
 		return (1);
@@ -180,7 +180,7 @@ static int bms_security_valid(int euid, int egid)
 	return (0);
 }
 
-static int bms_service_available(uint32_t service)
+static int32_t bms_service_available(uint32_t service)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -188,7 +188,7 @@ static int bms_service_available(uint32_t service)
 	return (service < 1);
 }
 
-static int bms_sending_allowed(uint32_t service,
+static int32_t bms_sending_allowed(uint32_t service,
 			       uint32_t id,
 			       const void *msg,
 			       void *sending_allowed_private_data)
@@ -212,8 +212,8 @@ static void ipc_fatal_error(const char *error_msg)
 	exit(1);
 }
 
-static int bms_poll_handler_accept(qb_handle_t handle,
-				   int fd, int revent, void *context)
+static int32_t bms_poll_handler_accept(qb_handle_t handle,
+				   int32_t fd, int32_t revent, void *context)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -221,13 +221,13 @@ static int bms_poll_handler_accept(qb_handle_t handle,
 	return (qb_ipcs_handler_accept(fd, revent, context));
 }
 
-static int bms_poll_handler_dispatch(qb_handle_t handle,
-				     int fd, int revent, void *context)
+static int32_t bms_poll_handler_dispatch(qb_handle_t handle,
+				     int32_t fd, int32_t revent, void *context)
 {
 	return (qb_ipcs_handler_dispatch(fd, revent, context));
 }
 
-static void bms_poll_accept_add(int fd)
+static void bms_poll_accept_add(int32_t fd)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -236,7 +236,7 @@ static void bms_poll_accept_add(int fd)
 			     bms_poll_handler_accept);
 }
 
-static void bms_poll_dispatch_add(int fd, void *context)
+static void bms_poll_dispatch_add(int32_t fd, void *context)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -245,7 +245,7 @@ static void bms_poll_dispatch_add(int fd, void *context)
 			     bms_poll_handler_dispatch);
 }
 
-static void bms_poll_dispatch_modify(int fd, int events)
+static void bms_poll_dispatch_modify(int32_t fd, int32_t events)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
@@ -280,7 +280,7 @@ struct qb_ipcs_init_state ipc_init_state = {
 	.handler_fn_get = bms_handler_fn_get
 };
 
-static void sigusr1_handler(int num)
+static void sigusr1_handler(int32_t num)
 {
 	printf("%s(%d)\n", __func__, num);
 	qb_ipcs_ipc_exit();
@@ -300,10 +300,10 @@ static void show_usage(const char *name)
 	printf("\n");
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "nvh";
-	int opt;
+	int32_t opt;
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {

@@ -87,16 +87,16 @@ static void *start_worker_thread(void *thread_data_in)
 	return (NULL);
 }
 
-int qb_wthread_group_init(struct qb_wthread_group *worker_thread_group,
-			  int threads,
-			  int items_max,
-			  int item_size,
-			  int thread_state_size,
+int32_t qb_wthread_group_init(struct qb_wthread_group *worker_thread_group,
+			  int32_t threads,
+			  int32_t items_max,
+			  int32_t item_size,
+			  int32_t thread_state_size,
 			  void (*thread_state_constructor) (void *),
 			  void (*worker_fn) (void *thread_state,
 					     void *work_item))
 {
-	int i;
+	int32_t i;
 
 	worker_thread_group->threadcount = threads;
 	worker_thread_group->last_scheduled = 0;
@@ -142,10 +142,10 @@ int qb_wthread_group_init(struct qb_wthread_group *worker_thread_group,
 	return (0);
 }
 
-int qb_wthread_group_work_add(struct qb_wthread_group *worker_thread_group,
+int32_t qb_wthread_group_work_add(struct qb_wthread_group *worker_thread_group,
 			      void *item)
 {
-	int schedule;
+	int32_t schedule;
 
 	schedule =
 	    (worker_thread_group->last_scheduled +
@@ -169,7 +169,7 @@ int qb_wthread_group_work_add(struct qb_wthread_group *worker_thread_group,
 
 void qb_wthread_group_wait(struct qb_wthread_group *worker_thread_group)
 {
-	int i;
+	int32_t i;
 
 	for (i = 0; i < worker_thread_group->threadcount; i++) {
 		pthread_mutex_lock(&worker_thread_group->threads[i].
@@ -188,7 +188,7 @@ void qb_wthread_group_wait(struct qb_wthread_group *worker_thread_group)
 
 void qb_wthread_group_exit(struct qb_wthread_group *worker_thread_group)
 {
-	int i;
+	int32_t i;
 
 	for (i = 0; i < worker_thread_group->threadcount; i++) {
 		pthread_cancel(worker_thread_group->threads[i].thread_id);

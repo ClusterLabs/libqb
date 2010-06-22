@@ -113,9 +113,9 @@ END_TEST static Suite *plugin_suite(void)
 	return s;
 }
 
-int main(void)
+int32_t main(void)
 {
-	int number_failed;
+	int32_t number_failed;
 
 	Suite *s = plugin_suite();
 	SRunner *sr = srunner_create(s);

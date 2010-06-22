@@ -68,7 +68,7 @@ enum res_init_types {
 };
 
 typedef struct {
-	int service __attribute__ ((aligned(8)));
+	int32_t service __attribute__ ((aligned(8)));
 	uint64_t semkey __attribute__ ((aligned(8)));
 	char control_file[64] __attribute__ ((aligned(8)));
 	char request_file[64] __attribute__ ((aligned(8)));
@@ -81,7 +81,7 @@ typedef struct {
 } mar_req_setup_t __attribute__ ((aligned(8)));
 
 typedef struct {
-	int error __attribute__ ((aligned(8)));
+	int32_t error __attribute__ ((aligned(8)));
 } mar_res_setup_t __attribute__ ((aligned(8)));
 
 typedef struct {
@@ -121,7 +121,7 @@ typedef struct {
 } mar_req_qb_ipcc_zc_execute_t __attribute__ ((aligned(8)));
 
 struct qb_ipcs_zc_header {
-	int map_size;
+	int32_t map_size;
 	uint64_t server_address;
 };
 

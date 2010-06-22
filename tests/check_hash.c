@@ -28,7 +28,7 @@ START_TEST(test_hash_load)
 {
 	char word[1000];
 	FILE *fp;
-	int res = 0;
+	int32_t res = 0;
 	qb_handle_t handle = 0;
 	void *value;
 	uint64_t value_len;
@@ -92,9 +92,9 @@ END_TEST static Suite *hash_suite(void)
 	return s;
 }
 
-int main(void)
+int32_t main(void)
 {
-	int number_failed;
+	int32_t number_failed;
 
 	Suite *s = hash_suite();
 	SRunner *sr = srunner_create(s);

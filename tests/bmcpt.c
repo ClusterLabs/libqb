@@ -37,7 +37,7 @@ struct bm_ctx {
 	struct timeval tv2;
 	struct timeval tv_elapsed;
 	float mbs;
-	int multi;
+	int32_t multi;
 	uint32_t counter;
 };
 
@@ -56,7 +56,7 @@ static void bm_start(struct bm_ctx *ctx)
 	gettimeofday(&ctx->tv1, NULL);
 }
 
-static void bm_finish(struct bm_ctx *ctx, const char *operation, int size)
+static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
@@ -100,7 +100,7 @@ static void bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
 	struct iovec iov[2];
 	qb_ipc_request_header_t req_header;
 	qb_ipc_response_header_t res_header;
-	int res;
+	int32_t res;
 
 	req_header.id = 0;
 	req_header.size = sizeof(qb_ipc_request_header_t) + size;
@@ -122,7 +122,7 @@ repeat_send:
 }
 
 uint32_t alarm_notice = 0;
-static void sigalrm_handler(int num)
+static void sigalrm_handler(int32_t num)
 {
 	alarm_notice = 1;
 }
@@ -147,12 +147,12 @@ static void *benchmark(void *ctx)
 
 #define THREADS 4
 
-int main(void)
+int32_t main(void)
 {
 	struct bm_ctx bm_ctx[THREADS];
 	pthread_t threads[THREADS];
 	pthread_attr_t thread_attr[THREADS];
-	int i, j;
+	int32_t i, j;
 	float total_mbs;
 	void *retval;
 

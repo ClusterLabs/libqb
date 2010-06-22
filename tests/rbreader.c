@@ -10,7 +10,7 @@
 #define BUFFER_CHUNK_SIZE (50*50*10)
 static qb_ringbuffer_t *rb = NULL;
 
-static void sigterm_handler(int num)
+static void sigterm_handler(int32_t num)
 {
 	printf("reader: %s(%d)\n", __func__, num);
 	qb_rb_close(rb);
@@ -24,7 +24,7 @@ static void libqb_log_writer(const char *file_name,
 	printf("libqb:reader: %s:%d %s\n", file_name, file_line, msg);
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
 	ssize_t num_read;
 	int8_t buffer[BUFFER_CHUNK_SIZE];
