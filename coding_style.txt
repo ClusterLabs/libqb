@@ -1,0 +1,32 @@
+
+		libqb coding style
+
+Our coding style is basically http://www.kernel.org/doc/Documentation/CodingStyle
+
+And any differences will be appended here.
+
+Chapter 5: Typedefs
+- Use int32_t integer types and not "int" / "long".
+
+Chapter 4: Naming
+- functions preferably named object_verb
+
+Chapter 8: Commenting
+- Document public functions using doxygen style comments in the header file.
+  We use doxygen to generate man pages.
+
+
+== Fixing mistakes ==
+Use "./Lindent <file>" to fix any indentation.
+
+== VIM settings ==
+set formatoptions=tcqlron
+set cinoptions=:0,l1,t0,g0
+set cindent 
+set noexpandtab
+set tabstop=8
+set shiftwidth=8
+set textwidth=78
+set smarttab
+
+
