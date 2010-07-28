@@ -43,12 +43,19 @@ struct qb_poll_entry {
 	void *data;
 };
 
+struct qb_poll_job {
+	qb_poll_job_execute_fn_t execute_fn;
+	void *data;
+	struct qb_list_head list;
+};
+
 struct qb_poll_instance {
 	struct qb_poll_entry *poll_entries;
 	struct pollfd *ufds;
 	int32_t poll_entry_count;
 	struct timerlist timerlist;
 	int32_t stop_requested;
+	struct qb_list_head job_list;
 };
 
 QB_HDB_DECLARE(poll_instance_database, NULL);
@@ -75,6 +82,7 @@ qb_handle_t qb_poll_create(void)
 	poll_instance->poll_entry_count = 0;
 	poll_instance->stop_requested = 0;
 	timerlist_init(&poll_instance->timerlist);
+	qb_list_init(&poll_instance->job_list);
 
 	return (handle);
 
@@ -310,6 +318,63 @@ error_exit:
 	return (res);
 }
 
+int32_t qb_poll_job_add(qb_handle_t poll_handle,
+		      void *data,
+		      qb_poll_job_execute_fn_t execute_fn,
+		      qb_poll_job_handle * handle_out)
+{
+	struct qb_poll_instance *poll_instance;
+	int32_t res = 0;
+	struct qb_poll_job *job;
+
+	if (handle_out == NULL) {
+		res = -ENOENT;
+		goto error_exit;
+	}
+
+	res = qb_hdb_handle_get(&poll_instance_database, poll_handle,
+				(void *)&poll_instance);
+	if (res != 0) {
+		res = -ENOENT;
+		goto error_exit;
+	}
+	job = malloc(sizeof(struct qb_poll_job));
+	job->execute_fn = execute_fn;
+	job->data = data;
+	qb_list_init(&job->list);
+	qb_list_add(&job->list, &poll_instance->job_list);
+	handle_out = (qb_poll_job_handle)job;
+
+	qb_hdb_handle_put(&poll_instance_database, poll_handle);
+error_exit:
+	return (res);
+}
+
+int32_t qb_poll_job_delete(qb_handle_t poll_handle, qb_poll_job_handle job_handle)
+{
+	struct qb_poll_instance *poll_instance;
+	int32_t res = 0;
+	struct qb_poll_job *job = (struct qb_poll_job *)job_handle;
+
+	if (job_handle == NULL) {
+		res = -ENOENT;
+		goto error_exit;
+	}
+
+	res = qb_hdb_handle_get(&poll_instance_database, poll_handle,
+				(void *)&poll_instance);
+	if (res != 0) {
+		res = -ENOENT;
+		goto error_exit;
+	}
+	qb_list_del(&job->list);
+	free(job);
+
+	qb_hdb_handle_put(&poll_instance_database, poll_handle);
+error_exit:
+	return (res);
+}
+
 int32_t qb_poll_stop(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
@@ -329,6 +394,28 @@ error_exit:
 	return (res);
 }
 
+static int32_t _qb_poll_job_run(struct qb_poll_instance *poll_instance)
+{
+	struct qb_poll_job *job = NULL;
+	struct qb_list_head *iter;
+	int32_t this_job_executed;
+	int32_t job_executed = QB_FALSE;
+
+	for (iter = poll_instance->job_list.next;
+			iter != &poll_instance->job_list;
+			iter = iter->next) {
+		job = qb_list_entry(iter, struct qb_poll_job, list);
+		if (job == NULL) {
+			continue;
+		}
+		this_job_executed = job->execute_fn(job->data);
+		if (this_job_executed > 0) {
+			job_executed = QB_TRUE;
+		}
+	}
+	return job_executed;
+}
+
 int32_t qb_poll_run(qb_handle_t handle)
 {
 	struct qb_poll_instance *poll_instance;
@@ -336,6 +423,7 @@ int32_t qb_poll_run(qb_handle_t handle)
 	uint64_t expire_timeout_msec = -1;
 	int32_t res;
 	int32_t poll_entry_count;
+	int32_t job_executed;
 
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
@@ -349,9 +437,19 @@ int32_t qb_poll_run(qb_handle_t handle)
 			       &poll_instance->poll_entries[i].ufd,
 			       sizeof(struct pollfd));
 		}
-		expire_timeout_msec =
-		    timerlist_msec_duration_to_expire
-		    (&poll_instance->timerlist);
+		job_executed = _qb_poll_job_run(poll_instance);
+
+		if (job_executed == QB_TRUE) {
+			expire_timeout_msec = 0;
+		} else {
+			expire_timeout_msec =
+				timerlist_msec_duration_to_expire
+				(&poll_instance->timerlist);
+			if (!qb_list_empty(&poll_instance->job_list) &&
+					expire_timeout_msec > 50) {
+				expire_timeout_msec = 50;
+			}
+		}
 
 		if (expire_timeout_msec != -1
 		    && expire_timeout_msec > 0xFFFFFFFF) {

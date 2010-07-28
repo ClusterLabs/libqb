@@ -31,6 +31,14 @@ extern "C" {
 /* *INDENT-ON* */
 
 typedef void *qb_poll_timer_handle;
+typedef void *qb_poll_job_handle;
+
+/**
+ * return < 0 for removal
+ * return == 0 for no-op
+ * return > 0 for work done
+ */
+typedef int32_t (*qb_poll_job_execute_fn_t) (void *data);
 
 qb_handle_t qb_poll_create(void);
 
@@ -58,6 +66,12 @@ int32_t qb_poll_timer_add(qb_handle_t handle,
 		      qb_poll_timer_handle * timer_handle_out);
 
 int32_t qb_poll_timer_delete(qb_handle_t handle, qb_poll_timer_handle timer_handle);
+
+int32_t qb_poll_job_add(qb_handle_t handle,
+		      void *data,
+		      qb_poll_job_execute_fn_t execute_fn,
+		      qb_poll_job_handle * handle_out);
+int32_t qb_poll_job_delete(qb_handle_t poll_handle, qb_poll_job_handle job_handle);
 
 int32_t qb_poll_run(qb_handle_t handle);
 
