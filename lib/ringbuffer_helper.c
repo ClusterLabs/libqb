@@ -48,17 +48,25 @@ sem_wait_again:
 	if (ms_timeout > 0) {
 		res = sem_timedwait(&rb->shared_hdr->posix_sem, &ts_timeout);
 	} else if (ms_timeout == 0) {
-		return sem_trywait(&rb->shared_hdr->posix_sem);
+		res = sem_trywait(&rb->shared_hdr->posix_sem);
 	} else {
 		res = sem_wait(&rb->shared_hdr->posix_sem);
 	}
 	if (res == -1) {
-		if (errno == EINTR) {
+		switch (errno) {
+		case EINTR:
 			goto sem_wait_again;
-		} else if (errno != ETIMEDOUT) {
+			break;
+		case EAGAIN:
+			errno = ETIMEDOUT;
+			break;
+		case ETIMEDOUT:
+			break;
+		default:
 			qb_util_log(LOG_ERR,
-				    "error waiting for semaphore : %s",
-				    strerror(errno));
+					"error waiting for semaphore : %s",
+					strerror(errno));
+			break;
 		}
 	}
 	return res;
