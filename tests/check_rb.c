@@ -71,6 +71,7 @@ START_TEST(test_ring_buffer1)
 		for (i = 0; i < 15; i++) {
 			actual = qb_rb_chunk_read(rb, hdr, 512, 0);
 			if (actual == -1) {
+				ck_assert_int_eq(0, qb_rb_chunks_used(rb));
 				break;
 			}
 			str[actual - sizeof(qb_ipc_request_header_t)] = '\0';

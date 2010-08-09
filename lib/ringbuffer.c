@@ -315,6 +315,22 @@ ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
 	return used;
 }
 
+ssize_t qb_rb_chunks_used(qb_ringbuffer_t * rb)
+{
+	ssize_t count = -1;
+	if (rb->lock_fn(rb) == -1) {
+		return -1;
+	}
+	count = rb->shared_hdr->count;
+	if (rb->unlock_fn(rb) == -1) {
+		/* aarg stuck locked! */
+		qb_util_log(LOG_ERR, "failed to unlock ringbuffer lock %s",
+			    strerror(errno));
+		return -1;
+	}
+	return count;
+}
+
 void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t write_pt;
@@ -462,7 +478,7 @@ ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 	res = rb->sem_timedwait_fn(rb, timeout);
 	if (res == -1 && errno == ETIMEDOUT && rb->shared_hdr->count > 0) {
 		qb_util_log(LOG_ERR,
-			    "sem timedout but count is %d",
+			    "sem timedout but count is %zu",
 			    rb->shared_hdr->count);
 	} else if (res == -1 && errno != EIDRM) {
 		if (errno != ETIMEDOUT) {

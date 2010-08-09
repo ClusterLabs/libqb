@@ -224,6 +224,13 @@ ssize_t qb_rb_space_free(qb_ringbuffer_t * rb);
 ssize_t qb_rb_space_used(qb_ringbuffer_t * rb);
 
 /**
+ * The total number of chunks in the buffer.
+ *
+ * @param rb ringbuffer instance
+ */
+ssize_t qb_rb_chunks_used(qb_ringbuffer_t * rb);
+
+/**
  * Write the contents of the Ring Buffer to file.
  * @param fd open file to write the ringbuffer data to.
  * @param rb ringbuffer instance
