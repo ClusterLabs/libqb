@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+
 #include <qb/qbutil.h>
 #include <qb/qbhdb.h>
 

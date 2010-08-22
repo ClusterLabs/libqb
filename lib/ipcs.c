@@ -18,21 +18,18 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <config.h>
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-
 #include "os_base.h"
+
 #include <sys/mman.h>
 #include <sys/poll.h>
 #include <pthread.h>
-#if defined(HAVE_GETPEERUCRED)
+#ifdef HAVE_GETPEERUCRED
 #include <ucred.h>
-#endif
+#endif /* HAVE_GETPEERUCRED */
 #include <sys/shm.h>
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif /* HAVE_SYS_UN_H */
 
 #include <qb/qblist.h>
 #include <qb/qbhdb.h>

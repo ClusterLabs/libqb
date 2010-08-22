@@ -21,15 +21,8 @@
 #ifndef _RINGBUFFER_H_
 #define _RINGBUFFER_H_
 
-#include <config.h>
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-
 #include "os_base.h"
 
-#include <limits.h>
 #include <sys/mman.h>
 #include <sys/sem.h>
 #include <sys/ipc.h>

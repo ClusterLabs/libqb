@@ -18,15 +18,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "os_base.h"
 
-#include <config.h>
-
-#include <errno.h>
 #include <pthread.h>
 #include <sys/poll.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 
 #include <qb/qbhdb.h>
 #include <qb/qbpoll.h>

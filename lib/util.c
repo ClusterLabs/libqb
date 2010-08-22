@@ -18,12 +18,9 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <config.h>
-
 #include "os_base.h"
+
 #include "util_int.h"
-#include <syslog.h>
-#include <stdarg.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <pthread.h>
@@ -33,8 +30,6 @@
 #include <sys/sem.h>
 #endif
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <limits.h>
 #include <qb/qbutil.h>
 
 struct qb_thread_lock_s {

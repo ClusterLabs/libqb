@@ -18,12 +18,14 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <config.h>
-
 #include "os_base.h"
+
 #include <sys/shm.h>
 #include <sys/mman.h>
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif /* HAVE_SYS_UN_H */
+
 
 #include <qb/qbipcc.h>
 #include <qb/qbhdb.h>

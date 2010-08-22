@@ -18,14 +18,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <config.h>
-
 #include "os_base.h"
 
 #include <poll.h>
 #include <signal.h>
-#include <time.h>
 
 #include "tlist.h"
 

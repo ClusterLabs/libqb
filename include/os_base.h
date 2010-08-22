@@ -21,29 +21,66 @@
 #ifndef QB_OS_BASE_H_DEFINED
 #define QB_OS_BASE_H_DEFINED
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif /* _GNU_SOURCE */
+
+#include <stdio.h>
+#include <stdarg.h>
+#include <limits.h>
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif /* HAVE_SYS_TYPES_H */
+
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif /* HAVE_STDINT_H */
+
+#include <assert.h>
+
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif /* HAVE_STDLIB_H */
-#include <stdio.h>
-#include <stdint.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif /* HAVE_UNISTD_H */
-#include <errno.h>
+
 #ifdef HAVE_STRING_H
 #include <string.h>
 #endif /* HAVE_STRING_H */
+
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif /* HAVE_STRINGS_H */
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif /* HAVE_UNISTD_H */
+
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif /*HAVE_ERRNO_H*/
+
 #ifdef HAVE_TIME_H
 #include <time.h>
 #endif /* HAVE_TIME_H */
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif /* HAVE_SYS_TIME_H */
+
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif /* HAVE_FCNTL_H */
-#include <sys/types.h>
-#include <sys/un.h>
+
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif /* HAVE_SYS_SOCKET_H */
-#include <assert.h>
+
+#ifdef HAVE_SYSLOG_H
+#include <syslog.h>
+#endif /* HAVE_SYSLOG_H */
 
 #endif /* QB_OS_BASE_H_DEFINED */

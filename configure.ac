@@ -3,13 +3,13 @@
 
 AC_PREREQ([2.61])
 AC_INIT([libqb], [0.1.0], [quarterback-devel@fedorahosted.org])
+AC_CONFIG_SRCDIR([lib/ringbuffer.c])
+AC_CONFIG_HEADERS([include/config.h])
 AM_INIT_AUTOMAKE([-Wno-portability])
 LT_PREREQ([2.2.6])
 LT_INIT
 
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_SRCDIR([lib/tsafe.c])
-AC_CONFIG_HEADER([include/config.h])
 
 AC_CANONICAL_HOST
 AC_PROG_LIBTOOL
@@ -81,6 +81,7 @@ case $exec_prefix in
 esac
 
 # Checks for libraries.
+AC_CHECK_LIB([rt], [mq_open])
 AC_CHECK_LIB([dl], [dlopen])
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([socket], [socket])
@@ -92,10 +93,11 @@ AM_CONDITIONAL(HAVE_CHECK, test "${with_check}" = "yes")
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdint.h \
+
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h locale.h netdb.h netinet/in.h nl_types.h stdint.h \
 		  stdlib.h string.h sys/ioctl.h sys/param.h sys/socket.h \
-		  sys/time.h syslog.h unistd.h sys/types.h getopt.h malloc.h \
-		  sys/sockio.h utmpx.h])
+		  time.h sys/time.h syslog.h unistd.h sys/types.h getopt.h malloc.h \
+		  sys/sockio.h sys/un.h utmpx.h errno.h dlfcn.h dirent.h fnmatch.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -105,6 +107,7 @@ AC_TYPE_INT16_T
 AC_TYPE_INT32_T
 AC_TYPE_INT64_T
 AC_TYPE_INT8_T
+AC_TYPE_PID_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 AC_HEADER_TIME
@@ -121,8 +124,10 @@ AC_REPLACE_FNMATCH
 AC_FUNC_FORK
 AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC
+AC_FUNC_MMAP
 AC_FUNC_MEMCMP
 AC_FUNC_REALLOC
+AC_FUNC_STRERROR_R
 AC_FUNC_SELECT_ARGTYPES
 AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
@@ -130,9 +135,9 @@ AC_CHECK_FUNCS([alarm alphasort atexit bzero dup2 endgrent endpwent fcntl \
 		getcwd getpeerucred getpeereid gettimeofday inet_ntoa memmove \
 		memset mkdir scandir select socket strcasecmp strchr strdup \
 		strerror strrchr strspn strstr pthread_spin_lock \
+		clock_gettime localeconv localtime_r munmap pathconf putenv setenv \
 		pthread_spin_unlock pututxline lgammal setkey \
 		crypt encrypt getdate strsignal])
-
 
 
 ## local defines

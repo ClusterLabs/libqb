@@ -16,17 +16,17 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "os_base.h"
 
-#include <config.h>
-
-#include <stdio.h>
-#include <stdlib.h>
+#ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
+#endif /* HAVE_DLFCN_H */
+#ifdef HAVE_DIRENT_H
 #include <dirent.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
+#endif /* HAVE_DIRENT_H */
+#ifdef HAVE_FNMATCH_H
 #include <fnmatch.h>
+#endif /* HAVE_FNMATCH_H */
 #ifdef QB_SOLARIS
 #include <iso/limits_iso.h>
 #endif

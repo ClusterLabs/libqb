@@ -18,20 +18,17 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "os_base.h"
+
+#include <pthread.h>
+#include <qb/qbqueue.h>
+#include <qb/qbwthread.h>
 
 /*
  * Add work to a work group and have threads process the work
  * Provide blocking for all work to complete
  */
 
-#include <config.h>
-
-#include <stdint.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <errno.h>
-#include <qb/qbqueue.h>
-#include <qb/qbwthread.h>
 
 struct thread_data {
 	void *thread_state;

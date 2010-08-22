@@ -18,36 +18,35 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "os_base.h"
 
-#include <config.h>
-
-#define _XOPEN_SOURCE 600
-#define _GNU_SOURCE 1
-
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
-
-#include <string.h>
-#include <assert.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif /* HAVE_NETINET_IN_H */
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif /* HAVE_ARPA_INET_H */
 #include <grp.h>
 #include <pwd.h>
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
+#endif /* HAVE_NETDB_H */
+#ifdef HAVE_NL_TYPES_H
 #include <nl_types.h>
+#endif /* HAVE_NL_TYPES_H */
 #include <libgen.h>
+#ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
+#endif /* HAVE_DLFCN_H */
 #ifdef HAVE_UTMPX_H
 #include <utmpx.h>
 #endif /* HAVE_UTMPX_H */
 #include <search.h>
 #include <locale.h>
+#ifdef HAVE_DIRENT_H
 #include <dirent.h>
+#endif /* HAVE_DIRENT_H */
 #include <pthread.h>
 
 #include <qb/qbtsafe.h>
@@ -389,14 +388,22 @@ double drand48(void)
 }
 
 #ifdef HAVE_ENCRYPT
-void encrypt(char block[64], int edflag)
+#ifdef QB_BSD
+int encrypt(char *block, int edflag)
+#else
+void encrypt(char *block, int edflag)
+#endif
 {
+	#ifdef QB_BSD
+	static int (*real_encrypt) (char block[64], int edflag) = NULL;
+	#else
 	static void (*real_encrypt) (char block[64], int edflag) = NULL;
+	#endif
 	if (!tsafe_inited || tsafe_disabled) {
 		if (real_encrypt == NULL) {
 			real_encrypt = _get_real_func_("encrypt");
 		}
-		return real_encrypt(edflag);
+		return real_encrypt(block, edflag);
 	}
 	assert(0);
 }
@@ -924,7 +931,7 @@ struct dirent *readdir(DIR * dirp)
 	return NULL;
 }
 
-#ifdef COROSYNC_BSD
+#ifdef QB_BSD
 int setgrent(void)
 {
 	static int (*real_setgrent) (void) = NULL;
@@ -952,9 +959,17 @@ void setgrent(void)
 #endif
 
 #ifdef HAVE_SETKEY
+#ifdef QB_BSD
+int setkey(const char *key)
+#else
 void setkey(const char *key)
+#endif
 {
+#ifdef QB_BSD
+	static int (*real_setkey) (const char *key) = NULL;
+#else
 	static void (*real_setkey) (const char *key) = NULL;
+#endif
 	if (!tsafe_inited || tsafe_disabled) {
 		if (real_setkey == NULL) {
 			real_setkey = _get_real_func_("setkey");

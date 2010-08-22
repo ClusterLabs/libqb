@@ -18,14 +18,11 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdint.h>
-#include <qb/qbhdb.h>
-
-#include <config.h>
-
 #include "os_base.h"
-#include "util_int.h"
 
+#include <pthread.h>
+#include "util_int.h"
+#include <qb/qbhdb.h>
 #include <qb/qbhdb.h>
 #include <qb/qblist.h>
 #include <qb/qbhash.h>
