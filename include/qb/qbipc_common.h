@@ -23,15 +23,34 @@
 #ifndef QB_IPC_COMMON_H_DEFINED
 #define QB_IPC_COMMON_H_DEFINED
 
-typedef struct {
-	int32_t size __attribute__ ((aligned(8)));
+struct qb_ipc_request_header {
 	int32_t id __attribute__ ((aligned(8)));
-} qb_ipc_request_header_t __attribute__ ((aligned(8)));
+	int32_t size __attribute__ ((aligned(8)));
+	uint64_t session_id __attribute__ ((aligned(8)));
+} __attribute__ ((aligned(8)));
 
-typedef struct {
-	int32_t size __attribute__ ((aligned(8)));
+struct qb_ipc_response_header {
 	int32_t id __attribute__ ((aligned(8)));
+	int32_t size __attribute__ ((aligned(8)));
 	int32_t error __attribute__ ((aligned(8)));
-} qb_ipc_response_header_t __attribute__ ((aligned(8)));
+} __attribute__ ((aligned(8)));
+
+enum qb_ipc_type {
+	QB_IPC_SOCKET,
+	QB_IPC_SHM,
+	QB_IPC_POSIX_MQ,
+	QB_IPC_SYSV_MQ,
+};
+
+enum qb_ipc_msg_ids {
+	QB_IPC_MSG_UNUSED,
+	QB_IPC_MSG_AUTHENTICATE,
+	QB_IPC_MSG_CONNECT,
+	QB_IPC_MSG_DISCONNECT,
+	QB_IPC_MSG_NEW_MESSAGE,
+	QB_IPC_MSG_USER_START,
+};
+
+
 
 #endif /* QB_IPC_COMMON_H_DEFINED */

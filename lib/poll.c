@@ -393,8 +393,7 @@ static int32_t _qb_poll_job_run(struct qb_poll_instance *poll_instance)
 {
 	struct qb_poll_job *job = NULL;
 	struct qb_list_head *iter;
-	int32_t this_job_executed;
-	int32_t job_executed = QB_FALSE;
+	size_t jobs_run = 0;
 
 	for (iter = poll_instance->job_list.next;
 			iter != &poll_instance->job_list;
@@ -403,12 +402,12 @@ static int32_t _qb_poll_job_run(struct qb_poll_instance *poll_instance)
 		if (job == NULL) {
 			continue;
 		}
-		this_job_executed = job->execute_fn(job->data);
-		if (this_job_executed > 0) {
-			job_executed = QB_TRUE;
+		jobs_run += job->execute_fn(job->data);
+		if (jobs_run > 10) {
+			break;
 		}
 	}
-	return job_executed;
+	return (jobs_run > 0);
 }
 
 int32_t qb_poll_run(qb_handle_t handle)

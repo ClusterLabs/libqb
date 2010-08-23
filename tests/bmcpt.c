@@ -22,6 +22,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <qb/qbipcc.h>
+#include <errno.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -32,7 +34,7 @@
 #define ITERATIONS 10000000
 
 struct bm_ctx {
-	qb_handle_t bmc_ipc_handle;
+	qb_ipcc_connection_t *conn;
 	struct timeval tv1;
 	struct timeval tv2;
 	struct timeval tv_elapsed;
@@ -80,45 +82,52 @@ static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 
 static void bmc_connect(struct bm_ctx *ctx)
 {
-	uint32_t res;
-
-	res = qb_ipcc_service_connect("qb_ipcs_bm",
-				      0,
-				      8192 * 128,
-				      8192 * 128,
-				      8192 * 128, &ctx->bmc_ipc_handle);
+	ctx->conn = qb_ipcc_connect("bm1", QB_IPC_SHM);
 }
 
 static void bmc_disconnect(struct bm_ctx *ctx)
 {
-	qb_ipcc_service_disconnect(ctx->bmc_ipc_handle);
+	qb_ipcc_disconnect(ctx->conn);
 }
 
 static char buffer[1024 * 1024];
-static void bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
+static int32_t bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
 {
-	struct iovec iov[2];
-	qb_ipc_request_header_t req_header;
-	qb_ipc_response_header_t res_header;
+	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
+	struct qb_ipc_response_header res_header;
 	int32_t res;
 
-	req_header.id = 0;
-	req_header.size = sizeof(qb_ipc_request_header_t) + size;
-
-	iov[0].iov_base = &req_header;
-	iov[0].iov_len = sizeof(qb_ipc_request_header_t);
-	iov[1].iov_base = buffer;
-	iov[1].iov_len = size;
+	req_header->id = QB_IPC_MSG_USER_START + 3;
+	req_header->size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
-	res = qb_ipcc_msg_send_reply_receive(ctx->bmc_ipc_handle,
-					     iov,
-					     2,
-					     &res_header,
-					     sizeof(qb_ipc_response_header_t));
-	if (res != 0) {
-		goto repeat_send;
+	res = qb_ipcc_send(ctx->conn, req_header, req_header->size);
+	if (res == -1) {
+		if (errno == EAGAIN || errno == ENOMEM) {
+			goto repeat_send;
+		} else if (errno == EINVAL || errno == EINTR) {
+			perror("qb_ipcc_send");
+			return -1;
+		} else {
+			perror("qb_ipcc_send");
+			goto repeat_send;
+		}
 	}
+
+repeat_recv:
+	res = qb_ipcc_recv(ctx->conn,
+			&res_header,
+			sizeof(struct qb_ipc_response_header));
+	if (res == -1 && errno == EAGAIN) {
+		goto repeat_recv;
+	}
+	if (res == -1 && errno == EINTR) {
+		return -1;
+	}
+	assert(res == sizeof(struct qb_ipc_response_header));
+	assert(res_header.id == 13);
+	assert(res_header.size == sizeof(struct qb_ipc_response_header));
+	return 0;
 }
 
 uint32_t alarm_notice = 0;
@@ -130,14 +139,15 @@ static void sigalrm_handler(int32_t num)
 static void *benchmark(void *ctx)
 {
 	struct bm_ctx *bm_ctx = (struct bm_ctx *)ctx;
+	int32_t res;
 
 	bmc_connect(bm_ctx);
 
 	bm_start(bm_ctx);
 	for (;;) {
 		bm_ctx->counter++;
-		bmc_send_nozc(bm_ctx, 1000 * bm_ctx->multi);
-		if (alarm_notice) {
+		res = bmc_send_nozc(bm_ctx, 1000 * bm_ctx->multi);
+		if (alarm_notice || res == -1) {
 			bm_finish(bm_ctx, "send_nozc", 1000 * bm_ctx->multi);
 			bmc_disconnect(bm_ctx);
 			return (NULL);

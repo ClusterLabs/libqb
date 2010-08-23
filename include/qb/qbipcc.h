@@ -34,49 +34,18 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-int32_t
-qb_ipcc_service_connect(const char *socket_name,
-			uint32_t service,
-			size_t request_size,
-			size_t respnse__size,
-			size_t dispatch_size, qb_handle_t * handle);
+typedef struct qb_ipcc_connection qb_ipcc_connection_t;
 
-int32_t qb_ipcc_service_disconnect(qb_handle_t handle);
+qb_ipcc_connection_t*
+qb_ipcc_connect(const char *name, enum qb_ipc_type type);
 
-int32_t qb_ipcc_fd_get(qb_handle_t handle, int32_t * fd);
+int32_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
+                     size_t msg_len);
+ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, const void *msg_ptr,
+                     size_t msg_len);
 
-int32_t qb_ipcc_dispatch_get(qb_handle_t handle, void **buf, int32_t timeout);
+void qb_ipcc_disconnect(qb_ipcc_connection_t* c);
 
-int32_t qb_ipcc_dispatch_put(qb_handle_t handle);
-
-int32_t
-qb_ipcc_dispatch_flow_control_get(qb_handle_t handle,
-				  uint32_t * flow_control_state);
-
-int32_t
-qb_ipcc_msg_send(qb_handle_t handle, const struct iovec *iov, uint32_t iov_len);
-
-int32_t
-qb_ipcc_msg_send_reply_receive(qb_handle_t handle,
-			       const struct iovec *iov,
-			       uint32_t iov_len, void *res_msg, size_t res_len);
-
-int32_t
-qb_ipcc_msg_send_reply_receive_in_buf_get(qb_handle_t handle,
-					  const struct iovec *iov,
-					  uint32_t iov_len, void **res_msg);
-
-int32_t qb_ipcc_msg_send_reply_receive_in_buf_put(qb_handle_t handle);
-
-int32_t
-qb_ipcc_zcb_alloc(qb_handle_t handle,
-		  void **buffer, size_t size, size_t header_size);
-
-int32_t qb_ipcc_zcb_free(qb_handle_t handle, void *buffer);
-
-int32_t
-qb_ipcc_zcb_msg_send_reply_receive(qb_handle_t handle,
-				   void *msg, void *res_msg, size_t res_len);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

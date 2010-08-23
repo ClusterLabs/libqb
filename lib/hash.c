@@ -23,7 +23,6 @@
 #include <pthread.h>
 #include "util_int.h"
 #include <qb/qbhdb.h>
-#include <qb/qbhdb.h>
 #include <qb/qblist.h>
 #include <qb/qbhash.h>
 

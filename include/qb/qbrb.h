@@ -180,6 +180,7 @@ int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len);
  * qb_rb_chunk_reclaim().
  * @param rb ringbuffer instance
  * @param data_out (out) a pointer to the next chunk to read (not copied).
+ * @param ms_timeout (in) time to wait for new data.
  *
  * @return the size of the chunk (0 if buffer empty).
  */

@@ -18,22 +18,25 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <qb/qbipcc.h>
 #include <errno.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
-#include <unistd.h>
 #include <signal.h>
 
+#define ITERATIONS 10000
+pid_t mypid;
 int32_t blocking = 1;
 int32_t verbose = 0;
-#define ITERATIONS 10000
+static qb_ipcc_connection_t *conn;
+#define MAX_MSG_SIZE (8192*128)
 
 static struct timeval tv1, tv2, tv_elapsed;
 
@@ -46,10 +49,6 @@ do {								\
 		(result)->tv_usec += 1000000;			\
 	}							\
 } while (0)
-
-FILE *mbs_fp;
-
-FILE *ops_fp;
 
 static void bm_start(void)
 {
@@ -73,64 +72,54 @@ static void bm_finish(const char *operation, int32_t size)
 	     (((float)tv_elapsed.tv_sec) +
 	      (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 * 1024.0);
 
-	fprintf(ops_fp, "%d %9.3f\n", size, ops_per_sec);
-	fflush(ops_fp);
-	fprintf(mbs_fp, "%d %9.3f\n", size, mbs_per_sec);
-	fflush(mbs_fp);
-
 	printf("write size %d OPs/sec %9.3f ", size, ops_per_sec);
 	printf("MB/sec %9.3f\n", mbs_per_sec);
 }
 
-qb_handle_t bmc_ipc_handle;
-
-static void bmc_connect(void)
-{
-	uint32_t res;
-
-	res = qb_ipcc_service_connect("qb_ipcs_bm",
-				      0,
-				      8192 * 128,
-				      8192 * 128, 8192 * 128, &bmc_ipc_handle);
-}
 
 static char buffer[1024 * 1024];
-static void bmc_send_nozc(uint32_t size)
+static int32_t bmc_send_nozc(uint32_t size)
 {
-	struct iovec iov[2];
-	qb_ipc_request_header_t req_header;
-	qb_ipc_response_header_t res_header;
+	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
+	struct qb_ipc_response_header res_header;
 	int32_t res;
 
-	req_header.id = 0;
-	req_header.size = sizeof(qb_ipc_request_header_t) + size;
-
-	iov[0].iov_base = &req_header;
-	iov[0].iov_len = sizeof(qb_ipc_request_header_t);
-	iov[1].iov_base = buffer;
-	iov[1].iov_len = size;
+	req_header->id = QB_IPC_MSG_USER_START + 3;
+	req_header->size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
-	if (blocking) {
-		res = qb_ipcc_msg_send_reply_receive(bmc_ipc_handle,
-						     iov, 2,
-						     &res_header,
-						     sizeof
-						     (qb_ipc_response_header_t));
-	} else {
-		res = qb_ipcc_msg_send(bmc_ipc_handle, iov, 2);
-	}
+	res = qb_ipcc_send(conn, req_header, req_header->size);
 	if (res == -1) {
-		if (errno == ENOMEM) {
+		if (errno == EAGAIN || errno == ENOMEM) {
 			goto repeat_send;
+		} else if (errno == EINVAL || errno == EINTR) {
+			perror("qb_ipcc_send");
+			return -1;
 		} else {
-			printf("qb_ipcc_msg_send: %d(%s)\n", res, strerror(res));
+			perror("qb_ipcc_send");
 			goto repeat_send;
 		}
 	}
+
+	if (blocking) {
+ repeat_recv:
+		res = qb_ipcc_recv(conn,
+				&res_header,
+				sizeof(struct qb_ipc_response_header));
+		if (res == -1 && errno == EAGAIN) {
+			goto repeat_recv;
+		}
+		if (res == -1 && errno == EINTR) {
+			return -1;
+		}
+		assert(res == sizeof(struct qb_ipc_response_header));
+		assert(res_header.id == 13);
+		assert(res_header.size == sizeof(struct qb_ipc_response_header));
+	}
+	return 0;
 }
 
-qb_ipc_request_header_t *global_zcb_buffer;
+struct qb_ipc_request_header *global_zcb_buffer;
 
 static void show_usage(const char *name)
 {
@@ -147,8 +136,8 @@ static void show_usage(const char *name)
 
 static void sigterm_handler(int32_t num)
 {
-	printf("writer: %s(%d)\n", __func__, num);
-	qb_ipcc_service_disconnect(bmc_ipc_handle);
+	printf("bmc: %s(%d)\n", __func__, num);
+	qb_ipcc_disconnect(conn);
 	exit(0);
 }
 
@@ -165,6 +154,8 @@ int32_t main(int32_t argc, char *argv[])
 	int32_t opt;
 	int32_t i, j;
 	size_t size;
+
+	mypid = getpid();
 
 	qb_util_set_log_function(libqb_log_writer);
 
@@ -187,19 +178,28 @@ int32_t main(int32_t argc, char *argv[])
 	signal(SIGINT, sigterm_handler);
 	signal(SIGILL, sigterm_handler);
 	signal(SIGTERM, sigterm_handler);
-	bmc_connect();
-
-	ops_fp = fopen("opsec", "w");
-	mbs_fp = fopen("mbsec", "w");
+	conn = qb_ipcc_connect("bm1", QB_IPC_SHM);
+//	conn = qb_ipcc_connect("bm1", QB_IPC_POSIX_MQ);
+//	conn = qb_ipcc_connect("bm1", QB_IPC_SYSV_MQ);
+	if (conn == NULL) {
+		perror("qb_ipcc_connect");
+		exit(1);
+	}
 
 	for (j = 1; j < 49; j++) {
-		size = 10 * j * j;
+		size = (10 * j * j * j) + sizeof(struct qb_ipc_request_header);
+		if (size >= MAX_MSG_SIZE)
+			break;
 		bm_start();
 		for (i = 0; i < ITERATIONS; i++) {
-			bmc_send_nozc(size);
+			if (bmc_send_nozc(size) == -1) {
+				break;
+			}
 		}
 		bm_finish("send_nozc", size);
 	}
-	qb_ipcc_service_disconnect(bmc_ipc_handle);
+
+	qb_ipcc_disconnect(conn);
 	return EXIT_SUCCESS;
 }
+

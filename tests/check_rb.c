@@ -32,7 +32,7 @@
 START_TEST(test_ring_buffer1)
 {
 	char my_buf[512];
-	qb_ipc_request_header_t *hdr;
+	struct qb_ipc_request_header *hdr;
 	char *str;
 	qb_ringbuffer_t *rb;
 	int32_t i;
@@ -44,8 +44,8 @@ START_TEST(test_ring_buffer1)
 	fail_if(rb == NULL);
 
 	for (b = 0; b < 3; b++) {
-		hdr = (qb_ipc_request_header_t *) my_buf;
-		str = my_buf + sizeof(qb_ipc_request_header_t);
+		hdr = (struct qb_ipc_request_header *) my_buf;
+		str = my_buf + sizeof(struct qb_ipc_request_header);
 
 		for (i = 0; i < 900; i++) {
 			hdr->id = __LINE__ + i;
@@ -53,7 +53,7 @@ START_TEST(test_ring_buffer1)
 			    sprintf(str, "ID: %d (%s + i(%d)) -- %s-%s!",
 				    hdr->id, "actually the line number", i,
 				    __func__, __FILE__) + 1;
-			hdr->size += sizeof(qb_ipc_request_header_t);
+			hdr->size += sizeof(struct qb_ipc_request_header);
 			avail = qb_rb_space_free(rb);
 			actual = qb_rb_chunk_write(rb, hdr, hdr->size);
 			if (avail < (hdr->size + (2 * sizeof(uint32_t)))) {
@@ -65,8 +65,8 @@ START_TEST(test_ring_buffer1)
 
 		memset(my_buf, 0, sizeof(my_buf));
 
-		hdr = (qb_ipc_request_header_t *) my_buf;
-		str = my_buf + sizeof(qb_ipc_request_header_t);
+		hdr = (struct qb_ipc_request_header *) my_buf;
+		str = my_buf + sizeof(struct qb_ipc_request_header);
 
 		for (i = 0; i < 15; i++) {
 			actual = qb_rb_chunk_read(rb, hdr, 512, 0);
@@ -74,7 +74,7 @@ START_TEST(test_ring_buffer1)
 				ck_assert_int_eq(0, qb_rb_chunks_used(rb));
 				break;
 			}
-			str[actual - sizeof(qb_ipc_request_header_t)] = '\0';
+			str[actual - sizeof(struct qb_ipc_request_header)] = '\0';
 
 			ck_assert_int_eq(actual, hdr->size);
 		}

@@ -131,14 +131,13 @@ AC_FUNC_STRERROR_R
 AC_FUNC_SELECT_ARGTYPES
 AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([alarm alphasort atexit bzero dup2 endgrent endpwent fcntl \
-		getcwd getpeerucred getpeereid gettimeofday inet_ntoa memmove \
-		memset mkdir scandir select socket strcasecmp strchr strdup \
+AC_CHECK_FUNCS([alphasort atexit endgrent endpwent fcntl \
+		getcwd getpeerucred getpeereid gettimeofday inet_ntoa \
+		memset scandir socket strcasecmp strchr strdup \
 		strerror strrchr strspn strstr pthread_spin_lock \
 		clock_gettime localeconv localtime_r munmap pathconf putenv setenv \
 		pthread_spin_unlock pututxline lgammal setkey \
 		crypt encrypt getdate strsignal])
-
 
 ## local defines
 PACKAGE_FEATURES=""

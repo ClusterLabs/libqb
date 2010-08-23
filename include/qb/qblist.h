@@ -74,6 +74,8 @@ static void inline qb_list_add(struct qb_list_head *element,
 
 /**
  * Add to the list (but at the end of the list).
+ *
+ * @param element pointer to the element to add
  * @param head pointer to the list head
  * @see qb_list_add()
  */

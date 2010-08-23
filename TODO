@@ -6,3 +6,12 @@ Generic Items
 * use doxygen to generate the man pages
 * write unit test cases
 
+IPC
+---
+* flow control
+* client or server to specify the message size
+* 1 or per session request queues/ringbuffers
+* glib integration
+* bmcpt fails - fix
+* should we hide the message header?
+* we probably need a qb_ipc_msg_alloc()

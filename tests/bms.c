@@ -50,154 +50,57 @@ int32_t blocking = 1;
 int32_t verbose = 0;
 
 static qb_handle_t bms_poll_handle;
+static qb_ipcs_service_pt s1;
 
-struct lib_handler {
-	void (*lib_handler_fn) (void *conn, const void *msg);
-};
-
-struct service_engine {
-	uint32_t private_data_size;
-	int32_t (*lib_init_fn) (void *conn);
-	int32_t (*lib_exit_fn) (void *conn);
-	struct lib_handler *lib_engine;
-};
-
-static void bms_benchmark_one_fn(void *conn, const void *msg)
+static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_pt conn, uid_t uid, gid_t gid)
 {
-	qb_ipc_response_header_t res;
+	if (uid == 0 && gid == 0) {
+		if (verbose) {
+			printf("%s:%d %s authenticated connection\n",
+					__FILE__, __LINE__, __func__);
+		}
+		return 1;
+	}
+	printf("%s:%d %s() BAD user!\n", __FILE__, __LINE__, __func__);
+	return 0;
+}
 
+
+static void s1_connection_created_fn(qb_ipcs_connection_pt conn)
+{
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	}
-	res.size = sizeof(qb_ipc_response_header_t);
-	res.id = 0;
-	res.error = 0;
+}
+static void s1_connection_destroyed_fn(qb_ipcs_connection_pt conn)
+{
+	if (verbose) {
+		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
+	}
+}
+
+static void s1_msg_process_fn(qb_ipcs_connection_pt conn,
+		void *data, size_t size)
+{
+	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
+	struct qb_ipc_response_header response;
+	ssize_t res;
+
+	if (verbose > 2) {
+		printf("%s:%d %s > msg:%d, size:%d\n",
+			__FILE__, __LINE__, __func__,
+			req_pt->id, req_pt->size);
+	}
+	response.size = sizeof(struct qb_ipc_response_header);
+	response.id = 13;
+	response.error = 0;
 	if (blocking == 1) {
-		qb_ipcs_response_send(conn, &res, sizeof(res));
+		res = qb_ipcs_response_send(conn, &response,
+				sizeof(response));
+		if (res == -1) {
+			perror("qb_ipcs_response_send");
+		}
 	}
-}
-
-int32_t ii = 0;
-static void bms_benchmark_two_fn(void *conn, const void *msg)
-{
-	const qb_ipc_request_header_t *req = msg;
-	const char *req_buf = (char *)msg + sizeof(qb_ipc_request_header_t);
-	qb_ipc_response_header_t res_done;
-
-	qb_ipc_response_header_t res;
-	struct iovec iovec[2];
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-
-	res.size =
-	    req->size - sizeof(qb_ipc_request_header_t) +
-	    sizeof(qb_ipc_response_header_t);
-	res.error = 0;
-	iovec[0].iov_base = &res;
-	iovec[0].iov_len = sizeof(res);
-	iovec[1].iov_base = (void *)req_buf;
-	iovec[1].iov_len = req->size - sizeof(qb_ipc_request_header_t);
-
-	qb_ipcs_dispatch_iov_send(conn, iovec, 2);
-	res_done.size = sizeof(qb_ipc_response_header_t);
-	res_done.error = 0;
-	qb_ipcs_response_send(conn, &res_done, sizeof(res_done));
-}
-
-static int32_t bms_lib_init_fn(void *conn)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	return (0);
-}
-
-static int32_t bms_lib_exit_fn(void *conn)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	return (0);
-}
-
-static struct lib_handler bms_lib_engine_one[] = {
-	{			/* entry 0 */
-	 .lib_handler_fn = bms_benchmark_one_fn,
-	 },
-	{			/* entry 1 */
-	 .lib_handler_fn = bms_benchmark_two_fn,
-	 }
-};
-
-static struct service_engine services[1] = {
-	{
-	 .private_data_size = 0,
-	 .lib_init_fn = bms_lib_init_fn,
-	 .lib_exit_fn = bms_lib_exit_fn,
-	 .lib_engine = bms_lib_engine_one,
-	 }
-};
-
-static void bms_serialize_lock(void)
-{
-}
-
-static void bms_serialize_unlock(void)
-{
-}
-
-/*
- * Provides the glue from bms to the IPC Service
- */
-static int32_t bms_private_data_size_get(uint32_t service)
-{
-	return (services[service].private_data_size);
-}
-
-static qb_ipcs_init_fn_lvalue bms_init_fn_get(uint32_t service)
-{
-	return (services[service].lib_init_fn);
-}
-
-static qb_ipcs_exit_fn_lvalue bms_exit_fn_get(uint32_t service)
-{
-	return (services[service].lib_exit_fn);
-}
-
-static qb_ipcs_handler_fn_lvalue bms_handler_fn_get(uint32_t service,
-						    uint32_t id)
-{
-	return (services[service].lib_engine[id].lib_handler_fn);
-}
-
-static int32_t bms_security_valid(int32_t euid, int32_t egid)
-{
-	if (euid == 0 || egid == 0) {
-		return (1);
-	}
-	printf("%s:%d %s NOT VALID!\n", __FILE__, __LINE__, __func__);
-	return (0);
-}
-
-static int32_t bms_service_available(uint32_t service)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	return (service < 1);
-}
-
-static int32_t bms_sending_allowed(uint32_t service,
-			       uint32_t id,
-			       const void *msg,
-			       void *sending_allowed_private_data)
-{
-	return (1);
-}
-
-static void bms_sending_allowed_release(void *sending_allowed_private_data)
-{
 }
 
 static void ipc_log_fn(const char *file_name,
@@ -206,84 +109,10 @@ static void ipc_log_fn(const char *file_name,
 	fprintf(stderr, "%s:%d [%d] %s\n", file_name, file_line, severity, msg);
 }
 
-static void ipc_fatal_error(const char *error_msg)
-{
-	printf("FATAL Error: %s\n", error_msg);
-	exit(1);
-}
-
-static int32_t bms_poll_handler_accept(qb_handle_t handle,
-				   int32_t fd, int32_t revent, void *context)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	return (qb_ipcs_handler_accept(fd, revent, context));
-}
-
-static int32_t bms_poll_handler_dispatch(qb_handle_t handle,
-				     int32_t fd, int32_t revent, void *context)
-{
-	return (qb_ipcs_handler_dispatch(fd, revent, context));
-}
-
-static void bms_poll_accept_add(int32_t fd)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	qb_poll_dispatch_add(bms_poll_handle, fd, POLLIN | POLLNVAL, 0,
-			     bms_poll_handler_accept);
-}
-
-static void bms_poll_dispatch_add(int32_t fd, void *context)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	qb_poll_dispatch_add(bms_poll_handle, fd, POLLIN | POLLNVAL, context,
-			     bms_poll_handler_dispatch);
-}
-
-static void bms_poll_dispatch_modify(int32_t fd, int32_t events)
-{
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
-	qb_poll_dispatch_modify(bms_poll_handle, fd, events,
-				bms_poll_handler_dispatch);
-}
-
-struct sched_param sched_param = {
-	.sched_priority = 99,
-};
-
-struct qb_ipcs_init_state ipc_init_state = {
-	.socket_name = "qb_ipcs_bm",
-	.sched_policy = 0,
-	.sched_param = NULL,
-	.malloc = malloc,
-	.free = free,
-	.fatal_error = ipc_fatal_error,
-	.security_valid = bms_security_valid,
-	.service_available = bms_service_available,
-	.private_data_size_get = bms_private_data_size_get,
-	.serialize_lock = bms_serialize_lock,
-	.serialize_unlock = bms_serialize_unlock,
-	.sending_allowed = bms_sending_allowed,
-	.sending_allowed_release = bms_sending_allowed_release,
-	.poll_accept_add = bms_poll_accept_add,
-	.poll_dispatch_add = bms_poll_dispatch_add,
-	.poll_dispatch_modify = bms_poll_dispatch_modify,
-	.init_fn_get = bms_init_fn_get,
-	.exit_fn_get = bms_exit_fn_get,
-	.handler_fn_get = bms_handler_fn_get
-};
-
 static void sigusr1_handler(int32_t num)
 {
 	printf("%s(%d)\n", __func__, num);
-	qb_ipcs_ipc_exit();
+	qb_ipcs_destroy(s1);
 	exit(0);
 }
 
@@ -304,6 +133,12 @@ int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "nvh";
 	int32_t opt;
+	struct qb_ipcs_service_handlers sh = {
+		.connection_authenticate = s1_connection_authenticate_fn,
+		.connection_created = s1_connection_created_fn,
+		.msg_process = s1_msg_process_fn,
+		.connection_destroyed = s1_connection_destroyed_fn,
+	};
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
@@ -311,7 +146,7 @@ int32_t main(int32_t argc, char *argv[])
 			blocking = 0;
 			break;
 		case 'v':
-			verbose = 1;
+			verbose++;
 			break;
 		case 'h':
 		default:
@@ -328,8 +163,15 @@ int32_t main(int32_t argc, char *argv[])
 
 	bms_poll_handle = qb_poll_create();
 
-	qb_ipcs_ipc_init(&ipc_init_state);
-
+	s1 = qb_ipcs_create("bm1", QB_IPC_SHM, 8192*64);
+//	s1 = qb_ipcs_create("bm1", QB_IPC_POSIX_MQ, 8192*64);
+//	s1 = qb_ipcs_create("bm1", QB_IPC_SYSV_MQ, 8192*64);
+	if (s1 == 0) {
+		perror("qb_ipcs_create");
+		exit(1);
+	}
+	qb_ipcs_service_handlers_set(s1, &sh);
+	qb_ipcs_run(s1, bms_poll_handle);
 	qb_poll_run(bms_poll_handle);
 
 	return EXIT_SUCCESS;
