@@ -26,7 +26,9 @@
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
 #endif /* HAVE_SYS_UN_H */
-
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
 #include <qb/qbipcs.h>
 #include <qb/qbpoll.h>
 #include "util_int.h"
@@ -447,7 +449,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 				    SOCKETDIR);
 			goto error_close;
 		}
-		sprintf(un_addr.sun_path, "%s/%s", SOCKETDIR, name);
+		sprintf(un_addr.sun_path, "%s/%s", SOCKETDIR, s->name);
 		unlink(un_addr.sun_path);
 	}
 #endif

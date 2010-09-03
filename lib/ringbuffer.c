@@ -491,7 +491,7 @@ ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
 
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		errno = ENODATA;
+		errno = ENOMSG;
 		return -1;
 	} else {
 		return chunk_size;
@@ -524,7 +524,7 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 	}
 	if (_qb_rb_space_used_locked_(rb) == 0) {
 		rb->unlock_fn(rb);
-		errno = ENODATA;
+		errno = ENOMSG;
 		return -1;
 	}
 

@@ -54,6 +54,8 @@ AC_PROG_LN_S
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
+AC_CHECK_PROG(HAVE_DOXYGEN, doxygen, have_doxygen="yes", have_doxygen="no")
+AM_CONDITIONAL(HAVE_DOXYGEN, test "${have_doxygen}" = "yes")
 
 ## local helper functions
 
@@ -96,7 +98,7 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h locale.h netdb.h netinet/in.h nl_types.h stdint.h \
 		  stdlib.h string.h sys/ioctl.h sys/param.h sys/socket.h \
-		  time.h sys/time.h syslog.h unistd.h sys/types.h getopt.h malloc.h \
+		  time.h sys/time.h syslog.h unistd.h sys/types.h sys/stat.h getopt.h malloc.h \
 		  sys/sockio.h sys/un.h utmpx.h errno.h dlfcn.h dirent.h fnmatch.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -211,7 +213,7 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
 				   [Shared memory define for Darwin platform])
 		OS_CFLAGS=""
-		OS_CPPFLAGS="-I/usr/local/include"
+		OS_CPPFLAGS="-I/usr/include -I/usr/local/include"
 		OS_LDFLAGS="-L/usr/local/lib"
 		OS_DYFLAGS="-export-dynamic"
 		DARWIN_OPTS=""

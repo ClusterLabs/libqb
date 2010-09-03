@@ -18,6 +18,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "config.h"
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -40,6 +41,7 @@ static qb_ipcc_connection_t *conn;
 
 static struct timeval tv1, tv2, tv_elapsed;
 
+#ifndef QB_BSD
 #define timersub(a, b, result)					\
 do {								\
 	(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
@@ -49,6 +51,7 @@ do {								\
 		(result)->tv_usec += 1000000;			\
 	}							\
 } while (0)
+#endif
 
 static void bm_start(void)
 {
