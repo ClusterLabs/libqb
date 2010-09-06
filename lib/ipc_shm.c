@@ -185,11 +185,13 @@ static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 	msg.size = sizeof(msg);
 	msg.error = 0;
 
-	qb_ipcs_shm_dispatch_send(c, &msg, msg.size);
-	if (c->u.shm.response.rb)
+	if (c->u.shm.response.rb) {
+		qb_ipcs_shm_dispatch_send(c, &msg, msg.size);
 		qb_rb_close(c->u.shm.response.rb);
-	if (c->u.shm.dispatch.rb)
+	}
+	if (c->u.shm.dispatch.rb) {
 		qb_rb_close(c->u.shm.dispatch.rb);
+	}
 }
 
 static void qb_ipcs_shm_destroy(struct qb_ipcs_service *s)

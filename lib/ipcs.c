@@ -190,8 +190,8 @@ static void qb_ipcs_disconnect_internal(void *data)
 	if (c->service->serv_fns.connection_destroyed) {
 		c->service->serv_fns.connection_destroyed(c->handle);
 	}
-	qb_ipcc_us_disconnect(c->sock);
 	c->service->funcs.disconnect(c);
+	qb_ipcc_us_disconnect(c->sock);
 }
 
 void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
