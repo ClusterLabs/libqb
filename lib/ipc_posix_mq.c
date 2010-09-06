@@ -214,6 +214,11 @@ int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection * c)
 	c->funcs.send = qb_ipcc_pmq_send;
 	c->funcs.recv = qb_ipcc_pmq_recv;
 	c->funcs.disconnect = qb_ipcc_pmq_disconnect;
+#if defined(QB_LINUX) || defined(QB_BSD)
+	c->needs_sock_for_poll = QB_FALSE;
+#else
+	c->needs_sock_for_poll = QB_TRUE;
+#endif
 
 	if (strlen(c->name) > (NAME_MAX - 20)) {
 		return -EINVAL;
@@ -441,6 +446,11 @@ int32_t qb_ipcs_pmq_create(struct qb_ipcs_service * s)
 	s->funcs.response_send = qb_ipcs_pmq_response_send;
 	s->funcs.connect = qb_ipcs_pmq_connect;
 	s->funcs.disconnect = qb_ipcs_pmq_disconnect;
+#if defined(QB_LINUX) || defined(QB_BSD)
+	s->needs_sock_for_poll = QB_FALSE;
+#else
+	s->needs_sock_for_poll = QB_TRUE;
+#endif
 
 	posix_mq_increase_limits(s->max_msg_size, 10);
 	s->u.q = posix_mq_create(mq_name, s->max_msg_size,

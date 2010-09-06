@@ -44,6 +44,7 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type,
 	s->type = type;
 	s->max_msg_size = max_msg_size;
 	s->receive_buf = malloc(s->max_msg_size);
+	s->needs_sock_for_poll = QB_FALSE;
 
 	qb_list_init(&s->connections);
 	snprintf(s->name, 255, "%s", name);
@@ -51,11 +52,8 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type,
 	switch (s->type) {
 	case QB_IPC_SOCKET:
 	case QB_IPC_POSIX_MQ:
-		s->needs_sock_for_poll = QB_FALSE;
-		break;
 	case QB_IPC_SYSV_MQ:
 	case QB_IPC_SHM:
-		s->needs_sock_for_poll = QB_TRUE;
 		break;
 	default:
 		qb_hdb_handle_destroy(&qb_ipc_services, h);
@@ -126,7 +124,7 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt, qb_handle_t poll_handle)
 		res = qb_ipcs_smq_create((struct qb_ipcs_service *)s);
 		break;
 	default:
-		res = -ENOPROTOOPT;
+		res = -EINVAL;
 		break;
 	}
 	qb_hdb_handle_put(&qb_ipc_services, pt);

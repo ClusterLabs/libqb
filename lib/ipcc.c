@@ -71,28 +71,24 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
 	c->type = init_res.connection_type;
 	c->sock = usock;
 	c->session_id = init_res.session_id;
-	printf("%s() max_msg_size:%d\n", __func__, init_res.max_msg_size);
 	c->max_msg_size = init_res.max_msg_size;
 	c->receive_buf = malloc(c->max_msg_size);
 
 	switch (c->type) {
 	case QB_IPC_SHM:
-		c->needs_sock_for_poll = QB_TRUE;
 		res = qb_ipcc_shm_connect(c);
 		break;
 	case QB_IPC_POSIX_MQ:
-		c->needs_sock_for_poll = QB_FALSE;
 		res = qb_ipcc_pmq_connect(c);
 		break;
 	case QB_IPC_SYSV_MQ:
-		c->needs_sock_for_poll = QB_TRUE;
 		res = qb_ipcc_smq_connect(c);
 		break;
 	case QB_IPC_SOCKET:
 		c->needs_sock_for_poll = QB_FALSE;
 		break;
 	default:
-		res = EINVAL;
+		res = -EINVAL;
 		break;
 	}
 	if (res != 0) {

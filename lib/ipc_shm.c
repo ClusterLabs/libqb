@@ -74,12 +74,15 @@ static int32_t _ipcc_shm_connect_to_service_(struct qb_ipcc_connection *c)
 	strcpy(start.response, qb_rb_name_get(c->u.shm.response.rb));
 	strcpy(start.dispatch, qb_rb_name_get(c->u.shm.dispatch.rb));
 
-	res =
-	    qb_rb_chunk_write(c->u.shm.request.rb, (const char *)&start,
-			      start.hdr.size);
+	c->needs_sock_for_poll = QB_TRUE;
+
+	res = qb_rb_chunk_write(c->u.shm.request.rb,
+				(const char *)&start,
+				start.hdr.size);
 	if (res < 0) {
 		return res;
 	}
+
 	if (c->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, &start, 1);
 	}
@@ -318,6 +321,7 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s)
 	s->funcs.response_send = qb_ipcs_shm_response_send;
 	s->funcs.connect = qb_ipcs_shm_connect;
 	s->funcs.disconnect = qb_ipcs_shm_disconnect;
+	s->needs_sock_for_poll = QB_TRUE;
 
 	s->u.rb = qb_rb_open(s->name, s->max_msg_size,
 			     QB_RB_FLAG_CREATE | QB_RB_FLAG_SHARED_PROCESS);
@@ -327,6 +331,6 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s)
 		return res;
 	}
 
-	qb_util_log(LOG_DEBUG, "%s() %d", __func__, s->u.q);
+	qb_util_log(LOG_DEBUG, "%s()", __func__);
 	return res;
 }

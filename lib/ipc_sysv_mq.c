@@ -197,6 +197,7 @@ int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection * c)
 	c->funcs.recv = qb_ipcc_smq_recv;
 	c->funcs.disconnect = qb_ipcc_smq_disconnect;
 	c->type = QB_IPC_SYSV_MQ;
+	c->needs_sock_for_poll = QB_TRUE;
 
 	if (strlen(c->name) > (NAME_MAX - 20)) {
 		free(c);
@@ -419,6 +420,7 @@ int32_t qb_ipcs_smq_create(struct qb_ipcs_service * s)
 	s->funcs.disconnect = qb_ipcs_smq_disconnect;
 	s->funcs.response_send = qb_ipcs_smq_response_send;
 	s->funcs.request_recv = qb_ipcs_smq_request_recv;
+	s->needs_sock_for_poll = QB_TRUE;
 
 	s->max_msg_size = MSGMAX;
 
