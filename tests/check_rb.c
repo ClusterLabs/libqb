@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <syslog.h>
 #include <errno.h>
 #include <check.h>
 #include <qb/qbrb.h>
@@ -81,8 +82,8 @@ START_TEST(test_ring_buffer1)
 	}
 	qb_rb_close(rb);
 }
-
 END_TEST
+
 /*
  * nice size (int64)
  */
@@ -126,8 +127,8 @@ START_TEST(test_ring_buffer2)
 	}
 	qb_rb_close(t);
 }
-
 END_TEST
+
 /*
  * odd size (10)
  */
@@ -157,8 +158,9 @@ START_TEST(test_ring_buffer3)
 	}
 	qb_rb_close(t);
 }
+END_TEST
 
-END_TEST START_TEST(test_ring_buffer4)
+START_TEST(test_ring_buffer4)
 {
 	qb_ringbuffer_t *t;
 	char data[] = "1234567891";
@@ -185,8 +187,9 @@ END_TEST START_TEST(test_ring_buffer4)
 	}
 	qb_rb_close(t);
 }
+END_TEST
 
-END_TEST static Suite *rb_suite(void)
+static Suite *rb_suite(void)
 {
 	TCase *tc_load;
 	Suite *s = suite_create("ringbuffer");
@@ -204,7 +207,8 @@ END_TEST static Suite *rb_suite(void)
 static void libqb_log_fn(const char *file_name,
 			 int32_t file_line, int32_t severity, const char *msg)
 {
-	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
+	if (severity < LOG_INFO)
+		printf("libqb: %s:%d %s\n", file_name, file_line, msg);
 }
 
 int32_t main(void)

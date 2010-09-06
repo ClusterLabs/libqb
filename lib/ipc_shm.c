@@ -86,7 +86,7 @@ static int32_t _ipcc_shm_connect_to_service_(struct qb_ipcc_connection *c)
 	if (c->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, &start, 1);
 	}
-	printf("sent request to server %d\n", res);
+	qb_util_log(LOG_DEBUG, "sent request to server %d\n", res);
 
 	size = qb_rb_chunk_read(c->u.shm.response.rb, c->receive_buf,
 				c->max_msg_size, 100000);
@@ -96,7 +96,7 @@ static int32_t _ipcc_shm_connect_to_service_(struct qb_ipcc_connection *c)
 		perror("_ipcc_shm_connect_to_service_:qb_rb_chunk_read");
 		goto cleanup;
 	}
-	printf("received response from server %zd\n", size);
+	qb_util_log(LOG_DEBUG, "received response from server %zd\n", size);
 	msg_res = (struct mar_res_setup *)c->receive_buf;
 	res = msg_res->hdr.error;
 	if (res == 0) {
@@ -164,7 +164,7 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection * c)
 		return 0;
 	}
 
-	printf("%s:%d\n", __FILE__, __LINE__);
+	qb_util_log(LOG_DEBUG, "connection failed %d\n", res);
 
 	qb_rb_close(c->u.shm.dispatch.rb);
 
@@ -205,7 +205,7 @@ static void qb_ipcs_shm_destroy(struct qb_ipcs_service *s)
 	struct qb_list_head *iter;
 	struct qb_list_head *iter_next;
 
-	printf("%s\n", __func__);
+	qb_util_log(LOG_DEBUG, "destroying server\n");
 
 	for (iter = s->connections.next;
 	     iter != &s->connections; iter = iter_next) {
@@ -232,7 +232,7 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 
 	c->pid = init->pid;
 	c->service = s;
-	printf("connecting to client [%d]\n", c->pid);
+	qb_util_log(LOG_DEBUG, "connecting to client [%d]\n", c->pid);
 
 	/* setup the response message queue
 	 */

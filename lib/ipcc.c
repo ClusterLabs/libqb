@@ -22,6 +22,7 @@
 
 #include <mqueue.h>
 #include "ipc_int.h"
+#include "util_int.h"
 #include <qb/qbipcc.h>
 
 qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
@@ -126,7 +127,8 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, const void *msg_ptr,
 
 void qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
-	printf("%s()", __func__);
+	qb_util_log(LOG_DEBUG, "%s()", __func__);
+
 	qb_ipcc_us_disconnect(c->sock);
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);
