@@ -501,8 +501,7 @@ ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 			    rb->shared_hdr->count);
 	} else if (res < 0 && res != -EIDRM) {
 		if (res != ETIMEDOUT) {
-			qb_util_log(LOG_ERR,
-				    "sem_timedwait %s", strerror(res));
+			qb_util_log(LOG_ERR, "sem_timedwait %s", strerror(res));
 		}
 		return res;
 	}

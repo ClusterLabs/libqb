@@ -64,8 +64,8 @@ sem_wait_again:
 		default:
 			res = -errno;
 			qb_util_log(LOG_ERR,
-					"error waiting for semaphore : %s",
-					strerror(errno));
+				    "error waiting for semaphore : %s",
+				    strerror(errno));
 			break;
 		}
 	}
@@ -239,7 +239,7 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 	if (sem_key == -1) {
 		res = -errno;
 		qb_util_log(LOG_ERR, "couldn't get a sem id %s",
-				strerror(errno));
+			    strerror(errno));
 		return res;
 	}
 
@@ -248,7 +248,7 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 		if (rb->sem_id == -1) {
 			res = -errno;
 			qb_util_log(LOG_ERR, "couldn't create a semaphore %s",
-					strerror(errno));
+				    strerror(errno));
 			return res;
 		}
 		options.val = 0;
@@ -258,7 +258,7 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 		if (rb->sem_id == -1) {
 			res = -errno;
 			qb_util_log(LOG_ERR, "couldn't get a sem id %s",
-					strerror(errno));
+				    strerror(errno));
 			return res;
 		}
 		res = 0;
@@ -324,8 +324,7 @@ semop_again:
 			goto semop_again;
 		}
 		res = -errno;
-		qb_util_log(LOG_ERR, "could not lock it : %s",
-				strerror(errno));
+		qb_util_log(LOG_ERR, "could not lock it : %s", strerror(errno));
 		return res;
 	}
 	return res;
@@ -352,7 +351,7 @@ semop_again:
 		}
 		res = -errno;
 		qb_util_log(LOG_ERR, "could not unlock it : %s",
-				strerror(errno));
+			    strerror(errno));
 		return res;
 	}
 	return res;
@@ -399,7 +398,7 @@ int32_t qb_rb_lock_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 
 		if (flags & QB_RB_FLAG_CREATE) {
 			return -pthread_spin_init(&rb->shared_hdr->spinlock,
-						 pshared);
+						  pshared);
 		} else {
 			return 0;
 		}

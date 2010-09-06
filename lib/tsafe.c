@@ -394,11 +394,11 @@ int encrypt(char *block, int edflag)
 void encrypt(char *block, int edflag)
 #endif
 {
-	#ifdef QB_BSD
+#ifdef QB_BSD
 	static int (*real_encrypt) (char block[64], int edflag) = NULL;
-	#else
+#else
 	static void (*real_encrypt) (char block[64], int edflag) = NULL;
-	#endif
+#endif
 	if (!tsafe_inited || tsafe_disabled) {
 		if (real_encrypt == NULL) {
 			real_encrypt = _get_real_func_("encrypt");

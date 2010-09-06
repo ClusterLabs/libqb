@@ -100,7 +100,8 @@ static void sigusr1_handler(int32_t num)
 }
 
 int32_t qb_timer_init(void (*serialize_lock_fn) (void),
-		  void (*serialize_unlock_fn) (void), int32_t sched_priority_in)
+		      void (*serialize_unlock_fn) (void),
+		      int32_t sched_priority_in)
 {
 	int32_t res;
 
@@ -123,8 +124,9 @@ int32_t qb_timer_init(void (*serialize_lock_fn) (void),
 }
 
 int32_t qb_timer_add_absolute(uint64_t nanosec_from_epoch,
-			  void *data,
-			  void (*timer_fn) (void *data), timer_handle * handle)
+			      void *data,
+			      void (*timer_fn) (void *data),
+			      timer_handle * handle)
 {
 	int32_t res;
 	int32_t unlock;
@@ -150,8 +152,9 @@ int32_t qb_timer_add_absolute(uint64_t nanosec_from_epoch,
 }
 
 int32_t qb_timer_add_duration(uint64_t nanosec_duration,
-			  void *data,
-			  void (*timer_fn) (void *data), timer_handle * handle)
+			      void *data,
+			      void (*timer_fn) (void *data),
+			      timer_handle * handle)
 {
 	int32_t res;
 	int32_t unlock;

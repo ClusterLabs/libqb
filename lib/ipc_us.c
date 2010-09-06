@@ -190,7 +190,7 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 #endif
 
 	res = qb_ipc_us_recv_msghdr(c->sock, &msg_recv, setup_msg,
-					 sizeof(struct mar_req_initial_setup));
+				    sizeof(struct mar_req_initial_setup));
 
 	if (res < 0) {
 		goto cleanup_and_return;
@@ -266,9 +266,9 @@ cleanup_and_return:
 	if (res == 0) {
 		res = -EACCES;
 		if (c->service->serv_fns.connection_authenticate &&
-				c->service->serv_fns.connection_authenticate(c->handle,
-					c->euid,
-					c->egid)) {
+		    c->service->serv_fns.connection_authenticate(c->handle,
+								 c->euid,
+								 c->egid)) {
 			res = 0;
 		} else if (c->service->serv_fns.connection_authenticate == NULL) {
 			res = 0;
@@ -557,7 +557,8 @@ retry_accept:
 		if (s->needs_sock_for_poll) {
 			qb_poll_dispatch_add(s->poll_handle, c->sock,
 					     POLLIN | POLLPRI | POLLNVAL,
-					     c, qb_ipcs_dispatch_connection_request);
+					     c,
+					     qb_ipcs_dispatch_connection_request);
 		}
 
 	} else {
@@ -566,7 +567,7 @@ retry_accept:
 		} else {
 			strerror_r(-res, error_str, 100);
 			qb_util_log(LOG_ERR, "Error in conection setup: %s.",
-					error_str);
+				    error_str);
 		}
 		init_res.hdr.id = QB_IPC_MSG_AUTHENTICATE;
 		init_res.hdr.size = sizeof(init_res);

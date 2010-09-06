@@ -33,7 +33,6 @@
 static ssize_t qb_ipcs_smq_dispatch_send(struct qb_ipcs_connection *c,
 					 void *data, size_t size);
 
-
 /*
  * utility functions
  * --------------------------------------------------------
@@ -91,7 +90,6 @@ static key_t sysv_key_from_name(const char *name)
 
 	return ftok(key_location, 0);
 }
-
 
 /*
  * client functions

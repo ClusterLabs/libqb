@@ -31,7 +31,7 @@ QB_HDB_DECLARE(qb_ipc_services, qb_ipcs_destroy_internal);
 QB_HDB_DECLARE(qb_ipc_connections, qb_ipcs_disconnect_internal);
 
 qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type,
-				   size_t max_msg_size)
+				  size_t max_msg_size)
 {
 	struct qb_ipcs_service *s;
 	qb_ipcs_service_pt h;
@@ -252,15 +252,16 @@ cleanup:
 	return res;
 }
 
-
 int32_t qb_ipcs_dispatch_service_request(qb_handle_t handle,
-				 int32_t fd, int32_t revents, void *data)
+					 int32_t fd, int32_t revents,
+					 void *data)
 {
 	return _process_request_((struct qb_ipcs_service *)data);
 }
 
 int32_t qb_ipcs_dispatch_connection_request(qb_handle_t handle,
-				 int32_t fd, int32_t revents, void *data)
+					    int32_t fd, int32_t revents,
+					    void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
 	char one_byte;
