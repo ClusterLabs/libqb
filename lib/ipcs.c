@@ -107,9 +107,9 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt, qb_handle_t poll_handle)
 	res = qb_ipcs_us_publish(s);
 	qb_util_log(LOG_INFO, "%d", res);
 
-	if (res == -1) {
+	if (res < 0) {
 		qb_hdb_handle_put(&qb_ipc_services, pt);
-		return -1;
+		return res;
 	}
 
 	switch (s->type) {
@@ -126,7 +126,7 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt, qb_handle_t poll_handle)
 		res = qb_ipcs_smq_create((struct qb_ipcs_service *)s);
 		break;
 	default:
-		res = EINVAL;
+		res = -ENOPROTOOPT;
 		break;
 	}
 	qb_hdb_handle_put(&qb_ipc_services, pt);
@@ -151,9 +151,9 @@ ssize_t qb_ipcs_response_send(qb_ipcs_connection_pt c, void *data, size_t size)
 	ssize_t res;
 	struct qb_ipcs_connection *con;
 
-	if (qb_hdb_handle_get(&qb_ipc_connections, c, (void **)&con) == -1) {
-		perror("qb_hdb_handle_get");
-		return -1;
+	res = qb_hdb_handle_get(&qb_ipc_connections, c, (void **)&con);
+	if (res < 0) {
+		return res;
 	}
 	res = con->service->funcs.response_send(con, data, size);
 	qb_hdb_handle_put(&qb_ipc_connections, c);
@@ -212,11 +212,10 @@ static int32_t _process_request_(struct qb_ipcs_service *s)
 
 get_msg_with_live_connection:
 	res = s->funcs.request_recv(s, hdr, s->max_msg_size);
-	if (res == -1 && errno == EAGAIN) {
+	if (res == -EAGAIN) {
 		goto get_msg_with_live_connection;
 	}
-	if (res == -1) {
-		perror("qb_ipcs_dispatch_request");
+	if (res < 0) {
 		goto cleanup;
 	}
 	if (qb_hdb_handle_get
@@ -240,7 +239,7 @@ get_msg_with_live_connection:
 	case QB_IPC_MSG_DISCONNECT:
 		qb_util_log(LOG_DEBUG, "%s() QB_IPC_MSG_DISCONNECT", __func__);
 		qb_ipcs_disconnect(c);
-		res = -1;
+		res = -ESHUTDOWN;
 		break;
 
 	case QB_IPC_MSG_NEW_MESSAGE:
@@ -269,7 +268,7 @@ int32_t qb_ipcs_dispatch_connection_request(qb_handle_t handle,
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "%s HUP", __func__);
 		qb_ipcs_disconnect(c);
-		return -1;
+		return -ESHUTDOWN;
 	}
 	if (c->service->needs_sock_for_poll) {
 		qb_ipc_us_recv(c->sock, &one_byte, 1);

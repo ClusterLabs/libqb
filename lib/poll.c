@@ -85,7 +85,7 @@ error_destroy:
 	qb_hdb_handle_destroy(&poll_instance_database, handle);
 
 error_exit:
-	return (-1);
+	return (res);
 }
 
 int32_t qb_poll_destroy(qb_handle_t handle)
@@ -96,7 +96,6 @@ int32_t qb_poll_destroy(qb_handle_t handle)
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
@@ -128,7 +127,6 @@ int32_t qb_poll_dispatch_add(qb_handle_t handle,
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
@@ -200,26 +198,24 @@ int32_t qb_poll_dispatch_modify(qb_handle_t handle,
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
 	/*
 	 * Find file descriptor to modify events and dispatch function
 	 */
+	res = -EBADF;
 	for (i = 0; i < poll_instance->poll_entry_count; i++) {
 		if (poll_instance->poll_entries[i].ufd.fd == fd) {
 			poll_instance->poll_entries[i].ufd.events = events;
 			poll_instance->poll_entries[i].dispatch_fn =
 			    dispatch_fn;
 
-			goto error_put;
+			res = 0;
+			break;
 		}
 	}
 
-	res = -EBADF;
-
-error_put:
 	qb_hdb_handle_put(&poll_instance_database, handle);
 
 error_exit:
@@ -235,7 +231,6 @@ int32_t qb_poll_dispatch_delete(qb_handle_t handle, int32_t fd)
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
@@ -276,7 +271,6 @@ int32_t qb_poll_timer_add(qb_handle_t handle,
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
@@ -301,7 +295,6 @@ int32_t qb_poll_timer_delete(qb_handle_t handle, qb_poll_timer_handle th)
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
@@ -330,7 +323,6 @@ int32_t qb_poll_job_add(qb_handle_t poll_handle,
 	res = qb_hdb_handle_get(&poll_instance_database, poll_handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 	job = malloc(sizeof(struct qb_poll_job));
@@ -359,7 +351,6 @@ int32_t qb_poll_job_delete(qb_handle_t poll_handle, qb_poll_job_handle job_handl
 	res = qb_hdb_handle_get(&poll_instance_database, poll_handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 	qb_list_del(&job->list);
@@ -378,7 +369,6 @@ int32_t qb_poll_stop(qb_handle_t handle)
 	res = qb_hdb_handle_get(&poll_instance_database, handle,
 				(void *)&poll_instance);
 	if (res != 0) {
-		res = -ENOENT;
 		goto error_exit;
 	}
 
@@ -460,6 +450,7 @@ retry_poll:
 		if (errno == EINTR && res == -1) {
 			goto retry_poll;
 		} else if (res == -1) {
+			res = -errno;
 			goto error_exit;
 		}
 
@@ -479,7 +470,7 @@ retry_poll:
 				/*
 				 * Remove dispatch functions that return -1
 				 */
-				if (res == -1) {
+				if (res < 0) {
 					poll_instance->poll_entries[i].ufd.fd = -1;	/* empty entry */
 				}
 			}
@@ -489,7 +480,7 @@ retry_poll:
 
 	qb_hdb_handle_put(&poll_instance_database, handle);
 error_exit:
-	return (-1);
+	return res;
 }
 
 #ifdef COMPILE_OUT

@@ -154,8 +154,7 @@ static inline int32_t timerlist_add_absolute(struct timerlist *timerlist,
 	timer =
 	    (struct timerlist_timer *)malloc(sizeof(struct timerlist_timer));
 	if (timer == 0) {
-		errno = ENOMEM;
-		return (-1);
+		return (-ENOMEM);
 	}
 
 	timer->expire_time = nano_from_epoch;
@@ -180,8 +179,7 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 	timer =
 	    (struct timerlist_timer *)malloc(sizeof(struct timerlist_timer));
 	if (timer == 0) {
-		errno = ENOMEM;
-		return (-1);
+		return -ENOMEM;
 	}
 
 	timer->expire_time = timerlist_nano_current_get() + nano_duration;

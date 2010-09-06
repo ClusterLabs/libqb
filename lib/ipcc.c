@@ -34,30 +34,31 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
 
 	res = qb_ipcc_us_connect(name, &usock);
 	if (res != 0) {
-		errno = res;
+		errno = -res;
 		return NULL;
 	}
 
 	init_req.hdr.id = QB_IPC_MSG_AUTHENTICATE;
 	init_req.hdr.size = sizeof(init_req);
 	res = qb_ipc_us_send(usock, &init_req, init_req.hdr.size);
-	if (res != 0) {
+	if (res < 0) {
+		errno = -res;
 		perror("qb_ipc_us_send");
 		qb_ipcc_us_disconnect(usock);
-		errno = res;
+		errno = -res;
 		return NULL;
 	}
 
 	res = qb_ipc_us_recv(usock, &init_res, sizeof(init_res));
-	if (res != 0) {
+	if (res < 0) {
 		perror("qb_ipc_us_recv");
 		qb_ipcc_us_disconnect(usock);
-		errno = res;
+		errno = -res;
 		return NULL;
 	}
 
 	if (init_res.hdr.error != 0) {
-		errno = init_res.hdr.error;
+		errno = -init_res.hdr.error;
 		perror("recv:message");
 		return NULL;
 	}
@@ -97,7 +98,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
 	if (res != 0) {
 		free(c);
 		c = NULL;
-		errno = res;
+		errno = -res;
 	}
 	return c;
 }
@@ -109,14 +110,13 @@ int32_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 	ssize_t res;
 
 	if (msg_len > c->max_msg_size) {
-		errno = EINVAL;
-		return -1;
+		return -EINVAL;
 	}
 
 	hdr = (struct qb_ipc_request_header *)msg_ptr;
 	hdr->session_id = c->session_id;
 	res = c->funcs.send(c, msg_ptr, msg_len);
-	if (res != -1 && c->needs_sock_for_poll) {
+	if (res > 0 && c->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, msg_ptr, 1);
 	}
 	return res;

@@ -68,11 +68,11 @@ int32_t qb_thread_lock(qb_thread_lock_t * tl)
 	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
-		res = pthread_spin_lock(&tl->spinlock);
+		res = -pthread_spin_lock(&tl->spinlock);
 	} else
 #endif
 	{
-		res = pthread_mutex_lock(&tl->mutex);
+		res = -pthread_mutex_lock(&tl->mutex);
 	}
 	return res;
 }
@@ -82,11 +82,11 @@ int32_t qb_thread_unlock(qb_thread_lock_t * tl)
 	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
-		res = pthread_spin_unlock(&tl->spinlock);
+		res = -pthread_spin_unlock(&tl->spinlock);
 	} else
 #endif
 	{
-		res = pthread_mutex_unlock(&tl->mutex);
+		res = -pthread_mutex_unlock(&tl->mutex);
 	}
 	return res;
 }
@@ -96,11 +96,11 @@ int32_t qb_thread_trylock(qb_thread_lock_t * tl)
 	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
-		res = pthread_spin_trylock(&tl->spinlock);
+		res = -pthread_spin_trylock(&tl->spinlock);
 	} else
 #endif
 	{
-		res = pthread_mutex_trylock(&tl->mutex);
+		res = -pthread_mutex_trylock(&tl->mutex);
 	}
 	return res;
 }
@@ -110,11 +110,11 @@ int32_t qb_thread_lock_destroy(qb_thread_lock_t * tl)
 	int32_t res;
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
-		res = pthread_spin_destroy(&tl->spinlock);
+		res = -pthread_spin_destroy(&tl->spinlock);
 	} else
 #endif
 	{
-		res = pthread_mutex_destroy(&tl->mutex);
+		res = -pthread_mutex_destroy(&tl->mutex);
 	}
 	free(tl);
 	return res;
@@ -171,17 +171,17 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
 	}
 	fd = open_mmap_file(path, file_flags);
-	if (fd == -1 && !is_absolute) {
+	if (fd < 0 && !is_absolute) {
 		qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
 			    path, strerror(errno));
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
 		fd = open_mmap_file(path, file_flags);
-		if (fd == -1) {
-			return -1;
+		if (fd < 0) {
+			return -errno;
 		}
 	}
 
-	if (fd != -1) {
+	if (fd >= 0) {
 		ftruncate(fd, bytes);
 	}
 	return fd;
@@ -197,14 +197,14 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
-		return (-1);
+		return (-errno);
 	}
 
 	addr = mmap(addr_orig, bytes, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_SHARED, fd, 0);
 
 	if (addr != addr_orig) {
-		return (-1);
+		return (-errno);
 	}
 #ifdef QB_BSD
 	madvise(addr_orig, bytes, MADV_NOSYNC);
@@ -219,7 +219,7 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 
 	res = close(fd);
 	if (res) {
-		return (-1);
+		return (-errno);
 	}
 	*buf = addr_orig;
 	return (0);

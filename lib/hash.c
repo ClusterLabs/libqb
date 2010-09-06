@@ -80,14 +80,14 @@ int32_t qb_hash_initialize(qb_handle_t * handle,
 	res = qb_hdb_handle_create(&qb_hash_handle_db, size, handle);
 	if (res != 0) {
 		qb_util_log(LOG_ERR, "could not create handle (%s)",
-			    strerror(errno));
+			    strerror(res));
 		return (res);
 	}
 	res =
 	    qb_hdb_handle_get(&qb_hash_handle_db, *handle, (void *)&hash_table);
 	if (res != 0) {
 		qb_util_log(LOG_ERR, "could not get handle (%s)",
-			    strerror(errno));
+			    strerror(res));
 		goto hash_destroy;
 	}
 
@@ -105,8 +105,8 @@ int32_t qb_hash_initialize(qb_handle_t * handle,
 	return (0);
 
 hash_destroy:
-	res = qb_hdb_handle_destroy(&qb_hash_handle_db, *handle);
-	return (-1);
+	qb_hdb_handle_destroy(&qb_hash_handle_db, *handle);
+	return (res);
 }
 
 int32_t qb_hash_key_set(qb_handle_t handle,
@@ -141,9 +141,8 @@ int32_t qb_hash_key_set(qb_handle_t handle,
 	}
 	if (found == 0) {
 		hash_node = malloc(sizeof(struct hash_node) + strlen(key) + 1);
-		if (hash_node == 0) {
-			res = -1;
-			errno = -ENOMEM;
+		if (hash_node == NULL) {
+			res = -ENOMEM;
 			goto error_exit;
 		}
 
@@ -178,7 +177,7 @@ int32_t qb_hash_key_get(qb_handle_t handle,
 {
 	struct hash_table *hash_table;
 	uint32_t hash_entry;
-	uint32_t res = -1;
+	int32_t res;
 	struct qb_list_head *list;
 	struct hash_node *hash_node;
 
@@ -187,7 +186,7 @@ int32_t qb_hash_key_get(qb_handle_t handle,
 	if (res != 0) {
 		return (res);
 	}
-	res = -1;
+	res = -ENOENT;
 
 	hash_entry = hash_fnv(key, strlen(key), hash_table->order);
 
@@ -208,9 +207,6 @@ int32_t qb_hash_key_get(qb_handle_t handle,
 unlock_exit:
 	pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].mutex);
 	qb_hdb_handle_put(&qb_hash_handle_db, handle);
-	if (res == -1) {
-		errno = ENOENT;
-	}
 	return (res);
 }
 
@@ -219,7 +215,7 @@ int32_t qb_hash_key_delete(qb_handle_t handle, const char *key)
 	struct hash_table *hash_table;
 	struct qb_list_head *list;
 	uint32_t hash_entry;
-	uint32_t res = ENOENT;
+	int32_t res;
 	struct hash_node *hash_node;
 
 	res =
@@ -227,7 +223,7 @@ int32_t qb_hash_key_delete(qb_handle_t handle, const char *key)
 	if (res != 0) {
 		return (res);
 	}
-	res = -1;
+	res = -ENOENT;
 
 	hash_entry = hash_fnv(key, strlen(key), hash_table->order);
 	pthread_mutex_lock(&hash_table->hash_buckets[hash_entry].mutex);
@@ -248,9 +244,6 @@ int32_t qb_hash_key_delete(qb_handle_t handle, const char *key)
 unlock_exit:
 	pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].mutex);
 	qb_hdb_handle_put(&qb_hash_handle_db, handle);
-	if (res == -1) {
-		errno = ENOENT;
-	}
 	return (res);
 }
 

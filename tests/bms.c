@@ -97,7 +97,7 @@ static void s1_msg_process_fn(qb_ipcs_connection_pt conn,
 	if (blocking == 1) {
 		res = qb_ipcs_response_send(conn, &response,
 				sizeof(response));
-		if (res == -1) {
+		if (res < 0) {
 			perror("qb_ipcs_response_send");
 		}
 	}

@@ -57,7 +57,7 @@ START_TEST(test_ring_buffer1)
 			avail = qb_rb_space_free(rb);
 			actual = qb_rb_chunk_write(rb, hdr, hdr->size);
 			if (avail < (hdr->size + (2 * sizeof(uint32_t)))) {
-				ck_assert_int_eq(actual, -1);
+				ck_assert_int_eq(actual, -ENOMEM);
 			} else {
 				ck_assert_int_eq(actual, hdr->size);
 			}
@@ -70,7 +70,7 @@ START_TEST(test_ring_buffer1)
 
 		for (i = 0; i < 15; i++) {
 			actual = qb_rb_chunk_read(rb, hdr, 512, 0);
-			if (actual == -1) {
+			if (actual < 0) {
 				ck_assert_int_eq(0, qb_rb_chunks_used(rb));
 				break;
 			}
@@ -102,7 +102,7 @@ START_TEST(test_ring_buffer2)
 	}
 	for (i = 0; i < 100; i++) {
 		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
-		if (l == -1) {
+		if (l < 0) {
 			/* no more to read */
 			break;
 		}
@@ -116,7 +116,7 @@ START_TEST(test_ring_buffer2)
 	}
 	for (i = 0; i < 100; i++) {
 		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
-		if (l == -1) {
+		if (l == 0) {
 			/* no more to read */
 			break;
 		}
@@ -148,7 +148,7 @@ START_TEST(test_ring_buffer3)
 	}
 	for (i = 0; i < 2000; i++) {
 		l = qb_rb_chunk_read(t, (void *)out, 32, 0);
-		if (l == -1) {
+		if (l < 0) {
 			/* no more to read */
 			break;
 		}
@@ -177,7 +177,7 @@ END_TEST START_TEST(test_ring_buffer4)
 	}
 	for (i = 0; i < 2000; i++) {
 		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
-		if (l == -1 && errno == ENODATA) {
+		if (l == 0) {
 			break;
 		}
 		ck_assert_int_eq(l, strlen(data));

@@ -92,13 +92,14 @@ static int32_t bmc_send_nozc(uint32_t size)
 
 repeat_send:
 	res = qb_ipcc_send(conn, req_header, req_header->size);
-	if (res == -1) {
-		if (errno == EAGAIN || errno == ENOMEM) {
+	if (res < 0) {
+		if (res == -EAGAIN || res == -ENOMEM) {
 			goto repeat_send;
-		} else if (errno == EINVAL || errno == EINTR) {
+		} else if (res == -EINVAL || res == -EINTR) {
 			perror("qb_ipcc_send");
 			return -1;
 		} else {
+			errno = -res;
 			perror("qb_ipcc_send");
 			goto repeat_send;
 		}
@@ -109,10 +110,10 @@ repeat_send:
 		res = qb_ipcc_recv(conn,
 				&res_header,
 				sizeof(struct qb_ipc_response_header));
-		if (res == -1 && errno == EAGAIN) {
+		if (res == -EAGAIN) {
 			goto repeat_recv;
 		}
-		if (res == -1 && errno == EINTR) {
+		if (res == -EINTR) {
 			return -1;
 		}
 		assert(res == sizeof(struct qb_ipc_response_header));

@@ -63,7 +63,7 @@ int32_t qb_ipc_us_send(int32_t s, const void *msg, size_t len)
 	struct msghdr msg_send;
 	struct iovec iov_send;
 	char *rbuf = (char *)msg;
-	int processed = 0;
+	int32_t processed = 0;
 
 	msg_send.msg_iov = &iov_send;
 	msg_send.msg_iovlen = 1;
@@ -88,23 +88,22 @@ retry_send:
 		goto retry_send;
 	}
 	if (result == -1) {
-		return errno;
+		return -errno;
 	}
 
 	processed += result;
 	if (processed != len) {
 		goto retry_send;
 	}
-
-	return 0;
+	return processed;
 }
 
-static int32_t qb_ipc_us_recv_msghdr(int32_t s,
+static ssize_t qb_ipc_us_recv_msghdr(int32_t s,
 				     struct msghdr *hdr, const char *msg,
 				     size_t len)
 {
-	int result;
-	int processed = 0;
+	int32_t result;
+	int32_t processed = 0;
 
 retry_recv:
 	hdr->msg_iov->iov_base = (void *)&msg[processed];
@@ -115,14 +114,14 @@ retry_recv:
 		goto retry_recv;
 	}
 	if (result == -1) {
-		return errno;
+		return -errno;
 	}
 #if defined(QB_SOLARIS) || defined(QB_BSD) || defined(QB_DARWIN)
 	/* On many OS poll never return POLLHUP or POLLERR.
 	 * EOF is detected when recvmsg return 0.
 	 */
 	if (result == 0) {
-		return errno;	//ENOTCONN
+		return -errno;	//ENOTCONN
 	}
 #endif
 
@@ -132,7 +131,7 @@ retry_recv:
 	}
 	assert(processed == len);
 
-	return 0;
+	return processed;
 }
 
 int32_t qb_ipc_us_recv(int32_t s, void *msg, size_t len)
@@ -159,10 +158,8 @@ int32_t qb_ipc_us_recv(int32_t s, void *msg, size_t len)
 static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 {
 	int32_t res = 0;
-	int32_t recv_res = 0;
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
-	int32_t authenticated = QB_FALSE;
 	char setup_msg[sizeof(struct mar_req_initial_setup)];
 
 #ifdef QB_LINUX
@@ -192,15 +189,17 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 	setsockopt(c->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
-	recv_res = qb_ipc_us_recv_msghdr(c->sock, &msg_recv, setup_msg,
+	res = qb_ipc_us_recv_msghdr(c->sock, &msg_recv, setup_msg,
 					 sizeof(struct mar_req_initial_setup));
 
-	if (recv_res != 0) {
-		authenticated = QB_FALSE;
-		res = recv_res;
+	if (res < 0) {
 		goto cleanup_and_return;
 	}
-	res = -1;
+	if (res != sizeof(struct mar_req_initial_setup)) {
+		res = -EIO;
+		goto cleanup_and_return;
+	}
+	res = -EBADMSG;
 
 	/*
 	 * currently support getpeerucred, getpeereid, and SO_PASSCRED credential
@@ -219,6 +218,8 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 			c->egid = ucred_getegid(uc);
 			c->pid = ucred_getpid(uc);
 			ucred_free(uc);
+		} else {
+			res = -errno;
 		}
 	}
 #elif HAVE_GETPEEREID
@@ -230,7 +231,11 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 		 * TODO get the peer's pid.
 		 * c->pid = ?;
 		 */
-		res = getpeereid(c->sock, &c->euid, &c->egid);
+		if (getpeereid(c->sock, &c->euid, &c->egid) == 0) {
+			res = 0;
+		} else {
+			res = -errno;
+		}
 	}
 
 #elif SO_PASSCRED
@@ -245,9 +250,11 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 		c->pid = cred->pid;
 		c->euid = cred->uid;
 		c->egid = cred->gid;
+	} else {
+		res = -EBADMSG;
 	}
 #else /* no credentials */
-	authenticated = QB_TRUE;
+	res = -ENOTSUP;
 #endif /* no credentials */
 
 cleanup_and_return:
@@ -257,20 +264,17 @@ cleanup_and_return:
 #endif
 
 	if (res == 0) {
+		res = -EACCES;
 		if (c->service->serv_fns.connection_authenticate &&
-		    c->service->serv_fns.connection_authenticate(c->handle,
-								 c->euid,
-								 c->egid)) {
-			authenticated = QB_TRUE;
+				c->service->serv_fns.connection_authenticate(c->handle,
+					c->euid,
+					c->egid)) {
+			res = 0;
 		} else if (c->service->serv_fns.connection_authenticate == NULL) {
-			authenticated = QB_TRUE;
+			res = 0;
 		}
 	}
-	if (!authenticated) {
-		return -1;
-	}
-
-	return 1;
+	return res;
 }
 
 int32_t qb_ipcc_us_connect(const char *socket_name, int32_t * sock_pt)
@@ -284,7 +288,7 @@ int32_t qb_ipcc_us_connect(const char *socket_name, int32_t * sock_pt)
 	request_fd = socket(PF_LOCAL, SOCK_STREAM, 0);
 #endif
 	if (request_fd == -1) {
-		return errno;
+		return -errno;
 	}
 #ifdef SO_NOSIGPIPE
 	socket_nosigpipe(request_fd);
@@ -313,7 +317,7 @@ error_connect:
 	close(request_fd);
 	*sock_pt = -1;
 
-	return errno;
+	return -errno;
 }
 
 void qb_ipcc_us_disconnect(int32_t sock)
@@ -404,6 +408,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 {
 	struct sockaddr_un un_addr;
 	int32_t res;
+	char error_str[100];
 
 	/*
 	 * Create socket for IPC clients, name socket, listen for connections
@@ -414,16 +419,16 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	s->server_sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 #endif
 	if (s->server_sock == -1) {
-		char error_str[100];
+		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
 			    "Cannot create server socket: %s\n", error_str);
-		return -1;
+		return res;
 	}
 
 	res = fcntl(s->server_sock, F_SETFL, O_NONBLOCK);
 	if (res == -1) {
-		char error_str[100];
+		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_CRIT,
 			    "Could not set non-blocking operation on server socket: %s\n",
@@ -444,6 +449,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		struct stat stat_out;
 		res = stat(SOCKETDIR, &stat_out);
 		if (res == -1 || (res == 0 && !S_ISDIR(stat_out.st_mode))) {
+			res = -errno;
 			qb_util_log(LOG_CRIT,
 				    "Required directory not present %s\n",
 				    SOCKETDIR);
@@ -458,7 +464,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	    bind(s->server_sock, (struct sockaddr *)&un_addr,
 		 QB_SUN_LEN(&un_addr));
 	if (res) {
-		char error_str[100];
+		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_CRIT,
 			    "Could not bind AF_UNIX (%s): %s.\n",
@@ -482,7 +488,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 
 error_close:
 	close(s->server_sock);
-	return -1;
+	return res;
 }
 
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
@@ -502,6 +508,7 @@ static int32_t qb_ipcs_us_connection_acceptor(qb_handle_t handle,
 	struct mar_res_initial_setup init_res;
 	int32_t res;
 	socklen_t addrlen = sizeof(struct sockaddr_un);
+	char error_str[100];
 
 retry_accept:
 	new_fd = accept(fd, (struct sockaddr *)&un_addr, &addrlen);
@@ -510,7 +517,6 @@ retry_accept:
 	}
 
 	if (new_fd == -1) {
-		char error_str[100];
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
 			    "Could not accept Library connection: %s\n",
@@ -520,7 +526,6 @@ retry_accept:
 
 	res = fcntl(new_fd, F_SETFL, O_NONBLOCK);
 	if (res == -1) {
-		char error_str[100];
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
 			    "Could not set non-blocking operation on library connection: %s\n",
@@ -535,7 +540,8 @@ retry_accept:
 	c = qb_ipcs_connection_alloc(s);
 	c->sock = new_fd;
 
-	if (qb_ipcs_uc_recv_and_auth(c) == 1) {
+	res = qb_ipcs_uc_recv_and_auth(c);
+	if (res == 0) {
 		qb_util_log(LOG_INFO, "IPC credentials authenticated");
 
 		qb_list_add(&c->list, &s->connections);
@@ -555,11 +561,16 @@ retry_accept:
 		}
 
 	} else {
-		qb_util_log(LOG_ERR, "Invalid IPC credentials.");
-
+		if (res == -EACCES) {
+			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
+		} else {
+			strerror_r(-res, error_str, 100);
+			qb_util_log(LOG_ERR, "Error in conection setup: %s.",
+					error_str);
+		}
 		init_res.hdr.id = QB_IPC_MSG_AUTHENTICATE;
 		init_res.hdr.size = sizeof(init_res);
-		init_res.hdr.error = EACCES;
+		init_res.hdr.error = res;
 		init_res.session_id = 0;
 
 		qb_ipc_us_send(c->sock, &init_res, init_res.hdr.size);

@@ -73,16 +73,14 @@ int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 				      hdb->handle_count);
 		if (new_handles == NULL) {
 			qb_thread_unlock(hdb->lock);
-			errno = ENOMEM;
-			return (-1);
+			return (-errno);
 		}
 		hdb->handles = new_handles;
 	}
 
 	instance = malloc(instance_size);
 	if (instance == 0) {
-		errno = ENOMEM;
-		return (-1);
+		return (-ENOMEM);
 	}
 
 	/*
@@ -130,21 +128,18 @@ int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
 	*instance = NULL;
 	if (handle >= hdb->handle_count) {
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	if (hdb->handles[handle].state != QB_HDB_HANDLE_STATE_ACTIVE) {
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	if (check != 0xffffffff && check != hdb->handles[handle].check) {
 
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	*instance = hdb->handles[handle].instance;
@@ -176,15 +171,13 @@ int32_t qb_hdb_handle_get_always(struct qb_hdb * hdb, qb_handle_t handle_in,
 
 	if (hdb->handles[handle].state == QB_HDB_HANDLE_STATE_EMPTY) {
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	if (check != 0xffffffff && check != hdb->handles[handle].check) {
 
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	*instance = hdb->handles[handle].instance;
@@ -209,15 +202,13 @@ int32_t qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 	if (handle >= hdb->handle_count) {
 		qb_thread_unlock(hdb->lock);
 
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	if (check != 0xffffffff && check != hdb->handles[handle].check) {
 
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	hdb->handles[handle].ref_count -= 1;
@@ -248,15 +239,12 @@ int32_t qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 
 	if (handle >= hdb->handle_count) {
 		qb_thread_unlock(hdb->lock);
-
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	if (check != 0xffffffff && check != hdb->handles[handle].check) {
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	hdb->handles[handle].state = QB_HDB_HANDLE_STATE_PENDINGREMOVAL;
@@ -280,14 +268,12 @@ int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 
 	if (handle >= hdb->handle_count) {
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	if (check != 0xffffffff && check != hdb->handles[handle].check) {
 		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
+		return (-EBADF);
 	}
 
 	refcount = hdb->handles[handle].ref_count;
