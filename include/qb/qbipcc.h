@@ -37,7 +37,7 @@ extern "C" {
 typedef struct qb_ipcc_connection qb_ipcc_connection_t;
 
 qb_ipcc_connection_t*
-qb_ipcc_connect(const char *name, enum qb_ipc_type type);
+qb_ipcc_connect(const char *name);
 
 int32_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
                      size_t msg_len);

@@ -39,29 +39,42 @@ static int32_t posix_mq_increase_limits(size_t max_msg_size, int32_t q_len)
 	int32_t msgsize_max;
 	char size_str[10];
 	int32_t res = 0;
+	int32_t size = 0;
 #ifdef QB_LINUX
 	struct rlimit rlim;
 	int32_t q_limit;
 #endif /* QB_LINUX */
 
 	proc_fd = fopen("/proc/sys/fs/mqueue/msgsize_max", "r+");
-	if (proc_fd > 0) {
-		res = fscanf(proc_fd, "%d", &msgsize_max);
-	} else {
+	if (proc_fd == NULL) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "fopen failed");
+		qb_util_log(LOG_ERR,
+			    "failed to open \"%s\": %s",
+			    "/proc/sys/fs/mqueue/msgsize_max",
+			    strerror(errno));
 	}
+
+	if (res == 0) {
+		res = fscanf(proc_fd, "%d", &msgsize_max);
+		if (res < 0) {
+			res = -errno;
+			qb_util_log(LOG_ERR, "fscanf failed: %s", strerror(errno));
+		}
+	}
+
 	if (res == 1) {
 		if (msgsize_max <= max_msg_size) {
 			/* we need to increase the size */
-			snprintf(size_str, 10, "%zd", (max_msg_size + 1));
-			fwrite(size_str, 1, strlen(size_str), proc_fd);
+			res = snprintf(size_str, 10, "%zd", (max_msg_size + 1));
+			size = fwrite(size_str, 1, strlen(size_str), proc_fd);
+			if (res != size) {
+				res = -errno;
+			}
 		}
-	} else {
-		qb_util_log(LOG_ERR, "fscanf failed");
-		return res;
 	}
-	fclose(proc_fd);
+	if (proc_fd) {
+		fclose(proc_fd);
+	}
 
 #ifdef QB_LINUX
 	if (getrlimit(RLIMIT_MSGQUEUE, &rlim) != 0) {
@@ -94,14 +107,18 @@ static mqd_t posix_mq_create(const char *mq_name, size_t max_msg_size,
 	attr.mq_maxmsg = q_len;
 	attr.mq_msgsize = max_msg_size;
 
-	mq_unlink(mq_name);
+	if (mq_unlink(mq_name) == -1) {
+		if (errno == EACCES) {
+			qb_util_log(LOG_ERR, "Can't remove old mq \"%s\" : %s",
+				    mq_name, strerror(errno));
+			return -1;
+		}
+	}
 	res = mq_open(mq_name, flags, m, &attr);
 	if (res == (mqd_t)-1) {
-		perror(mq_name);
+		qb_util_log(LOG_ERR, "Can't create mq \"%s\": %s",
+				mq_name, strerror(errno));
 	}
-
-	printf("%s(%s, %zd, %d) == %d\n",
-	       __func__, mq_name, max_msg_size, flags, res);
 
 	return res;
 }
@@ -116,10 +133,10 @@ static int32_t qb_ipcc_pmq_send(struct qb_ipcc_connection *c,
 				const void *msg_ptr, size_t msg_len)
 {
 	int32_t res = mq_send(c->u.pmq.request.q, msg_ptr, msg_len, 1);
-	if (res < 0) {
+	if (res != 0) {
 		return -errno;
 	}
-	return 0;
+	return msg_len;
 }
 
 static ssize_t qb_ipcc_pmq_recv(struct qb_ipcc_connection *c,
@@ -131,14 +148,14 @@ static ssize_t qb_ipcc_pmq_recv(struct qb_ipcc_connection *c,
 	if (res < 0) {
 		return -errno;
 	}
-	return 0;
+	return res;
 }
 
 static void qb_ipcc_pmq_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_request_header hdr;
 
-	printf("%s()\n", __func__);
+	qb_util_log(LOG_DEBUG, "%s()\n", __func__);
 	if (c->needs_sock_for_poll) {
 		return;
 	}
@@ -180,8 +197,9 @@ static int32_t _ipcc_pmq_connect_to_service_(struct qb_ipcc_connection *c)
 		perror("mq_send");
 		return res;
 	}
-	printf("sent request to server %d\n", res);
-	printf("mq_receive'ing on %d\n", c->u.pmq.response.q);
+
+	qb_util_log(LOG_DEBUG, "sent request to server %d\n", res);
+	qb_util_log(LOG_DEBUG, "mq_receive'ing on %d\n", c->u.pmq.response.q);
 
 mq_recv_again:
 	size = mq_receive(c->u.pmq.response.q, c->receive_buf,
@@ -196,7 +214,7 @@ mq_recv_again:
 		perror("_ipcc_pmq_connect_to_service_:mq_receive");
 		goto cleanup;
 	}
-	printf("received response from server %zd\n", size);
+	qb_util_log(LOG_DEBUG, "received response from server %zd\n", size);
 	msg_res = (struct mar_res_setup *)c->receive_buf;
 	res = msg_res->hdr.error;
 	if (res == 0) {
@@ -274,8 +292,6 @@ int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection * c)
 		return 0;
 	}
 
-	printf("%s:%d\n", __FILE__, __LINE__);
-
 	mq_close(c->u.pmq.dispatch.q);
 	mq_unlink(c->u.pmq.dispatch.name);
 
@@ -311,8 +327,11 @@ static void qb_ipcs_pmq_destroy(struct qb_ipcs_service *s)
 	struct qb_ipcs_connection *c = NULL;
 	struct qb_list_head *iter;
 	struct qb_list_head *iter_next;
+	char mq_name[NAME_MAX];
 
-	printf("%s\n", __func__);
+	snprintf(mq_name, NAME_MAX, "/%s", s->name);
+
+	qb_util_log(LOG_DEBUG, "%s\n", __func__);
 
 	for (iter = s->connections.next;
 	     iter != &s->connections; iter = iter_next) {
@@ -328,7 +347,7 @@ static void qb_ipcs_pmq_destroy(struct qb_ipcs_service *s)
 
 	if (mq_close(s->u.q) == -1)
 		perror("mq_close");
-	if (mq_unlink(s->name) == -1)
+	if (mq_unlink(mq_name) == -1)
 		perror("mq_unlink");
 }
 
@@ -351,23 +370,18 @@ static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
 				      O_WRONLY | O_NONBLOCK);
 	if (c->u.pmq.response.q == (mqd_t)-1) {
 		res = -errno;
-		perror("mq_open:RESPONSE");
 		return res;
 	}
-	qb_util_log(LOG_DEBUG, "%s:%s (fd==%d)",
-		    __func__, c->u.pmq.response.name, c->u.pmq.response.q);
 
 	/* setup the dispatch message queue
 	 */
 	posix_mq_increase_limits(c->service->max_msg_size, 10);
 	strcpy(c->u.pmq.dispatch.name, init->dispatch_mq);
-	qb_util_log(LOG_DEBUG, "%s:%s", __func__, c->u.pmq.dispatch.name);
 	c->u.pmq.dispatch.q = mq_open(c->u.pmq.dispatch.name,
 				      O_WRONLY | O_NONBLOCK);
 
 	if (c->u.pmq.dispatch.q == (mqd_t)-1) {
 		res = -errno;
-		perror("mq_open:DISPATCH");
 		goto cleanup_response;
 	}
 
@@ -457,7 +471,6 @@ int32_t qb_ipcs_pmq_create(struct qb_ipcs_service * s)
 				 (O_RDONLY | O_CREAT | O_EXCL | O_NONBLOCK));
 	if (s->u.q == (mqd_t)-1) {
 		res = -errno;
-		perror("posix_mq_create:REQUEST");
 		return res;
 	}
 	qb_util_log(LOG_DEBUG, "%s() %d", __func__, s->u.q);

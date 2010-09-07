@@ -58,6 +58,7 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type,
 	default:
 		qb_hdb_handle_destroy(&qb_ipc_services, h);
 		errno = EINVAL;
+		h = 0;
 		break;
 	}
 	qb_hdb_handle_put(&qb_ipc_services, h);
@@ -103,8 +104,6 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt, qb_handle_t poll_handle)
 	s->poll_handle = poll_handle;
 
 	res = qb_ipcs_us_publish(s);
-	qb_util_log(LOG_INFO, "%d", res);
-
 	if (res < 0) {
 		qb_hdb_handle_put(&qb_ipc_services, pt);
 		return res;
@@ -127,6 +126,11 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt, qb_handle_t poll_handle)
 		res = -EINVAL;
 		break;
 	}
+
+	if (res < 0) {
+		qb_ipcs_us_withdraw(s);
+	}
+
 	qb_hdb_handle_put(&qb_ipc_services, pt);
 	return res;
 }

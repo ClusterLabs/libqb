@@ -25,7 +25,7 @@
 #include "util_int.h"
 #include <qb/qbipcc.h>
 
-qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
+qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 {
 	int32_t res;
 	int32_t usock;
@@ -36,6 +36,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
 	res = qb_ipcc_us_connect(name, &usock);
 	if (res != 0) {
 		errno = -res;
+		perror("qb_ipcc_us_connect");
 		return NULL;
 	}
 
@@ -43,7 +44,6 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, enum qb_ipc_type type)
 	init_req.hdr.size = sizeof(init_req);
 	res = qb_ipc_us_send(usock, &init_req, init_req.hdr.size);
 	if (res < 0) {
-		errno = -res;
 		perror("qb_ipc_us_send");
 		qb_ipcc_us_disconnect(usock);
 		errno = -res;

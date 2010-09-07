@@ -82,7 +82,7 @@ static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 
 static void bmc_connect(struct bm_ctx *ctx)
 {
-	ctx->conn = qb_ipcc_connect("bm1", QB_IPC_SHM);
+	ctx->conn = qb_ipcc_connect("bm1");
 }
 
 static void bmc_disconnect(struct bm_ctx *ctx)

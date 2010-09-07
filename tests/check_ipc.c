@@ -34,8 +34,10 @@
 #include <qb/qbipcs.h>
 #include <qb/qbpoll.h>
 
+#define IPC_NAME "ipc_test"
 #define MAX_MSG_SIZE (8192*16)
 static qb_ipcc_connection_t *conn;
+static enum qb_ipc_type ipc_type;
 
 /* Test Cases
  *
@@ -91,6 +93,8 @@ static void ipc_log_fn(const char *file_name,
 
 static void run_ipc_server(void)
 {
+	int32_t res;
+
 	struct qb_ipcs_service_handlers sh = {
 		.connection_authenticate = NULL,
 		.connection_created = NULL,
@@ -98,17 +102,17 @@ static void run_ipc_server(void)
 		.connection_destroyed = NULL,
 	};
 	signal(SIGTERM, sigterm_handler);
-	qb_util_set_log_function(ipc_log_fn);
 
 	bms_poll_handle = qb_poll_create();
 
-	s1 = qb_ipcs_create("bm1", QB_IPC_SHM, MAX_MSG_SIZE);
-	if (s1 == 0) {
-		perror("qb_ipcs_create");
-		exit(1);
-	}
+	s1 = qb_ipcs_create(IPC_NAME, ipc_type, MAX_MSG_SIZE);
+	fail_if(s1 == 0);
+
 	qb_ipcs_service_handlers_set(s1, &sh);
-	qb_ipcs_run(s1, bms_poll_handle);
+
+	res = qb_ipcs_run(s1, bms_poll_handle);
+	ck_assert_int_eq(res, 0);
+
 	qb_poll_run(bms_poll_handle);
 }
 
@@ -177,19 +181,26 @@ repeat_send:
 	return 0;
 }
 
-START_TEST(test_ipc_txrx_shm)
+
+static void test_ipc_txrx(void)
 {
 	int32_t j;
+	int32_t c = 0;
 	size_t size;
-	pid_t pid = run_function_in_new_process(run_ipc_server);
+	pid_t pid;
+
+	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
-		conn = qb_ipcc_connect("bm1", QB_IPC_SHM);
-		if (conn == NULL) usleep(10000);
-	} while (conn == NULL);
-
+		conn = qb_ipcc_connect(IPC_NAME);
+		if (conn == NULL) {
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
+
 	for (j = 1; j < 19; j++) {
 		size = (10 * j * j * j) + sizeof(struct qb_ipc_request_header);
 		if (size >= MAX_MSG_SIZE)
@@ -198,21 +209,48 @@ START_TEST(test_ipc_txrx_shm)
 			break;
 		}
 	}
-
 	qb_ipcc_disconnect(conn);
-
 	stop_process(pid);
+}
+
+START_TEST(test_ipc_txrx_shm)
+{
+	ipc_type = QB_IPC_SHM;
+	test_ipc_txrx();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_pmq)
+{
+	ipc_type = QB_IPC_POSIX_MQ;
+	test_ipc_txrx();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_smq)
+{
+	ipc_type = QB_IPC_SYSV_MQ;
+	test_ipc_txrx();
 }
 END_TEST
 
 static Suite *ipc_suite(void)
 {
-	TCase *tc_load;
+	TCase *tc;
 	Suite *s = suite_create("ipc");
 
-	tc_load = tcase_create("test01");
-	tcase_add_test(tc_load, test_ipc_txrx_shm);
-	suite_add_tcase(s, tc_load);
+	tc = tcase_create("ipc_txrx_shm");
+	tcase_add_test(tc, test_ipc_txrx_shm);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_txrx_posix_mq");
+	tcase_add_test(tc, test_ipc_txrx_pmq);
+	tcase_set_timeout(tc, 10);
+	suite_add_tcase(s, tc);
+
+//	tc = tcase_create("ipc_txrx_sysv_mq");
+//	tcase_add_test(tc, test_ipc_txrx_smq);
+//	suite_add_tcase(s, tc);
 
 	return s;
 }

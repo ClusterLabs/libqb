@@ -292,7 +292,7 @@ int32_t qb_ipcc_us_connect(const char *socket_name, int32_t * sock_pt)
 	}
 #ifdef SO_NOSIGPIPE
 	socket_nosigpipe(request_fd);
-#endif
+#endif /* SO_NOSIGPIPE */
 
 	memset(&address, 0, sizeof(struct sockaddr_un));
 	address.sun_family = AF_UNIX;
@@ -479,7 +479,12 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #if !defined(QB_LINUX)
 	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
 #endif
-	listen(s->server_sock, SERVER_BACKLOG);
+	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
+		strerror_r(errno, error_str, 100);
+		qb_util_log(LOG_ERR,
+			    "listen failed: %s.\n",
+			    error_str);
+	}
 
 	qb_poll_dispatch_add(s->poll_handle, s->server_sock,
 			     POLLIN | POLLPRI | POLLNVAL,
@@ -493,6 +498,8 @@ error_close:
 
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 {
+	qb_util_log(LOG_INFO,
+		"withdrawing server sockets\n");
 	shutdown(s->server_sock, SHUT_RDWR);
 	close(s->server_sock);
 	return 0;
@@ -511,16 +518,24 @@ static int32_t qb_ipcs_us_connection_acceptor(qb_handle_t handle,
 	char error_str[100];
 
 retry_accept:
+	errno = 0;
 	new_fd = accept(fd, (struct sockaddr *)&un_addr, &addrlen);
 	if (new_fd == -1 && errno == EINTR) {
 		goto retry_accept;
 	}
 
+	if (new_fd == -1 && errno == EBADF) {
+		strerror_r(errno, error_str, 100);
+		qb_util_log(LOG_ERR,
+			    "Could not accept Library connection:(fd: %d) [%d] %s\n",
+			    fd, errno, error_str);
+		return (-1);
+	}
 	if (new_fd == -1) {
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
-			    "Could not accept Library connection: %s\n",
-			    error_str);
+			    "Could not accept Library connection: [%d] %s\n",
+			    errno, error_str);
 		return (0);	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
 

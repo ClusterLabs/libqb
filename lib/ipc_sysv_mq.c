@@ -37,14 +37,13 @@ static ssize_t qb_ipcs_smq_dispatch_send(struct qb_ipcs_connection *c,
  * utility functions
  * --------------------------------------------------------
  */
-static int32_t sysv_mq_create(struct qb_ipcs_service *s,
-			      struct qb_ipcc_smq_one_way *mq)
+static int32_t sysv_mq_create(struct qb_ipcs_service *s)
 {
 	struct msqid_ds info;
 	int32_t res = 0;
 
-	mq->q = msgget(mq->key, IPC_CREAT | IPC_NOWAIT);
-	if (mq->q == -1) {
+	s->u.smq.q = msgget(s->u.smq.key, IPC_CREAT | O_EXCL | IPC_NOWAIT);
+	if (s->u.smq.q == -1) {
 		res = -errno;
 		perror("msgget:REQUEST");
 		return res;
@@ -99,22 +98,27 @@ static key_t sysv_key_from_name(const char *name)
 static int32_t qb_ipcc_smq_send(struct qb_ipcc_connection *c,
 				const void *msg_ptr, size_t msg_len)
 {
-	//printf("%s()\n", __func__);
-	return msgsnd(c->u.smq.request.q, msg_ptr, msg_len, 0);
+	int32_t res = msgsnd(c->u.smq.request.q, msg_ptr, msg_len, 0);
+	if (res == -1) {
+		return -errno;
+	}
+	return msg_len;
 }
 
 static ssize_t qb_ipcc_smq_recv(struct qb_ipcc_connection *c,
 				const void *msg_ptr, size_t msg_len)
 {
-	int32_t res;
+	ssize_t res;
 
 	res = msgrcv(c->u.smq.response.q, (char *)msg_ptr,
 		     c->max_msg_size, 0, IPC_NOWAIT);
-	//printf("%s() %d\n", __func__, res);
 	if (res == -1 && errno == ENOMSG) {
 		/* just to be consistent with other IPC types.
 		 */
-		errno = EAGAIN;
+		return -EAGAIN;
+	}
+	if (res == -1) {
+	       return -errno;
 	}
 	return res;
 }
@@ -123,7 +127,7 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_request_header hdr;
 
-	printf("%s()\n", __func__);
+	qb_util_log(LOG_DEBUG, "%s()\n", __func__);
 	if (c->needs_sock_for_poll) {
 		return;
 	}
@@ -141,6 +145,7 @@ static int32_t _smq_connect_to_service_(struct qb_ipcc_connection *c)
 {
 	int32_t res;
 	ssize_t size;
+	int32_t waited;
 	struct mar_req_smq_setup start;
 	struct mar_res_setup *msg_res;
 
@@ -162,22 +167,24 @@ static int32_t _smq_connect_to_service_(struct qb_ipcc_connection *c)
 		perror("msgsnd");
 		return res;
 	}
-	printf("sent request to server %d\n", res);
+	qb_util_log(LOG_DEBUG, "sent request to server %d\n", res);
 
+	waited = 0;
 mq_recv_again:
 	size = msgrcv(c->u.smq.response.q, c->receive_buf,
 		      c->max_msg_size, 0, IPC_NOWAIT);
 
-	if (size == -1 && (errno == EAGAIN || errno == ENOMSG)) {
+	if (size == -1 && (errno == EAGAIN || errno == ENOMSG) && waited < 10) {
 		usleep(100000);
+		waited++;
 		goto mq_recv_again;
 	}
 	if (size == -1) {
-		res = errno;
+		res = -errno;
 		perror("msgrcv");
 		goto cleanup;
 	}
-	printf("received response from server %zd\n", size);
+	qb_util_log(LOG_DEBUG, "received response from server %zd\n", size);
 	msg_res = (struct mar_res_setup *)c->receive_buf;
 	res = msg_res->hdr.error;
 	if (res == 0) {
@@ -242,8 +249,6 @@ int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection * c)
 		return 0;
 	}
 
-	printf("%s:%d\n", __FILE__, __LINE__);
-
 	msgctl(c->u.smq.dispatch.q, IPC_RMID, NULL);
 
 cleanup_request_response:
@@ -280,7 +285,7 @@ static void qb_ipcs_smq_destroy(struct qb_ipcs_service *s)
 	struct qb_list_head *iter;
 	struct qb_list_head *iter_next;
 
-	printf("%s\n", __func__);
+	qb_util_log(LOG_DEBUG, "%s\n", __func__);
 
 	for (iter = s->connections.next;
 	     iter != &s->connections; iter = iter_next) {
@@ -392,7 +397,7 @@ static ssize_t qb_ipcs_smq_response_send(struct qb_ipcs_connection *c,
 	if (res == -1) {
 		return -errno;
 	}
-	return res;
+	return size;
 }
 
 static ssize_t qb_ipcs_smq_dispatch_send(struct qb_ipcs_connection *c,
@@ -402,7 +407,7 @@ static ssize_t qb_ipcs_smq_dispatch_send(struct qb_ipcs_connection *c,
 	if (res == -1) {
 		return -errno;
 	}
-	return res;
+	return size;
 }
 
 int32_t qb_ipcs_smq_create(struct qb_ipcs_service * s)
@@ -424,5 +429,5 @@ int32_t qb_ipcs_smq_create(struct qb_ipcs_service * s)
 
 	s->max_msg_size = MSGMAX;
 
-	return sysv_mq_create(s, &s->u.smq);
+	return sysv_mq_create(s);
 }

@@ -182,9 +182,7 @@ int32_t main(int32_t argc, char *argv[])
 	signal(SIGINT, sigterm_handler);
 	signal(SIGILL, sigterm_handler);
 	signal(SIGTERM, sigterm_handler);
-	conn = qb_ipcc_connect("bm1", QB_IPC_SHM);
-//	conn = qb_ipcc_connect("bm1", QB_IPC_POSIX_MQ);
-//	conn = qb_ipcc_connect("bm1", QB_IPC_SYSV_MQ);
+	conn = qb_ipcc_connect("bm1");
 	if (conn == NULL) {
 		perror("qb_ipcc_connect");
 		exit(1);
