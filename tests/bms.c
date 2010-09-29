@@ -126,13 +126,17 @@ static void show_usage(const char *name)
 	printf("  -n             non-blocking ipc (default blocking)\n");
 	printf("  -v             verbose\n");
 	printf("  -h             show this help text\n");
+	printf("  -m             use shared memory\n");
+	printf("  -p             use posix message queues\n");
+	printf("  -s             use sysv message queues\n");
 	printf("\n");
 }
 
 int32_t main(int32_t argc, char *argv[])
 {
-	const char *options = "nvh";
+	const char *options = "nvhmps";
 	int32_t opt;
+	enum qb_ipc_type ipc_type = QB_IPC_SHM;
 	struct qb_ipcs_service_handlers sh = {
 		.connection_authenticate = s1_connection_authenticate_fn,
 		.connection_created = s1_connection_created_fn,
@@ -142,6 +146,15 @@ int32_t main(int32_t argc, char *argv[])
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
+		case 'm':
+			ipc_type = QB_IPC_SHM;
+			break;
+		case 's':
+			ipc_type = QB_IPC_SYSV_MQ;
+			break;
+		case 'p':
+			ipc_type = QB_IPC_POSIX_MQ;
+			break;
 		case 'n':	/* non-blocking */
 			blocking = 0;
 			break;
@@ -163,9 +176,7 @@ int32_t main(int32_t argc, char *argv[])
 
 	bms_poll_handle = qb_poll_create();
 
-	s1 = qb_ipcs_create("bm1", QB_IPC_SHM, 8192*64);
-//	s1 = qb_ipcs_create("bm1", QB_IPC_POSIX_MQ, 8192*64);
-//	s1 = qb_ipcs_create("bm1", QB_IPC_SYSV_MQ, 8192*64);
+	s1 = qb_ipcs_create("bm1", ipc_type, 8192*64);
 	if (s1 == 0) {
 		perror("qb_ipcs_create");
 		exit(1);
