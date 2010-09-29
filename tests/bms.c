@@ -54,6 +54,7 @@ static qb_ipcs_service_pt s1;
 
 static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_handle_t conn, uid_t uid, gid_t gid)
 {
+#if 0
 	if (uid == 0 && gid == 0) {
 		if (verbose) {
 			printf("%s:%d %s authenticated connection\n",
@@ -63,6 +64,9 @@ static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_handle_t conn, u
 	}
 	printf("%s:%d %s() BAD user!\n", __FILE__, __LINE__, __func__);
 	return 0;
+#else
+	return 1;
+#endif
 }
 
 

@@ -38,7 +38,6 @@
 #define MAX_MSG_SIZE (8192*16)
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
-static qb_handle_t poll_handle;
 
 #define IPC_MSG_REQ_TX_RX	(QB_IPC_MSG_USER_START + 3)
 #define IPC_MSG_RES_TX_RX	(QB_IPC_MSG_USER_START + 13)
@@ -296,7 +295,7 @@ repeat_send:
 		}
 	}
 
-	res = qb_ipcc_event_recv(conn, &res_header, 0);
+	res = qb_ipcc_event_recv(conn, (void**)&res_header, 0);
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 	ck_assert_int_eq(res_header->id, IPC_MSG_RES_DISPATCH);
 	qb_ipcc_event_release(conn);
@@ -327,9 +326,10 @@ static Suite *ipc_suite(void)
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
-//	tc = tcase_create("ipc_txrx_sysv_mq");
-//	tcase_add_test(tc, test_ipc_txrx_smq);
-//	suite_add_tcase(s, tc);
+	tc = tcase_create("ipc_txrx_sysv_mq");
+	tcase_add_test(tc, test_ipc_txrx_smq);
+	tcase_set_timeout(tc, 10);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_dispatch_shm");
 	tcase_add_test(tc, test_ipc_disp_shm);

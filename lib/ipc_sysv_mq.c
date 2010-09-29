@@ -48,7 +48,8 @@ static int32_t sysv_mq_create(struct qb_ipcs_service *s)
 	struct msqid_ds info;
 	int32_t res = 0;
 
-	s->u.smq.q = msgget(s->u.smq.key, IPC_CREAT | O_EXCL | IPC_NOWAIT);
+	s->u.smq.q = msgget(s->u.smq.key, IPC_CREAT | O_EXCL | IPC_NOWAIT |
+			S_IWUSR | S_IRUSR | S_IWGRP);
 	if (s->u.smq.q == -1) {
 		res = -errno;
 		perror("msgget:REQUEST");
@@ -58,16 +59,20 @@ static int32_t sysv_mq_create(struct qb_ipcs_service *s)
 	res = msgctl(s->u.smq.q, IPC_STAT, &info);
 	if (res != 0) {
 		res = -errno;
-		perror("msgctl");
+		perror("msgctl:STAT");
 		qb_util_log(LOG_ERR, "error getting mq info");
 		return res;
 	}
 
-	info.msg_qbytes = 10 * s->max_msg_size;
+	if (info.msg_perm.uid != 0) {
+		qb_util_log(LOG_WARNING, "not enough privileges to increase msg_qbytes");
+		return res;
+	}
+	info.msg_qbytes = 2 * s->max_msg_size;
 	res = msgctl(s->u.smq.q, IPC_SET, &info);
 	if (res != 0) {
 		res = -errno;
-		perror("msgctl");
+		perror("msgctl:SET");
 		qb_util_log(LOG_ERR, "error changing msg_qbytes to %zu",
 			    10 * s->max_msg_size);
 	}
@@ -78,7 +83,8 @@ static int32_t sysv_mq_unnamed_create(struct qb_ipcc_smq_one_way *queue)
 {
 retry_creating_the_q:
 	queue->key = random();
-	queue->q = msgget(queue->key, IPC_CREAT | IPC_EXCL | IPC_NOWAIT);
+	queue->q = msgget(queue->key, IPC_CREAT | IPC_EXCL | IPC_NOWAIT |
+			S_IWUSR | S_IRUSR | S_IRGRP);
 	if (queue->q == -1 && errno == EEXIST) {
 		goto retry_creating_the_q;
 	} else if (queue->q == -1) {
@@ -476,8 +482,6 @@ int32_t qb_ipcs_smq_create(struct qb_ipcs_service * s)
 	s->funcs.response_send = qb_ipcs_smq_response_send;
 	s->funcs.request_recv = qb_ipcs_smq_request_recv;
 	s->needs_sock_for_poll = QB_TRUE;
-
-	//s->max_msg_size = MSGMAX;
 
 	return sysv_mq_create(s);
 }
