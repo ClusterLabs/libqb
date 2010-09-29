@@ -441,6 +441,9 @@ int32_t qb_poll_run(qb_handle_t handle)
 		}
 
 retry_poll:
+		if (poll_instance->stop_requested) {
+			return (0);
+		}
 		res = poll(poll_instance->ufds,
 			   poll_instance->poll_entry_count,
 			   expire_timeout_msec);
