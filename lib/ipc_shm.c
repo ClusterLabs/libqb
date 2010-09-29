@@ -60,6 +60,22 @@ static ssize_t qb_ipcc_shm_recv(struct qb_ipcc_connection *c,
 	return res;
 }
 
+static ssize_t qb_ipcc_shm_event_recv(struct qb_ipcc_connection *c,
+	void **data_out, int32_t timeout)
+{
+	ssize_t res =
+	    qb_rb_chunk_peek(c->u.shm.event.rb, data_out, timeout);
+	if (res == -ETIMEDOUT) {
+		return -EAGAIN;
+	}
+	return res;
+}
+
+static void qb_ipcc_shm_event_release(struct qb_ipcc_connection* c)
+{
+	qb_rb_chunk_reclaim(c->u.shm.event.rb);
+}
+
 static int32_t _ipcc_shm_connect_to_service_(struct qb_ipcc_connection *c)
 {
 	int32_t res;
@@ -113,6 +129,8 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection * c)
 
 	c->funcs.send = qb_ipcc_shm_send;
 	c->funcs.recv = qb_ipcc_shm_recv;
+	c->funcs.event_recv = qb_ipcc_shm_event_recv;
+	c->funcs.event_release = qb_ipcc_shm_event_release;
 	c->funcs.disconnect = qb_ipcc_shm_disconnect;
 
 	if (strlen(c->name) > (NAME_MAX - 20)) {
@@ -321,6 +339,7 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s)
 	s->funcs.response_send = qb_ipcs_shm_response_send;
 	s->funcs.connect = qb_ipcs_shm_connect;
 	s->funcs.disconnect = qb_ipcs_shm_disconnect;
+	s->funcs.event_send = qb_ipcs_shm_event_send;
 	s->needs_sock_for_poll = QB_TRUE;
 
 	s->u.rb = qb_rb_open(s->name, s->max_msg_size,

@@ -39,12 +39,18 @@ typedef struct qb_ipcc_connection qb_ipcc_connection_t;
 qb_ipcc_connection_t*
 qb_ipcc_connect(const char *name);
 
+void qb_ipcc_disconnect(qb_ipcc_connection_t* c);
+
 int32_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
                      size_t msg_len);
 ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
                      size_t msg_len);
 
-void qb_ipcc_disconnect(qb_ipcc_connection_t* c);
+int32_t qb_ipcc_fd_get(qb_ipcc_connection_t* c, int32_t * fd);
+
+int32_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void **data_out, int32_t timeout);
+
+void qb_ipcc_event_release(qb_ipcc_connection_t* c);
 
 
 /* *INDENT-OFF* */

@@ -163,6 +163,26 @@ ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data, size_t 
 	return res;
 }
 
+ssize_t qb_ipcs_event_send(qb_ipcs_connection_handle_t c, void *data, size_t size)
+{
+	ssize_t res;
+	struct qb_ipcs_connection *con;
+
+	res = qb_hdb_handle_get(&qb_ipc_connections, c, (void **)&con);
+	if (res < 0) {
+		return res;
+	}
+	res = con->service->funcs.event_send(con, data, size);
+
+	if (con->service->needs_sock_for_poll) {
+		qb_ipc_us_send(con->sock, data, 1);
+	}
+
+	qb_hdb_handle_put(&qb_ipc_connections, c);
+
+	return res;
+}
+
 struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 {
 	qb_ipcs_connection_handle_t h;

@@ -77,6 +77,7 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt s, qb_handle_t poll);
 void qb_ipcs_destroy(qb_ipcs_service_pt s);
 
 ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
+ssize_t qb_ipcs_event_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

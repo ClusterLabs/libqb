@@ -49,7 +49,6 @@
 #include <semaphore.h>
 #endif
 
-
 struct qb_ipcc_connection;
 
 struct qb_ipcc_funcs {
@@ -57,6 +56,9 @@ struct qb_ipcc_funcs {
 		size_t msg_len);
 	ssize_t (*recv)(struct qb_ipcc_connection* c, void *msg_ptr,
 		size_t msg_len);
+	ssize_t (*event_recv)(struct qb_ipcc_connection* c, void **data_out,
+		int32_t timeout);
+	void (*event_release)(struct qb_ipcc_connection* c);
 	void (*disconnect)(struct qb_ipcc_connection* c);
 };
 
@@ -133,6 +135,7 @@ struct qb_ipcs_funcs {
 	void (*disconnect)(struct qb_ipcs_connection *c);
 	ssize_t (*request_recv)(struct qb_ipcs_service *s, void *buf, size_t buf_size);
 	ssize_t (*response_send)(struct qb_ipcs_connection *c, void *data, size_t size);
+	ssize_t (*event_send)(struct qb_ipcs_connection *c, void *data, size_t size);
 };
 
 struct qb_ipcs_service {

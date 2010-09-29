@@ -38,6 +38,13 @@
 #define MAX_MSG_SIZE (8192*16)
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
+static qb_handle_t poll_handle;
+
+#define IPC_MSG_REQ_TX_RX	(QB_IPC_MSG_USER_START + 3)
+#define IPC_MSG_RES_TX_RX	(QB_IPC_MSG_USER_START + 13)
+#define IPC_MSG_REQ_DISPATCH	(QB_IPC_MSG_USER_START + 4)
+#define IPC_MSG_RES_DISPATCH	(QB_IPC_MSG_USER_START + 14)
+
 
 /* Test Cases
  *
@@ -70,17 +77,28 @@ static void sigterm_handler(int32_t num)
 static void s1_msg_process_fn(qb_ipcs_connection_handle_t c,
 		void *data, size_t size)
 {
-	//struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
+	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
 	struct qb_ipc_response_header response;
 	ssize_t res;
 
-	response.size = sizeof(struct qb_ipc_response_header);
-	response.id = 13;
-	response.error = 0;
-	res = qb_ipcs_response_send(c, &response,
-			sizeof(response));
-	if (res < 0) {
-		perror("qb_ipcs_response_send");
+	if (req_pt->id == IPC_MSG_REQ_TX_RX) {
+		response.size = sizeof(struct qb_ipc_response_header);
+		response.id = IPC_MSG_RES_TX_RX;
+		response.error = 0;
+		res = qb_ipcs_response_send(c, &response,
+				sizeof(response));
+		if (res < 0) {
+			perror("qb_ipcs_response_send");
+		}
+	} else if (req_pt->id == IPC_MSG_REQ_DISPATCH) {
+		response.size = sizeof(struct qb_ipc_response_header);
+		response.id = IPC_MSG_RES_DISPATCH;
+		response.error = 0;
+		res = qb_ipcs_event_send(c, &response,
+				sizeof(response));
+		if (res < 0) {
+			perror("qb_ipcs_dispatch_send");
+		}
 	}
 }
 
@@ -147,7 +165,7 @@ static int32_t bmc_send_nozc(uint32_t size)
 	struct qb_ipc_response_header res_header;
 	int32_t res;
 
-	req_header->id = QB_IPC_MSG_USER_START + 3;
+	req_header->id = IPC_MSG_REQ_TX_RX;
 	req_header->size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
@@ -176,11 +194,10 @@ repeat_send:
 		return -1;
 	}
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
-	ck_assert_int_eq(res_header.id, 13);
+	ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
 	ck_assert_int_eq(res_header.size, sizeof(struct qb_ipc_response_header));
 	return 0;
 }
-
 
 static void test_ipc_txrx(void)
 {
@@ -191,10 +208,13 @@ static void test_ipc_txrx(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
+	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(IPC_NAME);
 		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
 			sleep(1);
 			c++;
 		}
@@ -234,6 +254,64 @@ START_TEST(test_ipc_txrx_smq)
 }
 END_TEST
 
+static void test_ipc_dispatch(void)
+{
+	int32_t res;
+	int32_t j;
+	int32_t c = 0;
+	pid_t pid;
+	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
+	struct qb_ipc_response_header *res_header;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(IPC_NAME);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	req_header->id = IPC_MSG_REQ_DISPATCH;
+	req_header->size = sizeof(struct qb_ipc_request_header);
+
+repeat_send:
+	res = qb_ipcc_send(conn, req_header, req_header->size);
+	if (res < 0) {
+		if (res == -EAGAIN || res == -ENOMEM) {
+			goto repeat_send;
+		} else if (res == -EINVAL || res == -EINTR) {
+			perror("qb_ipcc_send");
+			return;
+		} else {
+			errno = -res;
+			perror("qb_ipcc_send");
+			goto repeat_send;
+		}
+	}
+
+	res = qb_ipcc_event_recv(conn, &res_header, 0);
+	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
+	ck_assert_int_eq(res_header->id, IPC_MSG_RES_DISPATCH);
+	qb_ipcc_event_release(conn);
+
+	qb_ipcc_disconnect(conn);
+	stop_process(pid);
+}
+
+START_TEST(test_ipc_disp_shm)
+{
+	ipc_type = QB_IPC_SHM;
+	test_ipc_dispatch();
+}
+END_TEST
+
 static Suite *ipc_suite(void)
 {
 	TCase *tc;
@@ -241,6 +319,7 @@ static Suite *ipc_suite(void)
 
 	tc = tcase_create("ipc_txrx_shm");
 	tcase_add_test(tc, test_ipc_txrx_shm);
+	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_txrx_posix_mq");
@@ -251,6 +330,11 @@ static Suite *ipc_suite(void)
 //	tc = tcase_create("ipc_txrx_sysv_mq");
 //	tcase_add_test(tc, test_ipc_txrx_smq);
 //	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_dispatch_shm");
+	tcase_add_test(tc, test_ipc_disp_shm);
+	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
 
 	return s;
 }
