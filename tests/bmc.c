@@ -75,8 +75,8 @@ static void bm_finish(const char *operation, int32_t size)
 	     (((float)tv_elapsed.tv_sec) +
 	      (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 * 1024.0);
 
-	printf("write size %d OPs/sec %9.3f ", size, ops_per_sec);
-	printf("MB/sec %9.3f\n", mbs_per_sec);
+	printf("write size, %d, OPs/sec, %9.3f, ", size, ops_per_sec);
+	printf("MB/sec, %9.3f\n", mbs_per_sec);
 }
 
 
