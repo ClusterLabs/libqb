@@ -41,7 +41,7 @@ qb_ipcc_connect(const char *name);
 
 int32_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
                      size_t msg_len);
-ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, const void *msg_ptr,
+ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
                      size_t msg_len);
 
 void qb_ipcc_disconnect(qb_ipcc_connection_t* c);

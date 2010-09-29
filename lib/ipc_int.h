@@ -55,7 +55,7 @@ struct qb_ipcc_connection;
 struct qb_ipcc_funcs {
 	int32_t (*send)(struct qb_ipcc_connection* c, const void *msg_ptr,
 		size_t msg_len);
-	ssize_t (*recv)(struct qb_ipcc_connection* c, const void *msg_ptr,
+	ssize_t (*recv)(struct qb_ipcc_connection* c, void *msg_ptr,
 		size_t msg_len);
 	void (*disconnect)(struct qb_ipcc_connection* c);
 };

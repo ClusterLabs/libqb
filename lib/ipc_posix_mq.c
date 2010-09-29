@@ -140,7 +140,7 @@ static int32_t qb_ipcc_pmq_send(struct qb_ipcc_connection *c,
 }
 
 static ssize_t qb_ipcc_pmq_recv(struct qb_ipcc_connection *c,
-				const void *msg_ptr, size_t msg_len)
+				void *msg_ptr, size_t msg_len)
 {
 	uint32_t msg_prio;
 	ssize_t res = mq_receive(c->u.pmq.response.q, (char *)msg_ptr, c->max_msg_size,

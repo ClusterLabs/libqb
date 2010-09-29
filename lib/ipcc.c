@@ -119,7 +119,7 @@ int32_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 	return res;
 }
 
-ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, const void *msg_ptr,
+ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		     size_t msg_len)
 {
 	return c->funcs.recv(c, msg_ptr, msg_len);

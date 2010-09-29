@@ -50,7 +50,7 @@ static int32_t qb_ipcc_shm_send(struct qb_ipcc_connection *c,
 }
 
 static ssize_t qb_ipcc_shm_recv(struct qb_ipcc_connection *c,
-				const void *msg_ptr, size_t msg_len)
+				void *msg_ptr, size_t msg_len)
 {
 	ssize_t res =
 	    qb_rb_chunk_read(c->u.shm.response.rb, (void *)msg_ptr, msg_len, 0);
