@@ -30,7 +30,7 @@
 #define MSGMAX  8192
 #endif
 
-static ssize_t qb_ipcs_smq_dispatch_send(struct qb_ipcs_connection *c,
+static ssize_t qb_ipcs_smq_event_send(struct qb_ipcs_connection *c,
 					 void *data, size_t size);
 
 /*
@@ -137,7 +137,7 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 	hdr.size = sizeof(hdr);
 	msgsnd(c->u.smq.request.q, (const char *)&hdr, hdr.size, 0);
 
-	msgctl(c->u.smq.dispatch.q, IPC_RMID, NULL);
+	msgctl(c->u.smq.event.q, IPC_RMID, NULL);
 	msgctl(c->u.smq.response.q, IPC_RMID, NULL);
 }
 
@@ -154,7 +154,7 @@ static int32_t _smq_connect_to_service_(struct qb_ipcc_connection *c)
 	start.pid = getpid();
 	start.hdr.size = sizeof(struct mar_req_smq_setup);
 	start.response_key = c->u.smq.response.key;
-	start.dispatch_key = c->u.smq.dispatch.key;
+	start.event_key = c->u.smq.event.key;
 
 	if (c->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, &start, 1);
@@ -236,11 +236,11 @@ int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection * c)
 		goto cleanup_request;
 	}
 
-	/* Create the dispatch message queue.
+	/* Create the event message queue.
 	 */
-	res = sysv_mq_unnamed_create(&c->u.smq.dispatch);
+	res = sysv_mq_unnamed_create(&c->u.smq.event);
 	if (res < 0) {
-		perror("msgget:DISPATCH");
+		perror("msgget:event");
 		goto cleanup_request_response;
 	}
 
@@ -249,13 +249,12 @@ int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection * c)
 		return 0;
 	}
 
-	msgctl(c->u.smq.dispatch.q, IPC_RMID, NULL);
+	msgctl(c->u.smq.event.q, IPC_RMID, NULL);
 
 cleanup_request_response:
 	msgctl(c->u.smq.response.q, IPC_RMID, NULL);
 
 cleanup_request:
-	free(c);
 
 	return res;
 }
@@ -276,7 +275,7 @@ static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 	msg.size = sizeof(msg);
 	msg.error = 0;
 
-	qb_ipcs_smq_dispatch_send(c, &msg, msg.size);
+	qb_ipcs_smq_event_send(c, &msg, msg.size);
 }
 
 static void qb_ipcs_smq_destroy(struct qb_ipcs_service *s)
@@ -327,13 +326,13 @@ static int32_t qb_ipcs_smq_connect(struct qb_ipcs_service *s,
 		goto cleanup;
 	}
 
-	/* setup the dispatch message queue
+	/* setup the event message queue
 	 */
-	c->u.smq.dispatch.key = init->dispatch_key;
-	c->u.smq.dispatch.q = msgget(c->u.smq.dispatch.key, IPC_NOWAIT);
-	if (c->u.smq.dispatch.q == -1) {
+	c->u.smq.event.key = init->event_key;
+	c->u.smq.event.q = msgget(c->u.smq.event.key, IPC_NOWAIT);
+	if (c->u.smq.event.q == -1) {
 		res = -errno;
-		perror("msgget:DISPATCH");
+		perror("msgget:event");
 		goto cleanup_response;
 	}
 
@@ -400,10 +399,10 @@ static ssize_t qb_ipcs_smq_response_send(struct qb_ipcs_connection *c,
 	return size;
 }
 
-static ssize_t qb_ipcs_smq_dispatch_send(struct qb_ipcs_connection *c,
+static ssize_t qb_ipcs_smq_event_send(struct qb_ipcs_connection *c,
 					 void *data, size_t size)
 {
-	ssize_t res = msgsnd(c->u.smq.dispatch.q, (const char *)data, size, 0);
+	ssize_t res = msgsnd(c->u.smq.event.q, (const char *)data, size, 0);
 	if (res == -1) {
 		return -errno;
 	}

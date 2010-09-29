@@ -25,7 +25,7 @@
 #include <qb/qbpoll.h>
 #include <qb/qbrb.h>
 
-static ssize_t qb_ipcs_shm_dispatch_send(struct qb_ipcs_connection *c,
+static ssize_t qb_ipcs_shm_event_send(struct qb_ipcs_connection *c,
 					 void *data, size_t size);
 
 /*
@@ -40,7 +40,7 @@ static void qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
 	qb_rb_close(c->u.shm.request.rb);
 	qb_rb_close(c->u.shm.response.rb);
-	qb_rb_close(c->u.shm.dispatch.rb);
+	qb_rb_close(c->u.shm.event.rb);
 }
 
 static int32_t qb_ipcc_shm_send(struct qb_ipcc_connection *c,
@@ -72,7 +72,7 @@ static int32_t _ipcc_shm_connect_to_service_(struct qb_ipcc_connection *c)
 	start.pid = getpid();
 	start.hdr.size = sizeof(struct mar_req_shm_setup);
 	strcpy(start.response, qb_rb_name_get(c->u.shm.response.rb));
-	strcpy(start.dispatch, qb_rb_name_get(c->u.shm.dispatch.rb));
+	strcpy(start.event, qb_rb_name_get(c->u.shm.event.rb));
 
 	c->needs_sock_for_poll = QB_TRUE;
 
@@ -96,7 +96,7 @@ static int32_t _ipcc_shm_connect_to_service_(struct qb_ipcc_connection *c)
 		perror("_ipcc_shm_connect_to_service_:qb_rb_chunk_read");
 		goto cleanup;
 	}
-	qb_util_log(LOG_DEBUG, "received response from server %zd\n", size);
+	qb_util_log(LOG_DEBUG, "received response from server size:%zd\n", size);
 	msg_res = (struct mar_res_setup *)c->receive_buf;
 	res = msg_res->hdr.error;
 	if (res == 0) {
@@ -145,17 +145,17 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection * c)
 	}
 
 	res =
-	    snprintf(c->u.shm.dispatch.name, NAME_MAX, "%s-dispatch-%d",
+	    snprintf(c->u.shm.event.name, NAME_MAX, "%s-event-%d",
 		     c->name, getpid());
 
-	c->u.shm.dispatch.rb = qb_rb_open(c->u.shm.dispatch.name,
+	c->u.shm.event.rb = qb_rb_open(c->u.shm.event.name,
 					  c->max_msg_size,
 					  QB_RB_FLAG_CREATE |
 					  QB_RB_FLAG_SHARED_PROCESS);
 
-	if (c->u.shm.dispatch.rb == NULL) {
+	if (c->u.shm.event.rb == NULL) {
 		res = -errno;
-		perror("qb_rb_open:DISPATCH");
+		perror("qb_rb_open:EVENT");
 		goto cleanup_request_response;
 	}
 
@@ -166,7 +166,7 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection * c)
 
 	qb_util_log(LOG_DEBUG, "connection failed %d\n", res);
 
-	qb_rb_close(c->u.shm.dispatch.rb);
+	qb_rb_close(c->u.shm.event.rb);
 
 cleanup_request_response:
 	qb_rb_close(c->u.shm.response.rb);
@@ -191,11 +191,11 @@ static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 	msg.error = 0;
 
 	if (c->u.shm.response.rb) {
-		qb_ipcs_shm_dispatch_send(c, &msg, msg.size);
+		qb_ipcs_shm_event_send(c, &msg, msg.size);
 		qb_rb_close(c->u.shm.response.rb);
 	}
-	if (c->u.shm.dispatch.rb) {
-		qb_rb_close(c->u.shm.dispatch.rb);
+	if (c->u.shm.event.rb) {
+		qb_rb_close(c->u.shm.event.rb);
 	}
 }
 
@@ -247,17 +247,17 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		return res;
 	}
 
-	/* setup the dispatch message queue
+	/* setup the event message queue
 	 */
-	strcpy(c->u.shm.dispatch.name, init->dispatch);
-	qb_util_log(LOG_DEBUG, "%s:%s", __func__, c->u.shm.dispatch.name);
-	c->u.shm.dispatch.rb = qb_rb_open(c->u.shm.dispatch.name,
+	strcpy(c->u.shm.event.name, init->event);
+	qb_util_log(LOG_DEBUG, "%s:%s", __func__, c->u.shm.event.name);
+	c->u.shm.event.rb = qb_rb_open(c->u.shm.event.name,
 					  s->max_msg_size,
 					  QB_RB_FLAG_SHARED_PROCESS);
 
-	if (c->u.shm.dispatch.rb == NULL) {
+	if (c->u.shm.event.rb == NULL) {
 		res = -errno;
-		perror("mq_open:DISPATCH");
+		perror("mq_open:EVENT");
 		goto cleanup_response;
 	}
 
@@ -305,10 +305,10 @@ static ssize_t qb_ipcs_shm_response_send(struct qb_ipcs_connection *c,
 				 size);
 }
 
-static ssize_t qb_ipcs_shm_dispatch_send(struct qb_ipcs_connection *c,
+static ssize_t qb_ipcs_shm_event_send(struct qb_ipcs_connection *c,
 					 void *data, size_t size)
 {
-	return qb_rb_chunk_write(c->u.shm.dispatch.rb, (const char *)data,
+	return qb_rb_chunk_write(c->u.shm.event.rb, (const char *)data,
 				 size);
 }
 

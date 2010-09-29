@@ -78,19 +78,19 @@ struct qb_ipcc_shm_one_way {
 struct qb_ipcc_pmq_connection {
 	struct qb_ipcc_pmq_one_way request;
 	struct qb_ipcc_pmq_one_way response;
-	struct qb_ipcc_pmq_one_way dispatch;
+	struct qb_ipcc_pmq_one_way event;
 };
 
 struct qb_ipcc_smq_connection {
 	struct qb_ipcc_smq_one_way request;
 	struct qb_ipcc_smq_one_way response;
-	struct qb_ipcc_smq_one_way dispatch;
+	struct qb_ipcc_smq_one_way event;
 };
 
 struct qb_ipcc_shm_connection {
 	struct qb_ipcc_shm_one_way request;
 	struct qb_ipcc_shm_one_way response;
-	struct qb_ipcc_shm_one_way dispatch;
+	struct qb_ipcc_shm_one_way event;
 };
 
 struct qb_ipcc_connection {
@@ -179,6 +179,7 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_us_publish(struct qb_ipcs_service *s);
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service *s);
+
 int32_t qb_ipcs_dispatch_connection_request(qb_handle_t hdb_handle_t,
 	int32_t fd, int32_t revents, void *data);
 int32_t qb_ipcs_dispatch_service_request(qb_handle_t hdb_handle_t,
@@ -187,6 +188,7 @@ struct qb_ipcs_connection* qb_ipcs_connection_alloc(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 	struct qb_ipc_request_header *hdr);
+
 void qb_ipcs_disconnect(struct qb_ipcs_connection *c);
 
 struct mar_req_initial_setup {
@@ -200,27 +202,26 @@ struct mar_res_initial_setup {
 	uint32_t max_msg_size __attribute__ ((aligned(8)));
 } __attribute__ ((aligned(8)));
 
-
 struct mar_req_shm_setup {
         struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
 	uint32_t pid __attribute__ ((aligned(8)));
         char request[PATH_MAX] __attribute__ ((aligned(8)));
         char response[PATH_MAX] __attribute__ ((aligned(8)));
-        char dispatch[PATH_MAX] __attribute__ ((aligned(8)));
+        char event[PATH_MAX] __attribute__ ((aligned(8)));
 } __attribute__ ((aligned(8)));
 
 struct mar_req_pmq_setup {
         struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
 	uint32_t pid __attribute__ ((aligned(8)));
         char response_mq[NAME_MAX] __attribute__ ((aligned(8)));
-        char dispatch_mq[NAME_MAX] __attribute__ ((aligned(8)));
+        char event_mq[NAME_MAX] __attribute__ ((aligned(8)));
 } __attribute__ ((aligned(8)));
 
 struct mar_req_smq_setup {
         struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
 	uint32_t pid __attribute__ ((aligned(8)));
         int32_t response_key __attribute__ ((aligned(8)));
-        int32_t dispatch_key __attribute__ ((aligned(8)));
+        int32_t event_key __attribute__ ((aligned(8)));
 } __attribute__ ((aligned(8)));
 
 struct mar_res_setup {
