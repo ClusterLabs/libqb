@@ -148,7 +148,7 @@ static void qb_ipcs_destroy_internal(void *data)
 	free(s->receive_buf);
 }
 
-ssize_t qb_ipcs_response_send(qb_ipcs_connection_pt c, void *data, size_t size)
+ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data, size_t size)
 {
 	ssize_t res;
 	struct qb_ipcs_connection *con;
@@ -165,7 +165,7 @@ ssize_t qb_ipcs_response_send(qb_ipcs_connection_pt c, void *data, size_t size)
 
 struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 {
-	qb_ipcs_connection_pt h;
+	qb_ipcs_connection_handle_t h;
 	struct qb_ipcs_connection *c;
 
 	qb_hdb_handle_create(&qb_ipc_connections,

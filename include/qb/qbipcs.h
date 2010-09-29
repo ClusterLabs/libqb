@@ -33,7 +33,7 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-typedef qb_handle_t qb_ipcs_connection_pt;
+typedef qb_handle_t qb_ipcs_connection_handle_t;
 typedef qb_handle_t qb_ipcs_service_pt;
 
 typedef int32_t (*qb_ipcs_dispatch_fn_t) (qb_ipcs_service_pt s, int32_t fd, int32_t revents,
@@ -49,10 +49,10 @@ struct qb_ipcs_poll_handlers {
 	qb_ipcs_dispatch_rm_fn dispatch_rm;
 };
 
-typedef int32_t (*qb_ipcs_connection_authenticate_fn) (qb_ipcs_connection_pt c, uid_t uid, gid_t gid);
-typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_pt c);
-typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_pt c);
-typedef void (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_pt c,
+typedef int32_t (*qb_ipcs_connection_authenticate_fn) (qb_ipcs_connection_handle_t c, uid_t uid, gid_t gid);
+typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_handle_t c);
+typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_handle_t c);
+typedef void (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_handle_t c,
 		void *data, size_t size);
 
 struct qb_ipcs_service_handlers {
@@ -76,7 +76,7 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt s, qb_handle_t poll);
 
 void qb_ipcs_destroy(qb_ipcs_service_pt s);
 
-ssize_t qb_ipcs_response_send(qb_ipcs_connection_pt c, void *data, size_t size);
+ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

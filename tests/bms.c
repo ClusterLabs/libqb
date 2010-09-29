@@ -52,7 +52,7 @@ int32_t verbose = 0;
 static qb_handle_t bms_poll_handle;
 static qb_ipcs_service_pt s1;
 
-static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_pt conn, uid_t uid, gid_t gid)
+static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_handle_t conn, uid_t uid, gid_t gid)
 {
 	if (uid == 0 && gid == 0) {
 		if (verbose) {
@@ -66,20 +66,20 @@ static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_pt conn, uid_t u
 }
 
 
-static void s1_connection_created_fn(qb_ipcs_connection_pt conn)
+static void s1_connection_created_fn(qb_ipcs_connection_handle_t conn)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	}
 }
-static void s1_connection_destroyed_fn(qb_ipcs_connection_pt conn)
+static void s1_connection_destroyed_fn(qb_ipcs_connection_handle_t conn)
 {
 	if (verbose) {
 		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
 	}
 }
 
-static void s1_msg_process_fn(qb_ipcs_connection_pt conn,
+static void s1_msg_process_fn(qb_ipcs_connection_handle_t conn,
 		void *data, size_t size)
 {
 	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;

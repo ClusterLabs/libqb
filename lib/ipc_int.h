@@ -158,7 +158,7 @@ struct qb_ipcs_service {
 };
 
 struct qb_ipcs_connection {
-	qb_ipcs_connection_pt handle;
+	qb_ipcs_connection_handle_t handle;
 	pid_t pid;
 	uid_t euid;
 	gid_t egid;

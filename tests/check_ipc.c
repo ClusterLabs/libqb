@@ -67,7 +67,7 @@ static void sigterm_handler(int32_t num)
 	exit(0);
 }
 
-static void s1_msg_process_fn(qb_ipcs_connection_pt c,
+static void s1_msg_process_fn(qb_ipcs_connection_handle_t c,
 		void *data, size_t size)
 {
 	//struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
