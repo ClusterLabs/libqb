@@ -50,12 +50,15 @@ fi
 
 AC_PROG_CC
 AM_PROG_CC_C_O
+AC_PROG_CXX
+AC_PROG_AWK
+AC_PROG_RANLIB
 AC_PROG_LN_S
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
-AC_CHECK_PROG(HAVE_DOXYGEN, doxygen, have_doxygen="yes", have_doxygen="no")
-AM_CONDITIONAL(HAVE_DOXYGEN, test "${have_doxygen}" = "yes")
+AC_CHECK_PROGS([DOXYGEN], [doxygen])
+AM_CONDITIONAL(HAVE_DOXYGEN, test -n "${DOXYGEN}")
 
 ## local helper functions
 
@@ -92,54 +95,36 @@ PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
 AM_CONDITIONAL(HAVE_CHECK, test "${with_check}" = "yes")
 
 # Checks for header files.
-AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h locale.h netdb.h netinet/in.h nl_types.h stdint.h \
-		  stdlib.h string.h sys/ioctl.h sys/param.h sys/socket.h \
-		  time.h sys/time.h syslog.h unistd.h sys/types.h sys/stat.h getopt.h malloc.h \
-		  sys/sockio.h sys/un.h utmpx.h errno.h dlfcn.h dirent.h fnmatch.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
+		  time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
+		  sys/param.h sys/socket.h sys/time.h \
+		  sys/sockio.h sys/un.h syslog.h errno.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_C_CONST
 AC_TYPE_UID_T
 AC_C_INLINE
-AC_TYPE_INT16_T
 AC_TYPE_INT32_T
 AC_TYPE_INT64_T
 AC_TYPE_INT8_T
+AC_TYPE_MODE_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
-AC_HEADER_TIME
-AC_TYPE_UINT16_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
-AC_TYPE_UINT8_T
-AC_C_VOLATILE
 
 # Checks for library functions.
-AC_FUNC_CLOSEDIR_VOID
+AC_FUNC_CHOWN
 AC_FUNC_ERROR_AT_LINE
-AC_REPLACE_FNMATCH
 AC_FUNC_FORK
-AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
-AC_FUNC_MEMCMP
 AC_FUNC_REALLOC
 AC_FUNC_STRERROR_R
-AC_FUNC_SELECT_ARGTYPES
-AC_TYPE_SIGNAL
-AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([alphasort atexit endgrent endpwent fcntl \
-		getcwd getpeerucred getpeereid gettimeofday inet_ntoa \
-		memset scandir socket strcasecmp strchr strdup \
-		strerror strrchr strspn strstr pthread_spin_lock \
-		clock_gettime localeconv localtime_r munmap pathconf putenv setenv \
-		pthread_spin_unlock pututxline lgammal setkey \
-		crypt encrypt getdate strsignal])
+AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday memset munmap socket strchr strerror strstr])
 
 ## local defines
 PACKAGE_FEATURES=""
@@ -178,28 +163,15 @@ AC_ARG_WITH([socket-dir],
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
-OS_LDL="-ldl"
 case "$host_os" in
 	*linux*)
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
-		OS_CFLAGS=""
-		OS_CPPFLAGS=""
-		OS_LDFLAGS=""
-		OS_DYFLAGS="-rdynamic"
-		DARWIN_OPTS=""
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
-		OS_CFLAGS=""
-		OS_CPPFLAGS=""
-		OS_LDFLAGS=""
-		OS_DYFLAGS=""
-		DARWIN_OPTS="-dynamiclib -bind_at_load \
-			     -current_version ${SONAME} \
-			     -compatibility_version ${SONAME} -install_name \$(libdir)/\$(@)"
 		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
 				   [Shared memory define for Darwin platform])
 		AC_DEFINE_UNQUOTED([PATH_MAX], [4096],
@@ -212,12 +184,6 @@ case "$host_os" in
 				   [Compiling for BSD platform])
 		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
 				   [Shared memory define for Darwin platform])
-		OS_CFLAGS=""
-		OS_CPPFLAGS="-I/usr/include -I/usr/local/include"
-		OS_LDFLAGS="-L/usr/local/lib"
-		OS_DYFLAGS="-export-dynamic"
-		DARWIN_OPTS=""
-		OS_LDL=""
 		case "$host_os" in
 			*freebsd[[234567]]*)
 			;;
@@ -235,12 +201,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([_SEM_SEMUN_UNDEFINED], [1],
 				   [The semun structure is undefined])
 		CP=rsync
-		OS_CFLAGS=""
-		OS_CPPFLAGS="-D_REENTRANT"
-		OS_LDFLAGS=""
-		OS_DYFLAGS="-Wl,-z,lazyload"
-		DARWIN_OPTS=""
-		SOLARIS_OPTS=" "
 	;;
 	*)
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
@@ -332,10 +292,10 @@ else
 fi
 
 # final build of *FLAGS
-CFLAGS="$ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS $OS_CFLAGS \
-	$COVERAGE_CFLAGS $EXTRA_WARNINGS $WERROR_CFLAGS $NSS_CFLAGS"
-CPPFLAGS="$ENV_CPPFLAGS $ANSI_CPPFLAGS $OS_CPPFLAGS"
-LDFLAGS="$ENV_LDFLAGS $COVERAGE_LDFLAGS $OS_LDFLAGS"
+CFLAGS="$ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS \
+	$COVERAGE_CFLAGS $EXTRA_WARNINGS $WERROR_CFLAGS"
+CPPFLAGS="$ENV_CPPFLAGS $ANSI_CPPFLAGS"
+LDFLAGS="$ENV_LDFLAGS $COVERAGE_LDFLAGS"
 
 # substitute what we need:
 AC_SUBST([SOCKETDIR])
@@ -343,21 +303,12 @@ AC_SUBST([SOMAJOR])
 AC_SUBST([SOMINOR])
 AC_SUBST([SOMICRO])
 AC_SUBST([SONAME])
-AC_SUBST([OS_DYFLAGS])
-AC_SUBST([OS_LDL])
 
-AM_CONDITIONAL(BUILD_DARWIN, test -n "${DARWIN_OPTS}")
-AM_CONDITIONAL(BUILD_SOLARIS, test -n "${SOLARIS_OPTS}")
-AC_SUBST([DARWIN_OPTS])
-AC_SUBST([SOLARIS_OPTS])
 AC_SUBST([LINT_FLAGS])
 
-AC_DEFINE_UNQUOTED([PLUGINSODIR], "$(eval echo ${PLUGINSODIR})", [PLUGINSO directory])
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
-
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
-
 
 AC_CONFIG_FILES([Makefile
 		 include/Makefile
@@ -394,11 +345,6 @@ AC_MSG_RESULT([  Extra compiler warnings  = ${EXTRA_WARNING}])
 AC_MSG_RESULT([  Env. defined CFLAG       = ${ENV_CFLAGS}])
 AC_MSG_RESULT([  Env. defined CPPFLAGS    = ${ENV_CPPFLAGS}])
 AC_MSG_RESULT([  Env. defined LDFLAGS     = ${ENV_LDFLAGS}])
-AC_MSG_RESULT([  OS   defined CFLAGS      = ${OS_CFLAGS}])
-AC_MSG_RESULT([  OS   defined CPPFLAGS    = ${OS_CPPFLAGS}])
-AC_MSG_RESULT([  OS   defined LDFLAGS     = ${OS_LDFLAGS}])
-AC_MSG_RESULT([  OS   defined LDL         = ${OS_LDL}])
-AC_MSG_RESULT([  OS   defined DYFLAGS     = ${OS_DYFLAGS}])
 AC_MSG_RESULT([  ANSI defined CPPFLAGS    = ${ANSI_CPPFLAGS}])
 AC_MSG_RESULT([  Coverage     CFLAGS      = ${COVERAGE_CFLAGS}])
 AC_MSG_RESULT([  Coverage     LDFLAGS     = ${COVERAGE_LDFLAGS}])
