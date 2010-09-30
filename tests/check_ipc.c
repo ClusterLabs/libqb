@@ -122,7 +122,7 @@ static void run_ipc_server(void)
 
 	bms_poll_handle = qb_poll_create();
 
-	s1 = qb_ipcs_create(IPC_NAME, ipc_type, MAX_MSG_SIZE);
+	s1 = qb_ipcs_create(IPC_NAME, ipc_type);
 	fail_if(s1 == 0);
 
 	qb_ipcs_service_handlers_set(s1, &sh);
@@ -210,7 +210,7 @@ static void test_ipc_txrx(void)
 	sleep(1);
 
 	do {
-		conn = qb_ipcc_connect(IPC_NAME);
+		conn = qb_ipcc_connect(IPC_NAME, MAX_MSG_SIZE);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
@@ -267,7 +267,7 @@ static void test_ipc_dispatch(void)
 	sleep(1);
 
 	do {
-		conn = qb_ipcc_connect(IPC_NAME);
+		conn = qb_ipcc_connect(IPC_NAME, MAX_MSG_SIZE);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
