@@ -99,7 +99,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
 	fd_hdr = qb_util_mmap_file_open(path, name,
 					sizeof(struct qb_ringbuffer_shared_s),
 					file_flags);
-	if (fd_hdr == -1) {
+	if (fd_hdr < 0) {
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
 		return NULL;
 	}
@@ -675,3 +675,17 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 
 	return rb;
 }
+
+int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group)
+{
+	int32_t res = chown(rb->shared_hdr->data_path, owner, group);
+	if (res < 0) {
+		return -errno;
+	}
+	res = chown(rb->shared_hdr->hdr_path, owner, group);
+	if (res < 0) {
+		return -errno;
+	}
+	return 0;
+}
+

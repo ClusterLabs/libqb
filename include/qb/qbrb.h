@@ -248,6 +248,16 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd);
  */
 qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags);
 
+/**
+ * Like 'chown' it changes the owner and group of the ringbuffers
+ * resources.
+ * @param owner uid of the owner to change to
+ * @param group gid of the group to change to
+ * @param rb ringbuffer instance
+ * @return status (0 = ok, -errno for error)
+ */
+int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group);
+
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
