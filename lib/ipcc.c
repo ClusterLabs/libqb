@@ -25,13 +25,13 @@
 #include "util_int.h"
 #include <qb/qbipcc.h>
 
-qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
+qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 {
 	int32_t res;
 	int32_t usock;
 	qb_ipcc_connection_t *c = NULL;
-	struct mar_req_initial_setup init_req;
-	struct mar_res_initial_setup init_res;
+	struct qb_ipc_connection_request request;
+	struct qb_ipc_connection_response response;
 
 	res = qb_ipcc_us_connect(name, &usock);
 	if (res != 0) {
@@ -40,9 +40,10 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 		return NULL;
 	}
 
-	init_req.hdr.id = QB_IPC_MSG_AUTHENTICATE;
-	init_req.hdr.size = sizeof(init_req);
-	res = qb_ipc_us_send(usock, &init_req, init_req.hdr.size);
+	request.hdr.id = QB_IPC_MSG_AUTHENTICATE;
+	request.hdr.size = sizeof(request);
+	request.max_msg_size = max_msg_size;
+	res = qb_ipc_us_send(usock, &request, request.hdr.size);
 	if (res < 0) {
 		perror("qb_ipc_us_send");
 		qb_ipcc_us_disconnect(usock);
@@ -50,7 +51,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 		return NULL;
 	}
 
-	res = qb_ipc_us_recv(usock, &init_res, sizeof(init_res));
+	res = qb_ipc_us_recv(usock, &response, sizeof(response));
 	if (res < 0) {
 		perror("qb_ipc_us_recv");
 		qb_ipcc_us_disconnect(usock);
@@ -58,8 +59,8 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 		return NULL;
 	}
 
-	if (init_res.hdr.error != 0) {
-		errno = -init_res.hdr.error;
+	if (response.hdr.error != 0) {
+		errno = -response.hdr.error;
 		perror("recv:message");
 		return NULL;
 	}
@@ -69,21 +70,24 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 		return NULL;
 	}
 	strcpy(c->name, name);
-	c->type = init_res.connection_type;
+	c->type = response.connection_type;
 	c->sock = usock;
-	c->session_id = init_res.session_id;
-	c->max_msg_size = init_res.max_msg_size;
+
+	qb_util_log(LOG_DEBUG, "%s() max_msg_size:%d actual:%d", __func__,
+		    max_msg_size, response.max_msg_size);
+
+	c->max_msg_size = response.max_msg_size;
 	c->receive_buf = malloc(c->max_msg_size);
 
 	switch (c->type) {
 	case QB_IPC_SHM:
-		res = qb_ipcc_shm_connect(c);
+		res = qb_ipcc_shm_connect(c, &response);
 		break;
 	case QB_IPC_POSIX_MQ:
-		res = qb_ipcc_pmq_connect(c);
+		res = qb_ipcc_pmq_connect(c, &response);
 		break;
 	case QB_IPC_SYSV_MQ:
-		res = qb_ipcc_smq_connect(c);
+		res = qb_ipcc_smq_connect(c, &response);
 		break;
 	case QB_IPC_SOCKET:
 		c->needs_sock_for_poll = QB_FALSE;
@@ -93,6 +97,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 		break;
 	}
 	if (res != 0) {
+		qb_ipcc_us_disconnect(usock);
 		free(c);
 		c = NULL;
 		errno = -res;
@@ -103,15 +108,12 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name)
 int32_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 		     size_t msg_len)
 {
-	struct qb_ipc_request_header *hdr = NULL;
 	ssize_t res;
 
 	if (msg_len > c->max_msg_size) {
 		return -EINVAL;
 	}
 
-	hdr = (struct qb_ipc_request_header *)msg_ptr;
-	hdr->session_id = c->session_id;
 	res = c->funcs.send(c, msg_ptr, msg_len);
 	if (res > 0 && c->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, msg_ptr, 1);
@@ -125,17 +127,18 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	return c->funcs.recv(c, msg_ptr, msg_len);
 }
 
-int32_t qb_ipcc_fd_get(struct qb_ipcc_connection* c, int32_t * fd)
+int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 {
 	if (c->needs_sock_for_poll) {
 		*fd = c->sock;
 	} else {
-		*fd = 0; /*TODO??*/
+		*fd = 0;	/*TODO?? */
 	}
 	return 0;
 }
 
-int32_t qb_ipcc_event_recv(struct qb_ipcc_connection* c, void **data_out, int32_t timeout)
+int32_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void **data_out,
+			   int32_t timeout)
 {
 	char one_byte = 1;
 
@@ -145,7 +148,7 @@ int32_t qb_ipcc_event_recv(struct qb_ipcc_connection* c, void **data_out, int32_
 	return c->funcs.event_recv(c, data_out, timeout);
 }
 
-void qb_ipcc_event_release(struct qb_ipcc_connection* c)
+void qb_ipcc_event_release(struct qb_ipcc_connection *c)
 {
 	c->funcs.event_release(c);
 }

@@ -32,6 +32,7 @@
 #include <signal.h>
 
 #define ITERATIONS 10000000
+#define THREADS 4
 
 struct bm_ctx {
 	qb_ipcc_connection_t *conn;
@@ -82,7 +83,7 @@ static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 
 static void bmc_connect(struct bm_ctx *ctx)
 {
-	ctx->conn = qb_ipcc_connect("bm1");
+	ctx->conn = qb_ipcc_connect("bm1", 1000 * (100 + THREADS));
 }
 
 static void bmc_disconnect(struct bm_ctx *ctx)
@@ -155,7 +156,6 @@ static void *benchmark(void *ctx)
 	}
 }
 
-#define THREADS 4
 
 int32_t main(void)
 {

@@ -116,6 +116,9 @@ repeat_send:
 		if (res == -EINTR) {
 			return -1;
 		}
+		if (res < 0) {
+			perror("qb_ipcc_recv");
+		}
 		assert(res == sizeof(struct qb_ipc_response_header));
 		assert(res_header.id == 13);
 		assert(res_header.size == sizeof(struct qb_ipc_response_header));
@@ -149,7 +152,7 @@ static void libqb_log_writer(const char *file_name,
 			     int32_t file_line,
 			     int32_t severity, const char *msg)
 {
-	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
+	printf("libqb: %s:%d [%d] %s\n", file_name, file_line, severity, msg);
 }
 
 int32_t main(int32_t argc, char *argv[])
@@ -182,7 +185,7 @@ int32_t main(int32_t argc, char *argv[])
 	signal(SIGINT, sigterm_handler);
 	signal(SIGILL, sigterm_handler);
 	signal(SIGTERM, sigterm_handler);
-	conn = qb_ipcc_connect("bm1");
+	conn = qb_ipcc_connect("bm1", MAX_MSG_SIZE);
 	if (conn == NULL) {
 		perror("qb_ipcc_connect");
 		exit(1);

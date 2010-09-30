@@ -63,8 +63,7 @@ struct qb_ipcs_service_handlers {
 };
 
 qb_ipcs_service_pt qb_ipcs_create(const char* name,
-				   enum qb_ipc_type type,
-				   size_t max_msg_size);
+				   enum qb_ipc_type type);
 
 void qb_ipcs_service_handlers_set(qb_ipcs_service_pt s,
 	struct qb_ipcs_service_handlers *handlers);

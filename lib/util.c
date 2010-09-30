@@ -174,15 +174,21 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 	if (fd < 0 && !is_absolute) {
 		qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
 			    path, strerror(errno));
+
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
 		fd = open_mmap_file(path, file_flags);
 		if (fd < 0) {
+			qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
+					path, strerror(errno));
 			return -errno;
 		}
 	}
 
 	if (fd >= 0) {
 		ftruncate(fd, bytes);
+	} else {
+		qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
+				path, strerror(errno));
 	}
 	return fd;
 }

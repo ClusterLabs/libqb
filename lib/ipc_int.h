@@ -49,6 +49,30 @@
 #include <semaphore.h>
 #endif
 
+/*
+Client		Server
+SEND CONN REQ ->
+		ACCEPT & CREATE queues
+		or DENY
+	<-	SEND ACCEPT(with details)/DENY
+*/
+
+struct qb_ipc_connection_request {
+        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
+	uint32_t max_msg_size __attribute__ ((aligned(8)));
+} __attribute__ ((aligned(8)));
+
+struct qb_ipc_connection_response {
+	struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
+	int32_t connection_type __attribute__ ((aligned(8)));
+	uint32_t max_msg_size __attribute__ ((aligned(8)));
+        char request[PATH_MAX] __attribute__ ((aligned(8)));
+        char response[PATH_MAX] __attribute__ ((aligned(8)));
+        char event[PATH_MAX] __attribute__ ((aligned(8)));
+} __attribute__ ((aligned(8)));
+
+
+
 struct qb_ipcc_connection;
 
 struct qb_ipcc_funcs {
@@ -62,52 +86,31 @@ struct qb_ipcc_funcs {
 	void (*disconnect)(struct qb_ipcc_connection* c);
 };
 
-struct qb_ipcc_pmq_one_way {
-	mqd_t q;
-	char name[NAME_MAX];
-};
-
-struct qb_ipcc_smq_one_way {
-	int32_t q;
-	int32_t key;
-};
-
-struct qb_ipcc_shm_one_way {
-	qb_ringbuffer_t *rb;
-	char name[NAME_MAX];
-};
-
-struct qb_ipcc_pmq_connection {
-	struct qb_ipcc_pmq_one_way request;
-	struct qb_ipcc_pmq_one_way response;
-	struct qb_ipcc_pmq_one_way event;
-};
-
-struct qb_ipcc_smq_connection {
-	struct qb_ipcc_smq_one_way request;
-	struct qb_ipcc_smq_one_way response;
-	struct qb_ipcc_smq_one_way event;
-};
-
-struct qb_ipcc_shm_connection {
-	struct qb_ipcc_shm_one_way request;
-	struct qb_ipcc_shm_one_way response;
-	struct qb_ipcc_shm_one_way event;
+union qb_ipc_one_way {
+	struct {
+		mqd_t q;
+		char name[NAME_MAX];
+	} pmq;
+	struct {
+		int32_t q;
+		int32_t key;
+	} smq;
+	struct {
+		qb_ringbuffer_t *rb;
+		char name[NAME_MAX];
+	} shm;
 };
 
 struct qb_ipcc_connection {
-	enum qb_ipc_type type;
 	char name[NAME_MAX];
-	uint64_t session_id;
+	enum qb_ipc_type type;
+	size_t max_msg_size;
 	int32_t needs_sock_for_poll;
 	int32_t sock;
-	union {
-		struct qb_ipcc_pmq_connection pmq;
-		struct qb_ipcc_smq_connection smq;
-		struct qb_ipcc_shm_connection shm;
-	} u;
+	union qb_ipc_one_way request;
+	union qb_ipc_one_way response;
+	union qb_ipc_one_way event;
 	struct qb_ipcc_funcs funcs;
-	size_t max_msg_size;
 	char *receive_buf;
 };
 
@@ -120,10 +123,10 @@ int32_t qb_ipcc_us_connect(const char *socket_name, int32_t *sock_pt);
 
 void qb_ipcc_us_disconnect (int32_t sock);
 
-int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c);
-int32_t qb_ipcc_soc_connect(struct qb_ipcc_connection *c);
-int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection *c);
-int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c);
+int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
+int32_t qb_ipcc_soc_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
+int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
+int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 
 struct qb_ipcs_service;
 struct qb_ipcs_connection;
@@ -131,9 +134,9 @@ struct qb_ipcs_connection;
 struct qb_ipcs_funcs {
 	void (*destroy)(struct qb_ipcs_service *s);
 	int32_t (*connect)(struct qb_ipcs_service *s, struct qb_ipcs_connection *c,
-		void *data, size_t size);
+		struct qb_ipc_connection_response *r);
 	void (*disconnect)(struct qb_ipcs_connection *c);
-	ssize_t (*request_recv)(struct qb_ipcs_service *s, void *buf, size_t buf_size);
+	ssize_t (*request_recv)(struct qb_ipcs_connection *c, void *buf, size_t buf_size);
 	ssize_t (*response_send)(struct qb_ipcs_connection *c, void *data, size_t size);
 	ssize_t (*event_send)(struct qb_ipcs_connection *c, void *data, size_t size);
 };
@@ -151,13 +154,6 @@ struct qb_ipcs_service {
 	struct qb_ipcs_funcs funcs;
 
 	struct qb_list_head connections;
-	union {
-		mqd_t q;
-		qb_ringbuffer_t *rb;
-		struct qb_ipcc_smq_one_way smq;
-	} u;
-	size_t max_msg_size;
-	char *receive_buf;
 };
 
 struct qb_ipcs_connection {
@@ -166,13 +162,13 @@ struct qb_ipcs_connection {
 	uid_t euid;
 	gid_t egid;
 	int32_t sock;
-	union {
-		struct qb_ipcc_pmq_connection pmq;
-		struct qb_ipcc_smq_connection smq;
-		struct qb_ipcc_shm_connection shm;
-	} u;
+	size_t max_msg_size;
+	union qb_ipc_one_way request;
+	union qb_ipc_one_way response;
+	union qb_ipc_one_way event;
 	struct qb_ipcs_service *service;
 	struct qb_list_head list;
+	char *receive_buf;
 };
 
 int32_t qb_ipcs_pmq_create(struct qb_ipcs_service *s);
@@ -193,49 +189,5 @@ int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 	struct qb_ipc_request_header *hdr);
 
 void qb_ipcs_disconnect(struct qb_ipcs_connection *c);
-
-struct mar_req_initial_setup {
-        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-struct mar_res_initial_setup {
-	struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
-	int32_t connection_type __attribute__ ((aligned(8)));
-	uint64_t session_id __attribute__ ((aligned(8)));
-	uint32_t max_msg_size __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-struct mar_req_shm_setup {
-        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
-	uint32_t pid __attribute__ ((aligned(8)));
-        char request[PATH_MAX] __attribute__ ((aligned(8)));
-        char response[PATH_MAX] __attribute__ ((aligned(8)));
-        char event[PATH_MAX] __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-struct mar_req_pmq_setup {
-        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
-	uint32_t pid __attribute__ ((aligned(8)));
-        char response_mq[NAME_MAX] __attribute__ ((aligned(8)));
-        char event_mq[NAME_MAX] __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-struct mar_req_smq_setup {
-        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
-	uint32_t pid __attribute__ ((aligned(8)));
-        int32_t response_key __attribute__ ((aligned(8)));
-        int32_t event_key __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-struct mar_res_setup {
-        struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
-	size_t max_msg_size __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-typedef struct {
-	uid_t euid __attribute__ ((aligned(8)));
-	gid_t egid __attribute__ ((aligned(8)));
-} mar_req_priv_change __attribute__ ((aligned(8)));
-
 
 #endif /* QB_IPC_INT_H_DEFINED */

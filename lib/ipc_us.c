@@ -99,14 +99,13 @@ retry_send:
 }
 
 static ssize_t qb_ipc_us_recv_msghdr(int32_t s,
-				     struct msghdr *hdr, const char *msg,
-				     size_t len)
+				     struct msghdr *hdr, char *msg, size_t len)
 {
 	int32_t result;
 	int32_t processed = 0;
 
 retry_recv:
-	hdr->msg_iov->iov_base = (void *)&msg[processed];
+	hdr->msg_iov->iov_base = &msg[processed];
 	hdr->msg_iov->iov_len = len - processed;
 
 	result = recvmsg(s, hdr, MSG_NOSIGNAL | MSG_WAITALL);
@@ -160,7 +159,7 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 	int32_t res = 0;
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
-	char setup_msg[sizeof(struct mar_req_initial_setup)];
+	struct qb_ipc_connection_request setup_msg;
 
 #ifdef QB_LINUX
 	struct cmsghdr *cmsg;
@@ -184,21 +183,22 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 #endif /* QB_SOLARIS */
 
 	iov_recv.iov_base = &setup_msg;
-	iov_recv.iov_len = sizeof(struct mar_req_initial_setup);
+	iov_recv.iov_len = sizeof(struct qb_ipc_connection_request);
 #ifdef QB_LINUX
 	setsockopt(c->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
-	res = qb_ipc_us_recv_msghdr(c->sock, &msg_recv, setup_msg,
-				    sizeof(struct mar_req_initial_setup));
+	res = qb_ipc_us_recv_msghdr(c->sock, &msg_recv, (char *)&setup_msg,
+				    sizeof(struct qb_ipc_connection_request));
 
 	if (res < 0) {
 		goto cleanup_and_return;
 	}
-	if (res != sizeof(struct mar_req_initial_setup)) {
+	if (res != sizeof(struct qb_ipc_connection_request)) {
 		res = -EIO;
 		goto cleanup_and_return;
 	}
+	c->max_msg_size = setup_msg.max_msg_size;
 	res = -EBADMSG;
 
 	/*
@@ -481,9 +481,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
 		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_ERR,
-			    "listen failed: %s.\n",
-			    error_str);
+		qb_util_log(LOG_ERR, "listen failed: %s.\n", error_str);
 	}
 
 	qb_poll_dispatch_add(s->poll_handle, s->server_sock,
@@ -498,8 +496,7 @@ error_close:
 
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 {
-	qb_util_log(LOG_INFO,
-		"withdrawing server sockets\n");
+	qb_util_log(LOG_INFO, "withdrawing server sockets\n");
 	shutdown(s->server_sock, SHUT_RDWR);
 	close(s->server_sock);
 	return 0;
@@ -512,7 +509,7 @@ static int32_t qb_ipcs_us_connection_acceptor(qb_handle_t handle,
 	int32_t new_fd;
 	struct qb_ipcs_connection *c;
 	struct qb_ipcs_service *s = (struct qb_ipcs_service *)data;
-	struct mar_res_initial_setup init_res;
+	struct qb_ipc_connection_response response;
 	int32_t res;
 	socklen_t addrlen = sizeof(struct sockaddr_un);
 	char error_str[100];
@@ -529,14 +526,14 @@ retry_accept:
 		qb_util_log(LOG_ERR,
 			    "Could not accept Library connection:(fd: %d) [%d] %s\n",
 			    fd, errno, error_str);
-		return (-1);
+		return -1;
 	}
 	if (new_fd == -1) {
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
 			    "Could not accept Library connection: [%d] %s\n",
 			    errno, error_str);
-		return (0);	/* This is an error, but -1 would indicate disconnect from poll loop */
+		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
 
 	res = fcntl(new_fd, F_SETFL, O_NONBLOCK);
@@ -546,12 +543,9 @@ retry_accept:
 			    "Could not set non-blocking operation on library connection: %s\n",
 			    error_str);
 		close(new_fd);
-		return (0);	/* This is an error, but -1 would indicate disconnect from poll loop */
+		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
 
-	/*
-	 * Valid accept
-	 */
 	c = qb_ipcs_connection_alloc(s);
 	c->sock = new_fd;
 
@@ -559,39 +553,45 @@ retry_accept:
 	if (res == 0) {
 		qb_util_log(LOG_INFO, "IPC credentials authenticated");
 
+		res = s->funcs.connect(s, c, &response);
+		if (res != 0) {
+			goto send_response;
+		}
+
 		qb_list_add(&c->list, &s->connections);
+		c->receive_buf = malloc(c->max_msg_size);
 
-		init_res.hdr.id = QB_IPC_MSG_AUTHENTICATE;
-		init_res.hdr.size = sizeof(init_res);
-		init_res.hdr.error = 0;
-		init_res.connection_type = s->type;
-		init_res.session_id = c->handle;
-		init_res.max_msg_size = s->max_msg_size;
-
-		qb_ipc_us_send(c->sock, &init_res, init_res.hdr.size);
 		if (s->needs_sock_for_poll) {
 			qb_poll_dispatch_add(s->poll_handle, c->sock,
 					     POLLIN | POLLPRI | POLLNVAL,
 					     c,
 					     qb_ipcs_dispatch_connection_request);
 		}
+	}
 
-	} else {
-		if (res == -EACCES) {
-			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
-		} else {
-			strerror_r(-res, error_str, 100);
-			qb_util_log(LOG_ERR, "Error in conection setup: %s.",
-				    error_str);
+send_response:
+	response.hdr.id = QB_IPC_MSG_AUTHENTICATE;
+	response.hdr.size = sizeof(response);
+	response.hdr.error = res;
+	response.connection_type = s->type;
+	response.max_msg_size = c->max_msg_size;
+
+	qb_ipc_us_send(c->sock, &response, response.hdr.size);
+
+	if (res == 0) {
+		if (s->serv_fns.connection_created) {
+			s->serv_fns.connection_created(c->handle);
 		}
-		init_res.hdr.id = QB_IPC_MSG_AUTHENTICATE;
-		init_res.hdr.size = sizeof(init_res);
-		init_res.hdr.error = res;
-		init_res.session_id = 0;
-
-		qb_ipc_us_send(c->sock, &init_res, init_res.hdr.size);
+	} else if (res == -EACCES) {
+		qb_util_log(LOG_ERR, "Invalid IPC credentials.");
+	} else {
+		strerror_r(-response.hdr.error, error_str, 100);
+		qb_util_log(LOG_ERR, "Error in conection setup: %s.",
+			    error_str);
+	}
+	if (res != 0) {
 		qb_ipcs_disconnect(c);
 	}
 
-	return (0);
+	return 0;
 }
