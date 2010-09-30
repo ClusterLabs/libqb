@@ -23,11 +23,6 @@ MAINTAINERCLEANFILES	= Makefile.in
 
 noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h
 
-lib_LIBRARIES		= libqbplugin.a
-
-libqbplugin_a_SOURCES	= plugin_loader.c $(top_builddir)/include/qb/qbrb.h $(top_builddir)/include/qb/qbutil.h
-libqbplugin_a_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
-
 #
 # Here are a set of rules to help you update your library version information:
 # Start with version information of ‘0:0:0’ for each libtool library.
@@ -43,11 +38,9 @@ lib_LTLIBRARIES		= libqb.la
 
 libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqb_la_LDFLAGS	= -version-info 0:0:0
-libqb_la_SOURCES	= util.c tsafe.c hash.c poll.c timer.c wthread.c \
-			  ipcc.c ipcs.c \
-			  ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c \
-			  logsys.c ringbuffer.c ringbuffer_helper.c \
-			  hdb.c
+libqb_la_SOURCES	= util.c poll.c timer.c hdb.c ringbuffer.c ringbuffer_helper.c \
+			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c
+			  
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libqb.pc

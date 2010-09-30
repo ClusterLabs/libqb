@@ -73,7 +73,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	c->type = response.connection_type;
 	c->sock = usock;
 
-	qb_util_log(LOG_DEBUG, "%s() max_msg_size:%d actual:%d", __func__,
+	qb_util_log(LOG_DEBUG, "%s() max_msg_size:%zu actual:%u", __func__,
 		    max_msg_size, response.max_msg_size);
 
 	c->max_msg_size = response.max_msg_size;
