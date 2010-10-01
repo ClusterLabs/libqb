@@ -113,7 +113,7 @@ static void run_ipc_server(void)
 	int32_t res;
 
 	struct qb_ipcs_service_handlers sh = {
-		.connection_authenticate = NULL,
+		.connection_accept = NULL,
 		.connection_created = NULL,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = NULL,

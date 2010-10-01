@@ -58,7 +58,7 @@ void qb_ipcs_service_handlers_set(qb_ipcs_service_pt pt,
 
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
 
-	s->serv_fns.connection_authenticate = handlers->connection_authenticate;
+	s->serv_fns.connection_accept = handlers->connection_accept;
 	s->serv_fns.connection_created = handlers->connection_created;
 	s->serv_fns.msg_process = handlers->msg_process;
 	s->serv_fns.connection_destroyed = handlers->connection_destroyed;

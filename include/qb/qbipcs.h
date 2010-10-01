@@ -49,33 +49,70 @@ struct qb_ipcs_poll_handlers {
 	qb_ipcs_dispatch_rm_fn dispatch_rm;
 };
 
-typedef int32_t (*qb_ipcs_connection_authenticate_fn) (qb_ipcs_connection_handle_t c, uid_t uid, gid_t gid);
+/**
+ * This callback is to check wether you want to accept a new connection.
+ *
+ * The type of checks you should do are authentication, service availabilty
+ * or process resource constraints.
+ * @return 0 to accept or -errno to indicate a failure (sent back to the client)
+ */
+typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_handle_t c, uid_t uid, gid_t gid);
+
+/**
+ * This is called after a new connection has been created.
+ */
 typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_handle_t c);
+/**
+ * This is called after a connection has been destroyed.
+ */
 typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_handle_t c);
+/**
+ * This is the message processing calback.
+ * It is called with the message data.
+ */
 typedef void (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_handle_t c,
 		void *data, size_t size);
 
 struct qb_ipcs_service_handlers {
-	qb_ipcs_connection_authenticate_fn connection_authenticate;
+	qb_ipcs_connection_accept_fn connection_accept;
 	qb_ipcs_connection_created_fn connection_created;
 	qb_ipcs_msg_process_fn msg_process;
 	qb_ipcs_connection_destroyed_fn connection_destroyed;
 };
 
+/**
+ * Create a new IPC server.
+ */
 qb_ipcs_service_pt qb_ipcs_create(const char* name,
 				   enum qb_ipc_type type);
 
+/**
+ * Set your callbacks.
+ */
 void qb_ipcs_service_handlers_set(qb_ipcs_service_pt s,
 	struct qb_ipcs_service_handlers *handlers);
 
 void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
 	struct qb_ipcs_poll_handlers *handlers);
 
+/**
+ * run the new IPC server.
+ */
 int32_t qb_ipcs_run(qb_ipcs_service_pt s, qb_handle_t poll);
 
+/**
+ * Destroy the IPC server.
+ */
 void qb_ipcs_destroy(qb_ipcs_service_pt s);
 
+/**
+ * send a response to a incomming request.
+ */
 ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
+
+/**
+ * Send an asyncronous event message to the client.
+ */
 ssize_t qb_ipcs_event_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
 
 /* *INDENT-OFF* */

@@ -52,7 +52,7 @@ int32_t verbose = 0;
 static qb_handle_t bms_poll_handle;
 static qb_ipcs_service_pt s1;
 
-static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_handle_t conn, uid_t uid, gid_t gid)
+static int32_t s1_connection_accept_fn(qb_ipcs_connection_handle_t conn, uid_t uid, gid_t gid)
 {
 #if 0
 	if (uid == 0 && gid == 0) {
@@ -65,7 +65,7 @@ static int32_t s1_connection_authenticate_fn(qb_ipcs_connection_handle_t conn, u
 	printf("%s:%d %s() BAD user!\n", __FILE__, __LINE__, __func__);
 	return 0;
 #else
-	return 1;
+	return 0;
 #endif
 }
 
@@ -142,7 +142,7 @@ int32_t main(int32_t argc, char *argv[])
 	int32_t opt;
 	enum qb_ipc_type ipc_type = QB_IPC_SHM;
 	struct qb_ipcs_service_handlers sh = {
-		.connection_authenticate = s1_connection_authenticate_fn,
+		.connection_accept = s1_connection_accept_fn,
 		.connection_created = s1_connection_created_fn,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = s1_connection_destroyed_fn,

@@ -264,13 +264,11 @@ cleanup_and_return:
 #endif
 
 	if (res == 0) {
-		res = -EACCES;
-		if (c->service->serv_fns.connection_authenticate &&
-		    c->service->serv_fns.connection_authenticate(c->handle,
+		if (c->service->serv_fns.connection_accept) {
+		    res = c->service->serv_fns.connection_accept(c->handle,
 								 c->euid,
-								 c->egid)) {
-			res = 0;
-		} else if (c->service->serv_fns.connection_authenticate == NULL) {
+								 c->egid);
+		} else {
 			res = 0;
 		}
 	}
@@ -586,7 +584,7 @@ send_response:
 		qb_util_log(LOG_ERR, "Invalid IPC credentials.");
 	} else {
 		strerror_r(-response.hdr.error, error_str, 100);
-		qb_util_log(LOG_ERR, "Error in conection setup: %s.",
+		qb_util_log(LOG_ERR, "Error in connection setup: %s.",
 			    error_str);
 	}
 	if (res != 0) {
