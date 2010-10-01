@@ -27,6 +27,8 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+#include <stdint.h>
+
 /**
  * @file qblist.h
  * This is a kernel style list implementation.
