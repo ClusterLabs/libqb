@@ -30,6 +30,8 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+typedef void (*qb_poll_low_fds_event_fn) (int32_t not_enough, int32_t fds_available);
+
 typedef void *qb_poll_timer_handle;
 typedef void *qb_poll_job_handle;
 
@@ -59,6 +61,10 @@ int32_t qb_poll_dispatch_modify(qb_handle_t handle,
 						int32_t revents, void *data));
 
 int32_t qb_poll_dispatch_delete(qb_handle_t handle, int32_t fd);
+
+int32_t qb_poll_low_fds_event_set(
+	qb_handle_t handle,
+	qb_poll_low_fds_event_fn fn);
 
 int32_t qb_poll_timer_add(qb_handle_t handle,
 		      int32_t msec_in_future, void *data,

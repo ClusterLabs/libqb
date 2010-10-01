@@ -28,6 +28,7 @@
 #include <qb/qblist.h>
 #include "tlist.h"
 #include "util_int.h"
+#include <sys/resource.h>
 
 typedef int32_t (*dispatch_fn_t) (qb_handle_t hdb_handle, int32_t fd, int32_t revents,
 			      void *data);
@@ -51,6 +52,8 @@ struct qb_poll_instance {
 	struct timerlist timerlist;
 	int32_t stop_requested;
 	int32_t pipefds[2];
+	qb_poll_low_fds_event_fn low_fds_event_fn;
+	int32_t not_enough_fds;
 	struct qb_list_head job_list;
 };
 
@@ -82,6 +85,7 @@ qb_handle_t qb_poll_create(void)
 	poll_instance->poll_entry_count = 0;
 	poll_instance->stop_requested = 0;
 	timerlist_init(&poll_instance->timerlist);
+	poll_instance->not_enough_fds = 0;
 	qb_list_init(&poll_instance->job_list);
 
 	res = pipe (poll_instance->pipefds);
@@ -433,6 +437,59 @@ static int32_t _qb_poll_job_run(struct qb_poll_instance *poll_instance)
 	}
 	return (jobs_run > 0);
 }
+/* logs, std(in|out|err), pipe */
+#define POLL_FDS_USED_MISC 50
+
+static void poll_fds_usage_check(struct qb_poll_instance *poll_instance)
+{
+	struct rlimit lim;
+	static int32_t socks_limit = 0;
+	int32_t send_event = 0;
+	int32_t socks_used = 0;
+	int32_t socks_avail = 0;
+	int32_t i;
+
+	if (socks_limit == 0) {
+		if (getrlimit(RLIMIT_NOFILE, &lim) == -1) {
+			char error_str[100];
+			strerror_r(errno, error_str, 100);
+			printf("getrlimit: %s\n", error_str);
+			return;
+		}
+		socks_limit = lim.rlim_cur;
+		socks_limit -= POLL_FDS_USED_MISC;
+		if (socks_limit < 0) {
+			socks_limit = 0;
+		}
+	}
+
+	for (i = 0; i < poll_instance->poll_entry_count; i++) {
+		if (poll_instance->poll_entries[i].ufd.fd != -1) {
+			socks_used++;
+		}
+	}
+	socks_avail = socks_limit - socks_used;
+	if (socks_avail < 0) {
+		socks_avail = 0;
+	}
+	send_event = 0;
+	if (poll_instance->not_enough_fds) {
+		if (socks_avail > 2) {
+			poll_instance->not_enough_fds = 0;
+			send_event = 1;
+		}
+	} else {
+		if (socks_avail <= 1) {
+			poll_instance->not_enough_fds = 1;
+			send_event = 1;
+		}
+	}
+	if (send_event) {
+		poll_instance->low_fds_event_fn(poll_instance->not_enough_fds,
+			socks_avail);
+	}
+}
+
 
 int32_t qb_poll_run(qb_handle_t handle)
 {
@@ -469,6 +526,7 @@ rebuild_poll:
 				expire_timeout_msec = 50;
 			}
 		}
+		poll_fds_usage_check(poll_instance);
 
 		if (expire_timeout_msec != -1
 		    && expire_timeout_msec > 0xFFFFFFFF) {
