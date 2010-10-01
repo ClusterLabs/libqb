@@ -33,7 +33,9 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-typedef qb_handle_t qb_ipcs_connection_handle_t;
+struct qb_ipcs_connection;
+typedef struct qb_ipcs_connection qb_ipcs_connection_t;
+
 typedef qb_handle_t qb_ipcs_service_pt;
 
 typedef int32_t (*qb_ipcs_dispatch_fn_t) (qb_ipcs_service_pt s, int32_t fd, int32_t revents,
@@ -56,21 +58,21 @@ struct qb_ipcs_poll_handlers {
  * or process resource constraints.
  * @return 0 to accept or -errno to indicate a failure (sent back to the client)
  */
-typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_handle_t c, uid_t uid, gid_t gid);
+typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c, uid_t uid, gid_t gid);
 
 /**
  * This is called after a new connection has been created.
  */
-typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_handle_t c);
+typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_t *c);
 /**
  * This is called after a connection has been destroyed.
  */
-typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_handle_t c);
+typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_t *c);
 /**
  * This is the message processing calback.
  * It is called with the message data.
  */
-typedef void (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_handle_t c,
+typedef void (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_t *c,
 		void *data, size_t size);
 
 struct qb_ipcs_service_handlers {
@@ -108,12 +110,24 @@ void qb_ipcs_destroy(qb_ipcs_service_pt s);
 /**
  * send a response to a incomming request.
  */
-ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
+ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, void *data, size_t size);
 
 /**
  * Send an asyncronous event message to the client.
  */
-ssize_t qb_ipcs_event_send(qb_ipcs_connection_handle_t c, void *data, size_t size);
+ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, void *data, size_t size);
+
+
+/**
+ * Increment the connection's reference counter.
+ */
+void qb_ipcs_connection_ref_inc(qb_ipcs_connection_t *c);
+
+/**
+ * Decrement the connection's reference counter.
+ */
+void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
+
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

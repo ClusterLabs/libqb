@@ -265,7 +265,7 @@ cleanup_and_return:
 
 	if (res == 0) {
 		if (c->service->serv_fns.connection_accept) {
-		    res = c->service->serv_fns.connection_accept(c->handle,
+		    res = c->service->serv_fns.connection_accept(c,
 								 c->euid,
 								 c->egid);
 		} else {
@@ -578,7 +578,7 @@ send_response:
 
 	if (res == 0) {
 		if (s->serv_fns.connection_created) {
-			s->serv_fns.connection_created(c->handle);
+			s->serv_fns.connection_created(c);
 		}
 	} else if (res == -EACCES) {
 		qb_util_log(LOG_ERR, "Invalid IPC credentials.");

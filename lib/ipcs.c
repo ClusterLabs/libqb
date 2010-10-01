@@ -25,10 +25,8 @@
 #include <qb/qbipcs.h>
 
 static void qb_ipcs_destroy_internal(void *data);
-static void qb_ipcs_disconnect_internal(void *data);
 
 QB_HDB_DECLARE(qb_ipc_services, qb_ipcs_destroy_internal);
-QB_HDB_DECLARE(qb_ipc_connections, qb_ipcs_disconnect_internal);
 
 qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type)
 {
@@ -132,53 +130,40 @@ static void qb_ipcs_destroy_internal(void *data)
 	s->funcs.destroy(s);
 }
 
-ssize_t qb_ipcs_response_send(qb_ipcs_connection_handle_t c, void *data,
+ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, void *data,
 			      size_t size)
 {
 	ssize_t res;
-	struct qb_ipcs_connection *con;
 
-	res = qb_hdb_handle_get(&qb_ipc_connections, c, (void **)&con);
-	if (res < 0) {
-		return res;
-	}
-	res = con->service->funcs.response_send(con, data, size);
-	qb_hdb_handle_put(&qb_ipc_connections, c);
+	qb_ipcs_connection_ref_inc(c);
+	res = c->service->funcs.response_send(c, data, size);
+	qb_ipcs_connection_ref_dec(c);
 
 	return res;
 }
 
-ssize_t qb_ipcs_event_send(qb_ipcs_connection_handle_t c, void *data,
+ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, void *data,
 			   size_t size)
 {
 	ssize_t res;
-	struct qb_ipcs_connection *con;
 
-	res = qb_hdb_handle_get(&qb_ipc_connections, c, (void **)&con);
-	if (res < 0) {
-		return res;
-	}
-	res = con->service->funcs.event_send(con, data, size);
+	qb_ipcs_connection_ref_inc(c);
+	res = c->service->funcs.event_send(c, data, size);
 
-	if (con->service->needs_sock_for_poll) {
-		qb_ipc_us_send(con->sock, data, 1);
+	if (c->service->needs_sock_for_poll) {
+		qb_ipc_us_send(c->sock, data, 1);
 	}
 
-	qb_hdb_handle_put(&qb_ipc_connections, c);
+	qb_ipcs_connection_ref_dec(c);
 
 	return res;
 }
 
 struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 {
-	qb_ipcs_connection_handle_t h;
-	struct qb_ipcs_connection *c;
+	struct qb_ipcs_connection *c = malloc(sizeof(struct qb_ipcs_connection));
 
-	qb_hdb_handle_create(&qb_ipc_connections,
-			     sizeof(struct qb_ipcs_connection), &h);
-	qb_hdb_handle_get(&qb_ipc_connections, h, (void **)&c);
-
-	c->handle = h;
+	c->refcount = 1;
 	c->service = s;
 	c->pid = 0;
 	c->euid = -1;
@@ -190,29 +175,39 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	return c;
 }
 
-static void qb_ipcs_disconnect_internal(void *data)
+void qb_ipcs_connection_ref_inc(struct qb_ipcs_connection *c)
 {
-	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
+	// lock
+	c->refcount++;
+	qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
+	// unlock
+}
 
-	qb_util_log(LOG_DEBUG, "%s()", __func__);
-	qb_list_del(&c->list);
-	if (c->service->serv_fns.connection_destroyed) {
-		c->service->serv_fns.connection_destroyed(c->handle);
-	}
-	c->service->funcs.disconnect(c);
-	qb_ipcc_us_disconnect(c->sock);
-	if (c->receive_buf) {
-		free(c->receive_buf);
+void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
+{
+	// lock
+	c->refcount--;
+	qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
+	if (c->refcount == 0) {
+		qb_list_del(&c->list);
+		// unlock
+		if (c->service->serv_fns.connection_destroyed) {
+			c->service->serv_fns.connection_destroyed(c);
+		}
+		c->service->funcs.disconnect(c);
+		qb_ipcc_us_disconnect(c->sock);
+		if (c->receive_buf) {
+			free(c->receive_buf);
+		}
+	} else {
+		// unlock
 	}
 }
 
 void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 {
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
-	if (qb_hdb_handle_destroy(&qb_ipc_connections, c->handle) != 0)
-		perror("qb_ipcs_disconnect:destroy");
-	if (qb_hdb_handle_put(&qb_ipc_connections, c->handle) != 0)
-		perror("qb_ipcs_disconnect:put");
+	qb_ipcs_connection_ref_dec(c);
 }
 
 static int32_t _process_request_(struct qb_ipcs_connection *c)
@@ -222,6 +217,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c)
 
 	hdr = (struct qb_ipc_request_header *)c->receive_buf;
 
+	qb_ipcs_connection_ref_inc(c);
 get_msg_with_live_connection:
 	res = c->service->funcs.request_recv(c, hdr, c->max_msg_size);
 	if (res == -EAGAIN) {
@@ -240,10 +236,11 @@ get_msg_with_live_connection:
 
 	case QB_IPC_MSG_NEW_MESSAGE:
 	default:
-		c->service->serv_fns.msg_process(c->handle, hdr, hdr->size);
+		c->service->serv_fns.msg_process(c, hdr, hdr->size);
 		break;
 	}
 cleanup:
+	qb_ipcs_connection_ref_dec(c);
 	return res;
 }
 
