@@ -50,10 +50,15 @@ struct qb_poll_instance {
 	int32_t poll_entry_count;
 	struct timerlist timerlist;
 	int32_t stop_requested;
+	int32_t pipefds[2];
 	struct qb_list_head job_list;
 };
 
 QB_HDB_DECLARE(poll_instance_database, NULL);
+
+static int dummy_dispatch_fn (qb_handle_t handle, int fd, int revents, void *data) {
+	return (0);
+}
 
 qb_handle_t qb_poll_create(void)
 {
@@ -79,6 +84,24 @@ qb_handle_t qb_poll_create(void)
 	timerlist_init(&poll_instance->timerlist);
 	qb_list_init(&poll_instance->job_list);
 
+	res = pipe (poll_instance->pipefds);
+	if (res != 0) {
+		goto error_destroy;
+	}
+
+	/*
+	 * Allow changes in modify to propogate into new poll instance
+	 */
+	res = qb_poll_dispatch_add (
+		handle,
+		poll_instance->pipefds[0],
+		POLLIN,
+		NULL,
+		dummy_dispatch_fn);
+	if (res != 0) {
+		goto error_destroy;
+	}
+		
 	return (handle);
 
 error_destroy:
@@ -99,6 +122,8 @@ int32_t qb_poll_destroy(qb_handle_t handle)
 		goto error_exit;
 	}
 
+	close(poll_instance->pipefds[0]);
+	close(poll_instance->pipefds[1]);
 	free(poll_instance->poll_entries);
 	free(poll_instance->ufds);
 
@@ -207,9 +232,18 @@ int32_t qb_poll_dispatch_modify(qb_handle_t handle,
 	res = -EBADF;
 	for (i = 0; i < poll_instance->poll_entry_count; i++) {
 		if (poll_instance->poll_entries[i].ufd.fd == fd) {
+			int change_notify = 0;
+
+			if (poll_instance->poll_entries[i].ufd.events != events) {
+				change_notify = 1;
+			}
 			poll_instance->poll_entries[i].ufd.events = events;
 			poll_instance->poll_entries[i].dispatch_fn =
 			    dispatch_fn;
+			if (change_notify) {
+				char buf = 1;
+				write (poll_instance->pipefds[1], &buf, 1);
+			}
 
 			res = 0;
 			break;
@@ -416,6 +450,7 @@ int32_t qb_poll_run(qb_handle_t handle)
 	}
 
 	for (;;) {
+rebuild_poll:
 		for (i = 0; i < poll_instance->poll_entry_count; i++) {
 			memcpy(&poll_instance->ufds[i],
 			       &poll_instance->poll_entries[i].ufd,
@@ -457,6 +492,11 @@ retry_poll:
 			goto error_exit;
 		}
 
+		if (poll_instance->ufds[0].revents) {
+			char buf;
+			read (poll_instance->ufds[0].fd, &buf, 1);
+			goto rebuild_poll;
+		}
 		poll_entry_count = poll_instance->poll_entry_count;
 		for (i = 0; i < poll_entry_count; i++) {
 			if (poll_instance->ufds[i].fd != -1 &&
