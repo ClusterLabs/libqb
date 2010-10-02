@@ -73,7 +73,7 @@ static void sigterm_handler(int32_t num)
 	exit(0);
 }
 
-static void s1_msg_process_fn(qb_ipcs_connection_handle_t c,
+static void s1_msg_process_fn(qb_ipcs_connection_t *c,
 		void *data, size_t size)
 {
 	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
@@ -122,10 +122,8 @@ static void run_ipc_server(void)
 
 	bms_poll_handle = qb_poll_create();
 
-	s1 = qb_ipcs_create(IPC_NAME, ipc_type);
+	s1 = qb_ipcs_create(IPC_NAME, 4, ipc_type, &sh);
 	fail_if(s1 == 0);
-
-	qb_ipcs_service_handlers_set(s1, &sh);
 
 	res = qb_ipcs_run(s1, bms_poll_handle);
 	ck_assert_int_eq(res, 0);

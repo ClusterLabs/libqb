@@ -85,8 +85,10 @@ struct qb_ipcs_service_handlers {
 /**
  * Create a new IPC server.
  */
-qb_ipcs_service_pt qb_ipcs_create(const char* name,
-				   enum qb_ipc_type type);
+qb_ipcs_service_pt qb_ipcs_create(const char *name,
+				  int32_t service_id,
+				  enum qb_ipc_type type,
+				  struct qb_ipcs_service_handlers *handlers);
 
 /**
  * Set your callbacks.
@@ -128,6 +130,12 @@ void qb_ipcs_connection_ref_inc(qb_ipcs_connection_t *c);
  */
 void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
 
+/**
+ * Get the service id related to this connection's service.
+ * (as passed into qb_ipcs_create()
+ * @return service id.
+ */
+int32_t qb_ipcs_service_id_get(qb_ipcs_connection_t *c);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

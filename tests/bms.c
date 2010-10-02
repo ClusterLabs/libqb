@@ -180,12 +180,11 @@ int32_t main(int32_t argc, char *argv[])
 
 	bms_poll_handle = qb_poll_create();
 
-	s1 = qb_ipcs_create("bm1", ipc_type);
+	s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
 	if (s1 == 0) {
 		perror("qb_ipcs_create");
 		exit(1);
 	}
-	qb_ipcs_service_handlers_set(s1, &sh);
 	qb_ipcs_run(s1, bms_poll_handle);
 	qb_poll_run(bms_poll_handle);
 

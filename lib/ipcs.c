@@ -28,7 +28,10 @@ static void qb_ipcs_destroy_internal(void *data);
 
 QB_HDB_DECLARE(qb_ipc_services, qb_ipcs_destroy_internal);
 
-qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type)
+qb_ipcs_service_pt qb_ipcs_create(const char *name,
+				  int32_t service_id,
+				  enum qb_ipc_type type,
+				  struct qb_ipcs_service_handlers *handlers)
 {
 	struct qb_ipcs_service *s;
 	qb_ipcs_service_pt h;
@@ -41,27 +44,19 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name, enum qb_ipc_type type)
 	s->type = type;
 	s->needs_sock_for_poll = QB_FALSE;
 
-	qb_list_init(&s->connections);
-	snprintf(s->name, NAME_MAX, "%s", name);
-
-	qb_hdb_handle_put(&qb_ipc_services, h);
-
-	return h;
-}
-
-void qb_ipcs_service_handlers_set(qb_ipcs_service_pt pt,
-				  struct qb_ipcs_service_handlers *handlers)
-{
-	struct qb_ipcs_service *s;
-
-	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
+	s->service_id = service_id;
+	strncpy(s->name, name, NAME_MAX);
 
 	s->serv_fns.connection_accept = handlers->connection_accept;
 	s->serv_fns.connection_created = handlers->connection_created;
 	s->serv_fns.msg_process = handlers->msg_process;
 	s->serv_fns.connection_destroyed = handlers->connection_destroyed;
 
-	qb_hdb_handle_put(&qb_ipc_services, pt);
+	qb_list_init(&s->connections);
+
+	qb_hdb_handle_put(&qb_ipc_services, h);
+
+	return h;
 }
 
 void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt pt,
@@ -202,6 +197,11 @@ void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 	} else {
 		// unlock
 	}
+}
+
+int32_t qb_ipcs_service_id_get(struct qb_ipcs_connection *c)
+{
+	return c->service->service_id;
 }
 
 void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
