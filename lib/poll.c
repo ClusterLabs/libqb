@@ -437,6 +437,24 @@ static int32_t _qb_poll_job_run(struct qb_poll_instance *poll_instance)
 	}
 	return (jobs_run > 0);
 }
+
+int32_t qb_poll_low_fds_event_set(
+	qb_handle_t handle,
+	qb_poll_low_fds_event_fn fn)
+{
+	struct qb_poll_instance *poll_instance;
+
+	if (qb_hdb_handle_get (&poll_instance_database, handle,
+		(void *)&poll_instance) != 0) {
+		return -ENOENT;
+	}
+
+	poll_instance->low_fds_event_fn = fn;
+
+	qb_hdb_handle_put (&poll_instance_database, handle);
+	return 0;
+}
+
 /* logs, std(in|out|err), pipe */
 #define POLL_FDS_USED_MISC 50
 
