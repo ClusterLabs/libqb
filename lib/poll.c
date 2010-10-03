@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <sys/poll.h>
 
+#include <qb/qbdefs.h>
 #include <qb/qbhdb.h>
 #include <qb/qbpoll.h>
 #include <qb/qblist.h>

@@ -35,11 +35,6 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-#define QB_ROUNDUP(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
-#define QB_MAX(a, b)  (((a) > (b)) ? (a) : (b))
-#define QB_MIN(a, b)  (((a) < (b)) ? (a) : (b))
-#define	QB_FALSE (0)
-#define	QB_TRUE (!QB_FALSE)
 /**
  * @typedef qb_thread_lock_type_t
  * QB_THREAD_LOCK_SHORT is a short term lock (spinlock if available on your system)

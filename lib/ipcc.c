@@ -23,6 +23,7 @@
 #include <mqueue.h>
 #include "ipc_int.h"
 #include "util_int.h"
+#include <qb/qbdefs.h>
 #include <qb/qbipcc.h>
 
 qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)

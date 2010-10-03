@@ -24,6 +24,7 @@
 #include <sys/resource.h>
 #include "ipc_int.h"
 #include "util_int.h"
+#include <qb/qbdefs.h>
 #include <qb/qbpoll.h>
 
 static ssize_t qb_ipcs_pmq_event_send(struct qb_ipcs_connection *c,

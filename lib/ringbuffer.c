@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ringbuffer_int.h"
+#include <qb/qbdefs.h>
 
 //#define CRAZY_DEBUG_PRINTFS 1
 #ifdef CRAZY_DEBUG_PRINTFS
