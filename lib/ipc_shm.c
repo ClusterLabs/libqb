@@ -36,9 +36,9 @@
  */
 static void qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
-	qb_rb_close(c->request.u.shm.rb);
-	qb_rb_close(c->response.u.shm.rb);
-	qb_rb_close(c->event.u.shm.rb);
+	qb_rb_close(c->request.u.shm.rb, QB_FALSE);
+	qb_rb_close(c->response.u.shm.rb, QB_FALSE);
+	qb_rb_close(c->event.u.shm.rb, QB_FALSE);
 }
 
 static ssize_t qb_ipc_shm_send(struct qb_ipc_one_way *one_way,
@@ -133,10 +133,10 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	return 0;
 
 cleanup_request_response:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(c->response.u.shm.rb, QB_FALSE);
 
 cleanup_request:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(c->request.u.shm.rb, QB_FALSE);
 
 	qb_util_log(LOG_DEBUG, "connection failed %d\n", res);
 
@@ -151,17 +151,29 @@ cleanup_request:
 static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
 	struct qb_ipc_response_header msg;
+	int32_t peer_alive = QB_TRUE;
+
+	if (c->sock == -1) {
+		peer_alive = QB_FALSE;
+	}
 
 	msg.id = QB_IPC_MSG_DISCONNECT;
 	msg.size = sizeof(msg);
 	msg.error = 0;
 
 	if (c->response.u.shm.rb) {
-		qb_ipc_shm_send(&c->event, &msg, msg.size);
-		qb_rb_close(c->response.u.shm.rb);
+		if (peer_alive) {
+			qb_ipc_shm_send(&c->event, &msg, msg.size);
+			qb_rb_close(c->response.u.shm.rb, QB_FALSE);
+		} else {
+			qb_rb_close(c->response.u.shm.rb, QB_TRUE);
+		}
 	}
 	if (c->event.u.shm.rb) {
-		qb_rb_close(c->event.u.shm.rb);
+		qb_rb_close(c->event.u.shm.rb, !peer_alive);
+	}
+	if (c->request.u.shm.rb) {
+		qb_rb_close(c->request.u.shm.rb, !peer_alive);
 	}
 }
 
@@ -237,10 +249,10 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	return 0;
 
 cleanup_request_response:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(c->request.u.shm.rb, QB_FALSE);
 
 cleanup_request:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(c->response.u.shm.rb, QB_FALSE);
 
 cleanup:
 	r->hdr.error = res;

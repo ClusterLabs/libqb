@@ -199,7 +199,7 @@ cleanup_hdr:
 	return NULL;
 }
 
-void qb_rb_close(qb_ringbuffer_t * rb)
+void qb_rb_close(qb_ringbuffer_t * rb, int32_t force_it)
 {
 	int32_t destroy_it = 0;
 
@@ -211,7 +211,7 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 	}
 	rb->unlock_fn(rb);
 
-	if (destroy_it) {
+	if (destroy_it || force_it) {
 		qb_util_log(LOG_DEBUG, "Destroying ringbuffer");
 		rb->lock_destroy_fn(rb);
 		rb->sem_destroy_fn(rb);

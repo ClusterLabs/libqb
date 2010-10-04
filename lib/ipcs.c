@@ -278,6 +278,9 @@ int32_t qb_ipcs_dispatch_connection_request(qb_handle_t handle,
 
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "%s HUP", __func__);
+		qb_ipcc_us_disconnect(c->sock);
+		c->sock = -1;
+		qb_ipcs_connection_ref_dec(c);
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}

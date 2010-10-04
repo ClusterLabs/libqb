@@ -217,13 +217,12 @@ static void qb_ipcc_pmq_disconnect(struct qb_ipcc_connection *c)
 	mq_send(c->request.u.pmq.q, (const char *)&hdr, hdr.size, 30);
 
 	mq_close(c->event.u.pmq.q);
-	mq_unlink(c->event.u.pmq.name);
-
 	mq_close(c->response.u.pmq.q);
-	mq_unlink(c->response.u.pmq.name);
-
 	mq_close(c->request.u.pmq.q);
+
+	mq_unlink(c->event.u.pmq.name);
 	mq_unlink(c->request.u.pmq.name);
+	mq_unlink(c->response.u.pmq.name);
 }
 
 int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c,
@@ -288,6 +287,14 @@ static void qb_ipcs_pmq_disconnect(struct qb_ipcs_connection *c)
 	msg.error = 0;
 
 	qb_ipc_pmq_send(&c->event, &msg, msg.size);
+
+	mq_close(c->event.u.pmq.q);
+	mq_close(c->response.u.pmq.q);
+	mq_close(c->request.u.pmq.q);
+
+	mq_unlink(c->event.u.pmq.name);
+	mq_unlink(c->request.u.pmq.name);
+	mq_unlink(c->response.u.pmq.name);
 }
 
 static void qb_ipcs_pmq_destroy(struct qb_ipcs_service *s)

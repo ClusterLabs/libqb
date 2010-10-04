@@ -244,6 +244,7 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 
 	msgctl(c->event.u.smq.q, IPC_RMID, NULL);
 	msgctl(c->response.u.smq.q, IPC_RMID, NULL);
+	msgctl(c->request.u.smq.q, IPC_RMID, NULL);
 }
 
 int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection *c,
@@ -298,15 +299,17 @@ static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 {
 	struct qb_ipc_response_header msg;
 
-	if (c->service->needs_sock_for_poll) {
-		return;
+	if (c->sock != -1) {
+		msg.id = QB_IPC_MSG_DISCONNECT;
+		msg.size = sizeof(msg);
+		msg.error = 0;
+
+		qb_ipc_smq_send(&c->event, &msg, msg.size);
+	} else {
+		msgctl(c->event.u.smq.q, IPC_RMID, NULL);
+		msgctl(c->response.u.smq.q, IPC_RMID, NULL);
+		msgctl(c->request.u.smq.q, IPC_RMID, NULL);
 	}
-
-	msg.id = QB_IPC_MSG_DISCONNECT;
-	msg.size = sizeof(msg);
-	msg.error = 0;
-
-	qb_ipc_smq_send(&c->event, &msg, msg.size);
 }
 
 static void qb_ipcs_smq_destroy(struct qb_ipcs_service *s)

@@ -88,7 +88,6 @@ struct qb_ipc_one_way {
 		} smq;
 		struct {
 			qb_ringbuffer_t *rb;
-			char name[NAME_MAX];
 		} shm;
 	} u;
 };

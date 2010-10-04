@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+
+#include <qb/qbdefs.h>
 #include <qb/qbrb.h>
 #include <qb/qbutil.h>
 
@@ -13,7 +15,7 @@ static qb_ringbuffer_t *rb = NULL;
 static void sigterm_handler(int32_t num)
 {
 	printf("reader: %s(%d)\n", __func__, num);
-	qb_rb_close(rb);
+	qb_rb_close(rb, QB_FALSE);
 	exit(0);
 }
 
@@ -49,6 +51,6 @@ int32_t main(int32_t argc, char *argv[])
 			//usleep(1);
 		}
 	}
-	qb_rb_close(rb);
+	qb_rb_close(rb, QB_FALSE);
 	return 0;
 }

@@ -80,7 +80,7 @@ START_TEST(test_ring_buffer1)
 			ck_assert_int_eq(actual, hdr->size);
 		}
 	}
-	qb_rb_close(rb);
+	qb_rb_close(rb, QB_FALSE);
 }
 END_TEST
 
@@ -125,7 +125,7 @@ START_TEST(test_ring_buffer2)
 		fail_unless(v == *new_data);
 		qb_rb_chunk_reclaim(t);
 	}
-	qb_rb_close(t);
+	qb_rb_close(t, QB_FALSE);
 }
 END_TEST
 
@@ -156,7 +156,7 @@ START_TEST(test_ring_buffer3)
 		ck_assert_int_eq(l, len);
 		ck_assert_str_eq(v, out);
 	}
-	qb_rb_close(t);
+	qb_rb_close(t, QB_FALSE);
 }
 END_TEST
 
@@ -185,7 +185,7 @@ START_TEST(test_ring_buffer4)
 		ck_assert_int_eq(l, strlen(data));
 		qb_rb_chunk_reclaim(t);
 	}
-	qb_rb_close(t);
+	qb_rb_close(t, QB_FALSE);
 }
 END_TEST
 
