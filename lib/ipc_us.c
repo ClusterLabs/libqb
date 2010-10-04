@@ -53,6 +53,16 @@ static void socket_nosigpipe(int32_t s)
 }
 #endif
 
+static void set_cloexec_flag(int32_t fd)
+{
+	int32_t oldflags = fcntl(fd, F_GETFD, 0);
+	if (oldflags < 0) {
+		oldflags = 0;
+	}
+	oldflags |= FD_CLOEXEC;
+	fcntl(fd, F_SETFD, oldflags);
+}
+
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -291,6 +301,7 @@ int32_t qb_ipcc_us_connect(const char *socket_name, int32_t * sock_pt)
 #ifdef SO_NOSIGPIPE
 	socket_nosigpipe(request_fd);
 #endif /* SO_NOSIGPIPE */
+	set_cloexec_flag(request_fd);
 
 	memset(&address, 0, sizeof(struct sockaddr_un));
 	address.sun_family = AF_UNIX;
@@ -424,6 +435,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		return res;
 	}
 
+	set_cloexec_flag(s->server_sock);
 	res = fcntl(s->server_sock, F_SETFL, O_NONBLOCK);
 	if (res == -1) {
 		res = -errno;
@@ -534,6 +546,7 @@ retry_accept:
 		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
 
+	set_cloexec_flag(new_fd);
 	res = fcntl(new_fd, F_SETFL, O_NONBLOCK);
 	if (res == -1) {
 		strerror_r(errno, error_str, 100);
