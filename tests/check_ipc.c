@@ -318,12 +318,12 @@ static Suite *ipc_suite(void)
 	tcase_add_test(tc, test_ipc_txrx_shm);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
-
+#if 0
 	tc = tcase_create("ipc_txrx_posix_mq");
 	tcase_add_test(tc, test_ipc_txrx_pmq);
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
-
+#endif
 	tc = tcase_create("ipc_txrx_sysv_mq");
 	tcase_add_test(tc, test_ipc_txrx_smq);
 	tcase_set_timeout(tc, 10);
