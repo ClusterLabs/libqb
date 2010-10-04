@@ -6,8 +6,8 @@ Version: @version@
 Release: 1%{?alphatag:.%{alphatag}}%{?dist}
 License: LGPL-2.1
 Group: System Environment/Libraries
-URL: http://www.openais.org
-Source0: http://developer.osdl.org/dev/openais/downloads/%{name}-%{version}/%{name}-%{version}.tar.gz
+URL: http://www.libqb.org
+Source0: https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}.tar.gz
 
 BuildRequires: autoconf automake
 
@@ -67,22 +67,16 @@ The Quarterback APIs.
 %{_libdir}/libqb.so
 %{_libdir}/libqb.la
 %{_libdir}/pkgconfig/libqb.pc
-%{_includedir}/qb/qbtsafe.h
 %{_includedir}/qb/qbpoll.h
 %{_includedir}/qb/qbhdb.h
 %{_includedir}/qb/qblist.h
 %{_includedir}/qb/qbtimer.h
-%{_includedir}/qb/qbplugin.h
-%{_includedir}/qb/qbplugin_comp.h
 %{_includedir}/qb/qbipcc.h
 %{_includedir}/qb/qbipcs.h
 %{_includedir}/qb/qbipc_common.h
-%{_includedir}/qb/qbqueue.h
-%{_includedir}/qb/qbwthread.h
-%{_includedir}/qb/qblogsys.h
-%{_includedir}/qb/qbhash.h
 %{_includedir}/qb/qbrb.h
 %{_includedir}/qb/qbutil.h
+%{_includedir}/qb/qbdefs.h
 %{_mandir}/man3/qb*3*
 
 %changelog
