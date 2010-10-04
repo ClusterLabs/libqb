@@ -247,17 +247,15 @@ get_msg_with_live_connection:
 		goto cleanup;
 	}
 
-	switch (hdr->id) {
-	case QB_IPC_MSG_DISCONNECT:
+	qb_util_log(LOG_DEBUG, "%s() service:%d msg:%d", __func__,
+			c->service->service_id, hdr->id);
+	if (hdr->id == QB_IPC_MSG_DISCONNECT) {
 		qb_util_log(LOG_DEBUG, "%s() QB_IPC_MSG_DISCONNECT", __func__);
 		qb_ipcs_disconnect(c);
 		res = -ESHUTDOWN;
-		break;
-
-	case QB_IPC_MSG_NEW_MESSAGE:
-	default:
+	} else {
 		c->service->serv_fns.msg_process(c, hdr, hdr->size);
-		break;
+		res = 0;
 	}
 cleanup:
 	qb_ipcs_connection_ref_dec(c);
