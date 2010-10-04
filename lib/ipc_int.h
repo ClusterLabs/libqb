@@ -168,6 +168,7 @@ struct qb_ipcs_connection {
 	struct qb_ipcs_service *service;
 	struct qb_list_head list;
 	char *receive_buf;
+	void *context;
 };
 
 int32_t qb_ipcs_pmq_create(struct qb_ipcs_service *s);

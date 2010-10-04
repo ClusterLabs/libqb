@@ -289,3 +289,14 @@ int32_t qb_ipcs_dispatch_connection_request(qb_handle_t handle,
 
 	return _process_request_(c);
 }
+
+void qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
+{
+	c->context = context;
+}
+
+void *qb_ipcs_context_get(struct qb_ipcs_connection *c)
+{
+	return c->context;
+}
+

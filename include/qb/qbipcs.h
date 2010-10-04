@@ -141,6 +141,11 @@ void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
  */
 int32_t qb_ipcs_service_id_get(qb_ipcs_connection_t *c);
 
+void qb_ipcs_context_set(qb_ipcs_connection_t *c, void *context);
+
+void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
+
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }
