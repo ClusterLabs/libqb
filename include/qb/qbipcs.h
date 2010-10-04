@@ -112,13 +112,17 @@ void qb_ipcs_destroy(qb_ipcs_service_pt s);
 /**
  * send a response to a incomming request.
  */
-ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, void *data, size_t size);
+ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
 /**
  * Send an asyncronous event message to the client.
  */
-ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, void *data, size_t size);
+ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
+/**
+ * Send an asyncronous event message to the client.
+ */
+ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
 
 /**
  * Increment the connection's reference counter.

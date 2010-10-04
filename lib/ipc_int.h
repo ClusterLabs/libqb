@@ -75,41 +75,40 @@ struct qb_ipc_connection_response {
 
 struct qb_ipcc_connection;
 
-struct qb_ipcc_funcs {
-	int32_t (*send)(struct qb_ipcc_connection* c, const void *msg_ptr,
-		size_t msg_len);
-	ssize_t (*recv)(struct qb_ipcc_connection* c, void *msg_ptr,
-		size_t msg_len);
-	ssize_t (*event_recv)(struct qb_ipcc_connection* c, void **data_out,
-		int32_t timeout);
-	void (*event_release)(struct qb_ipcc_connection* c);
-	void (*disconnect)(struct qb_ipcc_connection* c);
+struct qb_ipc_one_way {
+	size_t max_msg_size;
+	union {
+		struct {
+			mqd_t q;
+			char name[NAME_MAX];
+		} pmq;
+		struct {
+			int32_t q;
+			int32_t key;
+		} smq;
+		struct {
+			qb_ringbuffer_t *rb;
+			char name[NAME_MAX];
+		} shm;
+	} u;
 };
 
-union qb_ipc_one_way {
-	struct {
-		mqd_t q;
-		char name[NAME_MAX];
-	} pmq;
-	struct {
-		int32_t q;
-		int32_t key;
-	} smq;
-	struct {
-		qb_ringbuffer_t *rb;
-		char name[NAME_MAX];
-	} shm;
+struct qb_ipcc_funcs {
+	ssize_t (*recv)(struct qb_ipc_one_way *one_way, void *buf, size_t buf_size);
+	ssize_t (*send)(struct qb_ipc_one_way *one_way, const void *data, size_t size);
+	ssize_t (*sendv)(struct qb_ipc_one_way *one_way, const struct iovec *iov, size_t iov_len);
+	void (*event_release)(struct qb_ipcc_connection* c);
+	void (*disconnect)(struct qb_ipcc_connection* c);
 };
 
 struct qb_ipcc_connection {
 	char name[NAME_MAX];
 	enum qb_ipc_type type;
-	size_t max_msg_size;
 	int32_t needs_sock_for_poll;
 	int32_t sock;
-	union qb_ipc_one_way request;
-	union qb_ipc_one_way response;
-	union qb_ipc_one_way event;
+	struct qb_ipc_one_way request;
+	struct qb_ipc_one_way response;
+	struct qb_ipc_one_way event;
 	struct qb_ipcc_funcs funcs;
 	char *receive_buf;
 };
@@ -136,9 +135,9 @@ struct qb_ipcs_funcs {
 	int32_t (*connect)(struct qb_ipcs_service *s, struct qb_ipcs_connection *c,
 		struct qb_ipc_connection_response *r);
 	void (*disconnect)(struct qb_ipcs_connection *c);
-	ssize_t (*request_recv)(struct qb_ipcs_connection *c, void *buf, size_t buf_size);
-	ssize_t (*response_send)(struct qb_ipcs_connection *c, void *data, size_t size);
-	ssize_t (*event_send)(struct qb_ipcs_connection *c, void *data, size_t size);
+	ssize_t (*recv)(struct qb_ipc_one_way *one_way, void *buf, size_t buf_size);
+	ssize_t (*send)(struct qb_ipc_one_way *one_way, const void *data, size_t size);
+	ssize_t (*sendv)(struct qb_ipc_one_way *one_way, const struct iovec* iov, size_t iov_len);
 };
 
 struct qb_ipcs_service {
@@ -163,10 +162,9 @@ struct qb_ipcs_connection {
 	uid_t euid;
 	gid_t egid;
 	int32_t sock;
-	size_t max_msg_size;
-	union qb_ipc_one_way request;
-	union qb_ipc_one_way response;
-	union qb_ipc_one_way event;
+	struct qb_ipc_one_way request;
+	struct qb_ipc_one_way response;
+	struct qb_ipc_one_way event;
 	struct qb_ipcs_service *service;
 	struct qb_list_head list;
 	char *receive_buf;

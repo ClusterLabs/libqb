@@ -126,28 +126,45 @@ static void qb_ipcs_destroy_internal(void *data)
 	s->funcs.destroy(s);
 }
 
-ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, void *data,
+ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 			      size_t size)
 {
 	ssize_t res;
 
 	qb_ipcs_connection_ref_inc(c);
-	res = c->service->funcs.response_send(c, data, size);
+	res = c->service->funcs.send(&c->response, data, size);
 	qb_ipcs_connection_ref_dec(c);
 
 	return res;
 }
 
-ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, void *data,
+ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 			   size_t size)
 {
 	ssize_t res;
 
 	qb_ipcs_connection_ref_inc(c);
-	res = c->service->funcs.event_send(c, data, size);
+	res = c->service->funcs.send(&c->event, data, size);
 
 	if (c->service->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, data, 1);
+	}
+
+	qb_ipcs_connection_ref_dec(c);
+
+	return res;
+}
+
+
+ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len)
+{
+	ssize_t res;
+
+	qb_ipcs_connection_ref_inc(c);
+	res = c->service->funcs.sendv(&c->event, iov, iov_len);
+
+	if (c->service->needs_sock_for_poll) {
+		qb_ipc_us_send(c->sock, &res, 1);
 	}
 
 	qb_ipcs_connection_ref_dec(c);
@@ -221,11 +238,12 @@ static int32_t _process_request_(struct qb_ipcs_connection *c)
 
 	qb_ipcs_connection_ref_inc(c);
 get_msg_with_live_connection:
-	res = c->service->funcs.request_recv(c, hdr, c->max_msg_size);
+	res = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size);
 	if (res == -EAGAIN) {
 		goto get_msg_with_live_connection;
 	}
 	if (res < 0) {
+		qb_util_log(LOG_DEBUG, "%s(): %s", __func__, strerror(-res));
 		goto cleanup;
 	}
 

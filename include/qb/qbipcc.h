@@ -36,22 +36,70 @@ extern "C" {
 
 typedef struct qb_ipcc_connection qb_ipcc_connection_t;
 
+/**
+ * Create a connection to an IPC service.
+ * @param name name of the service.
+ * @param max_msg_size biggest msg size.
+ * @return NULL (error: see errno) or a connection object.
+ */
 qb_ipcc_connection_t*
 qb_ipcc_connect(const char *name, size_t max_msg_size);
 
+/**
+ * Disconnect an IPC connection.
+ * @param c connection instance
+ */
 void qb_ipcc_disconnect(qb_ipcc_connection_t* c);
 
-int32_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
+/**
+ * get the file descriptor to poll.
+ * @param c connection instance
+ * @param fd (out) file descriptor to poll
+ */
+int32_t qb_ipcc_fd_get(qb_ipcc_connection_t* c, int32_t * fd);
+
+/**
+ * Send a message.
+ * @param c connection instance
+ * @param msg_ptr pointer to a message to send
+ * @param msg_len the size of the message
+ * @return (0 == OK, -errno == error)
+ */
+ssize_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
                      size_t msg_len);
+/**
+ * Send a message (iovec).
+ * @param c connection instance
+ * @param iov pointer to an iovec struct to send
+ * @param iov_len the number of iovecs used
+ * @return (0 == OK, -errno == error)
+ */
+ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
+	size_t iov_len);
+/**
+ * Receive a response.
+ * @param c connection instance
+ * @param msg_ptr pointer to a message buffer to receive into
+ * @param msg_len the size of the buffer
+ * @return (0 == OK, -errno == error)
+ */
 ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
                      size_t msg_len);
 
-int32_t qb_ipcc_fd_get(qb_ipcc_connection_t* c, int32_t * fd);
+/**
+ * Receive an event.
+ * @param c connection instance
+ * @param data_out (out) pointer to received event message
+ * @param timeout time to wait for a message.
+ * @return size of the message or error (-errno)
+ */
+ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void **data_out, int32_t timeout);
 
-int32_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void **data_out, int32_t timeout);
-
+/**
+ * Cleanup after receiving an event.
+ * @param c connection instance
+ */
 void qb_ipcc_event_release(qb_ipcc_connection_t* c);
-
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

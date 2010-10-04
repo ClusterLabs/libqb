@@ -37,6 +37,8 @@
 #include <sys/types.h>
 #endif /* HAVE_SYS_TYPES_H */
 
+#include <sys/uio.h>
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif /* HAVE_STDINT_H */

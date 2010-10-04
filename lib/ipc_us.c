@@ -208,7 +208,9 @@ static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
 		res = -EIO;
 		goto cleanup_and_return;
 	}
-	c->max_msg_size = setup_msg.max_msg_size;
+	c->request.max_msg_size = setup_msg.max_msg_size;
+	c->response.max_msg_size = setup_msg.max_msg_size;
+	c->event.max_msg_size = setup_msg.max_msg_size;
 	res = -EBADMSG;
 
 	/*
@@ -570,7 +572,7 @@ retry_accept:
 		}
 
 		qb_list_add(&c->list, &s->connections);
-		c->receive_buf = malloc(c->max_msg_size);
+		c->receive_buf = malloc(c->request.max_msg_size);
 
 		if (s->needs_sock_for_poll) {
 			qb_poll_dispatch_add(s->poll_handle, c->sock,
@@ -585,7 +587,7 @@ send_response:
 	response.hdr.size = sizeof(response);
 	response.hdr.error = res;
 	response.connection_type = s->type;
-	response.max_msg_size = c->max_msg_size;
+	response.max_msg_size = c->request.max_msg_size;
 
 	qb_ipc_us_send(c->sock, &response, response.hdr.size);
 

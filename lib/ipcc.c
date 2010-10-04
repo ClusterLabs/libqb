@@ -77,8 +77,10 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	qb_util_log(LOG_DEBUG, "%s() max_msg_size:%zu actual:%u", __func__,
 		    max_msg_size, response.max_msg_size);
 
-	c->max_msg_size = response.max_msg_size;
-	c->receive_buf = malloc(c->max_msg_size);
+	c->response.max_msg_size = response.max_msg_size;
+	c->request.max_msg_size = response.max_msg_size;
+	c->event.max_msg_size = response.max_msg_size;
+	c->receive_buf = malloc(response.max_msg_size);
 
 	switch (c->type) {
 	case QB_IPC_SHM:
@@ -106,18 +108,39 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	return c;
 }
 
-int32_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
+ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 		     size_t msg_len)
 {
 	ssize_t res;
 
-	if (msg_len > c->max_msg_size) {
+	if (msg_len > c->request.max_msg_size) {
 		return -EINVAL;
 	}
 
-	res = c->funcs.send(c, msg_ptr, msg_len);
+	res = c->funcs.send(&c->request, msg_ptr, msg_len);
 	if (res > 0 && c->needs_sock_for_poll) {
 		qb_ipc_us_send(c->sock, msg_ptr, 1);
+	}
+	return res;
+}
+
+ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
+	size_t iov_len)
+{
+	int32_t total_size = 0;
+	int32_t i;
+	int32_t res;
+
+	for (i = 0; i < iov_len; i++) {
+		total_size += iov[i].iov_len;
+	}
+	if (total_size > c->request.max_msg_size) {
+		return -EINVAL;
+	}
+
+	res = c->funcs.sendv(&c->request, iov, iov_len);
+	if (res > 0 && c->needs_sock_for_poll) {
+		qb_ipc_us_send(c->sock, &res, 1);
 	}
 	return res;
 }
@@ -125,7 +148,7 @@ int32_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		     size_t msg_len)
 {
-	return c->funcs.recv(c, msg_ptr, msg_len);
+	return c->funcs.recv(&c->response, msg_ptr, msg_len);
 }
 
 int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
@@ -138,7 +161,7 @@ int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 	return 0;
 }
 
-int32_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void **data_out,
+ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void **data_out,
 			   int32_t timeout)
 {
 	char one_byte = 1;
@@ -146,7 +169,7 @@ int32_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void **data_out,
 	if (c->needs_sock_for_poll) {
 		qb_ipc_us_recv(c->sock, &one_byte, 1);
 	}
-	return c->funcs.event_recv(c, data_out, timeout);
+	return c->funcs.recv(&c->event, data_out, timeout);
 }
 
 void qb_ipcc_event_release(struct qb_ipcc_connection *c)
