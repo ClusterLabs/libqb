@@ -19,8 +19,8 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TLIST_H_DEFINED
-#define TLIST_H_DEFINED
+#ifndef QB_TLIST_H_DEFINED
+#define QB_TLIST_H_DEFINED
 
 #include <sys/time.h>
 #include <stdio.h>
@@ -30,6 +30,7 @@
 #include <sys/param.h>
 #include <unistd.h>
 
+#include <qb/qbdefs.h>
 #include <qb/qblist.h>
 
 #ifndef HZ
@@ -41,12 +42,6 @@ typedef void *timer_handle;
 #define TIMER_HANDLE
 #endif
 
-#define TIMERLIST_MS_IN_SEC   1000ULL
-#define TIMERLIST_US_IN_SEC   1000000ULL
-#define TIMERLIST_NS_IN_SEC   1000000000ULL
-#define TIMERLIST_US_IN_MSEC  1000ULL
-#define TIMERLIST_NS_IN_MSEC  1000000ULL
-#define TIMERLIST_NS_IN_USEC  1000ULL
 
 struct timerlist {
 	struct qb_list_head timer_head;
@@ -73,8 +68,8 @@ static inline uint64_t timerlist_nano_from_epoch(void)
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
 
-	nano_from_epoch = ((time_from_epoch.tv_sec * TIMERLIST_NS_IN_SEC) +
-			   (time_from_epoch.tv_usec * TIMERLIST_NS_IN_USEC));
+	nano_from_epoch = ((time_from_epoch.tv_sec * QB_TIME_NS_IN_SEC) +
+			   (time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
 
 	return (nano_from_epoch);
 }
@@ -88,7 +83,7 @@ static inline uint64_t timerlist_nano_current_get(void)
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
 	nano_monotonic =
-	    (ts.tv_sec * TIMERLIST_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
+	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
 	return (nano_monotonic);
 }
 
@@ -100,7 +95,7 @@ static inline uint64_t timerlist_nano_monotonic_hz(void)
 	clock_getres(CLOCK_MONOTONIC, &ts);
 
 	nano_monotonic_hz =
-	    TIMERLIST_NS_IN_SEC / ((ts.tv_sec * TIMERLIST_NS_IN_SEC) +
+	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) +
 				   ts.tv_nsec);
 
 	return (nano_monotonic_hz);
@@ -276,7 +271,7 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct
 
 	msec_duration_to_expire =
 	    ((timer_from_list->expire_time -
-	      current_time) / TIMERLIST_NS_IN_MSEC) + (1000 / HZ);
+	      current_time) / QB_TIME_NS_IN_MSEC) + (1000 / HZ);
 	return (msec_duration_to_expire);
 }
 
@@ -318,4 +313,4 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 	}
 	timerlist->timer_iter = 0;
 }
-#endif /* TLIST_H_DEFINED */
+#endif /* QB_TLIST_H_DEFINED */

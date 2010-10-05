@@ -107,6 +107,9 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
  */
 int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes);
 
+
+void qb_timespec_add_ms(struct timespec *ts, int32_t ms);
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

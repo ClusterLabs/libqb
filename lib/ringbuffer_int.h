@@ -83,6 +83,4 @@ union semun {
 };
 #endif /* _SEM_SEMUN_UNDEFINED */
 
-#define RB_NS_IN_MSEC  1000000ULL
-
 #endif /* _RINGBUFFER_H_ */

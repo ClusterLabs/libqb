@@ -37,9 +37,8 @@ static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 	int32_t res;
 
 	if (ms_timeout > 0) {
-		ts_timeout.tv_sec = time(NULL);
-		ts_timeout.tv_sec += (ms_timeout / 1000);
-		ts_timeout.tv_nsec = (ms_timeout % 1000) * RB_NS_IN_MSEC;
+		clock_gettime(CLOCK_REALTIME, &ts_timeout);
+		qb_timespec_add_ms(&ts_timeout, ms_timeout);
 	}
 
 sem_wait_again:
@@ -85,8 +84,8 @@ static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 		 * takes a relative time.
 		 */
 		ts_timeout.tv_sec = 0;
-		ts_timeout.tv_sec += (ms_timeout / 1000);
-		ts_timeout.tv_nsec = (ms_timeout % 1000) * RB_NS_IN_MSEC;
+		ts_timeout.tv_nsec = 0;
+		qb_timespec_add_ms(&ts_timeout, ms_timeout);
 		ts_pt = &ts_timeout;
 	} else {
 		ts_pt = NULL;

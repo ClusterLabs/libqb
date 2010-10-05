@@ -33,12 +33,29 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+/*
+ * simple math macros
+ */
 #define QB_ROUNDUP(x, y)	((((x) + ((y) - 1)) / (y)) * (y))
 #define QB_ABS(i)		(((i) < 0) ? -(i) : (i))
 #define QB_MAX(a, b)		(((a) > (b)) ? (a) : (b))
 #define QB_MIN(a, b)		(((a) < (b)) ? (a) : (b))
+
+/*
+ * the usual boolean defines
+ */
 #define	QB_FALSE		0
 #define	QB_TRUE			(!QB_FALSE)
+
+/*
+ * handy time based converters.
+ */
+#define QB_TIME_MS_IN_SEC   1000ULL
+#define QB_TIME_US_IN_SEC   1000000ULL
+#define QB_TIME_NS_IN_SEC   1000000000ULL
+#define QB_TIME_US_IN_MSEC  1000ULL
+#define QB_TIME_NS_IN_MSEC  1000000ULL
+#define QB_TIME_NS_IN_USEC  1000ULL
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
