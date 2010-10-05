@@ -162,14 +162,19 @@ int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 }
 
 ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
-			   size_t msg_len, int32_t timeout)
+			   size_t msg_len, int32_t ms_timeout)
 {
 	char one_byte = 1;
+	int32_t res = 0;
 
 	if (c->needs_sock_for_poll) {
+		res = qb_ipc_us_recv_ready(c->sock, ms_timeout);
+		if (res < 0) {
+			return res;
+		}
 		qb_ipc_us_recv(c->sock, &one_byte, 1);
 	}
-	return c->funcs.recv(&c->event, msg_pt, msg_len, timeout);
+	return c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
 }
 
 void qb_ipcc_event_release(struct qb_ipcc_connection *c)

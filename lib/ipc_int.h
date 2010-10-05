@@ -116,6 +116,7 @@ struct qb_ipcc_connection {
 int32_t qb_ipc_us_send(int32_t s, const void *msg, size_t len);
 
 int32_t qb_ipc_us_recv (int32_t s, void *msg, size_t len);
+int32_t qb_ipc_us_recv_ready(int32_t s, int32_t ms_timeout);
 
 int32_t qb_ipcc_us_connect(const char *socket_name, int32_t *sock_pt);
 

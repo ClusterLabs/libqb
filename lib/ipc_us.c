@@ -143,6 +143,28 @@ retry_recv:
 	return processed;
 }
 
+
+int32_t qb_ipc_us_recv_ready(int32_t s, int32_t ms_timeout)
+{
+	struct pollfd ufds;
+	int32_t poll_events;
+
+	ufds.fd = s;
+	ufds.events = POLLIN;
+	ufds.revents = 0;
+
+	poll_events = poll (&ufds, 1, ms_timeout);
+	if ((poll_events == -1 && errno == EINTR) ||
+		poll_events == 0) {
+		return -EAGAIN;
+	} else if (poll_events == -1) {
+		return -errno;
+	} else if (poll_events == 1 && (ufds.revents & (POLLERR|POLLHUP))) {
+		return -ESHUTDOWN;
+	}
+	return 0;
+}
+
 int32_t qb_ipc_us_recv(int32_t s, void *msg, size_t len)
 {
 	struct msghdr msg_recv;
