@@ -144,11 +144,9 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 	ssize_t res;
 
 	qb_ipcs_connection_ref_inc(c);
-	res = c->service->funcs.send(&c->event, data, size);
 
-	if (c->service->needs_sock_for_poll) {
-		qb_ipc_us_send(c->sock, data, 1);
-	}
+	res = c->service->funcs.send(&c->event, data, size);
+	qb_ipc_us_send(c->sock, data, 1);
 
 	qb_ipcs_connection_ref_dec(c);
 
@@ -161,11 +159,9 @@ ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, s
 	ssize_t res;
 
 	qb_ipcs_connection_ref_inc(c);
-	res = c->service->funcs.sendv(&c->event, iov, iov_len);
 
-	if (c->service->needs_sock_for_poll) {
-		qb_ipc_us_send(c->sock, &res, 1);
-	}
+	res = c->service->funcs.sendv(&c->event, iov, iov_len);
+	qb_ipc_us_send(c->sock, &res, 1);
 
 	qb_ipcs_connection_ref_dec(c);
 

@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 #include "config.h"
+
 #include <dirent.h>
 #include <mqueue.h>
 #include <qb/qblist.h>
@@ -70,8 +71,6 @@ struct qb_ipc_connection_response {
         char response[PATH_MAX] __attribute__ ((aligned(8)));
         char event[PATH_MAX] __attribute__ ((aligned(8)));
 } __attribute__ ((aligned(8)));
-
-
 
 struct qb_ipcc_connection;
 

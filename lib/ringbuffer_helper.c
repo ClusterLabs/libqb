@@ -377,7 +377,6 @@ int32_t qb_rb_lock_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 #if _POSIX_THREAD_PROCESS_SHARED > 0
 	can_use_shared_posix = 1;
 #endif
-
 	if (((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) &&
 	    (rb->flags & QB_RB_FLAG_SHARED_THREAD) == 0) {
 		rb->lock_fn = my_null_fn;

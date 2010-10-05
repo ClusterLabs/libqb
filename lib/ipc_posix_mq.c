@@ -80,7 +80,7 @@ static int32_t posix_mq_open(struct qb_ipc_one_way *one_way,
 	if (res != 0) {
 		return res;
 	}
-	one_way->u.pmq.q = mq_open(name, O_RDWR | O_NONBLOCK);
+	one_way->u.pmq.q = mq_open(name, O_RDWR);
 	if (one_way->u.pmq.q == (mqd_t) - 1) {
 		res = -errno;
 		perror("mq_open");
@@ -399,14 +399,6 @@ cleanup:
 
 	return res;
 }
-
-#warning TODO implement this.
-#if 0
-static int32_t qb_ipcc_pmq_fd_get(struct qb_ipcc_connection *c)
-{
-	return c->response.u.pmq.q;
-}
-#endif
 
 int32_t qb_ipcs_pmq_create(struct qb_ipcs_service * s)
 {

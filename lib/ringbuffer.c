@@ -273,12 +273,6 @@ ssize_t qb_rb_space_free(qb_ringbuffer_t * rb)
 	return space_free;
 }
 
-/*
- * TODO write a function that returns the number of chunks
- * in the rb.
- *
- */
-
 static size_t _qb_rb_space_used_locked_(qb_ringbuffer_t * rb)
 {
 	uint32_t write_size;
