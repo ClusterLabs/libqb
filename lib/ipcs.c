@@ -238,7 +238,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c)
 
 	qb_ipcs_connection_ref_inc(c);
 get_msg_with_live_connection:
-	res = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size);
+	res = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size, 0);
 	if (res == -EAGAIN) {
 		goto get_msg_with_live_connection;
 	}

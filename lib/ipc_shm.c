@@ -79,12 +79,13 @@ static ssize_t qb_ipc_shm_sendv(struct qb_ipc_one_way *one_way,
 
 static ssize_t qb_ipc_shm_recv(struct qb_ipc_one_way *one_way,
 				void *msg_ptr,
-				size_t msg_len)
+				size_t msg_len,
+				int32_t ms_timeout)
 {
 	ssize_t res = qb_rb_chunk_read(one_way->u.shm.rb,
 				       (void *)msg_ptr,
 				       msg_len,
-				       0);
+				       ms_timeout);
 	if (res == -ETIMEDOUT) {
 		return -EAGAIN;
 	}

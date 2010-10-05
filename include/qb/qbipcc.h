@@ -89,11 +89,14 @@ ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
 /**
  * Receive an event.
  * @param c connection instance
- * @param data_out (out) pointer to received event message
- * @param timeout time to wait for a message.
+ * @param msg_ptr pointer to a message buffer to receive into
+ * @param msg_len the size of the buffer
+ * @param ms_timeout time in milli seconds to wait for a message
+ *        0 == no wait, negative == block, positive == wait X ms.
  * @return size of the message or error (-errno)
  */
-ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void **data_out, int32_t timeout);
+ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_pt,
+			   size_t msg_len, int32_t ms_timeout);
 
 /**
  * Cleanup after receiving an event.

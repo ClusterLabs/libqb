@@ -137,46 +137,6 @@ return_status:
 	return sent;
 }
 
-static ssize_t sysv_recv(mqd_t q, void *msg_ptr, size_t msg_len)
-{
-	ssize_t res;
-	ssize_t received = 0;
-#ifdef PACK_MESSAGES
-	char *progress = (char *)msg_ptr;
-	struct my_msgbuf buf;
-
-	do {
-try_again:
-		res = msgrcv(q, &buf, MY_DATA_SIZE, 0, IPC_NOWAIT);
-
-		if (res == -1 && errno == ENOMSG) {
-			goto try_again;
-		}
-		//printf("res:%zd, ID:%d\n", res, buf.id);
-		if (res == -1) {
-			goto return_status;
-		}
-		memcpy(progress, buf.data, res);
-		received += res;
-		progress += res;
-	} while (buf.id > 1);
-return_status:
-#else
-	res = msgrcv(q, msg_ptr, msg_len, 0, IPC_NOWAIT);
-	received = res;
-#endif
-	if (res == -1 && errno == ENOMSG) {
-		/* just to be consistent with other IPC types.
-		 */
-		return -EAGAIN;
-	}
-	if (res == -1) {
-		perror(__func__);
-		return -errno;
-	}
-	return received;
-}
-
 /*
  * client functions
  * --------------------------------------------------------
@@ -223,9 +183,46 @@ static ssize_t qb_ipc_smq_sendv(struct qb_ipc_one_way *one_way,
 }
 
 static ssize_t qb_ipc_smq_recv(struct qb_ipc_one_way *one_way,
-				void *msg_ptr, size_t msg_len)
+				void *msg_ptr,
+				size_t msg_len,
+				int32_t ms_timeout)
 {
-	return sysv_recv(one_way->u.smq.q, msg_ptr, msg_len);
+	ssize_t res;
+	ssize_t received = 0;
+#ifdef PACK_MESSAGES
+	char *progress = (char *)msg_ptr;
+	struct my_msgbuf buf;
+
+	do {
+try_again:
+		res = msgrcv(one_way->u.smq.q, &buf, MY_DATA_SIZE, 0, IPC_NOWAIT);
+
+		if (res == -1 && errno == ENOMSG) {
+			goto try_again;
+		}
+		//printf("res:%zd, ID:%d\n", res, buf.id);
+		if (res == -1) {
+			goto return_status;
+		}
+		memcpy(progress, buf.data, res);
+		received += res;
+		progress += res;
+	} while (buf.id > 1);
+return_status:
+#else
+	res = msgrcv(one_way->u.smq.q, msg_ptr, msg_len, 0, IPC_NOWAIT);
+	received = res;
+#endif
+	if (res == -1 && errno == ENOMSG) {
+		/* just to be consistent with other IPC types.
+		 */
+		return -EAGAIN;
+	}
+	if (res == -1) {
+		perror(__func__);
+		return -errno;
+	}
+	return received;
 }
 
 static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
@@ -233,9 +230,9 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 	struct qb_ipc_request_header hdr;
 
 	qb_util_log(LOG_DEBUG, "%s()\n", __func__);
-	if (c->needs_sock_for_poll) {
-		return;
-	}
+	//if (c->needs_sock_for_poll) {
+	//	return;
+	//}
 
 	hdr.id = QB_IPC_MSG_DISCONNECT;
 	hdr.size = sizeof(hdr);

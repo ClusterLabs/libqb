@@ -185,16 +185,51 @@ static ssize_t qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
 
 static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
 				void *msg_ptr,
-				size_t msg_len)
+				size_t msg_len,
+				int32_t ms_timeout)
 {
 	uint32_t msg_prio;
-	ssize_t res = mq_receive(one_way->u.pmq.q,
-				 (char *)msg_ptr,
-				 one_way->max_msg_size,
-				 &msg_prio);
-	if (res < 0) {
-		return -errno;
+	struct timespec ts_timeout;
+	ssize_t res;
+
+	if (ms_timeout >= 0) {
+		clock_gettime(CLOCK_REALTIME, &ts_timeout);
+		qb_timespec_add_ms(&ts_timeout, ms_timeout);
 	}
+
+ mq_receive_again:
+	if (ms_timeout >= 0) {
+		res = mq_timedreceive(one_way->u.pmq.q,
+				(char *)msg_ptr,
+				one_way->max_msg_size,
+				&msg_prio,
+				&ts_timeout);
+	} else {
+		res = mq_receive(one_way->u.pmq.q,
+				(char *)msg_ptr,
+				one_way->max_msg_size,
+				&msg_prio);
+	}
+	if (res == -1) {
+		switch (errno) {
+		case EINTR:
+			goto mq_receive_again;
+			break;
+		case EAGAIN:
+			res = -ETIMEDOUT;
+			break;
+		case ETIMEDOUT:
+			res = -errno;
+			break;
+		default:
+			res = -errno;
+			qb_util_log(LOG_ERR,
+				    "error waiting for mq_timedreceive : %s",
+				    strerror(errno));
+			break;
+		}
+	}
+
 	return res;
 }
 
