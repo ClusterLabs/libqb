@@ -490,13 +490,9 @@ ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 	int32_t res;
 
 	res = rb->sem_timedwait_fn(rb, timeout);
-	if (res == -ETIMEDOUT && rb->shared_hdr->count > 0) {
-		qb_util_log(LOG_ERR,
-			    "sem timedout but count is %zu",
-			    rb->shared_hdr->count);
-	} else if (res < 0 && res != -EIDRM) {
-		if (res != ETIMEDOUT) {
-			qb_util_log(LOG_ERR, "sem_timedwait %s", strerror(res));
+	if (res < 0 && res != -EIDRM) {
+		if (res != -ETIMEDOUT) {
+			qb_util_log(LOG_ERR, "sem_timedwait %s", strerror(-res));
 		}
 		return res;
 	}
@@ -578,10 +574,11 @@ static void print_header(qb_ringbuffer_t * rb)
 
 static void _qb_rb_chunk_check_locked_(qb_ringbuffer_t * rb, uint32_t pointer)
 {
-	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
+	uint32_t chunk_size;
 	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, pointer);
 
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+		chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
 		printf("size: %x\n", chunk_size);
 		printf("magic: %x\n", chunk_magic);
 		print_header(rb);
