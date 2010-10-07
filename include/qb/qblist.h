@@ -48,8 +48,13 @@ struct qb_list_head {
 #define QB_LIST_DECLARE(name) \
     struct qb_list_head name = { &(name), &(name) }
 
+#define QB_INIT_LIST_HEAD(ptr) do { \
+	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
+} while (0)
+
 /**
  * Initialize the list entry.
+ *
  * Points next and prev pointers to head.
  * @param head pointer to the list head
  */
@@ -94,57 +99,12 @@ static void inline qb_list_add_tail(struct qb_list_head *element,
  * Delete an entry from the list.
  *
  * @param _remove the list item to remove
- * The code below shows howto delete an entry safely from within a list.
- * @code
- *	struct my_struct *mine;
- *	struct list_head *iter, *iter_next;
- *
- *	for (iter = my_list_head.next;
- *		iter != &my_list_head;
- *		iter = iter_next) {
- *
- *		iter_next = iter->next;
- *
- *		mine = qb_list_entry(iter, struct my_struct, list);
- *		qb_list_del (&mine->list);
- *		free (mine);
- *	}
- *
- * @endcode
  */
 static void inline qb_list_del(struct qb_list_head *_remove)
 {
 	_remove->next->prev = _remove->prev;
 	_remove->prev->next = _remove->next;
-#ifdef DEBUG
-	_remove->next = (struct qb_list_head *)0xdeadb33f;
-	_remove->prev = (struct qb_list_head *)0xdeadb33f;
-#endif
 }
-
-/**
- * @def qb_list_entry(ptr,type,member)
- * Get the user data from the list entry.
- *
- * The code below shows how to use qb_list_entry() from within a loop.
- * @code
- *	struct my_struct *mine = NULL;
- *	struct qb_list_head *iter;
- *
- *	for (iter = my_list_head.next;
- *		iter != &my_list_head;
- *		iter = iter->next) {
- *		mine = qb_list_entry(iter, struct my_struct, list);
- *		if (mine == NULL) {
- *			continue;
- *		}
- *		do_some_thing (mine);
- *	}
- *
- * @endcode
- */
-#define qb_list_entry(ptr,type,member)\
-	((type *)((char *)(ptr)-(char*)(&((type *)0)->member)))
 
 /**
  * A quick test to see if the list is empty (pointing to it's self).
@@ -157,25 +117,98 @@ static inline int32_t qb_list_empty(const struct qb_list_head *head)
 }
 
 /**
- * join two lists together.
- * @param list new list to insert into head
- * @param head pointer to the list head
+ * Join two lists.
+ * @param list the new list to add.
+ * @param head the place to add it in the first list.
+ *
+ * @note The "list" is reinitialised
  */
 static inline void qb_list_splice(struct qb_list_head *list,
 				  struct qb_list_head *head)
 {
-	struct qb_list_head *first;
-	struct qb_list_head *last;
-	struct qb_list_head *current;
-
-	first = list->next;
-	last = list->prev;
-	current = head->next;
+	struct qb_list_head *first = list->next;
+	struct qb_list_head *last = list->prev;
+	struct qb_list_head *at = head->next;
 
 	first->prev = head;
 	head->next = first;
-	last->next = current;
-	current->prev = last;
+
+	last->next = at;
+	at->prev = last;
+}
+
+/**
+ * Get the struct for this entry
+ * @param ptr:	the &struct list_head pointer.
+ * @param type:	the type of the struct this is embedded in.
+ * @param member:	the name of the list_struct within the struct.
+ */
+#define qb_list_entry(ptr,type,member)\
+	((type *)((char *)(ptr)-(char*)(&((type *)0)->member)))
+
+
+/**
+ * Iterate over a list
+ * @param pos:	the &struct list_head to use as a loop counter.
+ * @param head:	the head for your list.
+ */
+#define qb_list_for_each(pos, head) \
+	for (pos = (head)->next; pos != (head); pos = pos->next)
+
+/**
+ * Iterate over a list backwards
+ * @param pos:	the &struct list_head to use as a loop counter.
+ * @param head:	the head for your list.
+ */
+#define qb_list_for_each_reverse(pos, head) \
+	for (pos = (head)->prev; pos != (head); pos = pos->prev)
+
+/**
+ * Iterate over a list safe against removal of list entry
+ * @param pos:	the &struct list_head to use as a loop counter.
+ * @param n:		another &struct list_head to use as temporary storage
+ * @param head:	the head for your list.
+ */
+#define qb_list_for_each_safe(pos, n, head) \
+	for (pos = (head)->next, n = pos->next; pos != (head); \
+		pos = n, n = pos->next)
+
+/**
+ * Iterate over list of given type
+ * @param pos:	the type * to use as a loop counter.
+ * @param head:	the head for your list.
+ * @param member:	the name of the list_struct within the struct.
+ */
+#define qb_list_for_each_entry(pos, head, member)			\
+	for (pos = qb_list_entry((head)->next, typeof(*pos), member);	\
+	     &pos->member != (head);					\
+	     pos = qb_list_entry(pos->member.next, typeof(*pos), member))
+
+/**
+ * Iterate backwards over list of given type.
+ * @param pos:	the type to use as a loop counter.
+ * @param head:	the head for your list.
+ * @param member: the name of the list_struct within the struct.
+ */
+#define qb_list_for_each_entry_reverse(pos, head, member)		\
+	for (pos = qb_list_entry((head)->prev, typeof(*pos), member);	\
+	     &pos->member != (head);					\
+	     pos = qb_list_entry(pos->member.prev, typeof(*pos), member))
+
+/**
+ * Count the number of items in the list.
+ * @param head:	the head for your list.
+ * @return length of the list.
+ */
+static inline int32_t qb_list_length(struct qb_list_head *head)
+{
+	struct qb_list_head *item;
+	int32_t length = 0;
+
+	qb_list_for_each(item, head)
+		length++;
+
+	return length;
 }
 
 /* *INDENT-OFF* */
