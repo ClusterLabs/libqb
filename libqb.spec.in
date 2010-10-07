@@ -70,7 +70,6 @@ The Quarterback APIs.
 %{_includedir}/qb/qbloop.h
 %{_includedir}/qb/qbhdb.h
 %{_includedir}/qb/qblist.h
-%{_includedir}/qb/qbtimer.h
 %{_includedir}/qb/qbipcc.h
 %{_includedir}/qb/qbipcs.h
 %{_includedir}/qb/qbipc_common.h
