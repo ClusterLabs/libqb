@@ -98,11 +98,6 @@ ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
 ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_pt,
 			   size_t msg_len, int32_t ms_timeout);
 
-/**
- * Cleanup after receiving an event.
- * @param c connection instance
- */
-void qb_ipcc_event_release(qb_ipcc_connection_t* c);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

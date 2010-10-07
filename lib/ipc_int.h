@@ -95,7 +95,6 @@ struct qb_ipcc_funcs {
 	ssize_t (*recv)(struct qb_ipc_one_way *one_way, void *buf, size_t buf_size, int32_t timeout);
 	ssize_t (*send)(struct qb_ipc_one_way *one_way, const void *data, size_t size);
 	ssize_t (*sendv)(struct qb_ipc_one_way *one_way, const struct iovec *iov, size_t iov_len);
-	void (*event_release)(struct qb_ipcc_connection* c);
 	void (*disconnect)(struct qb_ipcc_connection* c);
 };
 

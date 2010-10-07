@@ -39,11 +39,12 @@
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
 
-#define IPC_MSG_REQ_TX_RX	(QB_IPC_MSG_USER_START + 3)
-#define IPC_MSG_RES_TX_RX	(QB_IPC_MSG_USER_START + 13)
-#define IPC_MSG_REQ_DISPATCH	(QB_IPC_MSG_USER_START + 4)
-#define IPC_MSG_RES_DISPATCH	(QB_IPC_MSG_USER_START + 14)
-
+enum my_msg_ids {
+	IPC_MSG_REQ_TX_RX,
+	IPC_MSG_RES_TX_RX,
+	IPC_MSG_REQ_DISPATCH,
+	IPC_MSG_RES_DISPATCH
+};
 
 /* Test Cases
  *
@@ -257,8 +258,8 @@ static void test_ipc_dispatch(void)
 	int32_t j;
 	int32_t c = 0;
 	pid_t pid;
-	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
-	struct qb_ipc_response_header *res_header;
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header *res_header = (struct qb_ipc_response_header*)buffer;
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
@@ -275,11 +276,11 @@ static void test_ipc_dispatch(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
-	req_header->id = IPC_MSG_REQ_DISPATCH;
-	req_header->size = sizeof(struct qb_ipc_request_header);
+	req_header.id = IPC_MSG_REQ_DISPATCH;
+	req_header.size = sizeof(struct qb_ipc_request_header);
 
-repeat_send:
-	res = qb_ipcc_send(conn, req_header, req_header->size);
+ repeat_send:
+	res = qb_ipcc_send(conn, &req_header, req_header.size);
 	if (res < 0) {
 		if (res == -EAGAIN || res == -ENOMEM) {
 			goto repeat_send;
@@ -292,11 +293,19 @@ repeat_send:
 			goto repeat_send;
 		}
 	}
-
-	res = qb_ipcc_event_recv(conn, (void**)&res_header, 0);
+ repeat_event_recv:
+	res = qb_ipcc_event_recv(conn, res_header, IPC_BUF_SIZE, 0);
+	if (res < 0) {
+		if (res == -EAGAIN) {
+			goto repeat_event_recv;
+		} else {
+			errno = -res;
+			perror("qb_ipcc_send");
+			goto repeat_send;
+		}
+	}
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 	ck_assert_int_eq(res_header->id, IPC_MSG_RES_DISPATCH);
-	qb_ipcc_event_release(conn);
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);

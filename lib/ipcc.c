@@ -171,11 +171,6 @@ ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	return c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
 }
 
-void qb_ipcc_event_release(struct qb_ipcc_connection *c)
-{
-	c->funcs.event_release(c);
-}
-
 void qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
