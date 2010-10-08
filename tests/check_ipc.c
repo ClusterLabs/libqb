@@ -74,7 +74,7 @@ static void sigterm_handler(int32_t num)
 	exit(0);
 }
 
-static void s1_msg_process_fn(qb_ipcs_connection_t *c,
+static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		void *data, size_t size)
 {
 	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
@@ -100,6 +100,7 @@ static void s1_msg_process_fn(qb_ipcs_connection_t *c,
 			perror("qb_ipcs_dispatch_send");
 		}
 	}
+	return 0;
 }
 
 static void ipc_log_fn(const char *file_name,
@@ -108,6 +109,24 @@ static void ipc_log_fn(const char *file_name,
 	if (severity < LOG_INFO)
 		fprintf(stderr, "%s:%d [%d] %s\n", file_name, file_line, severity, msg);
 }
+
+static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
+	void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	return qb_loop_poll_add(my_loop, p, fd, events, data, fn);
+}
+
+static int32_t my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t events,
+	void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	return qb_loop_poll_mod(my_loop, p, fd, events, data, fn);
+}
+
+static int32_t my_dispatch_del(int32_t fd)
+{
+	return qb_loop_poll_del(my_loop, fd);
+}
+
 
 static void run_ipc_server(void)
 {
@@ -119,6 +138,13 @@ static void run_ipc_server(void)
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = NULL,
 	};
+
+	struct qb_ipcs_poll_handlers ph = {
+		.dispatch_add = my_dispatch_add,
+		.dispatch_mod = my_dispatch_mod,
+		.dispatch_del = my_dispatch_del,
+	};
+
 	signal(SIGTERM, sigterm_handler);
 
 	my_loop = qb_loop_create();
@@ -126,7 +152,9 @@ static void run_ipc_server(void)
 	s1 = qb_ipcs_create(IPC_NAME, 4, ipc_type, &sh);
 	fail_if(s1 == 0);
 
-	res = qb_ipcs_run(s1, my_loop);
+	qb_ipcs_poll_handlers_set(s1, &ph);
+
+	res = qb_ipcs_run(s1);
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(my_loop);

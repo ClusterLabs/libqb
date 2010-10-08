@@ -72,7 +72,7 @@ typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_t *c);
  * This is the message processing calback.
  * It is called with the message data.
  */
-typedef void (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_t *c,
+typedef int32_t (*qb_ipcs_msg_process_fn) (qb_ipcs_connection_t *c,
 		void *data, size_t size);
 
 struct qb_ipcs_service_handlers {

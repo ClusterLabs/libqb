@@ -83,7 +83,7 @@ static void s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
 	}
 }
 
-static void s1_msg_process_fn(qb_ipcs_connection_t *c,
+static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		void *data, size_t size)
 {
 	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
@@ -105,6 +105,7 @@ static void s1_msg_process_fn(qb_ipcs_connection_t *c,
 			perror("qb_ipcs_response_send");
 		}
 	}
+	return 0;
 }
 
 static void ipc_log_fn(const char *file_name,
