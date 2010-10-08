@@ -92,6 +92,22 @@ static ssize_t qb_ipc_shm_recv(struct qb_ipc_one_way *one_way,
 	return res;
 }
 
+static ssize_t qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out, int32_t ms_timeout)
+{
+	ssize_t res = qb_rb_chunk_peek(one_way->u.shm.rb,
+				       data_out,
+				       ms_timeout);
+	if (res == -ETIMEDOUT) {
+		return -EAGAIN;
+	}
+	return res;
+}
+
+static void qb_ipc_shm_reclaim(struct qb_ipc_one_way *one_way)
+{
+	qb_rb_chunk_reclaim(one_way->u.shm.rb);
+}
+
 int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 			    struct qb_ipc_connection_response *response)
 {
@@ -265,6 +281,8 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s)
 {
 	s->funcs.destroy = qb_ipcs_shm_destroy;
 	s->funcs.recv = qb_ipc_shm_recv;
+	s->funcs.peek = qb_ipc_shm_peek;
+	s->funcs.reclaim = qb_ipc_shm_reclaim;
 	s->funcs.send = qb_ipc_shm_send;
 	s->funcs.sendv = qb_ipc_shm_sendv;
 	s->funcs.connect = qb_ipcs_shm_connect;

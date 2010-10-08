@@ -87,7 +87,8 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt, void *loop_pt)
 		qb_hdb_handle_put(&qb_ipc_services, pt);
 		return res;
 	}
-
+	s->funcs.peek = NULL;
+	s->funcs.reclaim = NULL;
 	switch (s->type) {
 	case QB_IPC_SOCKET:
 		res = 0;
@@ -154,7 +155,7 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 }
 
 
-ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len)
+ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection *c, const struct iovec * iov, size_t iov_len)
 {
 	ssize_t res;
 
@@ -225,21 +226,26 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 	qb_ipcs_connection_ref_dec(c);
 }
 
-static int32_t _process_request_(struct qb_ipcs_connection *c)
+static int32_t _process_request_(struct qb_ipcs_connection *c,
+				 int32_t ms_timeout)
 {
 	int32_t res = 0;
 	struct qb_ipc_request_header *hdr;
 
-	hdr = (struct qb_ipc_request_header *)c->receive_buf;
-
 	qb_ipcs_connection_ref_inc(c);
-get_msg_with_live_connection:
-	res = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size, 0);
-	if (res == -EAGAIN) {
-		goto get_msg_with_live_connection;
+
+	if (c->service->funcs.peek && c->service->funcs.reclaim) {
+		res = c->service->funcs.peek(&c->request, (void**)&hdr,
+					     ms_timeout);
+	} else {
+		hdr = (struct qb_ipc_request_header *)c->receive_buf;
+		res = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size,
+					     ms_timeout);
 	}
 	if (res < 0) {
-		qb_util_log(LOG_DEBUG, "%s(): %s", __func__, strerror(-res));
+		if (res != -EAGAIN) {
+			qb_util_log(LOG_ERR, "%s(): %s", __func__, strerror(-res));
+		}
 		goto cleanup;
 	}
 
@@ -249,24 +255,38 @@ get_msg_with_live_connection:
 		res = -ESHUTDOWN;
 	} else {
 		c->service->serv_fns.msg_process(c, hdr, hdr->size);
-		res = 0;
+		/* 0 == good, negitive == backoff */
+		if (res < 0) {
+			res = -ENOBUFS;
+		} else {
+			res = 0;
+		}
 	}
+
+	if (c->service->funcs.peek && c->service->funcs.reclaim) {
+		c->service->funcs.reclaim(&c->request);
+	}
+
 cleanup:
 	qb_ipcs_connection_ref_dec(c);
 	return res;
 }
 
+#define IPC_REQUEST_TIMEOUT 10
+
 int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
 					 void *data)
 {
-	return _process_request_((struct qb_ipcs_connection *)data);
+	return _process_request_((struct qb_ipcs_connection *)data, IPC_REQUEST_TIMEOUT);
 }
 
 int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 					    void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
-	char one_byte;
+	char bytes[10];
+	int32_t res;
+	int32_t recvd = 0;
 
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "%s HUP", __func__);
@@ -276,11 +296,30 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
-	if (c->service->needs_sock_for_poll) {
-		qb_ipc_us_recv(c->sock, &one_byte, 1);
+	res = _process_request_(c, IPC_REQUEST_TIMEOUT);
+	if (res == 0 || res == -ENOBUFS) {
+		recvd++;
 	}
 
-	return _process_request_(c);
+	if (c->service->needs_sock_for_poll && recvd > 0) {
+		qb_ipc_us_recv(c->sock, bytes, recvd);
+	}
+
+	if (res == 0) {
+//		weight_inc(c);
+		res = 0;
+	} else if (res == -EAGAIN) {
+		res = 0;
+	} else if (res == -ENOBUFS) {
+//		weight_dec(c);
+		res = 0;
+	}
+
+	if (res != 0) {
+		qb_util_log(LOG_INFO, "%s returning %d : %s", __func__, res, strerror(-res));
+	}
+
+	return res;
 }
 
 void qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)

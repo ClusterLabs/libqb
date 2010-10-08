@@ -166,23 +166,26 @@ int32_t qb_ipc_us_recv_ready(int32_t s, int32_t ms_timeout)
 
 int32_t qb_ipc_us_recv(int32_t s, void *msg, size_t len)
 {
-	struct msghdr msg_recv;
-	struct iovec iov_recv;
+	int32_t result;
 
-	msg_recv.msg_iov = &iov_recv;
-	msg_recv.msg_iovlen = 1;
-	msg_recv.msg_name = 0;
-	msg_recv.msg_namelen = 0;
-#if !defined (QB_SOLARIS)
-	msg_recv.msg_control = 0;
-	msg_recv.msg_controllen = 0;
-	msg_recv.msg_flags = 0;
-#else
-	msg_recv.msg_accrights = NULL;
-	msg_recv.msg_accrightslen = 0;
+ retry_recv:
+	result = recv(s, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
+	if (result == -1 && errno == EAGAIN) {
+		goto retry_recv;
+	}
+	if (result == -1) {
+		return -errno;
+	}
+#if defined(QB_SOLARIS) || defined(QB_BSD) || defined(QB_DARWIN)
+	/* On many OS poll never return POLLHUP or POLLERR.
+	 * EOF is detected when recvmsg return 0.
+	 */
+	if (result == 0) {
+		return -errno;	//ENOTCONN
+	}
 #endif
+	return result;
 
-	return qb_ipc_us_recv_msghdr(s, &msg_recv, msg, len);
 }
 
 static int32_t qb_ipcs_uc_recv_and_auth(struct qb_ipcs_connection *c)
@@ -517,7 +520,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		qb_util_log(LOG_ERR, "listen failed: %s.\n", error_str);
 	}
 
-	qb_loop_poll_add(s->loop_pt, QB_LOOP_HIGH, s->server_sock,
+	qb_loop_poll_add(s->loop_pt, QB_LOOP_MED, s->server_sock,
 			     POLLIN | POLLPRI | POLLNVAL,
 			     s, qb_ipcs_us_connection_acceptor);
 	return 0;
@@ -595,7 +598,7 @@ retry_accept:
 		c->receive_buf = malloc(c->request.max_msg_size);
 
 		if (s->needs_sock_for_poll) {
-			qb_loop_poll_add(s->loop_pt, QB_LOOP_HIGH, c->sock,
+			qb_loop_poll_add(s->loop_pt, QB_LOOP_MED, c->sock,
 					     POLLIN | POLLPRI | POLLNVAL,
 					     c,
 					     qb_ipcs_dispatch_connection_request);
