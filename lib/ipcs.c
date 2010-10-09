@@ -230,22 +230,24 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 				 int32_t ms_timeout)
 {
 	int32_t res = 0;
+	ssize_t size;
 	struct qb_ipc_request_header *hdr;
 
 	qb_ipcs_connection_ref_inc(c);
 
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
-		res = c->service->funcs.peek(&c->request, (void**)&hdr,
+		size = c->service->funcs.peek(&c->request, (void**)&hdr,
 					     ms_timeout);
 	} else {
 		hdr = (struct qb_ipc_request_header *)c->receive_buf;
-		res = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size,
+		size = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size,
 					     ms_timeout);
 	}
-	if (res < 0) {
-		if (res != -EAGAIN) {
+	if (size < 0) {
+		if (size != -EAGAIN) {
 			qb_util_log(LOG_ERR, "%s(): %s", __func__, strerror(-res));
 		}
+		res = size;
 		goto cleanup;
 	}
 
@@ -254,12 +256,12 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 		qb_ipcs_disconnect(c);
 		res = -ESHUTDOWN;
 	} else {
-		c->service->serv_fns.msg_process(c, hdr, hdr->size);
+		res = c->service->serv_fns.msg_process(c, hdr, hdr->size);
 		/* 0 == good, negitive == backoff */
 		if (res < 0) {
 			res = -ENOBUFS;
 		} else {
-			res = 0;
+			res = size;
 		}
 	}
 
@@ -277,7 +279,11 @@ cleanup:
 int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
 					 void *data)
 {
-	return _process_request_((struct qb_ipcs_connection *)data, IPC_REQUEST_TIMEOUT);
+	int32_t res = _process_request_((struct qb_ipcs_connection *)data, IPC_REQUEST_TIMEOUT);
+	if (res > 0) {
+		return 0;
+	}
+	return res;
 }
 
 int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
@@ -296,22 +302,25 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
+ process_more:
 	res = _process_request_(c, IPC_REQUEST_TIMEOUT);
-	if (res == 0 || res == -ENOBUFS) {
+	if (res > 0 || res == -ENOBUFS) {
 		recvd++;
+	}
+	/* if we want fast processing
+	 * process one more.
+	 */
+	if (c->service->poll_priority == QB_LOOP_HIGH &&
+	    recvd == 1) {
+		goto process_more;
 	}
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
 		qb_ipc_us_recv(c->sock, bytes, recvd);
 	}
 
-	if (res == 0) {
-//		weight_inc(c);
-		res = 0;
-	} else if (res == -EAGAIN) {
-		res = 0;
-	} else if (res == -ENOBUFS) {
-//		weight_dec(c);
+	res = QB_MIN(0, res);
+	if (res == -EAGAIN || res == -ENOBUFS) {
 		res = 0;
 	}
 
@@ -348,12 +357,12 @@ void qb_ipcs_request_rate_limit(enum qb_ipcs_rate_limit rl)
 		assert(0);
 		break;
 	}
-
 	qb_hdb_iterator_reset(&qb_ipc_services);
-
-	while (qb_hdb_iterator_next(&qb_ipc_services, (void**)&s, &handle)) {
+	while (qb_hdb_iterator_next(&qb_ipc_services, (void**)&s, &handle) == 0) {
+		qb_util_log(LOG_INFO, "service:%s", s->name);
 
 		qb_list_for_each_entry(c, &s->connections, list) {
+			qb_util_log(LOG_INFO, "conn:%d", c->pid);
 			if (s->type == QB_IPC_POSIX_MQ && !s->needs_sock_for_poll) {
 				s->poll_fns.dispatch_mod(p, c->request.u.pmq.q,
 						POLLIN | POLLPRI | POLLNVAL,
