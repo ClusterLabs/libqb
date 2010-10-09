@@ -379,8 +379,7 @@ static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
 	}
 
 	if (!s->needs_sock_for_poll) {
-		qb_loop_poll_add(s->loop_pt, QB_LOOP_HIGH,
-				     c->request.u.pmq.q,
+		s->poll_fns.dispatch_add(s->poll_priority, c->request.u.pmq.q,
 				     POLLIN | POLLPRI | POLLNVAL,
 				     c, qb_ipcs_dispatch_service_request);
 	}

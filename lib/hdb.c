@@ -283,8 +283,7 @@ int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 	return (refcount);
 }
 
-void qb_hdb_iterator_reset(struct qb_hdb
-			   *hdb)
+void qb_hdb_iterator_reset(struct qb_hdb *hdb)
 {
 	hdb->iterator = 0;
 }

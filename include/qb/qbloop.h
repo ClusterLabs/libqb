@@ -88,10 +88,11 @@ int32_t qb_loop_poll_add(qb_loop_t *l,
 			     qb_loop_poll_dispatch_fn dispatch_fn);
 
 int32_t qb_loop_poll_mod(qb_loop_t *l,
-			     enum qb_loop_priority p,
-			    int32_t fd,
-			    int32_t events,
-			     qb_loop_poll_dispatch_fn dispatch_fn);
+			 enum qb_loop_priority p,
+			 int32_t fd,
+			 int32_t events,
+			 void *data,
+			 qb_loop_poll_dispatch_fn dispatch_fn);
 
 int32_t qb_loop_poll_del(qb_loop_t *l, int32_t fd);
 

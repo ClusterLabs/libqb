@@ -44,6 +44,7 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name,
 	s->pid = getpid();
 	s->type = type;
 	s->needs_sock_for_poll = QB_FALSE;
+	s->poll_priority = QB_LOOP_MED;
 
 	s->service_id = service_id;
 	strncpy(s->name, name, NAME_MAX);
@@ -68,19 +69,18 @@ void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt pt,
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
 
 	s->poll_fns.dispatch_add = handlers->dispatch_add;
-	s->poll_fns.dispatch_rm = handlers->dispatch_rm;
+	s->poll_fns.dispatch_mod = handlers->dispatch_mod;
+	s->poll_fns.dispatch_del = handlers->dispatch_del;
 
 	qb_hdb_handle_put(&qb_ipc_services, pt);
 }
 
-int32_t qb_ipcs_run(qb_ipcs_service_pt pt, void *loop_pt)
+int32_t qb_ipcs_run(qb_ipcs_service_pt pt)
 {
 	int32_t res;
 	struct qb_ipcs_service *s;
 
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
-
-	s->loop_pt = loop_pt;
 
 	res = qb_ipcs_us_publish(s);
 	if (res < 0) {
@@ -330,5 +330,43 @@ void qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
 void *qb_ipcs_context_get(struct qb_ipcs_connection *c)
 {
 	return c->context;
+}
+
+void qb_ipcs_request_rate_limit(enum qb_ipcs_rate_limit rl)
+{
+	struct qb_ipcs_service *s;
+	struct qb_ipcs_connection *c;
+	qb_handle_t  handle;
+	enum qb_loop_priority p;
+
+	switch (rl) {
+	case QB_IPCS_RATE_SLOW: p = QB_LOOP_LOW; break;
+	case QB_IPCS_RATE_NORMAL: p = QB_LOOP_MED; break;
+	case QB_IPCS_RATE_FAST: p = QB_LOOP_HIGH; break;
+	default:
+	case QB_IPCS_RATE_OFF:
+		assert(0);
+		break;
+	}
+
+	qb_hdb_iterator_reset(&qb_ipc_services);
+
+	while (qb_hdb_iterator_next(&qb_ipc_services, (void**)&s, &handle)) {
+
+		qb_list_for_each_entry(c, &s->connections, list) {
+			if (s->type == QB_IPC_POSIX_MQ && !s->needs_sock_for_poll) {
+				s->poll_fns.dispatch_mod(p, c->request.u.pmq.q,
+						POLLIN | POLLPRI | POLLNVAL,
+						c, qb_ipcs_dispatch_service_request);
+			} else {
+				s->poll_fns.dispatch_mod(p, c->sock,
+						POLLIN | POLLPRI | POLLNVAL,
+						c,
+						qb_ipcs_dispatch_connection_request);
+			}
+		}
+		s->poll_priority = p;
+		qb_hdb_handle_put(&qb_ipc_services, handle);
+	}
 }
 

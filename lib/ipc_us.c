@@ -520,7 +520,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		qb_util_log(LOG_ERR, "listen failed: %s.\n", error_str);
 	}
 
-	qb_loop_poll_add(s->loop_pt, QB_LOOP_MED, s->server_sock,
+	s->poll_fns.dispatch_add(s->poll_priority, s->server_sock,
 			     POLLIN | POLLPRI | POLLNVAL,
 			     s, qb_ipcs_us_connection_acceptor);
 	return 0;
@@ -598,10 +598,10 @@ retry_accept:
 		c->receive_buf = malloc(c->request.max_msg_size);
 
 		if (s->needs_sock_for_poll) {
-			qb_loop_poll_add(s->loop_pt, QB_LOOP_MED, c->sock,
-					     POLLIN | POLLPRI | POLLNVAL,
-					     c,
-					     qb_ipcs_dispatch_connection_request);
+			s->poll_fns.dispatch_add(s->poll_priority, c->sock,
+						POLLIN | POLLPRI | POLLNVAL,
+						c,
+						qb_ipcs_dispatch_connection_request);
 		}
 	}
 

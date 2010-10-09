@@ -28,6 +28,7 @@
 #include <dirent.h>
 #include <mqueue.h>
 #include <qb/qblist.h>
+#include <qb/qbloop.h>
 #include <qb/qbipcc.h>
 #include <qb/qbipcs.h>
 #include <qb/qbipc_common.h>
@@ -147,11 +148,11 @@ struct qb_ipcs_service {
 	pid_t pid;
 	int32_t needs_sock_for_poll;
 	int32_t server_sock;
-	void* loop_pt;
 
 	struct qb_ipcs_service_handlers serv_fns;
 	struct qb_ipcs_poll_handlers poll_fns;
 	struct qb_ipcs_funcs funcs;
+	enum qb_loop_priority poll_priority;
 
 	struct qb_list_head connections;
 };

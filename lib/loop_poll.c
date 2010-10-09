@@ -360,6 +360,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 			 enum qb_loop_priority p,
 			 int32_t fd,
 			 int32_t events,
+			 void *data,
 			 qb_loop_poll_dispatch_fn dispatch_fn)
 {
 	int32_t i;

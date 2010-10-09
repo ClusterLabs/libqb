@@ -137,6 +137,23 @@ static void show_usage(const char *name)
 	printf("\n");
 }
 
+static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
+	void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	return qb_loop_poll_add(bms_loop, p, fd, events, data, fn);
+}
+
+static int32_t my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t events,
+	void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	return qb_loop_poll_mod(bms_loop, p, fd, events, data, fn);
+}
+
+static int32_t my_dispatch_del(int32_t fd)
+{
+	return qb_loop_poll_del(bms_loop, fd);
+}
+
 int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "nvhmps";
@@ -147,6 +164,11 @@ int32_t main(int32_t argc, char *argv[])
 		.connection_created = s1_connection_created_fn,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = s1_connection_destroyed_fn,
+	};
+	struct qb_ipcs_poll_handlers ph = {
+		.dispatch_add = my_dispatch_add,
+		.dispatch_mod = my_dispatch_mod,
+		.dispatch_del = my_dispatch_del,
 	};
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
@@ -186,7 +208,9 @@ int32_t main(int32_t argc, char *argv[])
 		perror("qb_ipcs_create");
 		exit(1);
 	}
-	qb_ipcs_run(s1, bms_loop);
+	qb_ipcs_poll_handlers_set(s1, &ph);
+
+	qb_ipcs_run(s1);
 	qb_loop_run(bms_loop);
 
 	return EXIT_SUCCESS;

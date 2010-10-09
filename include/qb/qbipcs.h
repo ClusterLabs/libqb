@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <qb/qbipc_common.h>
 #include <qb/qbhdb.h>
+#include <qb/qbloop.h>
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
@@ -38,17 +39,26 @@ typedef struct qb_ipcs_connection qb_ipcs_connection_t;
 
 typedef qb_handle_t qb_ipcs_service_pt;
 
-typedef int32_t (*qb_ipcs_dispatch_fn_t) (qb_ipcs_service_pt s, int32_t fd, int32_t revents,
+typedef int32_t (*qb_ipcs_dispatch_fn_t) (int32_t fd, int32_t revents,
 	void *data);
-typedef int32_t (*qb_ipcs_dispatch_add_fn)(qb_ipcs_service_pt s, int32_t fd, int32_t events,
-	void *data, qb_ipcs_dispatch_fn_t fn);
-typedef int32_t (*qb_ipcs_dispatch_rm_fn)(qb_ipcs_service_pt s, int32_t fd, int32_t events,
-	void *data, qb_ipcs_dispatch_fn_t fn);
+
+typedef int32_t (*qb_ipcs_dispatch_add_fn)(enum qb_loop_priority p,
+					   int32_t fd,
+					   int32_t events,
+					   void *data,
+					   qb_ipcs_dispatch_fn_t fn);
+typedef int32_t (*qb_ipcs_dispatch_mod_fn)(enum qb_loop_priority p,
+					   int32_t fd,
+					   int32_t events,
+					   void *data,
+					   qb_ipcs_dispatch_fn_t fn);
+typedef int32_t (*qb_ipcs_dispatch_del_fn)(int32_t fd);
 
 
 struct qb_ipcs_poll_handlers {
 	qb_ipcs_dispatch_add_fn dispatch_add;
-	qb_ipcs_dispatch_rm_fn dispatch_rm;
+	qb_ipcs_dispatch_mod_fn dispatch_mod;
+	qb_ipcs_dispatch_del_fn dispatch_del;
 };
 
 /**
@@ -102,7 +112,7 @@ void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
 /**
  * run the new IPC server.
  */
-int32_t qb_ipcs_run(qb_ipcs_service_pt s, void *loop_pt);
+int32_t qb_ipcs_run(qb_ipcs_service_pt s);
 
 /**
  * Destroy the IPC server.
@@ -145,6 +155,14 @@ void qb_ipcs_context_set(qb_ipcs_connection_t *c, void *context);
 
 void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
 
+enum qb_ipcs_rate_limit {
+	QB_IPCS_RATE_FAST,
+	QB_IPCS_RATE_NORMAL,
+	QB_IPCS_RATE_SLOW,
+	QB_IPCS_RATE_OFF,
+};
+
+void qb_ipcs_request_rate_limit(enum qb_ipcs_rate_limit rl);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
