@@ -19,6 +19,11 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+
+#ifdef HAVE_EPOLL_CREATE1
+#include <sys/epoll.h>
+#define HAVE_EPOLL 1
+#endif /* HAVE_EPOLL_CREATE */
 #include <sys/poll.h>
 #include <sys/resource.h>
 
@@ -26,6 +31,8 @@
 #include <qb/qblist.h>
 #include <qb/qbloop.h>
 #include "loop_int.h"
+#include "util_int.h"
+
 
 /* logs, std(in|out|err), pipe */
 #define POLL_FDS_USED_MISC 50
@@ -40,14 +47,47 @@ struct qb_poll_entry {
 
 struct qb_poll_source {
 	struct qb_loop_source s;
+#ifdef HAVE_EPOLL
+	struct epoll_event *events;
+#else
 	struct pollfd *ufds;
+#endif /* HAVE_EPOLL */
 	int32_t poll_entry_count;
 	struct qb_poll_entry *poll_entries;
 	qb_loop_poll_low_fds_event_fn low_fds_event_fn;
 	int32_t not_enough_fds;
+#ifdef HAVE_EPOLL
+	int32_t epollfd;
+#endif /* HAVE_EPOLL */
 };
 
 static struct qb_poll_source * my_src;
+
+
+#ifdef HAVE_EPOLL
+static int32_t poll_to_epoll_event(int32_t event)
+{
+	int32_t out = 0;
+	if (event & POLLIN) out |= EPOLLIN;
+	if (event & POLLOUT) out |= EPOLLOUT;
+	if (event & POLLPRI) out |= EPOLLPRI;
+	if (event & POLLERR) out |= EPOLLERR;
+	if (event & POLLHUP) out |= EPOLLHUP;
+	if (event & POLLNVAL) out |= EPOLLERR;
+	return out;
+}
+
+static int32_t epoll_to_poll_event(int32_t event)
+{
+	int32_t out = 0;
+	if (event & EPOLLIN)   out |= POLLIN;
+	if (event & EPOLLOUT)  out |= POLLOUT;
+	if (event & EPOLLPRI)  out |= POLLPRI;
+	if (event & EPOLLERR)  out |= POLLERR;
+	if (event & EPOLLHUP)  out |= POLLHUP;
+	return out;
+}
+#endif /* HAVE_EPOLL */
 
 static void poll_dispatch_and_take_back(struct qb_loop_item * item,
 		enum qb_loop_priority p)
@@ -114,6 +154,48 @@ static void poll_fds_usage_check(struct qb_poll_source *s)
 	}
 }
 
+#ifdef HAVE_EPOLL
+#define MAX_EVENTS 100
+static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeout)
+{
+	int32_t i;
+	int32_t res;
+	int32_t new_jobs = 0;
+	struct qb_poll_entry * pe;
+	struct qb_poll_source * s = (struct qb_poll_source *)src;
+	struct epoll_event events[MAX_EVENTS];
+
+	poll_fds_usage_check(s);
+
+ retry_poll:
+
+	res = epoll_wait(s->epollfd, events, MAX_EVENTS, ms_timeout);
+
+	if (errno == EINTR && res == -1) {
+		goto retry_poll;
+	} else if (res == -1) {
+		return -errno;
+	}
+
+	for (i = 0; i < res; i++) {
+		pe = &s->poll_entries[events[i].data.u32];
+		if (pe->ufd.fd == -1) {
+			// empty
+			continue;
+		}
+		if (events[i].events == pe->ufd.revents) {
+			// entry already in the job queue.
+			continue;
+		}
+		pe->ufd.revents = epoll_to_poll_event(events[i].events);
+		qb_list_init(&pe->item.list);
+		qb_list_add_tail(&pe->item.list, &s->s.l->level[pe->p].job_head);
+		new_jobs++;
+	}
+
+	return new_jobs;
+}
+#else
 static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeout)
 {
 	int32_t i;
@@ -154,7 +236,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 
 	return new_jobs;
 }
-
+#endif /* HAVE_EPOLL */
 
 struct qb_loop_source*
 qb_loop_poll_init(struct qb_loop *l)
@@ -165,10 +247,16 @@ qb_loop_poll_init(struct qb_loop *l)
 	my_src->s.poll = poll_and_add_to_jobs;
 
 	my_src->poll_entries = 0;
-	my_src->ufds = 0;
 	my_src->poll_entry_count = 0;
 	my_src->low_fds_event_fn = NULL;
 	my_src->not_enough_fds = 0;
+
+#ifdef HAVE_EPOLL
+	my_src->epollfd = epoll_create1(EPOLL_CLOEXEC);
+	my_src->events = 0;
+#else
+	my_src->ufds = 0;
+#endif /* HAVE_EPOLL */
 
 	qb_list_init(&my_src->s.list);
 	qb_list_add_tail(&my_src->s.list, &l->source_head);
@@ -194,11 +282,15 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 {
 	struct qb_poll_entry *poll_entries;
 	struct qb_poll_entry *pe;
-	struct pollfd *ufds;
 	int32_t found = 0;
 	int32_t install_pos;
 	int32_t res = 0;
 	int32_t new_size = 0;
+#ifdef HAVE_EPOLL
+	struct epoll_event *ev;
+#else
+	struct pollfd *ufds;
+#endif /* HAVE_EPOLL */
 
 	for (found = 0, install_pos = 0;
 	     install_pos < my_src->poll_entry_count; install_pos++) {
@@ -219,12 +311,21 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 		}
 		my_src->poll_entries = poll_entries;
 
+#ifdef HAVE_EPOLL
+		new_size = (my_src->poll_entry_count+ 1) * sizeof(struct epoll_event);
+		ev = realloc(my_src->events, new_size);
+		if (ev == NULL) {
+			return -ENOMEM;
+		}
+		my_src->events = ev;
+#else
 		new_size = (my_src->poll_entry_count+ 1) * sizeof(struct pollfd);
 		ufds = realloc(my_src->ufds, new_size);
 		if (ufds == NULL) {
 			return -ENOMEM;
 		}
 		my_src->ufds = ufds;
+#endif /* HAVE_EPOLL */
 
 		my_src->poll_entry_count += 1;
 		install_pos = my_src->poll_entry_count - 1;
@@ -242,6 +343,15 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 	pe->item.user_data = data;
 	pe->item.source = (struct qb_loop_source*)my_src;
 	pe->p = p;
+#ifdef HAVE_EPOLL
+	ev = &my_src->events[install_pos];
+	ev->events = poll_to_epoll_event(events);
+	ev->data.u32 = install_pos;
+	if (epoll_ctl(my_src->epollfd, EPOLL_CTL_ADD, fd, ev) == -1) {
+		res = -errno;
+		qb_util_log(LOG_ERR, "epoll_ctl(add) : %s", strerror(-res));
+	}
+#endif /* HAVE_EPOLL */
 
 	return (res);
 }
@@ -253,6 +363,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 			 qb_loop_poll_dispatch_fn dispatch_fn)
 {
 	int32_t i;
+	int32_t res = 0;
 	struct qb_poll_entry *pe;
 
 	/*
@@ -260,12 +371,24 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 	 */
 	for (i = 0; i < my_src->poll_entry_count; i++) {
 		pe = &my_src->poll_entries[i];
-		if (pe->ufd.fd == fd) {
-			pe->ufd.events = events;
-			pe->dispatch_fn = dispatch_fn;
-			pe->p = p;
-			return 0;
+		if (pe->ufd.fd != fd) {
+			continue;
 		}
+		pe->dispatch_fn = dispatch_fn;
+		pe->item.user_data = data;
+		pe->p = p;
+		if (pe->ufd.events != events) {
+#ifdef HAVE_EPOLL
+			my_src->events[i].events = poll_to_epoll_event(events);
+			my_src->events[i].data.u32 = i;
+			if (epoll_ctl(my_src->epollfd, EPOLL_CTL_MOD, fd, &my_src->events[i]) == -1) {
+				res = -errno;
+				qb_util_log(LOG_ERR, "epoll_ctl(mod) : %s", strerror(-res));
+			}
+#endif /* HAVE_EPOLL */
+			pe->ufd.events = events;
+		}
+		return res;
 	}
 
 	return -EBADF;
@@ -274,6 +397,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 {
 	int32_t i;
+	int32_t res = 0;
 	struct qb_poll_entry *pe;
 
 	/*
@@ -281,15 +405,24 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 	 */
 	for (i = 0; i < my_src->poll_entry_count; i++) {
 		pe = &my_src->poll_entries[i];
-		if (pe->ufd.fd == fd) {
-			my_src->ufds[i].fd = -1;
-			my_src->ufds[i].events = 0;
-			my_src->ufds[i].revents = 0;
-			pe->ufd.fd = -1;
-			pe->ufd.events = 0;
-			pe->ufd.revents = 0;
-			return 0;
+		if (pe->ufd.fd != fd) {
+			continue;
 		}
+		pe->ufd.fd = -1;
+		pe->ufd.events = 0;
+		pe->ufd.revents = 0;
+#ifdef HAVE_EPOLL
+		if (epoll_ctl(my_src->epollfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
+			res = -errno;
+			qb_util_log(LOG_ERR, "epoll_ctl(del) : %s",
+				    strerror(-res));
+		}
+#else
+		my_src->ufds[i].fd = -1;
+		my_src->ufds[i].events = 0;
+		my_src->ufds[i].revents = 0;
+#endif /* HAVE_EPOLL */
+		return 0;
 	}
 
 	return -EBADF;
