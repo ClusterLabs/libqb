@@ -125,7 +125,7 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 }
 
 ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
-	size_t iov_len)
+		      size_t iov_len)
 {
 	int32_t total_size = 0;
 	int32_t i;

@@ -42,7 +42,7 @@ static void qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 }
 
 static ssize_t qb_ipc_shm_send(struct qb_ipc_one_way *one_way,
-				const void *msg_ptr, size_t msg_len)
+			       const void *msg_ptr, size_t msg_len)
 {
 	return qb_rb_chunk_write(one_way->u.shm.rb, msg_ptr, msg_len);
 }
@@ -78,9 +78,9 @@ static ssize_t qb_ipc_shm_sendv(struct qb_ipc_one_way *one_way,
 }
 
 static ssize_t qb_ipc_shm_recv(struct qb_ipc_one_way *one_way,
-				void *msg_ptr,
-				size_t msg_len,
-				int32_t ms_timeout)
+			       void *msg_ptr,
+			       size_t msg_len,
+			       int32_t ms_timeout)
 {
 	ssize_t res = qb_rb_chunk_read(one_way->u.shm.rb,
 				       (void *)msg_ptr,
@@ -125,22 +125,22 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	}
 
 	c->request.u.shm.rb = qb_rb_open(response->request, c->request.max_msg_size,
-				       QB_RB_FLAG_SHARED_PROCESS);
+					 QB_RB_FLAG_SHARED_PROCESS);
 	if (c->request.u.shm.rb == NULL) {
 		perror("qb_rb_open:REQUEST");
 		return -errno;
 	}
 	c->response.u.shm.rb = qb_rb_open(response->response,
-					c->response.max_msg_size,
-					QB_RB_FLAG_SHARED_PROCESS);
+					  c->response.max_msg_size,
+					  QB_RB_FLAG_SHARED_PROCESS);
 
 	if (c->response.u.shm.rb == NULL) {
 		perror("qb_rb_open:RESPONSE");
 		goto cleanup_request;
 	}
 	c->event.u.shm.rb = qb_rb_open(response->event,
-				     c->response.max_msg_size,
-				     QB_RB_FLAG_SHARED_PROCESS);
+				       c->response.max_msg_size,
+				       QB_RB_FLAG_SHARED_PROCESS);
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
@@ -229,9 +229,9 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 
 	qb_util_log(LOG_DEBUG, "rb_open:%s", r->request);
 	c->request.u.shm.rb = qb_rb_open(r->request,
-				       c->request.max_msg_size,
-				       QB_RB_FLAG_CREATE |
-				       QB_RB_FLAG_SHARED_PROCESS);
+					 c->request.max_msg_size,
+					 QB_RB_FLAG_CREATE |
+					 QB_RB_FLAG_SHARED_PROCESS);
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
 		perror("qb_rb_open:REQUEST");
@@ -240,9 +240,9 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	res = qb_rb_chown(c->request.u.shm.rb, c->euid, c->egid);
 
 	c->response.u.shm.rb = qb_rb_open(r->response,
-					c->response.max_msg_size,
-					QB_RB_FLAG_CREATE |
-					QB_RB_FLAG_SHARED_PROCESS);
+					  c->response.max_msg_size,
+					  QB_RB_FLAG_CREATE |
+					  QB_RB_FLAG_SHARED_PROCESS);
 	if (c->response.u.shm.rb == NULL) {
 		res = -errno;
 		perror("qb_rb_open:RESPONSE");
@@ -251,9 +251,9 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	res = qb_rb_chown(c->response.u.shm.rb, c->euid, c->egid);
 
 	c->event.u.shm.rb = qb_rb_open(r->event,
-				     c->event.max_msg_size,
-				     QB_RB_FLAG_CREATE |
-				     QB_RB_FLAG_SHARED_PROCESS);
+				       c->event.max_msg_size,
+				       QB_RB_FLAG_CREATE |
+				       QB_RB_FLAG_SHARED_PROCESS);
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;

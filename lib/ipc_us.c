@@ -154,7 +154,7 @@ int32_t qb_ipc_us_recv_ready(int32_t s, int32_t ms_timeout)
 
 	poll_events = poll (&ufds, 1, ms_timeout);
 	if ((poll_events == -1 && errno == EINTR) ||
-		poll_events == 0) {
+	    poll_events == 0) {
 		return -EAGAIN;
 	} else if (poll_events == -1) {
 		return -errno;
@@ -301,9 +301,9 @@ cleanup_and_return:
 
 	if (res == 0) {
 		if (c->service->serv_fns.connection_accept) {
-		    res = c->service->serv_fns.connection_accept(c,
-								 c->euid,
-								 c->egid);
+			res = c->service->serv_fns.connection_accept(c,
+								     c->euid,
+								     c->egid);
 		} else {
 			res = 0;
 		}
@@ -374,8 +374,8 @@ cs_error_t coroipcc_dispatch_get(hdb_handle_t handle, void **data, int timeout)
 	int res;
 
 	error =
-	    hdb_error_to_cs(hdb_handle_get
-			    (&ipc_hdb, handle, (void **)&ipc_instance));
+		hdb_error_to_cs(hdb_handle_get
+				(&ipc_hdb, handle, (void **)&ipc_instance));
 	if (error != CS_OK) {
 		return (error);
 	}
@@ -411,8 +411,8 @@ cs_error_t coroipcc_dispatch_get(hdb_handle_t handle, void **data, int timeout)
 		 */
 
 		res =
-		    ipc_sem_post(ipc_instance->control_buffer,
-				 SEMAPHORE_REQUEST_OR_FLUSH_OR_EXIT);
+			ipc_sem_post(ipc_instance->control_buffer,
+				     SEMAPHORE_REQUEST_OR_FLUSH_OR_EXIT);
 		if (res != CS_OK) {
 			error = CS_ERR_LIBRARY;
 			goto error_put;
@@ -497,8 +497,8 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 
 	res =
-	    bind(s->server_sock, (struct sockaddr *)&un_addr,
-		 QB_SUN_LEN(&un_addr));
+		bind(s->server_sock, (struct sockaddr *)&un_addr,
+		     QB_SUN_LEN(&un_addr));
 	if (res) {
 		res = -errno;
 		strerror_r(errno, error_str, 100);
@@ -521,8 +521,8 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	}
 
 	s->poll_fns.dispatch_add(s->poll_priority, s->server_sock,
-			     POLLIN | POLLPRI | POLLNVAL,
-			     s, qb_ipcs_us_connection_acceptor);
+				 POLLIN | POLLPRI | POLLNVAL,
+				 s, qb_ipcs_us_connection_acceptor);
 	return 0;
 
 error_close:
@@ -599,9 +599,9 @@ retry_accept:
 
 		if (s->needs_sock_for_poll) {
 			s->poll_fns.dispatch_add(s->poll_priority, c->sock,
-						POLLIN | POLLPRI | POLLNVAL,
-						c,
-						qb_ipcs_dispatch_connection_request);
+						 POLLIN | POLLPRI | POLLNVAL,
+						 c,
+						 qb_ipcs_dispatch_connection_request);
 		}
 	}
 

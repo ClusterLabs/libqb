@@ -256,11 +256,11 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
 		size = c->service->funcs.peek(&c->request, (void**)&hdr,
-					     ms_timeout);
+					      ms_timeout);
 	} else {
 		hdr = (struct qb_ipc_request_header *)c->receive_buf;
 		size = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size,
-					     ms_timeout);
+					      ms_timeout);
 	}
 	if (size < 0) {
 		if (size != -EAGAIN) {
@@ -298,7 +298,8 @@ cleanup:
 int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
 					 void *data)
 {
-	int32_t res = _process_request_((struct qb_ipcs_connection *)data, IPC_REQUEST_TIMEOUT);
+	int32_t res = _process_request_((struct qb_ipcs_connection *)data,
+					IPC_REQUEST_TIMEOUT);
 	if (res > 0) {
 		return 0;
 	}
@@ -346,7 +347,8 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	}
 
 	if (res != 0) {
-		qb_util_log(LOG_INFO, "%s returning %d : %s", __func__, res, strerror(-res));
+		qb_util_log(LOG_INFO, "%s returning %d : %s",
+			    __func__, res, strerror(-res));
 	}
 
 	return res;
@@ -380,19 +382,17 @@ void qb_ipcs_request_rate_limit(enum qb_ipcs_rate_limit rl)
 	}
 	qb_hdb_iterator_reset(&qb_ipc_services);
 	while (qb_hdb_iterator_next(&qb_ipc_services, (void**)&s, &handle) == 0) {
-		qb_util_log(LOG_INFO, "service:%s", s->name);
 
 		qb_list_for_each_entry(c, &s->connections, list) {
-			qb_util_log(LOG_INFO, "conn:%d", c->pid);
 			if (s->type == QB_IPC_POSIX_MQ && !s->needs_sock_for_poll) {
 				s->poll_fns.dispatch_mod(p, c->request.u.pmq.q,
-						POLLIN | POLLPRI | POLLNVAL,
-						c, qb_ipcs_dispatch_service_request);
+							 POLLIN | POLLPRI | POLLNVAL,
+							 c, qb_ipcs_dispatch_service_request);
 			} else {
 				s->poll_fns.dispatch_mod(p, c->sock,
-						POLLIN | POLLPRI | POLLNVAL,
-						c,
-						qb_ipcs_dispatch_connection_request);
+							 POLLIN | POLLPRI | POLLNVAL,
+							 c,
+							 qb_ipcs_dispatch_connection_request);
 			}
 		}
 		s->poll_priority = p;

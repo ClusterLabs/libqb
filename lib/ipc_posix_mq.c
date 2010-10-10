@@ -110,8 +110,6 @@ try_smaller:
 		max_msg_size = max_msg_size / 2;
 		q_len--;
 	}
-//      qb_util_log(LOG_DEBUG, "%s() max_msg_size:%zu q_len:%zu", __func__,
-//                      max_msg_size, q_len);
 	attr.mq_flags = O_NONBLOCK;
 	attr.mq_maxmsg = q_len;
 	attr.mq_msgsize = max_msg_size;
@@ -145,7 +143,7 @@ try_smaller:
 }
 
 static ssize_t qb_ipc_pmq_send(struct qb_ipc_one_way *one_way,
-				const void *msg_ptr, size_t msg_len)
+			       const void *msg_ptr, size_t msg_len)
 {
 	int32_t res = mq_send(one_way->u.pmq.q, msg_ptr, msg_len, 1);
 	if (res != 0) {
@@ -155,8 +153,8 @@ static ssize_t qb_ipc_pmq_send(struct qb_ipc_one_way *one_way,
 }
 
 static ssize_t qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
-				 const struct iovec* iov,
-				 size_t iov_len)
+				const struct iovec* iov,
+				size_t iov_len)
 {
 	int32_t total_size = 0;
 	int32_t i;
@@ -184,9 +182,9 @@ static ssize_t qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
 }
 
 static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
-				void *msg_ptr,
-				size_t msg_len,
-				int32_t ms_timeout)
+			       void *msg_ptr,
+			       size_t msg_len,
+			       int32_t ms_timeout)
 {
 	uint32_t msg_prio;
 	struct timespec ts_timeout;
@@ -200,15 +198,15 @@ static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
  mq_receive_again:
 	if (ms_timeout >= 0) {
 		res = mq_timedreceive(one_way->u.pmq.q,
-				(char *)msg_ptr,
-				one_way->max_msg_size,
-				&msg_prio,
-				&ts_timeout);
+				      (char *)msg_ptr,
+				      one_way->max_msg_size,
+				      &msg_prio,
+				      &ts_timeout);
 	} else {
 		res = mq_receive(one_way->u.pmq.q,
-				(char *)msg_ptr,
-				one_way->max_msg_size,
-				&msg_prio);
+				 (char *)msg_ptr,
+				 one_way->max_msg_size,
+				 &msg_prio);
 	}
 	if (res == -1) {
 		switch (errno) {
@@ -380,8 +378,8 @@ static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
 
 	if (!s->needs_sock_for_poll) {
 		s->poll_fns.dispatch_add(s->poll_priority, c->request.u.pmq.q,
-				     POLLIN | POLLPRI | POLLNVAL,
-				     c, qb_ipcs_dispatch_service_request);
+					 POLLIN | POLLPRI | POLLNVAL,
+					 c, qb_ipcs_dispatch_service_request);
 	}
 
 	r->hdr.error = 0;

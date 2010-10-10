@@ -51,8 +51,8 @@ static int32_t sysv_mq_unnamed_create(struct qb_ipcs_connection *c,
 retry_creating_the_q:
 	queue->u.smq.key = random();
 	queue->u.smq.q =
-	    msgget(queue->u.smq.key,
-		   IPC_CREAT | IPC_EXCL | IPC_NOWAIT | S_IWUSR | S_IRUSR);
+		msgget(queue->u.smq.key,
+		       IPC_CREAT | IPC_EXCL | IPC_NOWAIT | S_IWUSR | S_IRUSR);
 	if (queue->u.smq.q == -1 && errno == EEXIST) {
 		goto retry_creating_the_q;
 	} else if (queue->u.smq.q == -1) {
@@ -142,7 +142,7 @@ return_status:
  * --------------------------------------------------------
  */
 static ssize_t qb_ipc_smq_send(struct qb_ipc_one_way *one_way,
-				const void *msg_ptr, size_t msg_len)
+			       const void *msg_ptr, size_t msg_len)
 {
 	return sysv_split_and_send(one_way->u.smq.q, msg_ptr, msg_len, QB_TRUE);
 }
@@ -183,9 +183,9 @@ static ssize_t qb_ipc_smq_sendv(struct qb_ipc_one_way *one_way,
 }
 
 static ssize_t qb_ipc_smq_recv(struct qb_ipc_one_way *one_way,
-				void *msg_ptr,
-				size_t msg_len,
-				int32_t ms_timeout)
+			       void *msg_ptr,
+			       size_t msg_len,
+			       int32_t ms_timeout)
 {
 	ssize_t res;
 	ssize_t received = 0;
@@ -215,7 +215,7 @@ return_status:
 #endif
 	if (res == -1 && errno == ENOMSG) {
 		/* just to be consistent with other IPC types.
-		 */
+		*/
 		return -EAGAIN;
 	}
 	if (res == -1) {
@@ -237,7 +237,7 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 	hdr.id = QB_IPC_MSG_DISCONNECT;
 	hdr.size = sizeof(hdr);
 	sysv_split_and_send(c->request.u.smq.q, (const char *)&hdr, hdr.size,
-			QB_TRUE);
+			    QB_TRUE);
 
 	msgctl(c->event.u.smq.q, IPC_RMID, NULL);
 	msgctl(c->response.u.smq.q, IPC_RMID, NULL);
