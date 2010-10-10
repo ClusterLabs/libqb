@@ -162,13 +162,21 @@ ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 {
 	char one_byte = 1;
 	int32_t res;
+	ssize_t size;
 
 	res = qb_ipc_us_recv_ready(c->sock, ms_timeout);
 	if (res < 0) {
 		return res;
 	}
-	qb_ipc_us_recv(c->sock, &one_byte, 1);
-	return c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
+	size = c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
+	if (size < 0) {
+		return size;
+	}
+	res = qb_ipc_us_recv(c->sock, &one_byte, 1);
+	if (res < 0) {
+		return res;
+	}
+	return size;
 }
 
 void qb_ipcc_disconnect(struct qb_ipcc_connection *c)

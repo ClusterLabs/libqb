@@ -143,12 +143,21 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 			   size_t size)
 {
 	ssize_t res;
+	int32_t try_count = 0;
 
 	qb_ipcs_connection_ref_inc(c);
 
-	res = c->service->funcs.send(&c->event, data, size);
-	qb_ipc_us_send(c->sock, data, 1);
-
+	do {
+		try_count++;
+		res = c->service->funcs.send(&c->event, data, size);
+	} while (res == -EAGAIN && try_count < 20);
+	if (res > 0) {
+		qb_ipc_us_send(c->sock, data, 1);
+	} else {
+		qb_util_log(LOG_ERR,
+			    "failed to send event : %s",
+			    strerror(-res));
+	}
 	qb_ipcs_connection_ref_dec(c);
 
 	return res;
@@ -158,11 +167,21 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection *c, const struct iovec * iov, size_t iov_len)
 {
 	ssize_t res;
+	int32_t try_count = 0;
 
 	qb_ipcs_connection_ref_inc(c);
 
-	res = c->service->funcs.sendv(&c->event, iov, iov_len);
-	qb_ipc_us_send(c->sock, &res, 1);
+	do {
+		try_count++;
+		res = c->service->funcs.sendv(&c->event, iov, iov_len);
+	} while (res == -EAGAIN && try_count < 20);
+	if (res > 0) {
+		qb_ipc_us_send(c->sock, &res, 1);
+	} else {
+		qb_util_log(LOG_ERR,
+			    "failed to send event : %s",
+			    strerror(-res));
+	}
 
 	qb_ipcs_connection_ref_dec(c);
 
@@ -293,6 +312,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	char bytes[10];
 	int32_t res;
 	int32_t recvd = 0;
+	int32_t try_count = 0;
 
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "%s HUP", __func__);
@@ -304,14 +324,15 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	}
  process_more:
 	res = _process_request_(c, IPC_REQUEST_TIMEOUT);
-	if (res > 0 || res == -ENOBUFS) {
+	try_count++;
+	if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
 		recvd++;
 	}
 	/* if we want fast processing
 	 * process one more.
 	 */
 	if (c->service->poll_priority == QB_LOOP_HIGH &&
-	    recvd == 1) {
+	    recvd == 1 && try_count < 5) {
 		goto process_more;
 	}
 
