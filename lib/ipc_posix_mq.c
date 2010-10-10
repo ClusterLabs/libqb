@@ -25,7 +25,7 @@
 #include "ipc_int.h"
 #include "util_int.h"
 #include <qb/qbdefs.h>
-#include <qb/qbpoll.h>
+#include <qb/qbloop.h>
 
 #define QB_REQUEST_Q_LEN 3
 #define QB_RESPONSE_Q_LEN 1
@@ -379,7 +379,8 @@ static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
 	}
 
 	if (!s->needs_sock_for_poll) {
-		qb_poll_dispatch_add(s->poll_handle, c->request.u.pmq.q,
+		qb_loop_poll_add(s->loop_pt, QB_LOOP_HIGH,
+				     c->request.u.pmq.q,
 				     POLLIN | POLLPRI | POLLNVAL,
 				     c, qb_ipcs_dispatch_service_request);
 	}

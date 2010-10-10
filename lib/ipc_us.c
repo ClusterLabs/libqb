@@ -30,7 +30,7 @@
 #include <sys/stat.h>
 #endif
 #include <qb/qbipcs.h>
-#include <qb/qbpoll.h>
+#include <qb/qbloop.h>
 #include "util_int.h"
 #include "ipc_int.h"
 
@@ -42,8 +42,7 @@
 #define QB_SUN_LEN(a) SUN_LEN(a)
 #endif
 
-static int32_t qb_ipcs_us_connection_acceptor(qb_handle_t handle,
-					      int fd, int revent, void *data);
+static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 
 #ifdef SO_NOSIGPIPE
 static void socket_nosigpipe(int32_t s)
@@ -518,7 +517,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		qb_util_log(LOG_ERR, "listen failed: %s.\n", error_str);
 	}
 
-	qb_poll_dispatch_add(s->poll_handle, s->server_sock,
+	qb_loop_poll_add(s->loop_pt, QB_LOOP_HIGH, s->server_sock,
 			     POLLIN | POLLPRI | POLLNVAL,
 			     s, qb_ipcs_us_connection_acceptor);
 	return 0;
@@ -536,8 +535,7 @@ int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 	return 0;
 }
 
-static int32_t qb_ipcs_us_connection_acceptor(qb_handle_t handle,
-					      int fd, int revent, void *data)
+static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data)
 {
 	struct sockaddr_un un_addr;
 	int32_t new_fd;
@@ -597,7 +595,7 @@ retry_accept:
 		c->receive_buf = malloc(c->request.max_msg_size);
 
 		if (s->needs_sock_for_poll) {
-			qb_poll_dispatch_add(s->poll_handle, c->sock,
+			qb_loop_poll_add(s->loop_pt, QB_LOOP_HIGH, c->sock,
 					     POLLIN | POLLPRI | POLLNVAL,
 					     c,
 					     qb_ipcs_dispatch_connection_request);

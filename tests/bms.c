@@ -43,13 +43,13 @@
 #include <sched.h>
 
 #include <qb/qbutil.h>
-#include <qb/qbpoll.h>
+#include <qb/qbloop.h>
 #include <qb/qbipcs.h>
 
 int32_t blocking = 1;
 int32_t verbose = 0;
 
-static qb_handle_t bms_poll_handle;
+static qb_loop_t *bms_loop;
 static qb_ipcs_service_pt s1;
 
 static int32_t s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
@@ -178,15 +178,15 @@ int32_t main(int32_t argc, char *argv[])
 
 	qb_util_set_log_function(ipc_log_fn);
 
-	bms_poll_handle = qb_poll_create();
+	bms_loop = qb_loop_create();
 
 	s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
 	if (s1 == 0) {
 		perror("qb_ipcs_create");
 		exit(1);
 	}
-	qb_ipcs_run(s1, bms_poll_handle);
-	qb_poll_run(bms_poll_handle);
+	qb_ipcs_run(s1, bms_loop);
+	qb_loop_run(bms_loop);
 
 	return EXIT_SUCCESS;
 }

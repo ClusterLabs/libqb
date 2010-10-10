@@ -24,7 +24,7 @@
 #include <sys/msg.h>
 
 #include <qb/qbdefs.h>
-#include <qb/qbpoll.h>
+#include <qb/qbloop.h>
 #include "ipc_int.h"
 #include "util_int.h"
 

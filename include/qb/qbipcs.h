@@ -102,7 +102,7 @@ void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
 /**
  * run the new IPC server.
  */
-int32_t qb_ipcs_run(qb_ipcs_service_pt s, qb_handle_t poll);
+int32_t qb_ipcs_run(qb_ipcs_service_pt s, void *loop_pt);
 
 /**
  * Destroy the IPC server.

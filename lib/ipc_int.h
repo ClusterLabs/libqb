@@ -145,7 +145,7 @@ struct qb_ipcs_service {
 	pid_t pid;
 	int32_t needs_sock_for_poll;
 	int32_t server_sock;
-	qb_handle_t poll_handle;
+	void* loop_pt;
 
 	struct qb_ipcs_service_handlers serv_fns;
 	struct qb_ipcs_poll_handlers poll_fns;
@@ -177,10 +177,8 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s);
 int32_t qb_ipcs_us_publish(struct qb_ipcs_service *s);
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service *s);
 
-int32_t qb_ipcs_dispatch_connection_request(qb_handle_t hdb_handle_t,
-	int32_t fd, int32_t revents, void *data);
-int32_t qb_ipcs_dispatch_service_request(qb_handle_t hdb_handle_t,
-	int32_t fd, int32_t revents, void *data);
+int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data);
+int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data);
 struct qb_ipcs_connection* qb_ipcs_connection_alloc(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,

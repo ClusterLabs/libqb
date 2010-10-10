@@ -32,7 +32,7 @@
 #include <check.h>
 #include <qb/qbipcc.h>
 #include <qb/qbipcs.h>
-#include <qb/qbpoll.h>
+#include <qb/qbloop.h>
 
 #define IPC_NAME "ipc_test"
 #define MAX_MSG_SIZE (8192*16)
@@ -64,13 +64,13 @@ enum my_msg_ids {
  *
  * 8) multiple services
  */
-static qb_handle_t bms_poll_handle;
+static qb_loop_t *my_loop;
 static qb_ipcs_service_pt s1;
 
 static void sigterm_handler(int32_t num)
 {
 	qb_ipcs_destroy(s1);
-	qb_poll_stop(bms_poll_handle);
+	qb_loop_stop(my_loop);
 	exit(0);
 }
 
@@ -121,15 +121,15 @@ static void run_ipc_server(void)
 	};
 	signal(SIGTERM, sigterm_handler);
 
-	bms_poll_handle = qb_poll_create();
+	my_loop = qb_loop_create();
 
 	s1 = qb_ipcs_create(IPC_NAME, 4, ipc_type, &sh);
 	fail_if(s1 == 0);
 
-	res = qb_ipcs_run(s1, bms_poll_handle);
+	res = qb_ipcs_run(s1, my_loop);
 	ck_assert_int_eq(res, 0);
 
-	qb_poll_run(bms_poll_handle);
+	qb_loop_run(my_loop);
 }
 
 static int32_t run_function_in_new_process(void (*run_ipc_server_fn)(void))
@@ -155,8 +155,8 @@ static int32_t stop_process(pid_t pid)
 	return 0;
 }
 
-
-static char buffer[1024 * 1024];
+#define IPC_BUF_SIZE (1024 * 1024)
+static char buffer[IPC_BUF_SIZE];
 static int32_t bmc_send_nozc(uint32_t size)
 {
 	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
@@ -321,23 +321,26 @@ END_TEST
 static Suite *ipc_suite(void)
 {
 	TCase *tc;
+	uid_t uid;
 	Suite *s = suite_create("ipc");
 
 	tc = tcase_create("ipc_txrx_shm");
 	tcase_add_test(tc, test_ipc_txrx_shm);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
-#if 0
-	tc = tcase_create("ipc_txrx_posix_mq");
-	tcase_add_test(tc, test_ipc_txrx_pmq);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-#endif
-	tc = tcase_create("ipc_txrx_sysv_mq");
-	tcase_add_test(tc, test_ipc_txrx_smq);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
 
+	uid = geteuid();
+	if (uid == 0) {
+		tc = tcase_create("ipc_txrx_posix_mq");
+		tcase_add_test(tc, test_ipc_txrx_pmq);
+		tcase_set_timeout(tc, 10);
+		suite_add_tcase(s, tc);
+
+		tc = tcase_create("ipc_txrx_sysv_mq");
+		tcase_add_test(tc, test_ipc_txrx_smq);
+		tcase_set_timeout(tc, 10);
+		suite_add_tcase(s, tc);
+	}
 	tc = tcase_create("ipc_dispatch_shm");
 	tcase_add_test(tc, test_ipc_disp_shm);
 	tcase_set_timeout(tc, 16);

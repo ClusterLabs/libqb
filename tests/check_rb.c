@@ -26,6 +26,8 @@
 #include <syslog.h>
 #include <errno.h>
 #include <check.h>
+
+#include <qb/qbdefs.h>
 #include <qb/qbrb.h>
 #include <qb/qbipc_common.h>
 #include <qb/qbutil.h>

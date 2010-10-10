@@ -73,14 +73,14 @@ void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt pt,
 	qb_hdb_handle_put(&qb_ipc_services, pt);
 }
 
-int32_t qb_ipcs_run(qb_ipcs_service_pt pt, qb_handle_t poll_handle)
+int32_t qb_ipcs_run(qb_ipcs_service_pt pt, void *loop_pt)
 {
 	int32_t res;
 	struct qb_ipcs_service *s;
 
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
 
-	s->poll_handle = poll_handle;
+	s->loop_pt = loop_pt;
 
 	res = qb_ipcs_us_publish(s);
 	if (res < 0) {
@@ -243,8 +243,6 @@ get_msg_with_live_connection:
 		goto cleanup;
 	}
 
-	qb_util_log(LOG_DEBUG, "%s() service:%d msg:%d", __func__,
-			c->service->service_id, hdr->id);
 	if (hdr->id == QB_IPC_MSG_DISCONNECT) {
 		qb_util_log(LOG_DEBUG, "%s() QB_IPC_MSG_DISCONNECT", __func__);
 		qb_ipcs_disconnect(c);
@@ -258,15 +256,13 @@ cleanup:
 	return res;
 }
 
-int32_t qb_ipcs_dispatch_service_request(qb_handle_t handle,
-					 int32_t fd, int32_t revents,
+int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
 					 void *data)
 {
 	return _process_request_((struct qb_ipcs_connection *)data);
 }
 
-int32_t qb_ipcs_dispatch_connection_request(qb_handle_t handle,
-					    int32_t fd, int32_t revents,
+int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 					    void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
