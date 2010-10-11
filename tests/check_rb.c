@@ -60,7 +60,7 @@ START_TEST(test_ring_buffer1)
 			avail = qb_rb_space_free(rb);
 			actual = qb_rb_chunk_write(rb, hdr, hdr->size);
 			if (avail < (hdr->size + (2 * sizeof(uint32_t)))) {
-				ck_assert_int_eq(actual, -ENOMEM);
+				ck_assert_int_eq(actual, -EAGAIN);
 			} else {
 				ck_assert_int_eq(actual, hdr->size);
 			}

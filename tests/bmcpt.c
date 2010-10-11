@@ -104,7 +104,7 @@ static int32_t bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
 repeat_send:
 	res = qb_ipcc_send(ctx->conn, req_header, req_header->size);
 	if (res == -1) {
-		if (errno == EAGAIN || errno == ENOMEM) {
+		if (errno == EAGAIN) {
 			goto repeat_send;
 		} else if (errno == EINVAL || errno == EINTR) {
 			perror("qb_ipcc_send");

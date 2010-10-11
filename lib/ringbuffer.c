@@ -362,7 +362,7 @@ void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 		if (_qb_rb_space_free_locked_(rb) <
 		    (len + QB_RB_CHUNK_HEADER_SIZE + 4)) {
 			rb->unlock_fn(rb);
-			errno = ENOMEM;
+			errno = EAGAIN;
 			return NULL;
 		}
 	}

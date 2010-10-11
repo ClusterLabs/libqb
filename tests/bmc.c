@@ -101,7 +101,7 @@ repeat_send:
 	}
 	res = qb_ipcc_send(conn, req_header, req_header->size);
 	if (res < 0) {
-		if (res == -EAGAIN || res == -ENOMEM) {
+		if (res == -EAGAIN) {
 			goto repeat_send;
 		} else if (res == -EINVAL || res == -EINTR) {
 			perror("qb_ipcc_send");
