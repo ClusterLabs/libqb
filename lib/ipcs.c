@@ -26,6 +26,8 @@
 #include <qb/qbipcs.h>
 
 static void qb_ipcs_destroy_internal(void *data);
+static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
+				    int32_t fc_enable);
 
 QB_HDB_DECLARE(qb_ipc_services, qb_ipcs_destroy_internal);
 
@@ -115,6 +117,53 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt)
 	return res;
 }
 
+void qb_ipcs_request_rate_limit(qb_ipcs_service_pt pt, enum qb_ipcs_rate_limit rl)
+{
+	struct qb_ipcs_service *s;
+	struct qb_ipcs_connection *c;
+	enum qb_loop_priority p;
+
+	switch (rl) {
+	case QB_IPCS_RATE_FAST:
+		p = QB_LOOP_HIGH;
+		break;
+	case QB_IPCS_RATE_SLOW:
+	case QB_IPCS_RATE_OFF:
+		p = QB_LOOP_LOW;
+		break;
+	default:
+	case QB_IPCS_RATE_NORMAL:
+		p = QB_LOOP_MED;
+		break;
+	}
+
+	qb_hdb_handle_get(&qb_ipc_services, pt, (void**)&s);
+
+	qb_list_for_each_entry(c, &s->connections, list) {
+		qb_ipcs_connection_ref_inc(c);
+
+		qb_ipcs_flowcontrol_set(c, (rl == QB_IPCS_RATE_OFF));
+		if (s->poll_priority == p) {
+			qb_ipcs_connection_ref_dec(c);
+			continue;
+		}
+
+		if (s->type == QB_IPC_POSIX_MQ && !s->needs_sock_for_poll) {
+			s->poll_fns.dispatch_mod(p, c->request.u.pmq.q,
+						 POLLIN | POLLPRI | POLLNVAL,
+						 c, qb_ipcs_dispatch_service_request);
+		} else {
+			s->poll_fns.dispatch_mod(p, c->sock,
+						 POLLIN | POLLPRI | POLLNVAL,
+						 c,
+						 qb_ipcs_dispatch_connection_request);
+		}
+		qb_ipcs_connection_ref_dec(c);
+	}
+	s->poll_priority = p;
+	qb_hdb_handle_put(&qb_ipc_services, pt);
+}
+
 void qb_ipcs_destroy(qb_ipcs_service_pt pt)
 {
 	qb_hdb_handle_put(&qb_ipc_services, pt);
@@ -126,6 +175,10 @@ static void qb_ipcs_destroy_internal(void *data)
 	struct qb_ipcs_service *s = (struct qb_ipcs_service *)data;
 	s->funcs.destroy(s);
 }
+
+/*
+ * connection API
+ */
 
 ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 			      size_t size)
@@ -200,6 +253,7 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->sock = -1;
 	qb_list_init(&c->list);
 	c->receive_buf = NULL;
+	c->fc_enabled = QB_FALSE;
 
 	return c;
 }
@@ -243,6 +297,14 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 {
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 	qb_ipcs_connection_ref_dec(c);
+}
+
+static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_enable)
+{
+	if (c->fc_enabled != fc_enable) {
+		c->service->funcs.fc_set(&c->request, fc_enable);
+		c->fc_enabled = fc_enable;
+	}
 }
 
 static int32_t _process_request_(struct qb_ipcs_connection *c,
@@ -362,41 +424,5 @@ void qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
 void *qb_ipcs_context_get(struct qb_ipcs_connection *c)
 {
 	return c->context;
-}
-
-void qb_ipcs_request_rate_limit(enum qb_ipcs_rate_limit rl)
-{
-	struct qb_ipcs_service *s;
-	struct qb_ipcs_connection *c;
-	qb_handle_t  handle;
-	enum qb_loop_priority p;
-
-	switch (rl) {
-	case QB_IPCS_RATE_SLOW: p = QB_LOOP_LOW; break;
-	case QB_IPCS_RATE_NORMAL: p = QB_LOOP_MED; break;
-	case QB_IPCS_RATE_FAST: p = QB_LOOP_HIGH; break;
-	default:
-	case QB_IPCS_RATE_OFF:
-		assert(0);
-		break;
-	}
-	qb_hdb_iterator_reset(&qb_ipc_services);
-	while (qb_hdb_iterator_next(&qb_ipc_services, (void**)&s, &handle) == 0) {
-
-		qb_list_for_each_entry(c, &s->connections, list) {
-			if (s->type == QB_IPC_POSIX_MQ && !s->needs_sock_for_poll) {
-				s->poll_fns.dispatch_mod(p, c->request.u.pmq.q,
-							 POLLIN | POLLPRI | POLLNVAL,
-							 c, qb_ipcs_dispatch_service_request);
-			} else {
-				s->poll_fns.dispatch_mod(p, c->sock,
-							 POLLIN | POLLPRI | POLLNVAL,
-							 c,
-							 qb_ipcs_dispatch_connection_request);
-			}
-		}
-		s->poll_priority = p;
-		qb_hdb_handle_put(&qb_ipc_services, handle);
-	}
 }
 

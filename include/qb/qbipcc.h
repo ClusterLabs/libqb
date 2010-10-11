@@ -98,6 +98,10 @@ ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
 ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_pt,
 			   size_t msg_len, int32_t ms_timeout);
 
+/**
+ *
+ */
+int32_t qb_ipcc_flowcontrol_get(struct qb_ipcc_connection * c, int32_t *fc);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

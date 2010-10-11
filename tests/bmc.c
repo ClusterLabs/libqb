@@ -22,7 +22,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <qb/qbipcc.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
@@ -31,6 +30,9 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+
+#include <qb/qbdefs.h>
+#include <qb/qbipcc.h>
 
 #define ITERATIONS 10000
 pid_t mypid;
@@ -79,18 +81,24 @@ static void bm_finish(const char *operation, int32_t size)
 	printf("MB/sec, %9.3f\n", mbs_per_sec);
 }
 
-
+static int32_t my_fc = QB_TRUE;
 static char buffer[1024 * 1024];
 static int32_t bmc_send_nozc(uint32_t size)
 {
 	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
 	int32_t res;
+	int32_t fc;
 
 	req_header->id = QB_IPC_MSG_USER_START + 3;
 	req_header->size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
+	qb_ipcc_flowcontrol_get(conn, &fc);
+	if (fc != my_fc) {
+		printf("flowcontrol:%d\n", my_fc);
+		my_fc = fc;
+	}
 	res = qb_ipcc_send(conn, req_header, req_header->size);
 	if (res < 0) {
 		if (res == -EAGAIN || res == -ENOMEM) {

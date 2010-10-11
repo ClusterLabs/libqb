@@ -97,6 +97,7 @@ struct qb_ipcc_funcs {
 	ssize_t (*send)(struct qb_ipc_one_way *one_way, const void *data, size_t size);
 	ssize_t (*sendv)(struct qb_ipc_one_way *one_way, const struct iovec *iov, size_t iov_len);
 	void (*disconnect)(struct qb_ipcc_connection* c);
+	int32_t (*fc_get)(struct qb_ipc_one_way *one_way);
 };
 
 struct qb_ipcc_connection {
@@ -139,6 +140,7 @@ struct qb_ipcs_funcs {
 	void (*reclaim)(struct qb_ipc_one_way *one_way);
 	ssize_t (*send)(struct qb_ipc_one_way *one_way, const void *data, size_t size);
 	ssize_t (*sendv)(struct qb_ipc_one_way *one_way, const struct iovec* iov, size_t iov_len);
+	void (*fc_set)(struct qb_ipc_one_way *one_way, int32_t fc_enable);
 };
 
 struct qb_ipcs_service {
@@ -170,6 +172,7 @@ struct qb_ipcs_connection {
 	struct qb_list_head list;
 	char *receive_buf;
 	void *context;
+	int32_t fc_enabled;
 };
 
 int32_t qb_ipcs_pmq_create(struct qb_ipcs_service *s);

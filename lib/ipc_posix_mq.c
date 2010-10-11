@@ -266,6 +266,7 @@ int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c,
 	c->funcs.send = qb_ipc_pmq_send;
 	c->funcs.sendv = qb_ipc_pmq_sendv;
 	c->funcs.recv = qb_ipc_pmq_recv;
+	c->funcs.fc_get = NULL;
 	c->funcs.disconnect = qb_ipcc_pmq_disconnect;
 #if defined(QB_LINUX) || defined(QB_BSD)
 	c->needs_sock_for_poll = QB_FALSE;

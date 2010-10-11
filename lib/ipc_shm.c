@@ -108,6 +108,21 @@ static void qb_ipc_shm_reclaim(struct qb_ipc_one_way *one_way)
 	qb_rb_chunk_reclaim(one_way->u.shm.rb);
 }
 
+static void qb_ipc_shm_fc_set(struct qb_ipc_one_way *one_way,
+			       int32_t fc_enable)
+{
+	int32_t *fc;
+	fc = qb_rb_shared_user_data_get(one_way->u.shm.rb);
+	*fc = fc_enable;
+}
+
+static int32_t qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
+{
+	int32_t *fc;
+	fc = qb_rb_shared_user_data_get(one_way->u.shm.rb);
+	return *fc;
+}
+
 int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 			    struct qb_ipc_connection_response *response)
 {
@@ -116,6 +131,7 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	c->funcs.send = qb_ipc_shm_send;
 	c->funcs.sendv = qb_ipc_shm_sendv;
 	c->funcs.recv = qb_ipc_shm_recv;
+	c->funcs.fc_get = qb_ipc_shm_fc_get;
 	c->funcs.disconnect = qb_ipcc_shm_disconnect;
 	c->needs_sock_for_poll = QB_TRUE;
 
@@ -125,14 +141,15 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	}
 
 	c->request.u.shm.rb = qb_rb_open(response->request, c->request.max_msg_size,
-					 QB_RB_FLAG_SHARED_PROCESS);
+					 QB_RB_FLAG_SHARED_PROCESS,
+					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
 		perror("qb_rb_open:REQUEST");
 		return -errno;
 	}
 	c->response.u.shm.rb = qb_rb_open(response->response,
 					  c->response.max_msg_size,
-					  QB_RB_FLAG_SHARED_PROCESS);
+					  QB_RB_FLAG_SHARED_PROCESS, 0);
 
 	if (c->response.u.shm.rb == NULL) {
 		perror("qb_rb_open:RESPONSE");
@@ -140,7 +157,7 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	}
 	c->event.u.shm.rb = qb_rb_open(response->event,
 				       c->response.max_msg_size,
-				       QB_RB_FLAG_SHARED_PROCESS);
+				       QB_RB_FLAG_SHARED_PROCESS, 0);
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
@@ -231,7 +248,8 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	c->request.u.shm.rb = qb_rb_open(r->request,
 					 c->request.max_msg_size,
 					 QB_RB_FLAG_CREATE |
-					 QB_RB_FLAG_SHARED_PROCESS);
+					 QB_RB_FLAG_SHARED_PROCESS,
+					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
 		perror("qb_rb_open:REQUEST");
@@ -242,7 +260,7 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	c->response.u.shm.rb = qb_rb_open(r->response,
 					  c->response.max_msg_size,
 					  QB_RB_FLAG_CREATE |
-					  QB_RB_FLAG_SHARED_PROCESS);
+					  QB_RB_FLAG_SHARED_PROCESS, 0);
 	if (c->response.u.shm.rb == NULL) {
 		res = -errno;
 		perror("qb_rb_open:RESPONSE");
@@ -253,7 +271,7 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	c->event.u.shm.rb = qb_rb_open(r->event,
 				       c->event.max_msg_size,
 				       QB_RB_FLAG_CREATE |
-				       QB_RB_FLAG_SHARED_PROCESS);
+				       QB_RB_FLAG_SHARED_PROCESS, 0);
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
@@ -287,6 +305,7 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s)
 	s->funcs.sendv = qb_ipc_shm_sendv;
 	s->funcs.connect = qb_ipcs_shm_connect;
 	s->funcs.disconnect = qb_ipcs_shm_disconnect;
+	s->funcs.fc_set = qb_ipc_shm_fc_set;
 	s->needs_sock_for_poll = QB_TRUE;
 	return 0;
 }

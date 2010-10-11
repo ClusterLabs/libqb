@@ -30,6 +30,8 @@
 #include <errno.h>
 #include <signal.h>
 #include <check.h>
+
+#include <qb/qbdefs.h>
 #include <qb/qbipcc.h>
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
@@ -66,6 +68,8 @@ enum my_msg_ids {
  */
 static qb_loop_t *my_loop;
 static qb_ipcs_service_pt s1;
+static int32_t turn_on_fc = QB_FALSE;
+static int32_t fc_enabled = 89;
 
 static void sigterm_handler(int32_t num)
 {
@@ -89,6 +93,9 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 				sizeof(response));
 		if (res < 0) {
 			perror("qb_ipcs_response_send");
+		}
+		if (turn_on_fc) {
+			qb_ipcs_request_rate_limit(s1, QB_IPCS_RATE_OFF);
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_DISPATCH) {
 		response.size = sizeof(struct qb_ipc_response_header);
@@ -126,7 +133,6 @@ static int32_t my_dispatch_del(int32_t fd)
 {
 	return qb_loop_poll_del(my_loop, fd);
 }
-
 
 static void run_ipc_server(void)
 {
@@ -185,7 +191,7 @@ static int32_t stop_process(pid_t pid)
 
 #define IPC_BUF_SIZE (1024 * 1024)
 static char buffer[IPC_BUF_SIZE];
-static int32_t bmc_send_nozc(uint32_t size)
+static int32_t send_and_check(uint32_t size)
 {
 	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
@@ -195,6 +201,13 @@ static int32_t bmc_send_nozc(uint32_t size)
 	req_header->size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
+
+	res = qb_ipcc_flowcontrol_get(conn, &fc_enabled);
+	ck_assert_int_eq(res, 0);
+	if (fc_enabled) {
+		return -2;
+	}
+
 	res = qb_ipcc_send(conn, req_header, req_header->size);
 	if (res < 0) {
 		if (res == -EAGAIN || res == -ENOMEM) {
@@ -251,9 +264,12 @@ static void test_ipc_txrx(void)
 		size = (10 * j * j * j) + sizeof(struct qb_ipc_request_header);
 		if (size >= MAX_MSG_SIZE)
 			break;
-		if (bmc_send_nozc(size) == -1) {
+		if (send_and_check(size) < 0) {
 			break;
 		}
+	}
+	if (turn_on_fc) {
+		ck_assert_int_eq(fc_enabled, QB_TRUE);
 	}
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
@@ -261,6 +277,14 @@ static void test_ipc_txrx(void)
 
 START_TEST(test_ipc_txrx_shm)
 {
+	ipc_type = QB_IPC_SHM;
+	test_ipc_txrx();
+}
+END_TEST
+
+START_TEST(test_ipc_fc_shm)
+{
+	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
 	test_ipc_txrx();
 }
@@ -354,6 +378,11 @@ static Suite *ipc_suite(void)
 
 	tc = tcase_create("ipc_txrx_shm");
 	tcase_add_test(tc, test_ipc_txrx_shm);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_fc_shm");
+	tcase_add_test(tc, test_ipc_fc_shm);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 

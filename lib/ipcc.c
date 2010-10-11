@@ -151,6 +151,16 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	return c->funcs.recv(&c->response, msg_ptr, msg_len, -1);
 }
 
+int32_t qb_ipcc_flowcontrol_get(struct qb_ipcc_connection * c, int32_t *fc)
+{
+	if (c->funcs.fc_get == NULL) {
+		*fc = QB_FALSE;
+		return -ENOSYS;
+	}
+	*fc = c->funcs.fc_get(&c->request);
+	return 0;
+}
+
 int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 {
 	*fd = c->sock;

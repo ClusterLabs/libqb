@@ -34,6 +34,13 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+enum qb_ipcs_rate_limit {
+	QB_IPCS_RATE_FAST,
+	QB_IPCS_RATE_NORMAL,
+	QB_IPCS_RATE_SLOW,
+	QB_IPCS_RATE_OFF,
+};
+
 struct qb_ipcs_connection;
 typedef struct qb_ipcs_connection qb_ipcs_connection_t;
 
@@ -101,11 +108,8 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name,
 				  struct qb_ipcs_service_handlers *handlers);
 
 /**
- * Set your callbacks.
+ * Set your poll callbacks.
  */
-void qb_ipcs_service_handlers_set(qb_ipcs_service_pt s,
-	struct qb_ipcs_service_handlers *handlers);
-
 void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
 	struct qb_ipcs_poll_handlers *handlers);
 
@@ -118,6 +122,8 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt s);
  * Destroy the IPC server.
  */
 void qb_ipcs_destroy(qb_ipcs_service_pt s);
+
+void qb_ipcs_request_rate_limit(qb_ipcs_service_pt pt, enum qb_ipcs_rate_limit rl);
 
 /**
  * send a response to a incomming request.
@@ -155,14 +161,6 @@ void qb_ipcs_context_set(qb_ipcs_connection_t *c, void *context);
 
 void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
 
-enum qb_ipcs_rate_limit {
-	QB_IPCS_RATE_FAST,
-	QB_IPCS_RATE_NORMAL,
-	QB_IPCS_RATE_SLOW,
-	QB_IPCS_RATE_OFF,
-};
-
-void qb_ipcs_request_rate_limit(enum qb_ipcs_rate_limit rl);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
