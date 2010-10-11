@@ -37,7 +37,7 @@ int32_t main(int32_t argc, char *argv[])
 	qb_util_set_log_function(libqb_log_writer);
 
 	rb = qb_rb_open("tester", BUFFER_CHUNK_SIZE * 3,
-			QB_RB_FLAG_SHARED_PROCESS | QB_RB_FLAG_CREATE);
+			QB_RB_FLAG_SHARED_PROCESS | QB_RB_FLAG_CREATE, 0);
 
 	if (rb == NULL) {
 		printf("reader: failed to create ringbuffer\n");

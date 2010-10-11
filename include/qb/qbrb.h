@@ -114,7 +114,8 @@ typedef struct qb_ringbuffer_s qb_ringbuffer_t;
  * @return a new ring buffer or NULL if there was a problem.
  * @see QB_RB_FLAG_CREATE, QB_RB_FLAG_OVERWRITE, QB_RB_FLAG_SHARED_THREAD, QB_RB_FLAG_SHARED_PROCESS
  */
-qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags);
+qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
+			    size_t shared_user_data_size);
 
 /**
  * Dereference the ringbuffer and if we are the last user destroy it.
@@ -132,6 +133,9 @@ void qb_rb_close(qb_ringbuffer_t * rb, int32_t force_it);
  * @return name.
  */
 char *qb_rb_name_get(qb_ringbuffer_t * rb);
+
+
+void *qb_rb_shared_user_data_get(qb_ringbuffer_t * rb);
 
 /**
  * Write a chunk to the ring buffer.

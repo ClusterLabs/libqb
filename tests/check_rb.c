@@ -43,7 +43,7 @@ START_TEST(test_ring_buffer1)
 	ssize_t actual;
 	ssize_t avail;
 
-	rb = qb_rb_open("test1", 200, QB_RB_FLAG_CREATE);
+	rb = qb_rb_open("test1", 200, QB_RB_FLAG_CREATE, 0);
 	fail_if(rb == NULL);
 
 	for (b = 0; b < 3; b++) {
@@ -97,7 +97,7 @@ START_TEST(test_ring_buffer2)
 	int64_t *new_data;
 	ssize_t l;
 
-	t = qb_rb_open("test2", 200 * sizeof(int64_t), QB_RB_FLAG_CREATE);
+	t = qb_rb_open("test2", 200 * sizeof(int64_t), QB_RB_FLAG_CREATE, 0);
 	fail_if(t == NULL);
 	for (i = 0; i < 200; i++) {
 		l = qb_rb_chunk_write(t, &v, sizeof(v));
@@ -143,7 +143,7 @@ START_TEST(test_ring_buffer3)
 	ssize_t l;
 	size_t len = strlen(v) + 1;
 
-	t = qb_rb_open("test3", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE);
+	t = qb_rb_open("test3", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
 	fail_if(t == NULL);
 	for (i = 0; i < 9000; i++) {
 		l = qb_rb_chunk_write(t, v, len);
@@ -170,7 +170,7 @@ START_TEST(test_ring_buffer4)
 	char *new_data;
 	ssize_t l;
 
-	t = qb_rb_open("test4", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE);
+	t = qb_rb_open("test4", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
 	fail_if(t == NULL);
 	for (i = 0; i < 2000; i++) {
 		l = qb_rb_chunk_write(t, data, strlen(data));

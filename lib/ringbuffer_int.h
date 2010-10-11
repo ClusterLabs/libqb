@@ -56,6 +56,7 @@ struct qb_ringbuffer_shared_s {
 	int32_t ref_count;
 	sem_t posix_sem;
 	pthread_spinlock_t spinlock;
+	char user_data[1];
 };
 
 struct qb_ringbuffer_s {

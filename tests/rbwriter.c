@@ -92,7 +92,7 @@ static void bm_finish(const char *operation, int32_t size)
 static void bmc_connect(void)
 {
 	rb = qb_rb_open("tester", BUFFER_CHUNK_SIZE * 3,
-			QB_RB_FLAG_SHARED_PROCESS);
+			QB_RB_FLAG_SHARED_PROCESS, 0);
 
 	if (rb == NULL) {
 		printf("writer: failed to create ringbuffer\n");

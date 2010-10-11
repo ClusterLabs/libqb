@@ -82,7 +82,8 @@ static size_t _qb_rb_space_used_locked_(qb_ringbuffer_t * rb);
 static void _qb_rb_chunk_check_locked_(qb_ringbuffer_t * rb, uint32_t pointer);
 static void _qb_rb_chunk_reclaim_locked_(qb_ringbuffer_t * rb);
 
-qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
+qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
+			    size_t shared_user_data_size)
 {
 	struct qb_ringbuffer_s *rb = malloc(sizeof(struct qb_ringbuffer_s));
 	size_t real_size = QB_ROUNDUP(size, sysconf(_SC_PAGESIZE));
@@ -90,6 +91,8 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
 	int32_t fd_hdr;
 	int32_t fd_data;
 	uint32_t file_flags = O_RDWR;
+	size_t shared_size = sizeof(struct qb_ringbuffer_shared_s);
+	shared_size += shared_user_data_size;
 
 	if (flags & QB_RB_FLAG_CREATE) {
 		file_flags |= O_CREAT | O_TRUNC;
@@ -98,7 +101,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags)
 	 * Create a shared_hdr memory segment for the header.
 	 */
 	fd_hdr = qb_util_mmap_file_open(path, name,
-					sizeof(struct qb_ringbuffer_shared_s),
+					shared_size,
 					file_flags);
 	if (fd_hdr < 0) {
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
@@ -228,6 +231,11 @@ void qb_rb_close(qb_ringbuffer_t * rb, int32_t force_it)
 char *qb_rb_name_get(qb_ringbuffer_t * rb)
 {
 	return rb->shared_hdr->hdr_path;
+}
+
+void *qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
+{
+	return rb->shared_hdr->user_data;
 }
 
 static size_t _qb_rb_space_free_locked_(qb_ringbuffer_t * rb)
