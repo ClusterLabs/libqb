@@ -151,6 +151,32 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	return c->funcs.recv(&c->response, msg_ptr, msg_len, -1);
 }
 
+ssize_t qb_ipcc_sendv_recv (
+	qb_ipcc_connection_t *c,
+	const struct iovec *iov,
+	unsigned int iov_len,
+	void *res_msg,
+	size_t res_len)
+{
+	ssize_t res;
+
+repeat_send:
+	res = qb_ipcc_sendv(c, iov, iov_len);
+	if (res < 0) {
+		if (res == -EAGAIN) {
+			goto repeat_send;
+		}
+		return res;
+	}
+
+repeat_recv:
+	res = qb_ipcc_recv(c, res_msg, res_len);
+	if (res == -EAGAIN) {
+		goto repeat_recv;
+	}
+	return res;
+}
+
 int32_t qb_ipcc_flowcontrol_get(struct qb_ipcc_connection * c, int32_t *fc)
 {
 	if (c->funcs.fc_get == NULL) {

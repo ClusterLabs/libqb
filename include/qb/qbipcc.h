@@ -63,7 +63,7 @@ int32_t qb_ipcc_fd_get(qb_ipcc_connection_t* c, int32_t * fd);
  * @param c connection instance
  * @param msg_ptr pointer to a message to send
  * @param msg_len the size of the message
- * @return (0 == OK, -errno == error)
+ * @return (size sent, -errno == error)
  */
 ssize_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
                      size_t msg_len);
@@ -72,7 +72,7 @@ ssize_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
  * @param c connection instance
  * @param iov pointer to an iovec struct to send
  * @param iov_len the number of iovecs used
- * @return (0 == OK, -errno == error)
+ * @return (size sent, -errno == error)
  */
 ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
 	size_t iov_len);
@@ -81,10 +81,27 @@ ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
  * @param c connection instance
  * @param msg_ptr pointer to a message buffer to receive into
  * @param msg_len the size of the buffer
- * @return (0 == OK, -errno == error)
+ * @return (size recv'ed, -errno == error)
  */
 ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
                      size_t msg_len);
+
+/**
+ * This is a convenience function that simply sends and then recvs.
+ *
+ * @param c connection instance
+ * @param iov pointer to an iovec struct to send
+ * @param iov_len the number of iovecs used
+ * @param msg_ptr pointer to a message buffer to receive into
+ * @param msg_len the size of the buffer
+ *
+ * @see qb_ipcc_sendv() qb_ipcc_recv()
+ */
+ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
+			   const struct iovec *iov,
+			   unsigned int iov_len,
+			   void *msg_ptr,
+			   size_t msg_len);
 
 /**
  * Receive an event.
@@ -99,7 +116,9 @@ ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_pt,
 			   size_t msg_len, int32_t ms_timeout);
 
 /**
- *
+ * Get the flowcontrol state
+ * @param fc (out) QB_FALSE no fc, QB_TRUE fc enabled
+ * @return (0 == ok, -errno == error)
  */
 int32_t qb_ipcc_flowcontrol_get(struct qb_ipcc_connection * c, int32_t *fc);
 
