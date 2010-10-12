@@ -589,6 +589,7 @@ retry_accept:
 	if (res == 0) {
 		qb_util_log(LOG_INFO, "IPC credentials authenticated");
 
+		memset(&response, 0, sizeof(response));
 		res = s->funcs.connect(s, c, &response);
 		if (res != 0) {
 			goto send_response;

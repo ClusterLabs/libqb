@@ -346,6 +346,7 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 #ifdef HAVE_EPOLL
 	ev = &my_src->events[install_pos];
 	ev->events = poll_to_epoll_event(events);
+	ev->data.u64 = 0; /* valgrind */
 	ev->data.u32 = install_pos;
 	if (epoll_ctl(my_src->epollfd, EPOLL_CTL_ADD, fd, ev) == -1) {
 		res = -errno;
