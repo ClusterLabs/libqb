@@ -368,14 +368,15 @@ int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
 	return res;
 }
 
+#define MAX_RECV_MSGS 50
 int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 					    void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
-	char bytes[10];
+	char bytes[MAX_RECV_MSGS];
 	int32_t res;
 	int32_t recvd = 0;
-	int32_t try_count = 0;
+	ssize_t avail;
 
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "%s HUP", __func__);
@@ -385,20 +386,25 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
- process_more:
-	res = _process_request_(c, IPC_REQUEST_TIMEOUT);
-	try_count++;
-	if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
-		recvd++;
-	}
-	/* if we want fast processing
-	 * process one more.
-	 */
-	if (c->service->poll_priority == QB_LOOP_HIGH &&
-	    recvd == 1 && try_count < 5) {
-		goto process_more;
-	}
 
+	if (c->service->funcs.q_len_get) {
+		avail = c->service->funcs.q_len_get(&c->request);
+		if (avail < 0) {
+			avail = 1;
+		}
+		if (avail > MAX_RECV_MSGS) {
+			avail = MAX_RECV_MSGS;
+		}
+	} else {
+		avail = 1;
+	}
+	do {
+		res = _process_request_(c, IPC_REQUEST_TIMEOUT);
+		if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
+			recvd++;
+		}
+		avail--;
+	} while (avail > 0 && c->service->poll_priority == QB_LOOP_HIGH);
 	if (c->service->needs_sock_for_poll && recvd > 0) {
 		qb_ipc_us_recv(c->sock, bytes, recvd);
 	}

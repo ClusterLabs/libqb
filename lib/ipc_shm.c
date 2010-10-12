@@ -123,6 +123,11 @@ static int32_t qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
 	return *fc;
 }
 
+static ssize_t qb_ipc_shm_q_len_get(struct qb_ipc_one_way *one_way)
+{
+	return qb_rb_chunks_used(one_way->u.shm.rb);
+}
+
 int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 			    struct qb_ipc_connection_response *response)
 {
@@ -306,6 +311,7 @@ int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s)
 	s->funcs.connect = qb_ipcs_shm_connect;
 	s->funcs.disconnect = qb_ipcs_shm_disconnect;
 	s->funcs.fc_set = qb_ipc_shm_fc_set;
+	s->funcs.q_len_get = qb_ipc_shm_q_len_get;
 	s->needs_sock_for_poll = QB_TRUE;
 	return 0;
 }

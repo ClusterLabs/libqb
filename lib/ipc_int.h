@@ -141,6 +141,7 @@ struct qb_ipcs_funcs {
 	ssize_t (*send)(struct qb_ipc_one_way *one_way, const void *data, size_t size);
 	ssize_t (*sendv)(struct qb_ipc_one_way *one_way, const struct iovec* iov, size_t iov_len);
 	void (*fc_set)(struct qb_ipc_one_way *one_way, int32_t fc_enable);
+	ssize_t (*q_len_get)(struct qb_ipc_one_way *one_way);
 };
 
 struct qb_ipcs_service {
