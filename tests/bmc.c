@@ -199,8 +199,8 @@ int32_t main(int32_t argc, char *argv[])
 		exit(1);
 	}
 
-	for (j = 1; j < 49; j++) {
-		size = (10 * j * j * j) + sizeof(struct qb_ipc_request_header);
+	size = QB_MAX(sizeof(struct qb_ipc_request_header), 64);
+	for (j = 0; j < 10; j++) {
 		if (size >= MAX_MSG_SIZE)
 			break;
 		bm_start();
@@ -210,6 +210,7 @@ int32_t main(int32_t argc, char *argv[])
 			}
 		}
 		bm_finish("send_nozc", size);
+		size *= 2;
 	}
 
 	qb_ipcc_disconnect(conn);
