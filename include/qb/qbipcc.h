@@ -115,13 +115,6 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
 ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_pt,
 			   size_t msg_len, int32_t ms_timeout);
 
-/**
- * Get the flowcontrol state
- * @param fc (out) QB_FALSE no fc, QB_TRUE fc enabled
- * @return (0 == ok, -errno == error)
- */
-int32_t qb_ipcc_flowcontrol_get(struct qb_ipcc_connection * c, int32_t *fc);
-
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

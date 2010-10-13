@@ -116,6 +116,9 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 	if (msg_len > c->request.max_msg_size) {
 		return -EINVAL;
 	}
+	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
+		return -EAGAIN;
+	}
 
 	res = c->funcs.send(&c->request, msg_ptr, msg_len);
 	if (res > 0 && c->needs_sock_for_poll) {
@@ -136,6 +139,10 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 	}
 	if (total_size > c->request.max_msg_size) {
 		return -EINVAL;
+	}
+
+	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
+		return -EAGAIN;
 	}
 
 	res = c->funcs.sendv(&c->request, iov, iov_len);
@@ -160,6 +167,10 @@ ssize_t qb_ipcc_sendv_recv (
 {
 	ssize_t res;
 
+	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
+		return -EAGAIN;
+	}
+
 repeat_send:
 	res = qb_ipcc_sendv(c, iov, iov_len);
 	if (res < 0) {
@@ -175,16 +186,6 @@ repeat_recv:
 		goto repeat_recv;
 	}
 	return res;
-}
-
-int32_t qb_ipcc_flowcontrol_get(struct qb_ipcc_connection * c, int32_t *fc)
-{
-	if (c->funcs.fc_get == NULL) {
-		*fc = QB_FALSE;
-		return -ENOSYS;
-	}
-	*fc = c->funcs.fc_get(&c->request);
-	return 0;
 }
 
 int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)

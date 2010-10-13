@@ -196,29 +196,25 @@ static int32_t send_and_check(uint32_t size)
 	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
 	int32_t res;
+	int32_t try_times = 0;
 
 	req_header->id = IPC_MSG_REQ_TX_RX;
 	req_header->size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
 
-	res = qb_ipcc_flowcontrol_get(conn, &fc_enabled);
-	ck_assert_int_eq(res, 0);
-	if (fc_enabled) {
-		return -2;
-	}
-
 	res = qb_ipcc_send(conn, req_header, req_header->size);
+	try_times++;
 	if (res < 0) {
-		if (res == -EAGAIN) {
+		if (res == -EAGAIN && try_times < 10) {
 			goto repeat_send;
-		} else if (res == -EINVAL || res == -EINTR) {
-			perror("qb_ipcc_send");
-			return -1;
 		} else {
+			if (res == -EAGAIN && try_times >= 10) {
+				fc_enabled = QB_TRUE;
+			}
 			errno = -res;
 			perror("qb_ipcc_send");
-			goto repeat_send;
+			return res;
 		}
 	}
 
@@ -260,8 +256,9 @@ static void test_ipc_txrx(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
+	size = QB_MIN(sizeof(struct qb_ipc_request_header), 64);
 	for (j = 1; j < 19; j++) {
-		size = (10 * j * j * j) + sizeof(struct qb_ipc_request_header);
+		size *= 2;
 		if (size >= MAX_MSG_SIZE)
 			break;
 		if (send_and_check(size) < 0) {
