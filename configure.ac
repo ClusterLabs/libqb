@@ -124,7 +124,8 @@ AC_FUNC_MMAP
 AC_FUNC_REALLOC
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday memset munmap \
-		socket strchr strerror strstr epoll_create epoll_create1])
+		socket strchr strerror strstr epoll_create epoll_create1 \
+		pthread_spin_lock])
 
 ## local defines
 PACKAGE_FEATURES=""
