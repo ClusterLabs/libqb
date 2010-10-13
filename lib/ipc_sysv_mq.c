@@ -310,27 +310,6 @@ static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 	}
 }
 
-static void qb_ipcs_smq_destroy(struct qb_ipcs_service *s)
-{
-	struct qb_ipcs_connection *c = NULL;
-	struct qb_list_head *iter;
-	struct qb_list_head *iter_next;
-
-	qb_util_log(LOG_DEBUG, "%s\n", __func__);
-
-	for (iter = s->connections.next;
-	     iter != &s->connections; iter = iter_next) {
-
-		iter_next = iter->next;
-
-		c = qb_list_entry(iter, struct qb_ipcs_connection, list);
-		if (c == NULL) {
-			continue;
-		}
-		qb_ipcs_disconnect(c);
-	}
-}
-
 static int32_t qb_ipcs_smq_connect(struct qb_ipcs_service *s,
 				   struct qb_ipcs_connection *c,
 				   struct qb_ipc_connection_response *r)
@@ -386,14 +365,12 @@ static int32_t qb_ipcs_smq_is_msg_ready(struct qb_ipcs_service *s)
 }
 #endif
 
-int32_t qb_ipcs_smq_create(struct qb_ipcs_service *s)
+void qb_ipcs_smq_init(struct qb_ipcs_service *s)
 {
-	s->funcs.destroy = qb_ipcs_smq_destroy;
 	s->funcs.connect = qb_ipcs_smq_connect;
 	s->funcs.disconnect = qb_ipcs_smq_disconnect;
 	s->funcs.send = qb_ipc_smq_send;
 	s->funcs.sendv = qb_ipc_smq_sendv;
 	s->funcs.recv = qb_ipc_smq_recv;
 	s->needs_sock_for_poll = QB_TRUE;
-	return 0;
 }

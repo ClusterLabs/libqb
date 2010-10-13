@@ -84,29 +84,29 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt)
 
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
 
-	res = qb_ipcs_us_publish(s);
-	if (res < 0) {
-		qb_hdb_handle_put(&qb_ipc_services, pt);
-		return res;
-	}
 	s->funcs.peek = NULL;
 	s->funcs.reclaim = NULL;
 	switch (s->type) {
 	case QB_IPC_SOCKET:
-		res = 0;
+		/* qb_ipcs_us_init((struct qb_ipcs_service *)s); */
 		break;
 	case QB_IPC_SHM:
-		res = qb_ipcs_shm_create((struct qb_ipcs_service *)s);
+		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_POSIX_MQ:
-		res = qb_ipcs_pmq_create((struct qb_ipcs_service *)s);
+		qb_ipcs_pmq_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_SYSV_MQ:
-		res = qb_ipcs_smq_create((struct qb_ipcs_service *)s);
+		qb_ipcs_smq_init((struct qb_ipcs_service *)s);
 		break;
 	default:
 		res = -EINVAL;
 		break;
+	}
+	res = qb_ipcs_us_publish(s);
+	if (res < 0) {
+		qb_hdb_handle_put(&qb_ipc_services, pt);
+		return res;
 	}
 
 	if (res < 0) {
@@ -173,7 +173,19 @@ void qb_ipcs_destroy(qb_ipcs_service_pt pt)
 static void qb_ipcs_destroy_internal(void *data)
 {
 	struct qb_ipcs_service *s = (struct qb_ipcs_service *)data;
-	s->funcs.destroy(s);
+	struct qb_ipcs_connection *c = NULL;
+	struct qb_list_head *iter;
+	struct qb_list_head *iter_next;
+
+	qb_util_log(LOG_DEBUG, "%s\n", __func__);
+
+	qb_list_for_each_safe(iter, iter_next, &s->connections) {
+		c = qb_list_entry(iter, struct qb_ipcs_connection, list);
+		if (c == NULL) {
+			continue;
+		}
+		qb_ipcs_disconnect(c);
+	}
 }
 
 /*

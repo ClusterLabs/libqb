@@ -29,8 +29,11 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
+#include <qb/qbdefs.h>
+
 #include "util_int.h"
 #include "ipc_int.h"
 
@@ -361,78 +364,6 @@ void qb_ipcc_us_disconnect(int32_t sock)
 	close(sock);
 }
 
-#if 0
-
-cs_error_t coroipcc_dispatch_get(hdb_handle_t handle, void **data, int timeout)
-{
-	struct pollfd ufds;
-	int poll_events;
-	char buf;
-	struct ipc_instance *ipc_instance;
-	char *data_addr;
-	cs_error_t error = CS_OK;
-	int res;
-
-	error =
-		hdb_error_to_cs(hdb_handle_get
-				(&ipc_hdb, handle, (void **)&ipc_instance));
-	if (error != CS_OK) {
-		return (error);
-	}
-
-	*data = NULL;
-
-	ufds.fd = ipc_instance->fd;
-	ufds.events = POLLIN;
-	ufds.revents = 0;
-
-	poll_events = poll(&ufds, 1, timeout);
-	if (poll_events == -1 && errno == EINTR) {
-		error = CS_ERR_TRY_AGAIN;
-		goto error_put;
-	} else if (poll_events == -1) {
-		error = CS_ERR_LIBRARY;
-		goto error_put;
-	} else if (poll_events == 0) {
-		error = CS_ERR_TRY_AGAIN;
-		goto error_put;
-	}
-	if (poll_events == 1 && (ufds.revents & (POLLERR | POLLHUP))) {
-		error = CS_ERR_LIBRARY;
-		goto error_put;
-	}
-
-	error = socket_recv(ipc_instance->fd, &buf, 1);
-	assert(error == CS_OK);
-
-	if (shared_mem_dispatch_bytes_left(ipc_instance) > 500000) {
-		/*
-		 * Notify coroipcs to flush any pending dispatch messages
-		 */
-
-		res =
-			ipc_sem_post(ipc_instance->control_buffer,
-				     SEMAPHORE_REQUEST_OR_FLUSH_OR_EXIT);
-		if (res != CS_OK) {
-			error = CS_ERR_LIBRARY;
-			goto error_put;
-		}
-
-	}
-
-	data_addr = ipc_instance->dispatch_buffer;
-
-	data_addr = &data_addr[ipc_instance->control_buffer->read];
-
-	*data = (void *)data_addr;
-
-	return (CS_OK);
-error_put:
-	hdb_handle_put(&ipc_hdb, handle);
-	return (error);
-}
-
-#endif
 
 /*
  **************************************************************************

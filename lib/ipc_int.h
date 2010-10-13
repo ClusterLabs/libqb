@@ -131,7 +131,6 @@ struct qb_ipcs_service;
 struct qb_ipcs_connection;
 
 struct qb_ipcs_funcs {
-	void (*destroy)(struct qb_ipcs_service *s);
 	int32_t (*connect)(struct qb_ipcs_service *s, struct qb_ipcs_connection *c,
 		struct qb_ipc_connection_response *r);
 	void (*disconnect)(struct qb_ipcs_connection *c);
@@ -176,10 +175,10 @@ struct qb_ipcs_connection {
 	int32_t fc_enabled;
 };
 
-int32_t qb_ipcs_pmq_create(struct qb_ipcs_service *s);
-int32_t qb_ipcs_soc_create(struct qb_ipcs_service *s);
-int32_t qb_ipcs_smq_create(struct qb_ipcs_service *s);
-int32_t qb_ipcs_shm_create(struct qb_ipcs_service *s);
+void qb_ipcs_pmq_init(struct qb_ipcs_service *s);
+void qb_ipcs_us_init(struct qb_ipcs_service *s);
+void qb_ipcs_smq_init(struct qb_ipcs_service *s);
+void qb_ipcs_shm_init(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_us_publish(struct qb_ipcs_service *s);
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service *s);
