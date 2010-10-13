@@ -281,14 +281,17 @@ cleanup:
 
 void qb_ipcs_shm_init(struct qb_ipcs_service *s)
 {
+	s->funcs.connect = qb_ipcs_shm_connect;
+	s->funcs.disconnect = qb_ipcs_shm_disconnect;
+
 	s->funcs.recv = qb_ipc_shm_recv;
 	s->funcs.peek = qb_ipc_shm_peek;
 	s->funcs.reclaim = qb_ipc_shm_reclaim;
 	s->funcs.send = qb_ipc_shm_send;
 	s->funcs.sendv = qb_ipc_shm_sendv;
-	s->funcs.connect = qb_ipcs_shm_connect;
-	s->funcs.disconnect = qb_ipcs_shm_disconnect;
+
 	s->funcs.fc_set = qb_ipc_shm_fc_set;
 	s->funcs.q_len_get = qb_ipc_shm_q_len_get;
+
 	s->needs_sock_for_poll = QB_TRUE;
 }

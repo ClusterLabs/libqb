@@ -84,8 +84,6 @@ int32_t qb_ipcs_run(qb_ipcs_service_pt pt)
 
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
 
-	s->funcs.peek = NULL;
-	s->funcs.reclaim = NULL;
 	switch (s->type) {
 	case QB_IPC_SOCKET:
 		/* qb_ipcs_us_init((struct qb_ipcs_service *)s); */

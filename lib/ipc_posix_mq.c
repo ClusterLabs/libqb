@@ -378,14 +378,30 @@ cleanup:
 	return res;
 }
 
+static ssize_t qb_ipc_pmq_q_len_get(struct qb_ipc_one_way *one_way)
+{
+	struct mq_attr info;
+	int32_t res = mq_getattr(one_way->u.smq.q, &info);
+	if (res == 0) {
+		return info.mq_curmsgs;
+	}
+	return -errno;
+}
+
 void qb_ipcs_pmq_init(struct qb_ipcs_service * s)
 {
+	s->funcs.connect = qb_ipcs_pmq_connect;
+	s->funcs.disconnect = qb_ipcs_pmq_disconnect;
+
 	s->funcs.recv = qb_ipc_pmq_recv;
 	s->funcs.send = qb_ipc_pmq_send;
 	s->funcs.sendv = qb_ipc_pmq_sendv;
+	s->funcs.peek = NULL;
+	s->funcs.reclaim = NULL;
 
-	s->funcs.connect = qb_ipcs_pmq_connect;
-	s->funcs.disconnect = qb_ipcs_pmq_disconnect;
+	s->funcs.fc_set = NULL;
+	s->funcs.q_len_get = qb_ipc_pmq_q_len_get;
+
 #if defined(QB_LINUX) || defined(QB_BSD)
 	s->needs_sock_for_poll = QB_FALSE;
 #else

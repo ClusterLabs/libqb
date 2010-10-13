@@ -350,27 +350,29 @@ cleanup:
 	return res;
 }
 
-#if 0
-static int32_t qb_ipcs_smq_is_msg_ready(struct qb_ipcs_service *s)
+static ssize_t qb_ipc_smq_q_len_get(struct qb_ipc_one_way *one_way)
 {
 	struct msqid_ds info;
-	int32_t res = msgctl(s->u.smq.q, IPC_STAT, &info);
+	int32_t res = msgctl(one_way->u.smq.q, IPC_STAT, &info);
 	if (res == 0) {
 		return info.msg_qnum;
-	} else {
-		perror("is_msg_ready");
 	}
-
 	return -errno;
 }
-#endif
 
 void qb_ipcs_smq_init(struct qb_ipcs_service *s)
 {
 	s->funcs.connect = qb_ipcs_smq_connect;
 	s->funcs.disconnect = qb_ipcs_smq_disconnect;
+
 	s->funcs.send = qb_ipc_smq_send;
 	s->funcs.sendv = qb_ipc_smq_sendv;
 	s->funcs.recv = qb_ipc_smq_recv;
+	s->funcs.peek = NULL;
+	s->funcs.reclaim = NULL;
+
+	s->funcs.fc_set = NULL;
+	s->funcs.q_len_get = qb_ipc_smq_q_len_get;
+
 	s->needs_sock_for_poll = QB_TRUE;
 }
