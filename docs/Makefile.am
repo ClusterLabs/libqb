@@ -19,6 +19,7 @@
 
 MAINTAINERCLEANFILES	= Makefile.in
 EXTRA_DIST 		= man.dox html.dox
+noinst_HEADERS          = mainpage.h
 
 if HAVE_DOXYGEN
 inc_dir = $(top_srcdir)/include/qb

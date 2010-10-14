@@ -74,10 +74,10 @@ WARN_NO_PARAMDOC       = NO
 WARN_FORMAT            =
 WARN_LOGFILE           =
 #---------------------------------------------------------------------------
-INPUT                  = @srcdir@/../include/qb/
+INPUT                  = @srcdir@/../include/qb/ @srcdir@/../docs/
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h
-RECURSIVE              = YES
+RECURSIVE              = NO
 EXCLUDE                =
 EXCLUDE_SYMLINKS       = NO
 EXCLUDE_PATTERNS       =

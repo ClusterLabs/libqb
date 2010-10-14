@@ -1,0 +1,84 @@
+/**
+ * @mainpage
+ *
+ * @section overview Overview
+ *
+ * libqb is a thread-safe library with the primary purpose of providing high performance client server reusable features.
+ *
+ * It provides high performance ipc, and poll.
+ *
+ * We don't intend be an all encompassing library, but instead provide very specially focused APIs that are highly
+ *
+ * tuned for maximum performance for client/server applications.
+ *
+ * See the following pages for more info:
+ * - @subpage qb_rb_overview
+ * - @subpage qb_list_overview
+ * - @subpage qb_hdb_overview
+ * - @subpage qb_loop_overview
+ * - @subpage qb_ipc_overview
+ */
+
+/**
+ * @page qb_rb_overview Ringbuffer
+ * @copydoc qbrb.h
+ * @see qbrb.h
+ */
+
+/**
+ * @page qb_list_overview List
+ * @copydoc qblist.h
+ * @see qblist.h
+ */
+
+/** 
+ * @page qb_hdb_overview Handle Database
+ * @copydoc qbhdb.h
+ * @see qbhdb.h
+ */
+
+/**
+ * @page qb_loop_overview Main Loop
+ * @copydoc qbloop.h
+ * @see qbloop.h
+ */
+
+/**
+ * @page qb_ipc_overview IPC Overview
+ *
+ * @par Overview
+ * libqb provides a generically reusable very high performance shared memory IPC sytem for client
+ * and service applications.  It supports many features including:
+ * - Multiple transport implementations
+ *   -# Shared memory implementation for very high performance.
+ *   -# Posix Message queues
+ *   -# SysV Message queues
+ *   -# Unix sockets
+ * - A synchronous request/response channel and asynchronous response channel per ipc connection.
+ * - User defined private data per IPC connection.
+ * - Ability to call a function per service on ipc connection and disconnection.
+ * - Authenticated IPC connection with ability for developer to define which UIDs and GIDs are valid at connection time.
+ * - Fully abstracted poll system so that any poll library may be used.
+ * - User defined selector for determining the proper function to call per service and id.
+ *
+ * @par Security
+ * The ipc system uses default operating system security mechanics to ensure ipc 
+ * connections are validated.  A callback used with qb_ipcs_create() is called
+ * for every new ipc connection with the parameters of UID and GID.  The callback
+ * then determines if the UID and GID are authenticated for communication.
+ *
+ * @par Performance
+ * For performance QB_IPC_SHM (shared memory) is recogmended. It is tuned for
+ * very high performance.
+ *
+ * @par Client API
+ * @copydoc qbipcc.h
+ * @see qbipcc.h
+ *
+ * @par Server API
+ * @copydoc qbipcs.h
+ * @see qbipcs.h
+ *
+ */
+
+

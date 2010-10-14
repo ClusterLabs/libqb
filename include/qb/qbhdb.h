@@ -18,7 +18,6 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #ifndef QB_HDB_H_DEFINED
 #define QB_HDB_H_DEFINED
 
@@ -31,6 +30,14 @@
 #include <inttypes.h>
 #include <qb/qbutil.h>
 
+/**
+ * @file qbhdb.h
+ * The handle database is for reference counting objects.
+ */
+
+/**
+ * Generic handle type is 64 bits.
+ */
 typedef uint64_t qb_handle_t;
 
 /*
@@ -55,6 +62,12 @@ struct qb_hdb {
 	uint32_t first_run;
 };
 
+/**
+ * Convience macro for declaring a file scoped handle database.
+ * @code
+ * QB_HDB_DECLARE(my_handle_database, NULL);
+ * @endcode
+ */
 #define QB_HDB_DECLARE(database_name,destructor_function)		\
 static struct qb_hdb (database_name) = {		\
 	.handle_count	= 0,						\
@@ -64,20 +77,90 @@ static struct qb_hdb (database_name) = {		\
 	.first_run	= 1						\
 };									\
 
+/**
+ * Create a new database.
+ * @param hdb the database to init.
+ */
 void qb_hdb_create(struct qb_hdb *hdb);
+
+/**
+ *
+ */
 void qb_hdb_destroy(struct qb_hdb *hdb);
+
+/**
+ * Create a new handle.
+ * @param hdb the database instance
+ * @param instance_size size of the object to malloc
+ * @param handle_id_out new handle
+ * @return (0 == ok, -errno faliure)
+ */
 int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 			     qb_handle_t * handle_id_out);
+/**
+ * Get the instance associated with this handle and increase it's refcount.
+ * @param handle_in the handle
+ * @param hdb the database instance
+ * @param instance (out) pointer to the desired object.
+ * @return (0 == ok, -errno faliure)
+ */
 int32_t qb_hdb_handle_get(struct qb_hdb *hdb, qb_handle_t handle_in,
 			  void **instance);
+/**
+ * Get the instance associated with this handle and increase it's refcount.
+ * @param handle_in the handle
+ * @param hdb the database instance
+ * @param instance (out) pointer to the desired object.
+ * @return (0 == ok, -errno faliure)
+ */
 int32_t qb_hdb_handle_get_always(struct qb_hdb *hdb, qb_handle_t handle_in,
 				 void **instance);
+/**
+ * Put the instance associated with this handle and decrease it's refcount.
+ * @param handle_in the handle
+ * @param hdb the database instance
+ * @return (0 == ok, -errno faliure)
+ */
 int32_t qb_hdb_handle_put(struct qb_hdb *hdb, qb_handle_t handle_in);
+
+/**
+ * Request the destruction of the object.
+ * 
+ * When the refcount is 0, it will be destroyed.
+ *
+ * @param handle_in the handle
+ * @param hdb the database instance
+ * @return (0 == ok, -errno faliure)
+ */
 int32_t qb_hdb_handle_destroy(struct qb_hdb *hdb, qb_handle_t handle_in);
+
+/**
+ * Get the current refcount.
+ * @param handle_in the handle
+ * @param hdb the database instance
+ * @return (>= 0 is the refcount, -errno faliure)
+ */
 int32_t qb_hdb_handle_refcount_get(struct qb_hdb *hdb, qb_handle_t handle_in);
+
+/**
+ * Reset the iterator.
+ * @param hdb the database instance
+ */
 void qb_hdb_iterator_reset(struct qb_hdb *hdb);
+
+/**
+ * Get the next object and increament it's refcount.
+ *
+ * Remember to call qb_hdb_handle_put()
+ *
+ * @param hdb the database instance
+ * @param handle (out) the handle
+ * @param instance (out) pointer to the desired object.
+ * @return (0 == ok, -errno faliure)
+ */
 int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
 			     qb_handle_t * handle);
+
 uint32_t qb_hdb_base_convert(qb_handle_t handle);
 uint64_t qb_hdb_nocheck_convert(uint32_t handle);
 

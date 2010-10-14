@@ -110,6 +110,7 @@ typedef struct qb_ringbuffer_s qb_ringbuffer_t;
  * @param name the unique name of this ringbuffer.
  * @param size the requested size.
  * @param flags or'ed flags
+ * @param shared_user_data_size size for a shared data area.
  * @note the actual size will be rounded up to the next page size.
  * @return a new ring buffer or NULL if there was a problem.
  * @see QB_RB_FLAG_CREATE, QB_RB_FLAG_OVERWRITE, QB_RB_FLAG_SHARED_THREAD, QB_RB_FLAG_SHARED_PROCESS
@@ -134,7 +135,14 @@ void qb_rb_close(qb_ringbuffer_t * rb, int32_t force_it);
  */
 char *qb_rb_name_get(qb_ringbuffer_t * rb);
 
-
+/**
+ * Get a point to user shared data area.
+ *
+ * @note this is of size "shared_user_data_size" passed into qb_rb_open()
+ *
+ * @param rb ringbuffer instance
+ * @return pointer to shared data.
+ */
 void *qb_rb_shared_user_data_get(qb_ringbuffer_t * rb);
 
 /**
