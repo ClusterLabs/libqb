@@ -46,8 +46,6 @@ static void job_dispatch(struct qb_loop_item * item,
 
 static int32_t get_more_jobs(struct qb_loop_source* s, int32_t ms_timeout)
 {
-	struct qb_list_head* iter;
-	struct qb_list_head* iter_next;
 	int32_t p;
 	int32_t new_jobs = 0;
 
