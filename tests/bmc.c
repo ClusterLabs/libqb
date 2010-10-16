@@ -36,7 +36,8 @@
 
 #define ITERATIONS 10000
 pid_t mypid;
-int32_t blocking = 1;
+int32_t blocking = QB_TRUE;
+int32_t events = QB_FALSE;
 int32_t verbose = 0;
 static qb_ipcc_connection_t *conn;
 #define MAX_MSG_SIZE (8192*128)
@@ -124,6 +125,24 @@ repeat_send:
 		assert(res_header.id == 13);
 		assert(res_header.size == sizeof(struct qb_ipc_response_header));
 	}
+	if (events) {
+ repeat_event_recv:
+		res = qb_ipcc_event_recv(conn,
+				&res_header,
+				sizeof(struct qb_ipc_response_header), 0);
+		if (res == -EAGAIN) {
+			goto repeat_event_recv;
+		}
+		if (res == -EINTR) {
+			return -1;
+		}
+		if (res < 0) {
+			perror("qb_ipcc_event_recv");
+		}
+		assert(res == sizeof(struct qb_ipc_response_header));
+		assert(res_header.id == 13);
+		assert(res_header.size == sizeof(struct qb_ipc_response_header));
+	}
 	return 0;
 }
 
@@ -137,6 +156,7 @@ static void show_usage(const char *name)
 	printf("  options:\n");
 	printf("\n");
 	printf("  -n             non-blocking ipc (default blocking)\n");
+	printf("  -e             receive events\n");
 	printf("  -v             verbose\n");
 	printf("  -h             show this help text\n");
 	printf("\n");
@@ -158,7 +178,7 @@ static void libqb_log_writer(const char *file_name,
 
 int32_t main(int32_t argc, char *argv[])
 {
-	const char *options = "nvh";
+	const char *options = "nevh";
 	int32_t opt;
 	int32_t i, j;
 	size_t size;
@@ -169,11 +189,14 @@ int32_t main(int32_t argc, char *argv[])
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
-		case 'n':	/* non-blocking */
-			blocking = 0;
+		case 'n':
+			blocking = QB_FALSE;
+			break;
+		case 'e':
+			events = QB_TRUE;
 			break;
 		case 'v':
-			verbose = 1;
+			verbose++;
 			break;
 		case 'h':
 		default:
@@ -193,7 +216,7 @@ int32_t main(int32_t argc, char *argv[])
 	}
 
 	size = QB_MAX(sizeof(struct qb_ipc_request_header), 64);
-	for (j = 0; j < 10; j++) {
+	for (j = 0; j < 20; j++) {
 		if (size >= MAX_MSG_SIZE)
 			break;
 		bm_start();

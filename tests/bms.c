@@ -42,11 +42,13 @@
 #include <stdarg.h>
 #include <sched.h>
 
+#include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 #include <qb/qbloop.h>
 #include <qb/qbipcs.h>
 
-int32_t blocking = 1;
+int32_t blocking = QB_TRUE;
+int32_t events = QB_FALSE;
 int32_t verbose = 0;
 
 static qb_loop_t *bms_loop;
@@ -98,11 +100,18 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 	response.size = sizeof(struct qb_ipc_response_header);
 	response.id = 13;
 	response.error = 0;
-	if (blocking == 1) {
+	if (blocking) {
 		res = qb_ipcs_response_send(c, &response,
 				sizeof(response));
 		if (res < 0) {
 			perror("qb_ipcs_response_send");
+		}
+	}
+	if (events) {
+		res = qb_ipcs_event_send(c, &response,
+				sizeof(response));
+		if (res < 0) {
+			perror("qb_ipcs_event_send");
 		}
 	}
 	return 0;
@@ -129,24 +138,26 @@ static void show_usage(const char *name)
 	printf("  options:\n");
 	printf("\n");
 	printf("  -n             non-blocking ipc (default blocking)\n");
+	printf("  -e             send events back instead for responses\n");
 	printf("  -v             verbose\n");
 	printf("  -h             show this help text\n");
 	printf("  -m             use shared memory\n");
 	printf("  -p             use posix message queues\n");
 	printf("  -s             use sysv message queues\n");
+	printf("  -u             use unix sockets\n");
 	printf("\n");
 }
 
-static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
+static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
-	return qb_loop_poll_add(bms_loop, p, fd, events, data, fn);
+	return qb_loop_poll_add(bms_loop, p, fd, evts, data, fn);
 }
 
-static int32_t my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t events,
+static int32_t my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
-	return qb_loop_poll_mod(bms_loop, p, fd, events, data, fn);
+	return qb_loop_poll_mod(bms_loop, p, fd, evts, data, fn);
 }
 
 static int32_t my_dispatch_del(int32_t fd)
@@ -156,7 +167,7 @@ static int32_t my_dispatch_del(int32_t fd)
 
 int32_t main(int32_t argc, char *argv[])
 {
-	const char *options = "nvhmps";
+	const char *options = "nevhmpsu";
 	int32_t opt;
 	enum qb_ipc_type ipc_type = QB_IPC_SHM;
 	struct qb_ipcs_service_handlers sh = {
@@ -179,11 +190,17 @@ int32_t main(int32_t argc, char *argv[])
 		case 's':
 			ipc_type = QB_IPC_SYSV_MQ;
 			break;
+		case 'u':
+			ipc_type = QB_IPC_SOCKET;
+			break;
 		case 'p':
 			ipc_type = QB_IPC_POSIX_MQ;
 			break;
 		case 'n':	/* non-blocking */
-			blocking = 0;
+			blocking = QB_FALSE;
+			break;
+		case 'e':	/* events */
+			events = QB_TRUE;
 			break;
 		case 'v':
 			verbose++;
