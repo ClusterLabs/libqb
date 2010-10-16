@@ -130,7 +130,7 @@ static inline void qb_list_splice(struct qb_list_head *list,
 	struct qb_list_head *last = list->prev;
 	struct qb_list_head *at = head->next;
 
-	if (qb_list_empty(list) == 0) {
+	if (qb_list_empty(list)) {
 		return;
 	}
 	first->prev = head;
