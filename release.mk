@@ -25,7 +25,7 @@ projectbz=$(projecttar).bz2
 
 ifdef release
 reldir=release
-gitver=$(projectver)
+gitver=v$(version)
 forceclean=clean
 else
 reldir=release-candidate
@@ -62,7 +62,7 @@ $(releasearea)/tag-$(version):
 ifeq (,$(release))
 	@echo Building test release $(version), no tagging
 else
-	git tag -a -m "$(projectver) release" $(projectver) HEAD
+	git tag -a -m "$(projectver) release" v$(version) HEAD
 endif
 	@touch $@
 
@@ -100,9 +100,9 @@ $(releasearea)/%.bz2: $(releasearea)/%
 changelog: checks setup $(releasearea)/Changelog-$(version)
 
 $(releasearea)/Changelog-$(version): $(releasearea)/$(projecttar)
-	git log $(project)-$(oldversion)..$(gitver) | \
+	git log v$(oldversion)..$(gitver) | \
 	git shortlog > $@
-	git diff --stat $(project)-$(oldversion)..$(gitver) >> $@
+	git diff --stat v$(oldversion)..$(gitver) >> $@
 
 sha256: changelog tarballs $(releasearea)/$(projectver).sha256
 
@@ -114,7 +114,7 @@ sign: sha256 $(releasearea)/$(projectver).sha256.asc
 
 $(releasearea)/$(projectver).sha256.asc: $(releasearea)/$(projectver).sha256
 	cd $(releasearea) && \
-	gpg --default-key $(gpgsignkey) \
+	gpg2 --default-key $(gpgsignkey) \
 		--detach-sign \
 		--armor \
 		$<
