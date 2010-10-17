@@ -104,7 +104,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		res = qb_ipcs_event_send(c, &response,
 				sizeof(response));
 		if (res < 0) {
-			perror("qb_ipcs_dispatch_send");
+			perror("qb_ipcs_event_send");
 		}
 	}
 	return 0;
@@ -279,6 +279,13 @@ START_TEST(test_ipc_txrx_shm)
 }
 END_TEST
 
+START_TEST(test_ipc_txrx_us)
+{
+	ipc_type = QB_IPC_SOCKET;
+	test_ipc_txrx();
+}
+END_TEST
+
 START_TEST(test_ipc_fc_shm)
 {
 	turn_on_fc = QB_TRUE;
@@ -367,6 +374,13 @@ START_TEST(test_ipc_disp_shm)
 }
 END_TEST
 
+START_TEST(test_ipc_disp_us)
+{
+	ipc_type = QB_IPC_SOCKET;
+	test_ipc_dispatch();
+}
+END_TEST
+
 static Suite *ipc_suite(void)
 {
 	TCase *tc;
@@ -375,6 +389,11 @@ static Suite *ipc_suite(void)
 
 	tc = tcase_create("ipc_txrx_shm");
 	tcase_add_test(tc, test_ipc_txrx_shm);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_txrx_us");
+	tcase_add_test(tc, test_ipc_txrx_us);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
@@ -397,6 +416,11 @@ static Suite *ipc_suite(void)
 	}
 	tc = tcase_create("ipc_dispatch_shm");
 	tcase_add_test(tc, test_ipc_disp_shm);
+	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_dispatch_us");
+	tcase_add_test(tc, test_ipc_disp_us);
 	tcase_set_timeout(tc, 16);
 	suite_add_tcase(s, tc);
 

@@ -64,10 +64,16 @@ struct qb_ipc_connection_request {
 	uint32_t max_msg_size __attribute__ ((aligned(8)));
 } __attribute__ ((aligned(8)));
 
+struct qb_ipc_event_connection_request {
+        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
+	intptr_t connection __attribute__ ((aligned(8)));
+} __attribute__ ((aligned(8)));
+
 struct qb_ipc_connection_response {
 	struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
 	int32_t connection_type __attribute__ ((aligned(8)));
 	uint32_t max_msg_size __attribute__ ((aligned(8)));
+	intptr_t connection __attribute__ ((aligned(8)));
         char request[PATH_MAX] __attribute__ ((aligned(8)));
         char response[PATH_MAX] __attribute__ ((aligned(8)));
         char event[PATH_MAX] __attribute__ ((aligned(8)));
@@ -78,6 +84,9 @@ struct qb_ipcc_connection;
 struct qb_ipc_one_way {
 	size_t max_msg_size;
 	union {
+		struct {
+			int32_t sock;
+		} us;
 		struct {
 			mqd_t q;
 			char name[NAME_MAX];
@@ -104,7 +113,7 @@ struct qb_ipcc_connection {
 	char name[NAME_MAX];
 	enum qb_ipc_type type;
 	int32_t needs_sock_for_poll;
-	int32_t sock;
+	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;
 	struct qb_ipc_one_way response;
 	struct qb_ipc_one_way event;
@@ -112,18 +121,16 @@ struct qb_ipcc_connection {
 	char *receive_buf;
 };
 
+int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
+				   struct qb_ipc_connection_response *r);
+ssize_t qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len);
+ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way, void *msg, size_t len, int32_t timeout);
+int32_t qb_ipc_us_recv_ready(struct qb_ipc_one_way *one_way, int32_t ms_timeout);
 
-int32_t qb_ipc_us_send(int32_t s, const void *msg, size_t len);
-
-int32_t qb_ipc_us_recv (int32_t s, void *msg, size_t len);
-int32_t qb_ipc_us_recv_ready(int32_t s, int32_t ms_timeout);
-
-int32_t qb_ipcc_us_connect(const char *socket_name, int32_t *sock_pt);
-
-void qb_ipcc_us_disconnect (int32_t sock);
+void qb_ipcc_us_sock_close(int32_t sock);
 
 int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
-int32_t qb_ipcc_soc_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
+int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 
@@ -164,7 +171,7 @@ struct qb_ipcs_connection {
 	pid_t pid;
 	uid_t euid;
 	gid_t egid;
-	int32_t sock;
+	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;
 	struct qb_ipc_one_way response;
 	struct qb_ipc_one_way event;

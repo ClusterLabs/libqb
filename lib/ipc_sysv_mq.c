@@ -297,7 +297,7 @@ static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 {
 	struct qb_ipc_response_header msg;
 
-	if (c->sock != -1) {
+	if (c->setup.u.us.sock != -1) {
 		msg.id = QB_IPC_MSG_DISCONNECT;
 		msg.size = sizeof(msg);
 		msg.error = 0;

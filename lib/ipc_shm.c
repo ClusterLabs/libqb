@@ -192,7 +192,7 @@ static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 	struct qb_ipc_response_header msg;
 	int32_t peer_alive = QB_TRUE;
 
-	if (c->sock == -1) {
+	if (c->setup.u.us.sock == -1) {
 		peer_alive = QB_FALSE;
 	}
 

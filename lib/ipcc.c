@@ -29,54 +29,21 @@
 qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 {
 	int32_t res;
-	int32_t usock;
 	qb_ipcc_connection_t *c = NULL;
-	struct qb_ipc_connection_request request;
 	struct qb_ipc_connection_response response;
 
-	res = qb_ipcc_us_connect(name, &usock);
-	if (res != 0) {
-		errno = -res;
-		perror("qb_ipcc_us_connect");
-		return NULL;
-	}
-
-	request.hdr.id = QB_IPC_MSG_AUTHENTICATE;
-	request.hdr.size = sizeof(request);
-	request.max_msg_size = max_msg_size;
-	res = qb_ipc_us_send(usock, &request, request.hdr.size);
-	if (res < 0) {
-		perror("qb_ipc_us_send");
-		qb_ipcc_us_disconnect(usock);
-		errno = -res;
-		return NULL;
-	}
-
-	res = qb_ipc_us_recv(usock, &response, sizeof(response));
-	if (res < 0) {
-		perror("qb_ipc_us_recv");
-		qb_ipcc_us_disconnect(usock);
-		errno = -res;
-		return NULL;
-	}
-
-	if (response.hdr.error != 0) {
-		errno = -response.hdr.error;
-		perror("recv:message");
-		return NULL;
-	}
 	c = malloc(sizeof(struct qb_ipcc_connection));
 	if (c == NULL) {
-		perror("malloc:connection");
 		return NULL;
 	}
+
+	c->setup.max_msg_size = max_msg_size;
 	strcpy(c->name, name);
+	res = qb_ipcc_us_setup_connect(c, &response);
+	if (res < 0) {
+		goto disconnect_and_cleanup;
+	}
 	c->type = response.connection_type;
-	c->sock = usock;
-
-	qb_util_log(LOG_DEBUG, "%s() max_msg_size:%zu actual:%u", __func__,
-		    max_msg_size, response.max_msg_size);
-
 	c->response.max_msg_size = response.max_msg_size;
 	c->request.max_msg_size = response.max_msg_size;
 	c->event.max_msg_size = response.max_msg_size;
@@ -93,19 +60,22 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 		res = qb_ipcc_smq_connect(c, &response);
 		break;
 	case QB_IPC_SOCKET:
-		c->needs_sock_for_poll = QB_FALSE;
+		res = qb_ipcc_us_connect(c, &response);
 		break;
 	default:
 		res = -EINVAL;
 		break;
 	}
 	if (res != 0) {
-		qb_ipcc_us_disconnect(usock);
-		free(c);
-		c = NULL;
-		errno = -res;
+		goto disconnect_and_cleanup;
 	}
 	return c;
+
+ disconnect_and_cleanup:
+	qb_ipcc_us_sock_close(c->setup.u.us.sock);
+	free(c);
+	errno = -res;
+	return NULL;
 }
 
 ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
@@ -122,7 +92,9 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 
 	res = c->funcs.send(&c->request, msg_ptr, msg_len);
 	if (res > 0 && c->needs_sock_for_poll) {
-		qb_ipc_us_send(c->sock, msg_ptr, 1);
+		do {
+			res = qb_ipc_us_send(&c->setup, msg_ptr, 1);
+		} while (res == -EAGAIN);
 	}
 	return res;
 }
@@ -147,7 +119,9 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 
 	res = c->funcs.sendv(&c->request, iov, iov_len);
 	if (res > 0 && c->needs_sock_for_poll) {
-		qb_ipc_us_send(c->sock, &res, 1);
+		do {
+			res = qb_ipc_us_send(&c->setup, &res, 1);
+		} while (res == -EAGAIN);
 	}
 	return res;
 }
@@ -190,7 +164,11 @@ repeat_recv:
 
 int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 {
-	*fd = c->sock;
+	if (c->type == QB_IPC_SOCKET) {
+		*fd = c->event.u.us.sock;
+	} else {
+		*fd = c->setup.u.us.sock;
+	}
 	return 0;
 }
 
@@ -200,18 +178,29 @@ ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	char one_byte = 1;
 	int32_t res;
 	ssize_t size;
+	struct qb_ipc_one_way *ow = NULL;
 
-	res = qb_ipc_us_recv_ready(c->sock, ms_timeout);
-	if (res < 0) {
-		return res;
+	if (c->needs_sock_for_poll) {
+		ow = &c->setup;
+	}
+	if (c->type == QB_IPC_SOCKET) {
+		ow = &c->event;
+	}
+	if (ow) {
+		res = qb_ipc_us_recv_ready(ow, ms_timeout);
+		if (res < 0) {
+			return res;
+		}
 	}
 	size = c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
 	if (size < 0) {
 		return size;
 	}
-	res = qb_ipc_us_recv(c->sock, &one_byte, 1);
-	if (res < 0) {
-		return res;
+	if (c->needs_sock_for_poll) {
+		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, 0);
+		if (res < 0) {
+			return res;
+		}
 	}
 	return size;
 }
@@ -220,7 +209,7 @@ void qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 
-	qb_ipcc_us_disconnect(c->sock);
+	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);
 	}
