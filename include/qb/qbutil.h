@@ -21,6 +21,7 @@
 #define QB_UTIL_H_DEFINED
 
 #include <stdint.h>
+#include <unistd.h>
 
 /**
  * @file qbutil.h

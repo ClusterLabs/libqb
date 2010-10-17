@@ -17,6 +17,7 @@
  * - @subpage qb_hdb_overview
  * - @subpage qb_loop_overview
  * - @subpage qb_ipc_overview
+ * - @subpage qb_atomic_overview
  */
 
 /**
@@ -82,3 +83,8 @@
  */
 
 
+/**
+ * @page qb_atomic_overview Atomic operations
+ * @copydoc qbatomic.h
+ * @see qbatomic.h
+ */

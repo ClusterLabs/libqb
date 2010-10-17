@@ -57,6 +57,26 @@ extern "C" {
 #define QB_TIME_NS_IN_MSEC  1000000ULL
 #define QB_TIME_NS_IN_USEC  1000ULL
 
+#if    __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
+#define QB_GNUC_DEPRECATED                            \
+  __attribute__((__deprecated__))
+#else
+#define QB_GNUC_DEPRECATED
+#endif /* __GNUC__ */
+
+#if    __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)
+#define QB_GNUC_DEPRECATED_FOR(f)                        \
+  __attribute__((deprecated("Use " #f " instead")))
+#else
+#define QB_GNUC_DEPRECATED_FOR(f)        QB_GNUC_DEPRECATED
+#endif /* __GNUC__ */
+
+#if     __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)
+#  define QB_GNUC_MAY_ALIAS __attribute__((may_alias))
+#else
+#  define QB_GNUC_MAY_ALIAS
+#endif
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }
