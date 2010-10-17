@@ -23,6 +23,7 @@
 #include "util_int.h"
 #include "ipc_int.h"
 #include <qb/qbdefs.h>
+#include <qb/qbatomic.h>
 #include <qb/qbipcs.h>
 
 static void qb_ipcs_destroy_internal(void *data);
@@ -284,21 +285,17 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 
 void qb_ipcs_connection_ref_inc(struct qb_ipcs_connection *c)
 {
-	// lock
-	c->refcount++;
-	//qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
-	// unlock
+	qb_atomic_int_inc(&c->refcount);
 }
 
 void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 {
-	// lock
-	c->refcount--;
-	//qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
-	if (c->refcount == 0) {
+	int32_t kill_it;
+
+	kill_it = qb_atomic_int_dec_and_test(&c->refcount);
+	if (kill_it) {
 		qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
 		qb_list_del(&c->list);
-		// unlock
 		if (c->service->serv_fns.connection_destroyed) {
 			c->service->serv_fns.connection_destroyed(c);
 		}
@@ -309,8 +306,6 @@ void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 		if (c->receive_buf) {
 			free(c->receive_buf);
 		}
-	} else {
-		// unlock
 	}
 }
 
