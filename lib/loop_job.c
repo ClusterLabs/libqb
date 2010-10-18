@@ -51,8 +51,10 @@ static int32_t get_more_jobs(struct qb_loop_source* s, int32_t ms_timeout)
 
 	// this is simple, move jobs from wait_head to job_head
 	for (p = QB_LOOP_LOW; p <= QB_LOOP_HIGH; p++) {
-		qb_list_splice(&s->l->level[p].wait_head, &s->l->level[p].job_head);
-		qb_list_init(&s->l->level[p].wait_head);
+		if (!qb_list_empty(&s->l->level[p].wait_head)) {
+			qb_list_splice(&s->l->level[p].wait_head, &s->l->level[p].job_head);
+			qb_list_init(&s->l->level[p].wait_head);
+		}
 		new_jobs += qb_list_length(&s->l->level[p].job_head);
 	}
 	return new_jobs;
