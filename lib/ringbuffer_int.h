@@ -35,11 +35,6 @@
 
 struct qb_ringbuffer_s;
 
-int32_t qb_rb_lock_create(struct qb_ringbuffer_s *rb, uint32_t flags);
-typedef int32_t(*qb_rb_lock_fn_t) (struct qb_ringbuffer_s * rb);
-typedef int32_t(*qb_rb_unlock_fn_t) (struct qb_ringbuffer_s * rb);
-typedef int32_t(*qb_rb_lock_destroy_fn_t) (struct qb_ringbuffer_s * rb);
-
 int32_t qb_rb_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags);
 typedef int32_t(*qb_rb_sem_post_fn_t) (struct qb_ringbuffer_s * rb);
 typedef int32_t(*qb_rb_sem_timedwait_fn_t) (struct qb_ringbuffer_s * rb,
@@ -55,20 +50,14 @@ struct qb_ringbuffer_shared_s {
 	char data_path[PATH_MAX];
 	int32_t ref_count;
 	sem_t posix_sem;
-	pthread_spinlock_t spinlock;
 	char user_data[1];
 };
 
 struct qb_ringbuffer_s {
 	uint32_t flags;
-	int32_t lock_id;
 	int32_t sem_id;
 	struct qb_ringbuffer_shared_s *shared_hdr;
 	uint32_t *shared_data;
-
-	qb_rb_lock_fn_t lock_fn;
-	qb_rb_unlock_fn_t unlock_fn;
-	qb_rb_lock_destroy_fn_t lock_destroy_fn;
 
 	qb_rb_sem_post_fn_t sem_post_fn;
 	qb_rb_sem_timedwait_fn_t sem_timedwait_fn;
