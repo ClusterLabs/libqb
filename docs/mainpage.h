@@ -12,12 +12,13 @@
  * tuned for maximum performance for client/server applications.
  *
  * See the following pages for more info:
- * - @subpage qb_rb_overview
  * - @subpage qb_list_overview
+ * - @subpage qb_atomic_overview
+ * - @subpage qb_array_overview
  * - @subpage qb_hdb_overview
+ * - @subpage qb_rb_overview
  * - @subpage qb_loop_overview
  * - @subpage qb_ipc_overview
- * - @subpage qb_atomic_overview
  */
 
 /**
@@ -30,6 +31,12 @@
  * @page qb_list_overview List
  * @copydoc qblist.h
  * @see qblist.h
+ */
+
+/**
+ * @page qb_array_overview Array
+ * @copydoc qbarray.h
+ * @see qbarray.h
  */
 
 /** 

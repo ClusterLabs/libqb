@@ -84,7 +84,8 @@ static struct qb_hdb (database_name) = {		\
 void qb_hdb_create(struct qb_hdb *hdb);
 
 /**
- *
+ * Destroy a handle database.
+ * @param hdb the database to destroy.
  */
 void qb_hdb_destroy(struct qb_hdb *hdb);
 

@@ -33,32 +33,46 @@ extern "C" {
 
 /**
  * @file qbarray.h
+ * This is a dynamic array (it can grow, but without moving memory).
  */
 
 struct qb_array;
 
 /**
- *
+ * This is an opaque data type representing an instance of an array.
  */
 typedef struct qb_array qb_array_t;
 
 /**
+ * Create an array with fixed sized elements.
  *
+ * @param max_elements initial max elements.
+ * @param element_size size of each element.
+ * @return array instance.
  */
 qb_array_t* qb_array_create(size_t max_elements, size_t element_size);
 
 /**
- *
+ * Get an element at a particular index.
+ * @param a array instance.
+ * @param idx the index
+ * @param element_out the pointer to the element data.
+ * @return (0 == success, else -errno)
  */
 int32_t qb_array_index(qb_array_t* a, int32_t idx, void** element_out);
 
 /**
+ * Grow the array.
  *
+ * @param a array instance.
+ * @param max_elements the new maximum size of the array.
+ * @return (0 == success, else -errno)
  */
 int32_t qb_array_grow(qb_array_t* a, size_t max_elements);
 
 /**
- *
+ * Free all the memory used by the array.
+ * @param a array instance.
  */
 void qb_array_free(qb_array_t * a);
 
