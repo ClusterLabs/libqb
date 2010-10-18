@@ -29,6 +29,7 @@
 
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
+#include <qb/qbarray.h>
 #include <qb/qbloop.h>
 #include "loop_int.h"
 #include "util_int.h"
@@ -53,7 +54,7 @@ struct qb_poll_source {
 	struct pollfd *ufds;
 #endif /* HAVE_EPOLL */
 	int32_t poll_entry_count;
-	struct qb_poll_entry *poll_entries;
+	qb_array_t *poll_entries;
 	qb_loop_poll_low_fds_event_fn low_fds_event_fn;
 	int32_t not_enough_fds;
 #ifdef HAVE_EPOLL
@@ -94,10 +95,8 @@ static void poll_dispatch_and_take_back(struct qb_loop_item * item,
 {
 	struct qb_poll_entry *pe = (struct qb_poll_entry *)item;
 	int32_t res;
-	int32_t idx = pe->install_pos;
 
 	res = pe->dispatch_fn(pe->ufd.fd, pe->ufd.revents, pe->item.user_data);
-	pe = &my_src->poll_entries[idx];
 	if (res < 0) {
 		pe->ufd.fd = -1; /* empty entry */
 	}
@@ -111,6 +110,7 @@ static void poll_fds_usage_check(struct qb_poll_source *s)
 	int32_t send_event = 0;
 	int32_t socks_used = 0;
 	int32_t socks_avail = 0;
+	struct qb_poll_entry * pe;
 	int32_t i;
 
 	if (socks_limit == 0) {
@@ -128,7 +128,8 @@ static void poll_fds_usage_check(struct qb_poll_source *s)
 	}
 
 	for (i = 0; i < s->poll_entry_count; i++) {
-		if (s->poll_entries[i].ufd.fd != -1) {
+		assert(qb_array_index(my_src->poll_entries, i, (void**)&pe) == 0);
+		if (pe->ufd.fd != -1) {
 			socks_used++;
 		}
 	}
@@ -178,7 +179,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	}
 
 	for (i = 0; i < res; i++) {
-		pe = &s->poll_entries[events[i].data.u32];
+		assert(qb_array_index(my_src->poll_entries, events[i].data.u32, (void**)&pe) == 0);
 		if (pe->ufd.fd == -1) {
 			// empty
 			continue;
@@ -207,7 +208,8 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	poll_fds_usage_check(s);
 
 	for (i = 0; i < s->poll_entry_count; i++) {
-		memcpy(&s->ufds[i], &s->poll_entries[i].ufd, sizeof(struct pollfd));
+		assert(qb_array_index(my_src->poll_entries, i, (void**)&pe) == 0);
+		memcpy(&s->ufds[i], &pe->ufd, sizeof(struct pollfd));
 	}
 
  retry_poll:
@@ -246,7 +248,7 @@ qb_loop_poll_init(struct qb_loop *l)
 	my_src->s.dispatch_and_take_back = poll_dispatch_and_take_back;
 	my_src->s.poll = poll_and_add_to_jobs;
 
-	my_src->poll_entries = 0;
+	my_src->poll_entries = qb_array_create(128, sizeof(struct qb_poll_entry));
 	my_src->poll_entry_count = 0;
 	my_src->low_fds_event_fn = NULL;
 	my_src->not_enough_fds = 0;
@@ -280,7 +282,6 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 			 void *data,
 			 qb_loop_poll_dispatch_fn dispatch_fn)
 {
-	struct qb_poll_entry *poll_entries;
 	struct qb_poll_entry *pe;
 	int32_t found = 0;
 	int32_t install_pos;
@@ -294,7 +295,8 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 
 	for (found = 0, install_pos = 0;
 	     install_pos < my_src->poll_entry_count; install_pos++) {
-		if (my_src->poll_entries[install_pos].ufd.fd == -1) {
+		assert(qb_array_index(my_src->poll_entries, install_pos, (void**)&pe) == 0);
+		if (pe->ufd.fd == -1) {
 			found = 1;
 			break;
 		}
@@ -304,12 +306,7 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 		/*
 		 * Grow pollfd list
 		 */
-		new_size = (my_src->poll_entry_count + 1) * sizeof(struct qb_poll_entry);
-		poll_entries = realloc(my_src->poll_entries, new_size);
-		if (poll_entries == NULL) {
-			return -ENOMEM;
-		}
-		my_src->poll_entries = poll_entries;
+		qb_array_grow(my_src->poll_entries, my_src->poll_entry_count + 1);
 
 #ifdef HAVE_EPOLL
 		new_size = (my_src->poll_entry_count+ 1) * sizeof(struct epoll_event);
@@ -334,7 +331,7 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 	/*
 	 * Install new dispatch handler
 	 */
-	pe = &my_src->poll_entries[install_pos];
+	assert(qb_array_index(my_src->poll_entries, install_pos, (void**)&pe) == 0);
 	pe->install_pos = install_pos;
 	pe->ufd.fd = fd;
 	pe->ufd.events = events;
@@ -372,7 +369,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 	 * Find file descriptor to modify events and dispatch function
 	 */
 	for (i = 0; i < my_src->poll_entry_count; i++) {
-		pe = &my_src->poll_entries[i];
+		assert(qb_array_index(my_src->poll_entries, i, (void**)&pe) == 0);
 		if (pe->ufd.fd != fd) {
 			continue;
 		}
@@ -406,7 +403,7 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 	 * Find file descriptor to modify events and dispatch function
 	 */
 	for (i = 0; i < my_src->poll_entry_count; i++) {
-		pe = &my_src->poll_entries[i];
+		assert(qb_array_index(my_src->poll_entries, i, (void**)&pe) == 0);
 		if (pe->ufd.fd != fd) {
 			continue;
 		}
