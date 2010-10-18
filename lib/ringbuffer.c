@@ -184,6 +184,8 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 		rb->unlock_fn(rb);
 	}
 
+	close(fd_hdr);
+	close(fd_data);
 	return rb;
 
 cleanup_data:
