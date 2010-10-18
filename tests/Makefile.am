@@ -47,9 +47,13 @@ loop_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
 
-TESTS = check_rb check_ipc
+TESTS = check_array check_rb check_ipc
 
-check_PROGRAMS = check_rb check_ipc
+check_PROGRAMS = check_array check_rb check_ipc
+
+check_array_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
+check_array_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+check_array_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
 check_rb_SOURCES = check_rb.c $(top_builddir)/include/qb/qbrb.h
 check_rb_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include

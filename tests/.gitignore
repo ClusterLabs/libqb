@@ -1,6 +1,5 @@
-check_plugin
 check_ipc
-check_hash
+check_array
 check_rb
 bmc
 bmcpt

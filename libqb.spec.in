@@ -77,6 +77,7 @@ The Quarterback APIs.
 %{_includedir}/qb/qbutil.h
 %{_includedir}/qb/qbdefs.h
 %{_includedir}/qb/qbatomic.h
+%{_includedir}/qb/qbarray.h
 %{_mandir}/man3/qb*3*
 
 %changelog

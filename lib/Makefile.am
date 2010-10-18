@@ -38,7 +38,7 @@ lib_LTLIBRARIES		= libqb.la
 
 libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqb_la_LDFLAGS	= -version-info 0:0:0
-libqb_la_SOURCES	= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
+libqb_la_SOURCES	= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  loop.c loop_poll.c loop_timer.c loop_job.c \
 			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c
 if HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS		  
