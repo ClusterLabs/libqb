@@ -20,7 +20,7 @@
 
 MAINTAINERCLEANFILES    = Makefile.in
 instdir 		= $(includedir)/qb/
-inst_HEADERS		= qbhdb.h qblist.h qbdefs.h \
+inst_HEADERS		= qbhdb.h qblist.h qbdefs.h qbatomic.h \
 			  qbloop.h qbrb.h qbutil.h \
 			  qbipcc.h qbipcs.h qbipc_common.h
 			  
