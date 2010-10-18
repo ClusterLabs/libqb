@@ -37,6 +37,7 @@ struct qb_ringbuffer_s;
 
 int32_t qb_rb_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags);
 typedef int32_t(*qb_rb_sem_post_fn_t) (struct qb_ringbuffer_s * rb);
+typedef ssize_t(*qb_rb_sem_getvalue_fn_t) (struct qb_ringbuffer_s * rb);
 typedef int32_t(*qb_rb_sem_timedwait_fn_t) (struct qb_ringbuffer_s * rb,
 					    int32_t ms_timeout);
 typedef int32_t(*qb_rb_sem_destroy_fn_t) (struct qb_ringbuffer_s * rb);
@@ -45,7 +46,6 @@ struct qb_ringbuffer_shared_s {
 	volatile uint32_t write_pt;
 	volatile uint32_t read_pt;
 	uint32_t size;
-	size_t count;
 	char hdr_path[PATH_MAX];
 	char data_path[PATH_MAX];
 	int32_t ref_count;
@@ -60,6 +60,7 @@ struct qb_ringbuffer_s {
 	uint32_t *shared_data;
 
 	qb_rb_sem_post_fn_t sem_post_fn;
+	qb_rb_sem_getvalue_fn_t sem_getvalue_fn;
 	qb_rb_sem_timedwait_fn_t sem_timedwait_fn;
 	qb_rb_sem_destroy_fn_t sem_destroy_fn;
 };

@@ -129,7 +129,6 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 		rb->shared_hdr->size = real_size / sizeof(uint32_t);
 		rb->shared_hdr->write_pt = 0;
 		rb->shared_hdr->read_pt = 0;
-		rb->shared_hdr->count = 0;
 		strncpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
 	}
 	if (qb_rb_sem_create(rb, flags) < 0) {
@@ -269,9 +268,9 @@ ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
 	return (space_used * sizeof(uint32_t));
 }
 
-ssize_t qb_rb_chunks_used(qb_ringbuffer_t * rb)
+ssize_t qb_rb_chunks_used(struct qb_ringbuffer_s * rb)
 {
-	return rb->shared_hdr->count;
+	return rb->sem_getvalue_fn(rb);
 }
 
 void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
@@ -341,7 +340,6 @@ int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
 	 */
 	rb->shared_data[old_write_pt] = len;
 	rb->shared_data[old_write_pt + 1] = QB_RB_CHUNK_MAGIC;
-	rb->shared_hdr->count++;
 
 	/*
 	 * commit the new write pointer
@@ -388,7 +386,6 @@ void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 	qb_rb_chunk_check(rb, old_read_pt);
 
 	rb->shared_hdr->read_pt = qb_rb_chunk_step(rb, old_read_pt);
-	rb->shared_hdr->count--;
 
 	/*
 	 * clear the header

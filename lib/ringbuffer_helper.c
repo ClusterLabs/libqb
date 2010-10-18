@@ -25,6 +25,11 @@ static int32_t my_null_fn(struct qb_ringbuffer_s *rb)
 	return 0;
 }
 
+static ssize_t my_null_getvalue_fn(struct qb_ringbuffer_s *rb)
+{
+	return 0;
+}
+
 static int32_t my_null_sem_timedwait(struct qb_ringbuffer_s *rb,
 				     int32_t ms_timeout)
 {
@@ -125,6 +130,16 @@ static int32_t my_posix_sem_post(qb_ringbuffer_t * rb)
 	}
 }
 
+static ssize_t my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
+{
+	int val;
+	if (sem_getvalue(&rb->shared_hdr->posix_sem, &val) < 0) {
+		return -errno;
+	} else {
+		return val;
+	}
+}
+
 static int32_t my_sysv_sem_post(qb_ringbuffer_t * rb)
 {
 	struct sembuf sops[1];
@@ -150,6 +165,15 @@ semop_again:
 		return -errno;
 	}
 	return 0;
+}
+
+static ssize_t my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
+{
+	ssize_t res = semctl(rb->sem_id, 0, GETVAL, 0);
+	if (res == -1) {
+		return -errno;
+	}
+	return res;
 }
 
 static int32_t my_posix_sem_destroy(qb_ringbuffer_t * rb)
@@ -239,6 +263,7 @@ int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	    (rb->flags & QB_RB_FLAG_SHARED_THREAD) == 0) {
 		rb->sem_timedwait_fn = my_null_sem_timedwait;
 		rb->sem_post_fn = my_null_fn;
+		rb->sem_getvalue_fn = my_null_getvalue_fn;
 		rb->sem_destroy_fn = my_null_fn;
 		return 0;
 	} else if ((can_use_shared_posix &&
@@ -246,11 +271,13 @@ int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 		   rb->flags & QB_RB_FLAG_SHARED_THREAD) {
 		rb->sem_timedwait_fn = my_posix_sem_timedwait;
 		rb->sem_post_fn = my_posix_sem_post;
+		rb->sem_getvalue_fn = my_posix_getvalue_fn;
 		rb->sem_destroy_fn = my_posix_sem_destroy;
 		return my_posix_sem_create(rb, flags);
 	} else {
 		rb->sem_timedwait_fn = my_sysv_sem_timedwait;
 		rb->sem_post_fn = my_sysv_sem_post;
+		rb->sem_getvalue_fn = my_sysv_getvalue_fn;
 		rb->sem_destroy_fn = my_sysv_sem_destroy;
 		return my_sysv_sem_create(rb, flags);
 	}
