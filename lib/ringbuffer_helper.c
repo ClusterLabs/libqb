@@ -19,22 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ringbuffer_int.h"
-
-static int32_t my_null_fn(struct qb_ringbuffer_s *rb)
-{
-	return 0;
-}
-
-static ssize_t my_null_getvalue_fn(struct qb_ringbuffer_s *rb)
-{
-	return 0;
-}
-
-static int32_t my_null_sem_timedwait(struct qb_ringbuffer_s *rb,
-				     int32_t ms_timeout)
-{
-	return 0;
-}
+#include <qb/qbdefs.h>
 
 static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
@@ -254,32 +239,22 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 
 int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 {
-	int32_t can_use_shared_posix = 0;
+	int32_t can_use_shared_posix = QB_FALSE;
 #if _POSIX_THREAD_PROCESS_SHARED > 0
-	can_use_shared_posix = 1;
+	can_use_shared_posix = QB_TRUE;
 #endif
-
-	if (((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) &&
-	    (rb->flags & QB_RB_FLAG_SHARED_THREAD) == 0) {
-		rb->sem_timedwait_fn = my_null_sem_timedwait;
-		rb->sem_post_fn = my_null_fn;
-		rb->sem_getvalue_fn = my_null_getvalue_fn;
-		rb->sem_destroy_fn = my_null_fn;
-		return 0;
-	} else if ((can_use_shared_posix &&
-		    (rb->flags & QB_RB_FLAG_SHARED_PROCESS)) ||
-		   rb->flags & QB_RB_FLAG_SHARED_THREAD) {
-		rb->sem_timedwait_fn = my_posix_sem_timedwait;
-		rb->sem_post_fn = my_posix_sem_post;
-		rb->sem_getvalue_fn = my_posix_getvalue_fn;
-		rb->sem_destroy_fn = my_posix_sem_destroy;
-		return my_posix_sem_create(rb, flags);
-	} else {
+	if (!can_use_shared_posix && (rb->flags & QB_RB_FLAG_SHARED_PROCESS)) {
 		rb->sem_timedwait_fn = my_sysv_sem_timedwait;
 		rb->sem_post_fn = my_sysv_sem_post;
 		rb->sem_getvalue_fn = my_sysv_getvalue_fn;
 		rb->sem_destroy_fn = my_sysv_sem_destroy;
 		return my_sysv_sem_create(rb, flags);
+	} else {
+		rb->sem_timedwait_fn = my_posix_sem_timedwait;
+		rb->sem_post_fn = my_posix_sem_post;
+		rb->sem_getvalue_fn = my_posix_getvalue_fn;
+		rb->sem_destroy_fn = my_posix_sem_destroy;
+		return my_posix_sem_create(rb, flags);
 	}
 }
 
