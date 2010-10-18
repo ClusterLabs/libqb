@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include <qb/qbutil.h>
 #include <qb/qbarray.h>
 
 /**
@@ -59,7 +58,6 @@ struct qb_hdb {
 	qb_array_t *handles;
 	uint32_t iterator;
 	void (*destructor) (void *);
-	qb_thread_lock_t *lock;
 	uint32_t first_run;
 };
 
