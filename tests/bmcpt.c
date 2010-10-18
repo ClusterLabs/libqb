@@ -21,7 +21,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <qb/qbipcc.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
@@ -30,6 +29,9 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+
+#include <qb/qbdefs.h>
+#include <qb/qbipcc.h>
 
 #define ITERATIONS 10000000
 #define THREADS 4
@@ -83,7 +85,12 @@ static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 
 static void bmc_connect(struct bm_ctx *ctx)
 {
-	ctx->conn = qb_ipcc_connect("bm1", 1000 * (100 + THREADS));
+	ctx->conn = qb_ipcc_connect("bm1", QB_MAX(1000 * (100 + THREADS),
+						  1024*1024));
+	if (ctx->conn == NULL) {
+		perror("qb_ipcc_connect");
+		exit(-1);
+	}
 }
 
 static void bmc_disconnect(struct bm_ctx *ctx)
@@ -103,28 +110,32 @@ static int32_t bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
 
 repeat_send:
 	res = qb_ipcc_send(ctx->conn, req_header, req_header->size);
-	if (res == -1) {
-		if (errno == EAGAIN) {
+	if (res < 0) {
+		if (res == -EAGAIN) {
 			goto repeat_send;
-		} else if (errno == EINVAL || errno == EINTR) {
+		} else if (res == -EINVAL || res == -EINTR) {
 			perror("qb_ipcc_send");
 			return -1;
 		} else {
+			errno = -res;
 			perror("qb_ipcc_send");
 			goto repeat_send;
 		}
 	}
 
-repeat_recv:
+ repeat_recv:
 	res = qb_ipcc_recv(ctx->conn,
 			&res_header,
 			sizeof(struct qb_ipc_response_header));
-	if (res == -1 && errno == EAGAIN) {
-		goto repeat_recv;
-	}
-	if (res == -1 && errno == EINTR) {
-		return -1;
-	}
+		if (res == -EAGAIN) {
+			goto repeat_recv;
+		}
+		if (res == -EINTR) {
+			return -1;
+		}
+		if (res < 0) {
+			perror("qb_ipcc_recv");
+		}
 	assert(res == sizeof(struct qb_ipc_response_header));
 	assert(res_header.id == 13);
 	assert(res_header.size == sizeof(struct qb_ipc_response_header));
