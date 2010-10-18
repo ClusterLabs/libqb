@@ -92,6 +92,8 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	int32_t fd_data;
 	uint32_t file_flags = O_RDWR;
 	size_t shared_size = sizeof(struct qb_ringbuffer_shared_s);
+	char filename[PATH_MAX];
+
 	shared_size += shared_user_data_size;
 
 	if (flags & QB_RB_FLAG_CREATE) {
@@ -100,7 +102,8 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	/*
 	 * Create a shared_hdr memory segment for the header.
 	 */
-	fd_hdr = qb_util_mmap_file_open(path, name,
+	snprintf(filename, PATH_MAX, "%s-header", name);
+	fd_hdr = qb_util_mmap_file_open(path, filename,
 					shared_size,
 					file_flags);
 	if (fd_hdr < 0) {
@@ -147,8 +150,9 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	 * They have to be seperate.
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
+		snprintf(filename, PATH_MAX, "%s-data", name);
 		fd_data = qb_util_mmap_file_open(path,
-						 "qb-ringbuffer-XXXXXX",
+						 filename,
 						 real_size, file_flags);
 		strncpy(rb->shared_hdr->data_path, path, PATH_MAX);
 	} else {
