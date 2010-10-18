@@ -29,16 +29,26 @@ enum QB_HDB_HANDLE_STATE {
 	QB_HDB_HANDLE_STATE_ACTIVE
 };
 
+static void qb_hdb_create_first_run(struct qb_hdb *hdb)
+{
+	if (hdb->first_run == 1) {
+		hdb->first_run = 0;
+		hdb->handles = qb_array_create(32, sizeof(struct qb_hdb_handle));
+		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
+	}
+}
+
 void qb_hdb_create(struct qb_hdb *hdb)
 {
 	memset(hdb, 0, sizeof(struct qb_hdb));
-	hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
+	hdb->first_run = 1;
+	qb_hdb_create_first_run(hdb);
 }
 
 void qb_hdb_destroy(struct qb_hdb
 		    *hdb)
 {
-	free(hdb->handles);
+	qb_array_free(hdb->handles);
 	qb_thread_lock_destroy(hdb->lock);
 	memset(hdb, 0, sizeof(struct qb_hdb));
 }
@@ -47,40 +57,40 @@ int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 			     qb_handle_t * handle_id_out)
 {
 	int32_t handle;
+	int32_t res;
 	uint32_t check;
-	void *new_handles;
 	int32_t found = 0;
 	void *instance;
 	int32_t i;
+	struct qb_hdb_handle *entry = NULL;
 
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
-		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	}
+	qb_hdb_create_first_run(hdb);
 	qb_thread_lock(hdb->lock);
 
 	for (handle = 0; handle < hdb->handle_count; handle++) {
-		if (hdb->handles[handle].state == QB_HDB_HANDLE_STATE_EMPTY) {
+		if (qb_array_index(hdb->handles, handle, (void**)&entry) == 0 &&
+		    entry->state == QB_HDB_HANDLE_STATE_EMPTY) {
 			found = 1;
 			break;
 		}
 	}
 
 	if (found == 0) {
-		hdb->handle_count += 1;
-		new_handles = realloc(hdb->handles,
-				      sizeof(struct qb_hdb_handle) *
-				      hdb->handle_count);
-		if (new_handles == NULL) {
-			qb_thread_unlock(hdb->lock);
-			return (-errno);
+		hdb->handle_count++;
+		res = qb_array_grow(hdb->handles, hdb->handle_count);
+		if (res != 0) {
+			goto unlock_exit;
 		}
-		hdb->handles = new_handles;
+		res = qb_array_index(hdb->handles, hdb->handle_count - 1, (void**)&entry);
+		if (res != 0) {
+			goto unlock_exit;
+		}
 	}
 
 	instance = malloc(instance_size);
 	if (instance == 0) {
-		return (-ENOMEM);
+		res = -ENOMEM;
+		goto unlock_exit;
 	}
 
 	/*
@@ -98,19 +108,18 @@ int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 
 	memset(instance, 0, instance_size);
 
-	hdb->handles[handle].state = QB_HDB_HANDLE_STATE_ACTIVE;
-
-	hdb->handles[handle].instance = instance;
-
-	hdb->handles[handle].ref_count = 1;
-
-	hdb->handles[handle].check = check;
+	entry->state = QB_HDB_HANDLE_STATE_ACTIVE;
+	entry->instance = instance;
+	entry->ref_count = 1;
+	entry->check = check;
 
 	*handle_id_out = (((uint64_t) (check)) << 32) | handle;
 
+ unlock_exit:
+
 	qb_thread_unlock(hdb->lock);
 
-	return (0);
+	return res;
 }
 
 int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
@@ -118,11 +127,9 @@ int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
+	struct qb_hdb_handle *entry;
 
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
-		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	}
+	qb_hdb_create_first_run(hdb);
 	qb_thread_lock(hdb->lock);
 
 	*instance = NULL;
@@ -131,95 +138,60 @@ int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
 		return (-EBADF);
 	}
 
-	if (hdb->handles[handle].state != QB_HDB_HANDLE_STATE_ACTIVE) {
+	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	    entry->state != QB_HDB_HANDLE_STATE_ACTIVE) {
 		qb_thread_unlock(hdb->lock);
 		return (-EBADF);
 	}
 
-	if (check != 0xffffffff && check != hdb->handles[handle].check) {
-
+	if (check != 0xffffffff && check != entry->check) {
 		qb_thread_unlock(hdb->lock);
 		return (-EBADF);
 	}
+	entry->ref_count++;
 
-	*instance = hdb->handles[handle].instance;
-
-	hdb->handles[handle].ref_count += 1;
+	*instance = entry->instance;
 
 	qb_thread_unlock(hdb->lock);
+
 	return (0);
 }
 
 int32_t qb_hdb_handle_get_always(struct qb_hdb * hdb, qb_handle_t handle_in,
 				 void **instance)
 {
-	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
-	uint32_t handle = handle_in & 0xffffffff;
-
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
-		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	}
-	qb_thread_lock(hdb->lock);
-
-	*instance = NULL;
-	if (handle >= hdb->handle_count) {
-		qb_thread_unlock(hdb->lock);
-		errno = EBADF;
-		return (-1);
-	}
-
-	if (hdb->handles[handle].state == QB_HDB_HANDLE_STATE_EMPTY) {
-		qb_thread_unlock(hdb->lock);
-		return (-EBADF);
-	}
-
-	if (check != 0xffffffff && check != hdb->handles[handle].check) {
-
-		qb_thread_unlock(hdb->lock);
-		return (-EBADF);
-	}
-
-	*instance = hdb->handles[handle].instance;
-
-	hdb->handles[handle].ref_count += 1;
-
-	qb_thread_unlock(hdb->lock);
-	return (0);
+	return qb_hdb_handle_get(hdb, handle_in, instance);
 }
 
 int32_t qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
+	struct qb_hdb_handle *entry;
 
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
-		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	}
+	qb_hdb_create_first_run(hdb);
 	qb_thread_lock(hdb->lock);
 
 	if (handle >= hdb->handle_count) {
 		qb_thread_unlock(hdb->lock);
-
 		return (-EBADF);
 	}
 
-	if (check != 0xffffffff && check != hdb->handles[handle].check) {
-
+	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	    (check != 0xffffffff && check != entry->check)) {
 		qb_thread_unlock(hdb->lock);
 		return (-EBADF);
 	}
 
-	hdb->handles[handle].ref_count -= 1;
-	assert(hdb->handles[handle].ref_count >= 0);
+	entry->ref_count -= 1;
+	assert(entry->ref_count >= 0);
 
-	if (hdb->handles[handle].ref_count == 0) {
+	if (entry->ref_count == 0) {
 		if (hdb->destructor) {
-			hdb->destructor(hdb->handles[handle].instance);
+			hdb->destructor(entry->instance);
 		}
-		free(hdb->handles[handle].instance);
-		memset(&hdb->handles[handle], 0, sizeof(struct qb_hdb_handle));
+		free(entry->instance);
+		memset(entry, 0, sizeof(struct qb_hdb_handle));
 	}
 	qb_thread_unlock(hdb->lock);
 	return (0);
@@ -230,11 +202,9 @@ int32_t qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
 	int32_t res;
+	struct qb_hdb_handle *entry;
 
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
-		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	}
+	qb_hdb_create_first_run(hdb);
 	qb_thread_lock(hdb->lock);
 
 	if (handle >= hdb->handle_count) {
@@ -242,12 +212,13 @@ int32_t qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 		return (-EBADF);
 	}
 
-	if (check != 0xffffffff && check != hdb->handles[handle].check) {
+	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	    (check != 0xffffffff && check != entry->check)) {
 		qb_thread_unlock(hdb->lock);
 		return (-EBADF);
 	}
 
-	hdb->handles[handle].state = QB_HDB_HANDLE_STATE_PENDINGREMOVAL;
+	entry->state = QB_HDB_HANDLE_STATE_PENDINGREMOVAL;
 	qb_thread_unlock(hdb->lock);
 	res = qb_hdb_handle_put(hdb, handle_in);
 	return (res);
@@ -257,13 +228,11 @@ int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
+	struct qb_hdb_handle *entry;
 
 	int32_t refcount = 0;
 
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
-		hdb->lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	}
+	qb_hdb_create_first_run(hdb);
 	qb_thread_lock(hdb->lock);
 
 	if (handle >= hdb->handle_count) {
@@ -271,12 +240,13 @@ int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 		return (-EBADF);
 	}
 
-	if (check != 0xffffffff && check != hdb->handles[handle].check) {
+	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	    (check != 0xffffffff && check != entry->check)) {
 		qb_thread_unlock(hdb->lock);
 		return (-EBADF);
 	}
 
-	refcount = hdb->handles[handle].ref_count;
+	refcount = entry->ref_count;
 
 	qb_thread_unlock(hdb->lock);
 
@@ -293,9 +263,14 @@ int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
 {
 	int32_t res = -1;
 	uint64_t checker;
+	struct qb_hdb_handle *entry;
 
 	while (hdb->iterator < hdb->handle_count) {
-		checker = (uint64_t) (hdb->handles[hdb->iterator].check);
+		res = qb_array_index(hdb->handles, hdb->iterator, (void**)&entry);
+		if (res != 0) {
+			break;
+		}
+		checker = (uint64_t) (entry->check);
 		*handle = (checker << 32) | hdb->iterator;
 		res = qb_hdb_handle_get(hdb, *handle, instance);
 

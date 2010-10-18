@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <qb/qbutil.h>
+#include <qb/qbarray.h>
 
 /**
  * @file qbhdb.h
@@ -55,7 +56,7 @@ struct qb_hdb_handle {
 
 struct qb_hdb {
 	uint32_t handle_count;
-	struct qb_hdb_handle *handles;
+	qb_array_t *handles;
 	uint32_t iterator;
 	void (*destructor) (void *);
 	qb_thread_lock_t *lock;
@@ -69,7 +70,7 @@ struct qb_hdb {
  * @endcode
  */
 #define QB_HDB_DECLARE(database_name,destructor_function)		\
-static struct qb_hdb (database_name) = {		\
+static struct qb_hdb (database_name) = {				\
 	.handle_count	= 0,						\
 	.handles	= NULL,						\
 	.iterator	= 0,						\
