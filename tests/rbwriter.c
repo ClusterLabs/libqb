@@ -32,6 +32,7 @@
 
 #include <qb/qbrb.h>
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 
 static qb_ringbuffer_t *rb = NULL;
 #define ITERATIONS 100000

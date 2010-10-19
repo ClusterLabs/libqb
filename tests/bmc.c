@@ -32,6 +32,7 @@
 #include <signal.h>
 
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 #include <qb/qbipcc.h>
 
 #define ITERATIONS 10000

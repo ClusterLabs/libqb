@@ -32,6 +32,7 @@
 #include <check.h>
 
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 #include <qb/qbipcc.h>
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>

@@ -25,6 +25,7 @@
 #include "ipc_int.h"
 #include "util_int.h"
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 #include <qb/qbloop.h>
 
 #define QB_REQUEST_Q_LEN 3
