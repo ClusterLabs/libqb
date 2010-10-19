@@ -92,8 +92,18 @@ AC_CHECK_LIB([dl], [dlopen])
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([socket], [socket])
 
+# look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
 AM_CONDITIONAL(HAVE_CHECK, test "${with_check}" = "yes")
+
+# look for GLIB (used for testing integration)
+PKG_CHECK_MODULES(GLIB, glib-2.0 >= 2.0, have_glib=yes, have_glib=no)
+AM_CONDITIONAL(HAVE_GLIB, test x$have_glib = xyes)
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
+if test x"$have_glib" = xyes; then
+AC_DEFINE_UNQUOTED([HAVE_GLIB], [1], [We have glib])
+fi
 
 # Checks for header files.
 AC_HEADER_STDC

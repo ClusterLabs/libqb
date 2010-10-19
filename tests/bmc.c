@@ -18,17 +18,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "config.h"
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <sys/time.h>
-#include <time.h>
+#include "os_base.h"
 #include <signal.h>
 
 #include <qb/qbdefs.h>

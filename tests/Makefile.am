@@ -29,8 +29,8 @@ bmcpt_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 bmcpt_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 bms_SOURCES = bms.c $(top_builddir)/include/qb/qbipcs.h
-bms_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-bms_LDADD = -lrt $(top_builddir)/lib/libqb.la
+bms_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include $(GLIB_CFLAGS)
+bms_LDADD = -lrt $(top_builddir)/lib/libqb.la $(GLIB_LIBS)
 
 rbwriter_SOURCES = rbwriter.c $(top_builddir)/include/qb/qbrb.h
 rbwriter_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include

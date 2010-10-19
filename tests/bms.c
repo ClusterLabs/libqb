@@ -18,40 +18,27 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <pthread.h>
-#include <assert.h>
-#include <sys/types.h>
-#include <sys/poll.h>
-#include <sys/uio.h>
-#include <sys/mman.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
+#include "os_base.h"
 #include <signal.h>
-#include <sched.h>
-#include <time.h>
-#include <stdarg.h>
-#include <sched.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 #include <qb/qbloop.h>
 #include <qb/qbipcs.h>
+#ifdef HAVE_GLIB
+#include <glib.h>
+#endif
 
 int32_t blocking = QB_TRUE;
 int32_t events = QB_FALSE;
+int32_t use_glib = QB_FALSE;
 int32_t verbose = 0;
 
 static qb_loop_t *bms_loop;
+#ifdef HAVE_GLIB
+static GMainLoop *glib_loop;
+static qb_array_t *gio_map;
+#endif
 static qb_ipcs_service_pt s1;
 
 static int32_t s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
@@ -145,8 +132,84 @@ static void show_usage(const char *name)
 	printf("  -p             use posix message queues\n");
 	printf("  -s             use sysv message queues\n");
 	printf("  -u             use unix sockets\n");
+	printf("  -g             use glib mainloop\n");
 	printf("\n");
 }
+
+#ifdef HAVE_GLIB
+
+struct gio_to_qb_poll {
+	int32_t is_used;
+	GIOChannel *channel;
+	int32_t events;
+	void * data;
+	qb_ipcs_dispatch_fn_t fn;
+	enum qb_loop_priority p;
+};
+
+
+static gboolean
+gio_read_socket (GIOChannel *gio, GIOCondition condition, gpointer data)
+{
+	struct gio_to_qb_poll *adaptor = (struct gio_to_qb_poll *)data;
+	gint fd = g_io_channel_unix_get_fd(gio);
+
+	return (adaptor->fn(fd, condition, adaptor->data) == 0);
+}
+
+static int32_t my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
+	void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	struct gio_to_qb_poll *adaptor;
+	GIOChannel *channel;
+	int32_t res = 0;
+
+	res = qb_array_grow(gio_map, fd + 1);
+	if (res < 0) {
+		return res;
+	}
+	res = qb_array_index(gio_map, fd, (void**)&adaptor);
+	if (res < 0) {
+		return res;
+	}
+	if (adaptor->is_used) {
+		return -EEXIST;
+	}
+
+	channel = g_io_channel_unix_new(fd);
+	if (!channel) {
+		return -ENOMEM;
+	}
+
+	adaptor->channel = channel;
+	adaptor->fn = fn;
+	adaptor->events = evts;
+	adaptor->data = data;
+	adaptor->p = p;
+	adaptor->is_used = QB_TRUE;
+
+	g_io_add_watch(channel, evts, gio_read_socket, adaptor);
+	return 0;
+}
+
+static int32_t my_g_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
+	void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	//return qb_loop_poll_mod(bms_loop, p, fd, evts, data, fn);
+	return 0;
+}
+
+static int32_t my_g_dispatch_del(int32_t fd)
+{
+	struct gio_to_qb_poll *adaptor;
+	if (qb_array_index(gio_map, fd, (void**)&adaptor) == 0) {
+		g_io_channel_unref(adaptor->channel);
+		adaptor->is_used = QB_FALSE;
+	}
+	return 0;
+}
+
+#endif /* HAVE_GLIB */
 
 static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	void *data, qb_ipcs_dispatch_fn_t fn)
@@ -165,9 +228,10 @@ static int32_t my_dispatch_del(int32_t fd)
 	return qb_loop_poll_del(bms_loop, fd);
 }
 
+
 int32_t main(int32_t argc, char *argv[])
 {
-	const char *options = "nevhmpsu";
+	const char *options = "nevhmpsug";
 	int32_t opt;
 	enum qb_ipc_type ipc_type = QB_IPC_SHM;
 	struct qb_ipcs_service_handlers sh = {
@@ -181,6 +245,13 @@ int32_t main(int32_t argc, char *argv[])
 		.dispatch_mod = my_dispatch_mod,
 		.dispatch_del = my_dispatch_del,
 	};
+#ifdef HAVE_GLIB
+	struct qb_ipcs_poll_handlers glib_ph = {
+		.dispatch_add = my_g_dispatch_add,
+		.dispatch_mod = my_g_dispatch_mod,
+		.dispatch_del = my_g_dispatch_del,
+	};
+#endif /* HAVE_GLIB */
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
@@ -202,6 +273,9 @@ int32_t main(int32_t argc, char *argv[])
 		case 'e':	/* events */
 			events = QB_TRUE;
 			break;
+		case 'g':
+			use_glib = QB_TRUE;
+			break;
 		case 'v':
 			verbose++;
 			break;
@@ -218,17 +292,34 @@ int32_t main(int32_t argc, char *argv[])
 
 	qb_util_set_log_function(ipc_log_fn);
 
-	bms_loop = qb_loop_create();
+	if (!use_glib) {
+		bms_loop = qb_loop_create();
+		s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
+		if (s1 == 0) {
+			perror("qb_ipcs_create");
+			exit(1);
+		}
+		qb_ipcs_poll_handlers_set(s1, &ph);
+		qb_ipcs_run(s1);
+		qb_loop_run(bms_loop);
+	} else {
+#ifdef HAVE_GLIB
+		glib_loop = g_main_loop_new(NULL, FALSE);
 
-	s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
-	if (s1 == 0) {
-		perror("qb_ipcs_create");
-		exit(1);
+		gio_map = qb_array_create(64, sizeof(struct gio_to_qb_poll));
+
+		s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
+		if (s1 == 0) {
+			perror("qb_ipcs_create");
+			exit(1);
+		}
+		qb_ipcs_poll_handlers_set(s1, &glib_ph);
+		qb_ipcs_run(s1);
+
+		g_main_loop_run(glib_loop);
+#else
+		printf("You don't seem to have glib-devel installed.\n");
+#endif
 	}
-	qb_ipcs_poll_handlers_set(s1, &ph);
-
-	qb_ipcs_run(s1);
-	qb_loop_run(bms_loop);
-
 	return EXIT_SUCCESS;
 }
