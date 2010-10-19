@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.61])
-AC_INIT([libqb], [0.2.0], [quarterback-devel@fedorahosted.org])
+AC_INIT([libqb], [0.3.0], [quarterback-devel@fedorahosted.org])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h])
 AM_INIT_AUTOMAKE([-Wno-portability])
