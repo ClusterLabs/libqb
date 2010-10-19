@@ -28,6 +28,20 @@
 #include <qb/qbatomic.h>
 #include <qb/qbutil.h>
 
+#ifdef QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED
+#if defined (QB_ARCH_SPARCV9)
+#define QB_ATOMIC_MEMORY_BARRIER					\
+  __asm__ __volatile__ ("membar #LoadLoad | #LoadStore"			\
+                        " | #StoreLoad | #StoreStore" : : : "memory")
+#elif defined (QB_ARCH_ALPHA)
+#define QB_ATOMIC_MEMORY_BARRIER  __asm__ ("mb" : : : "memory")
+#elif defined (QB_ARCH_POWERPC)
+#define QB_ATOMIC_MEMORY_BARRIER __asm__ ("sync" : : : "memory")
+#elif defined (QB_ARCH_IA64)
+#define QB_ATOMIC_MEMORY_BARRIER __sync_synchronize ()
+#endif /* arch */
+#endif /* QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED */
+
 /* We have to use the slow, but safe locking method */
 static qb_thread_lock_t *qb_atomic_mutex = NULL;
 

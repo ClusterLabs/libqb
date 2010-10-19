@@ -129,83 +129,59 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday memset munmap \
 		socket strchr strerror strstr epoll_create epoll_create1 \
 		pthread_spin_lock])
 
-
-glib_cv_gcc_has_builtin_atomic_operations=no
+# Check for atomic support
+gcc_has_builtin_atomic_operations=no
 if test x"$GCC" = xyes; then
-  AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
-  AC_TRY_LINK([],
-	      [int i;
-	       __sync_synchronize ();
-	       __sync_bool_compare_and_swap (&i, 0, 1);
-	       __sync_fetch_and_add (&i, 1);
-	      ],
-	      [glib_cv_gcc_has_builtin_atomic_operations=yes],
-	      [glib_cv_gcc_has_builtin_atomic_operations=no])
+	AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
+	AC_TRY_LINK([],
+		    [int i;
+		     __sync_synchronize ();
+		     __sync_bool_compare_and_swap (&i, 0, 1);
+		     __sync_fetch_and_add (&i, 1);
+		     ],
+		     [gcc_has_builtin_atomic_operations=yes],
+		     [gcc_has_builtin_atomic_operations=no])
 
-  AC_MSG_RESULT($glib_cv_gcc_has_builtin_atomic_operations)
-  if test $glib_cv_gcc_has_builtin_atomic_operations = yes; then
-    glib_memory_barrier_needed=yes
-  else
-    case $host_cpu in
-      i386)
-        AC_MSG_RESULT([none])
-        glib_memory_barrier_needed=no
-        ;;
-      i?86)
-        AC_MSG_RESULT([i486])
-        glib_memory_barrier_needed=no
-        ;;
-      sparc*)
-          AC_MSG_RESULT([sparcv9])
-        glib_memory_barrier_needed=yes
-        ;;
-      alpha*)
-        AC_MSG_RESULT([alpha])
-        glib_memory_barrier_needed=yes
-        ;;
-      x86_64)
-        AC_MSG_RESULT([x86_64])
-        glib_memory_barrier_needed=no
-       ;;
-      powerpc*)
-        AC_MSG_RESULT([powerpc])
-        glib_memory_barrier_needed=yes
-        ;;
-      ia64)
-        AC_MSG_RESULT([ia64])
-        glib_memory_barrier_needed=yes
-        ;;
-      s390|s390x)
-        AC_MSG_RESULT([s390])
-        glib_memory_barrier_needed=no
-        ;;
-      arm*)
-        AC_MSG_RESULT([arm])
-        glib_memory_barrier_needed=no
-        ;;
-      crisv32*|etraxfs*)
-        AC_MSG_RESULT([crisv32])
-        glib_memory_barrier_needed=no
-        ;;
-      cris*|etrax*)
-        AC_MSG_RESULT([cris])
-        glib_memory_barrier_needed=no
-        ;;
-      *)
-        AC_MSG_RESULT([none])
-        glib_memory_barrier_needed=yes
-        ;;
-    esac
-  fi
+	AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
+	if test $gcc_has_builtin_atomic_operations = yes; then
+		memory_barrier_needed=yes
+	else
+		case $host_cpu in
+			sparc*)
+			AC_MSG_RESULT([sparcv9])
+			AC_DEFINE_UNQUOTED([QB_ARCH_SPARCV9], [1], [sparcv9])
+			memory_barrier_needed=yes
+			;;
+			alpha*)
+			AC_MSG_RESULT([alpha])
+			AC_DEFINE_UNQUOTED([QB_ARCH_ALPHA], [1], [alpha])
+			memory_barrier_needed=yes
+			;;
+			powerpc*)
+			AC_MSG_RESULT([powerpc])
+			AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
+			memory_barrier_needed=yes
+			;;
+			ia64)
+			AC_MSG_RESULT([ia64])
+			AC_DEFINE_UNQUOTED([QB_ARCH_IA64], [1], [ia64])
+			memory_barrier_needed=yes
+			;;
+			*)
+			AC_MSG_RESULT([none])
+			memory_barrier_needed=no
+			;;
+		esac
+	fi
 fi
 
-if test x"$glib_memory_barrier_needed" != xno; then
-	AC_DEFINE_UNQUOTED(G_ATOMIC_OP_MEMORY_BARRIER_NEEDED, 1,
-		   [need atomic memory barrier])
-fi
+if test x"$memory_barrier_needed" != xno; then
+	AC_DEFINE_UNQUOTED(QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED, 1,
+			   [need atomic memory barrier])
+	fi
 
 AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
-	       [test $glib_cv_gcc_has_builtin_atomic_operations = yes])
+	       [test $gcc_has_builtin_atomic_operations = yes])
 
 
 ## local defines

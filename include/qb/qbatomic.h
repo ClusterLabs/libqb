@@ -166,17 +166,17 @@ void qb_atomic_pointer_set(volatile void* QB_GNUC_MAY_ALIAS * atomic,
 #define qb_atomic_pointer_set(atomic, newval)	((void) (*(atomic) = (newval)))
 #else
 #define qb_atomic_int_get(atomic) \
- ((void) sizeof (gchar [sizeof (*(atomic)) == sizeof (int32_t) ? 1 : -1]), \
-  (qb_atomic_int_get) ((volatile int32_t G_GNUC_MAY_ALIAS *) (volatile void *) (atomic)))
+ ((void) sizeof (char* [sizeof (*(atomic)) == sizeof (int32_t) ? 1 : -1]), \
+  (qb_atomic_int_get) ((volatile int32_t QB_GNUC_MAY_ALIAS *) (volatile void *) (atomic)))
 #define qb_atomic_int_set(atomic, newval) \
- ((void) sizeof (gchar [sizeof (*(atomic)) == sizeof (int32_t) ? 1 : -1]), \
-  (qb_atomic_int_set) ((volatile int32_t G_GNUC_MAY_ALIAS *) (volatile void *) (atomic), (newval)))
+ ((void) sizeof (char* [sizeof (*(atomic)) == sizeof (int32_t) ? 1 : -1]), \
+  (qb_atomic_int_set) ((volatile int32_t QB_GNUC_MAY_ALIAS *) (volatile void *) (atomic), (newval)))
 #define qb_atomic_pointer_get(atomic) \
- ((void) sizeof (gchar [sizeof (*(atomic)) == sizeof (void*) ? 1 : -1]), \
-  (qb_atomic_pointer_get) ((volatile void G_GNUC_MAY_ALIAS *) (volatile void *) (atomic)))
+ ((void) sizeof (char* [sizeof (*(atomic)) == sizeof (void*) ? 1 : -1]), \
+  (qb_atomic_pointer_get) ((volatile void QB_GNUC_MAY_ALIAS *) (volatile void *) (atomic)))
 #define qb_atomic_pointer_set(atomic, newval) \
- ((void) sizeof (gchar [sizeof (*(atomic)) == sizeof (void*) ? 1 : -1]), \
-  (qb_atomic_pointer_set) ((volatile void G_GNUC_MAY_ALIAS *) (volatile void *) (atomic), (newval)))
+ ((void) sizeof (char* [sizeof (*(atomic)) == sizeof (void*) ? 1 : -1]), \
+  (qb_atomic_pointer_set) ((volatile void QB_GNUC_MAY_ALIAS *) (volatile void *) (atomic), (newval)))
 #endif /* QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED */
 
 /**
