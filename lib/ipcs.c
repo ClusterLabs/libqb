@@ -71,6 +71,7 @@ void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt pt,
 
 	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
 
+	s->poll_fns.job_add = handlers->job_add;
 	s->poll_fns.dispatch_add = handlers->dispatch_add;
 	s->poll_fns.dispatch_mod = handlers->dispatch_mod;
 	s->poll_fns.dispatch_del = handlers->dispatch_del;

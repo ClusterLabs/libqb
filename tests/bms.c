@@ -232,6 +232,11 @@ static int32_t my_g_dispatch_del(int32_t fd)
 
 #endif /* HAVE_GLIB */
 
+static int32_t my_job_add(enum qb_loop_priority p, void *data, qb_loop_job_dispatch_fn fn)
+{
+	return qb_loop_job_add(bms_loop, p, data, fn);
+}
+
 static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
@@ -262,12 +267,14 @@ int32_t main(int32_t argc, char *argv[])
 		.connection_destroyed = s1_connection_destroyed_fn,
 	};
 	struct qb_ipcs_poll_handlers ph = {
+		.job_add = my_job_add,
 		.dispatch_add = my_dispatch_add,
 		.dispatch_mod = my_dispatch_mod,
 		.dispatch_del = my_dispatch_del,
 	};
 #ifdef HAVE_GLIB
 	struct qb_ipcs_poll_handlers glib_ph = {
+		.job_add = NULL, // FIXME
 		.dispatch_add = my_g_dispatch_add,
 		.dispatch_mod = my_g_dispatch_mod,
 		.dispatch_del = my_g_dispatch_del,

@@ -77,8 +77,12 @@ typedef int32_t (*qb_ipcs_dispatch_mod_fn)(enum qb_loop_priority p,
 					   qb_ipcs_dispatch_fn_t fn);
 typedef int32_t (*qb_ipcs_dispatch_del_fn)(int32_t fd);
 
+typedef int32_t (*qb_ipcs_job_add_fn)(enum qb_loop_priority p,
+			void *data,
+			qb_loop_job_dispatch_fn dispatch_fn);
 
 struct qb_ipcs_poll_handlers {
+	qb_ipcs_job_add_fn job_add;
 	qb_ipcs_dispatch_add_fn dispatch_add;
 	qb_ipcs_dispatch_mod_fn dispatch_mod;
 	qb_ipcs_dispatch_del_fn dispatch_del;
