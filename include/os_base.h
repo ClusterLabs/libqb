@@ -57,9 +57,11 @@
 #include <strings.h>
 #endif /* HAVE_STRINGS_H */
 
+#ifndef S_SPLINT_S
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#endif /* S_SPLINT_S */
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -81,8 +83,10 @@
 #include <sys/socket.h>
 #endif /* HAVE_SYS_SOCKET_H */
 
+#ifndef S_SPLINT_S
 #ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #endif /* HAVE_SYSLOG_H */
+#endif /* S_SPLINT_S */
 
 #endif /* QB_OS_BASE_H_DEFINED */

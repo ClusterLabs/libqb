@@ -22,14 +22,7 @@
 #ifndef QB_TLIST_H_DEFINED
 #define QB_TLIST_H_DEFINED
 
-#include <sys/time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/param.h>
-#include <unistd.h>
-
+#include "os_base.h"
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
 

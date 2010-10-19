@@ -58,6 +58,8 @@ AC_PROG_MAKE_SET
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
 AC_CHECK_PROGS([DOXYGEN], [doxygen])
 AM_CONDITIONAL(HAVE_DOXYGEN, test -n "${DOXYGEN}")
+AC_CHECK_PROGS([SPLINT], [splint])
+AM_CONDITIONAL(HAVE_SPLINT, test -n "${SPLINT}")
 
 ## local helper functions
 
@@ -210,7 +212,8 @@ AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
 PACKAGE_FEATURES=""
 
 LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
-	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)="
+	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
+	-warnposix +matchanyintegral"
 
 # libraries SONAME
 SOMAJOR="0"

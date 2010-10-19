@@ -39,10 +39,6 @@ dist_doc_DATA		= COPYING INSTALL README TODO
 
 SUBDIRS			= include lib docs tests
 
-
-lint:
-	$(MAKE) -C lib lint
-
 doxygen:
 	$(MAKE) -C docs doxygen
 

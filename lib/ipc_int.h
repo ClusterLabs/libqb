@@ -22,8 +22,7 @@
 #ifndef QB_IPC_INT_H_DEFINED
 #define QB_IPC_INT_H_DEFINED
 
-#include <unistd.h>
-#include "config.h"
+#include "os_base.h"
 
 #include <dirent.h>
 #include <mqueue.h>
