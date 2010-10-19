@@ -41,6 +41,7 @@
 
 #if defined(QB_LINUX) || defined(QB_SOLARIS)
 #define QB_SUN_LEN(a) sizeof(*(a))
+#define UNIX_PATH_MAX    108
 #else
 #define QB_SUN_LEN(a) SUN_LEN(a)
 #endif
@@ -294,7 +295,7 @@ static int32_t qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_p
 #endif
 
 #if defined(QB_LINUX)
-	sprintf(address.sun_path + 1, "%s", socket_name);
+	snprintf(address.sun_path + 1, UNIX_PATH_MAX, "%s", socket_name);
 #else
 	sprintf(address.sun_path, "%s/%s", SOCKETDIR, socket_name);
 #endif
@@ -436,7 +437,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 
 	qb_util_log(LOG_INFO, "server name: %s", s->name);
 #if defined(QB_LINUX)
-	sprintf(un_addr.sun_path + 1, "%s", s->name);
+	snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX, "%s", s->name);
 #else
 	{
 		struct stat stat_out;

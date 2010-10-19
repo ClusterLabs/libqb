@@ -56,7 +56,7 @@ TESTS = $(check_SCRIPTS)
 
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) \
-		 $(LINT_FLAGS) -expect 43
+		 $(LINT_FLAGS) -expect 41
 
 run_splint.sh:
 	echo "$(SPLINT) $(ALL_LINT_FLAGS) $(source_to_lint)" > $@
