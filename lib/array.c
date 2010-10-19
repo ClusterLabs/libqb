@@ -44,6 +44,10 @@ qb_array_t* qb_array_create(size_t max_elements, size_t element_size)
 		errno = -EINVAL;
 		return NULL;
 	}
+	if (element_size < 1) {
+		errno = -EINVAL;
+		return NULL;
+	}
 	a->element_size = element_size;
 	a->max_elements = max_elements;
 	a->num_bins = (max_elements / MAX_BIN_ELEMENTS) + 1;
@@ -64,7 +68,10 @@ int32_t qb_array_index(struct qb_array* a, int32_t idx, void** element_out)
 	int32_t elem;
 	char *bin;
 
-	if (idx >= a->max_elements) {
+	if (a == NULL || element_out == NULL) {
+		return -EINVAL;
+	}
+	if (idx >= a->max_elements || idx < 0) {
 		return -EINVAL;
 	}
 	b = BIN_NUM_GET(idx);
@@ -82,7 +89,7 @@ int32_t qb_array_grow(struct qb_array* a, size_t max_elements)
 	int32_t i;
 	int32_t old_bins;
 
-	if (max_elements > (MAX_BIN_ELEMENTS*MAX_BINS)) {
+	if (a == NULL || max_elements > (MAX_BIN_ELEMENTS*MAX_BINS)) {
 		return -EINVAL;
 	}
 	if (max_elements <= a->max_elements) {

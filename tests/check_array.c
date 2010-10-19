@@ -21,10 +21,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <syslog.h>
-#include <errno.h>
+#include "os_base.h"
 #include <check.h>
 
 #include <qb/qbdefs.h>
@@ -39,17 +36,46 @@ struct test_my_st {
 };
 
 
-START_TEST(test_array1)
+START_TEST(test_array_limits)
+{
+	qb_array_t *a;
+	int32_t res;
+	struct test_my_st *st;
+
+	a = qb_array_create(INT_MAX, sizeof(struct test_my_st));
+	fail_unless(a == NULL);
+	a = qb_array_create(-56, sizeof(struct test_my_st));
+	fail_unless(a == NULL);
+	a = qb_array_create(67, 0);
+	fail_unless(a == NULL);
+
+	/* working array */
+	a = qb_array_create(10, sizeof(struct test_my_st));
+	fail_if(a == NULL);
+
+	/* out-of-bounds */
+	res = qb_array_index(a, 10, (void**)&st);
+	ck_assert_int_eq(res, -EINVAL);
+	res = qb_array_index(a, -10, (void**)&st);
+	ck_assert_int_eq(res, -EINVAL);
+	res = qb_array_index(NULL, 1, (void**)&st);
+	ck_assert_int_eq(res, -EINVAL);
+	res = qb_array_index(a, -10, NULL);
+	ck_assert_int_eq(res, -EINVAL);
+
+	qb_array_free(a);
+}
+END_TEST
+
+START_TEST(test_array_correct_retrieval)
 {
 	qb_array_t *a;
 	int32_t i;
 	int32_t res;
-	struct test_my_st *st_old;
 	struct test_my_st *st;
 
 	a = qb_array_create(112, sizeof(struct test_my_st));
 
-	/* valid */
 	for (i = 0; i < 112; i++) {
 		res = qb_array_index(a, i, (void**)&st);
 		ck_assert_int_eq(res, 0);
@@ -58,20 +84,6 @@ START_TEST(test_array1)
 		st->c = i+2;
 		st->d = i+3;
 	}
-	res = qb_array_index(a, 99, (void**)&st_old);
-	ck_assert_int_eq(res, 0);
-
-	/* out-of-bounds */
-	res = qb_array_index(a, 112, (void**)&st);
-	ck_assert_int_eq(res, -EINVAL);
-
-
-	res = qb_array_grow(a, 1453);
-	ck_assert_int_eq(res, 0);
-
-	res = qb_array_index(a, 345, (void**)&st);
-	st->a = 411;
-
 	/* read back */
 	for (i = 0; i < 112; i++) {
 		res = qb_array_index(a, i, (void**)&st);
@@ -81,10 +93,33 @@ START_TEST(test_array1)
 		ck_assert_int_eq(st->c, i+2);
 		ck_assert_int_eq(st->d, i+3);
 	}
+
+	qb_array_free(a);
+}
+END_TEST
+
+START_TEST(test_array_static_memory)
+{
+	qb_array_t *a;
+	int32_t res;
+	struct test_my_st *st_old;
+	struct test_my_st *st;
+
+	a = qb_array_create(112, sizeof(struct test_my_st));
+
+	res = qb_array_index(a, 99, (void**)&st_old);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_array_grow(a, 1453);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_array_index(a, 345, (void**)&st);
+	st->a = 411;
+
 	/* confirm the pointer is the same after a grow */
 	res = qb_array_index(a, 99, (void**)&st);
 	ck_assert_int_eq(res, 0);
-	fail_if(st != st_old);
+	fail_unless(st == st_old);
 
 	qb_array_free(a);
 }
@@ -92,12 +127,20 @@ END_TEST
 
 static Suite *rb_suite(void)
 {
-	TCase *tc_load;
-	Suite *s = suite_create("array");
+	TCase *tc;
+	Suite *s = suite_create("qb_array");
 
-	tc_load = tcase_create("test01");
-	tcase_add_test(tc_load, test_array1);
-	suite_add_tcase(s, tc_load);
+	tc = tcase_create("limits");
+	tcase_add_test(tc, test_array_limits);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("correct_retrieval");
+	tcase_add_test(tc, test_array_correct_retrieval);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("static_memory");
+	tcase_add_test(tc, test_array_static_memory);
+	suite_add_tcase(s, tc);
 
 	return s;
 }
@@ -105,8 +148,7 @@ static Suite *rb_suite(void)
 static void libqb_log_fn(const char *file_name,
 			 int32_t file_line, int32_t severity, const char *msg)
 {
-//	if (severity < LOG_INFO)
-		printf("libqb: %s:%d %s\n", file_name, file_line, msg);
+	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
 }
 
 int32_t main(void)
