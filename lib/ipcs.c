@@ -298,6 +298,47 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	return c;
 }
 
+qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_pt pt)
+{
+	struct qb_ipcs_service *s;
+	struct qb_ipcs_connection *c;
+	struct qb_list_head *iter;
+
+	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
+
+	if (qb_list_empty(&s->connections)) {
+		qb_hdb_handle_put(&qb_ipc_services, pt);
+		return NULL;
+	}
+	iter = s->connections.next;
+
+	c = qb_list_entry(iter, struct qb_ipcs_connection, list);
+	qb_ipcs_connection_ref_inc(c);
+	qb_hdb_handle_put(&qb_ipc_services, pt);
+	return c;
+}
+
+qb_ipcs_connection_t * qb_ipcs_connection_next_get(qb_ipcs_service_pt pt,
+						   struct qb_ipcs_connection *current)
+{
+	struct qb_ipcs_service *s;
+	struct qb_ipcs_connection *c;
+	struct qb_list_head *iter;
+
+	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
+
+	if (current->list.next == &s->connections) {
+		qb_hdb_handle_put(&qb_ipc_services, pt);
+		return NULL;
+	}
+	iter = current->list.next;
+
+	c = qb_list_entry(iter, struct qb_ipcs_connection, list);
+	qb_ipcs_connection_ref_inc(c);
+	qb_hdb_handle_put(&qb_ipc_services, pt);
+	return c;
+}
+
 void qb_ipcs_connection_ref_inc(struct qb_ipcs_connection *c)
 {
 	qb_atomic_int_inc(&c->refcount);

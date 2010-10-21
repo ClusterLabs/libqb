@@ -219,13 +219,34 @@ int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
  * Get the service statistics.
  *
  * @param clear_after_read clear stats after copying them into stats
- * @param s service instance
+ * @param pt service instance
  * @return 0 == ok; -errno to indicate a failure
  */
-int32_t qb_ipcs_stats_get(qb_ipcs_service_pt s,
+int32_t qb_ipcs_stats_get(qb_ipcs_service_pt pt,
 			  struct qb_ipcs_stats* stats,
 			  int32_t clear_after_read);
 
+/**
+ * Get the first connection.
+ *
+ * @note call qb_ipcs_connection_ref_dec() after using the connection.
+ *
+ * @param pt service instance
+ * @return first connection
+ */
+qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_pt pt);
+
+/**
+ * Get the next connection.
+ *
+ * @note call qb_ipcs_connection_ref_dec() after using the connection.
+ *
+ * @param pt service instance
+ * @param current current connection
+ * @return next connection
+ */
+qb_ipcs_connection_t * qb_ipcs_connection_next_get(qb_ipcs_service_pt pt,
+						   qb_ipcs_connection_t *current);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
