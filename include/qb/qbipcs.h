@@ -46,6 +46,22 @@ typedef struct qb_ipcs_connection qb_ipcs_connection_t;
 
 typedef qb_handle_t qb_ipcs_service_pt;
 
+struct qb_ipcs_stats {
+	uint32_t active_connections;
+	uint32_t closed_connections;
+};
+
+struct qb_ipcs_connection_stats {
+	int32_t client_pid;
+	uint64_t requests;
+	uint64_t responses;
+	uint64_t events;
+	uint64_t send_retries;
+	uint64_t recv_retries;
+	int32_t flow_control_state;
+	uint64_t flow_control_count;
+};
+
 typedef int32_t (*qb_ipcs_dispatch_fn_t) (int32_t fd, int32_t revents,
 	void *data);
 
@@ -109,44 +125,57 @@ qb_ipcs_service_pt qb_ipcs_create(const char *name,
 
 /**
  * Set your poll callbacks.
+ * @param s service instance
  */
 void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
 	struct qb_ipcs_poll_handlers *handlers);
 
 /**
  * run the new IPC server.
+ * @param s service instance
+ * @return 0 == ok; -errno to indicate a failure
  */
 int32_t qb_ipcs_run(qb_ipcs_service_pt s);
 
 /**
  * Destroy the IPC server.
+ * @param s service instance
  */
 void qb_ipcs_destroy(qb_ipcs_service_pt s);
 
+/**
+ *
+ * @param s service instance
+ */
 void qb_ipcs_request_rate_limit(qb_ipcs_service_pt pt, enum qb_ipcs_rate_limit rl);
 
 /**
  * send a response to a incomming request.
+ * @param c connection instance
  */
 ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
 /**
  * Send an asyncronous event message to the client.
+ * @param c connection instance
  */
 ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
 /**
  * Send an asyncronous event message to the client.
+ * @param c connection instance
  */
 ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
 
 /**
  * Increment the connection's reference counter.
+ * @param c connection instance
  */
 void qb_ipcs_connection_ref_inc(qb_ipcs_connection_t *c);
 
 /**
  * Decrement the connection's reference counter.
+ * @param c connection instance
  */
 void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
 
@@ -157,9 +186,45 @@ void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
  */
 int32_t qb_ipcs_service_id_get(qb_ipcs_connection_t *c);
 
+/**
+ * Associate a "user" pointer with this connection.
+ *
+ * @param context the point to associate with this connection.
+ * @param c connection instance
+ * @see qb_ipcs_context_get()
+ */
 void qb_ipcs_context_set(qb_ipcs_connection_t *c, void *context);
 
+/**
+ * Get the context (set previously)
+ *
+ * @param c connection instance
+ * @return the context
+ * @see qb_ipcs_context_set()
+ */
 void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
+
+/**
+ * Get the connection statistics.
+ *
+ * @param clear_after_read clear stats after copying them into stats
+ * @param c connection instance
+ * @return 0 == ok; -errno to indicate a failure
+ */
+int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
+				     struct qb_ipcs_connection_stats* stats,
+				     int32_t clear_after_read);
+
+/**
+ * Get the service statistics.
+ *
+ * @param clear_after_read clear stats after copying them into stats
+ * @param s service instance
+ * @return 0 == ok; -errno to indicate a failure
+ */
+int32_t qb_ipcs_stats_get(qb_ipcs_service_pt s,
+			  struct qb_ipcs_stats* stats,
+			  int32_t clear_after_read);
 
 
 /* *INDENT-OFF* */

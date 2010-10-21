@@ -203,6 +203,11 @@ ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 
 	qb_ipcs_connection_ref_inc(c);
 	res = c->service->funcs.send(&c->response, data, size);
+	if (res == size) {
+		c->stats.responses++;
+	} else if (res == -EAGAIN) {
+		c->stats.send_retries++;
+	}
 	qb_ipcs_connection_ref_dec(c);
 
 	return res;
@@ -220,6 +225,11 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 	do {
 		try_count++;
 		res = c->service->funcs.send(&c->event, data, size);
+		if (res == size) {
+			c->stats.events++;
+		} else if (res == -EAGAIN) {
+			c->stats.send_retries++;
+		}
 	} while (res == -EAGAIN && try_count < 20);
 	if (res > 0) {
 		if (c->service->needs_sock_for_poll) {
@@ -249,6 +259,11 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection *c, const struct iovec * i
 	do {
 		try_count++;
 		res = c->service->funcs.sendv(&c->event, iov, iov_len);
+		if (res > 0) {
+			c->stats.events++;
+		} else if (res == -EAGAIN) {
+			c->stats.send_retries++;
+		}
 	} while (res == -EAGAIN && try_count < 20);
 	if (res > 0) {
 		if (c->service->needs_sock_for_poll) {
@@ -269,7 +284,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection *c, const struct iovec * i
 
 struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 {
-	struct qb_ipcs_connection *c = malloc(sizeof(struct qb_ipcs_connection));
+	struct qb_ipcs_connection *c = calloc(1, sizeof(struct qb_ipcs_connection));
 
 	c->refcount = 1;
 	c->service = s;
@@ -295,6 +310,8 @@ void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 	kill_it = qb_atomic_int_dec_and_test(&c->refcount);
 	if (kill_it) {
 		qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
+		c->service->stats.active_connections--;
+		c->service->stats.closed_connections++;
 		qb_list_del(&c->list);
 		if (c->service->serv_fns.connection_destroyed) {
 			c->service->serv_fns.connection_destroyed(c);
@@ -325,6 +342,8 @@ static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_ena
 	if (c->fc_enabled != fc_enable) {
 		c->service->funcs.fc_set(&c->request, fc_enable);
 		c->fc_enabled = fc_enable;
+		c->stats.flow_control_state = fc_enable;
+		c->stats.flow_control_count++;
 	}
 }
 
@@ -348,10 +367,13 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 	if (size < 0) {
 		if (size != -EAGAIN) {
 			qb_util_log(LOG_ERR, "%s(): %s", __func__, strerror(-res));
+		} else {
+			c->stats.recv_retries++;
 		}
 		res = size;
 		goto cleanup;
 	}
+	c->stats.requests++;
 
 	if (hdr->id == QB_IPC_MSG_DISCONNECT) {
 		qb_util_log(LOG_DEBUG, "%s() QB_IPC_MSG_DISCONNECT", __func__);
@@ -464,5 +486,32 @@ void qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
 void *qb_ipcs_context_get(struct qb_ipcs_connection *c)
 {
 	return c->context;
+}
+
+int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
+				     struct qb_ipcs_connection_stats* stats,
+				     int32_t clear_after_read)
+{
+	memcpy(stats, &c->stats, sizeof(struct qb_ipcs_connection_stats));
+	if (clear_after_read) {
+		memset(&c->stats, 0, sizeof(struct qb_ipcs_connection_stats));
+		c->stats.client_pid = c->pid;
+	}
+	return 0;
+}
+
+int32_t qb_ipcs_stats_get(qb_ipcs_service_pt pt,
+			  struct qb_ipcs_stats* stats,
+			  int32_t clear_after_read)
+{
+	struct qb_ipcs_service *s;
+
+	qb_hdb_handle_get(&qb_ipc_services, pt, (void **)&s);
+	memcpy(stats, &s->stats, sizeof(struct qb_ipcs_stats));
+	if (clear_after_read) {
+		memset(&s->stats, 0, sizeof(struct qb_ipcs_stats));
+	}
+	qb_hdb_handle_put(&qb_ipc_services, pt);
+	return 0;
 }
 

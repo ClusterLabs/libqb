@@ -163,6 +163,7 @@ struct qb_ipcs_service {
 	enum qb_loop_priority poll_priority;
 
 	struct qb_list_head connections;
+	struct qb_ipcs_stats stats;
 };
 
 struct qb_ipcs_connection {
@@ -179,6 +180,7 @@ struct qb_ipcs_connection {
 	char *receive_buf;
 	void *context;
 	int32_t fc_enabled;
+	struct qb_ipcs_connection_stats stats;
 };
 
 void qb_ipcs_pmq_init(struct qb_ipcs_service *s);

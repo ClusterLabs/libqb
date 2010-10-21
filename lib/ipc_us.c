@@ -520,6 +520,7 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	c->pid = ugp->pid;
 	c->euid = ugp->uid;
 	c->egid = ugp->gid;
+	c->stats.client_pid = ugp->pid;
 
 	if (c->service->serv_fns.connection_accept) {
 		res = c->service->serv_fns.connection_accept(c,
@@ -567,6 +568,7 @@ send_response:
 		response.connection = (intptr_t)c;
 		response.connection_type = s->type;
 		response.max_msg_size = c->request.max_msg_size;
+		s->stats.active_connections++;
 	}
 
 	qb_ipc_us_send(&c->setup, &response, response.hdr.size);

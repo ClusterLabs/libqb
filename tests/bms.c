@@ -61,15 +61,36 @@ static int32_t s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t
 
 static void s1_connection_created_fn(qb_ipcs_connection_t *c)
 {
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
+	struct qb_ipcs_stats srv_stats;
+
+	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
+	printf("\n Connection created\n > active:%d\n > closed:%d\n\n",
+	       srv_stats.active_connections,
+	       srv_stats.closed_connections);
 }
+
 static void s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
 {
-	if (verbose) {
-		printf("%s:%d %s\n", __FILE__, __LINE__, __func__);
-	}
+	struct qb_ipcs_connection_stats stats;
+	struct qb_ipcs_stats srv_stats;
+
+	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
+
+	qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
+
+	printf("\n Connection to pid:%d destroyed\n > active:%d\n > closed:%d\n\n",
+	       stats.client_pid,
+	       srv_stats.active_connections,
+	       srv_stats.closed_connections);
+
+	printf(" Requests     %"PRIu64"\n", stats.requests);
+	printf(" Responses    %"PRIu64"\n", stats.responses);
+	printf(" Events       %"PRIu64"\n", stats.events);
+	printf(" Send retries %"PRIu64"\n", stats.send_retries);
+	printf(" Recv retries %"PRIu64"\n", stats.recv_retries);
+	printf(" FC state     %d\n", stats.flow_control_state);
+	printf(" FC count     %"PRIu64"\n\n", stats.flow_control_count);
+
 }
 
 static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
