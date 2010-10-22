@@ -306,7 +306,11 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 		/*
 		 * Grow pollfd list
 		 */
-		qb_array_grow(my_src->poll_entries, my_src->poll_entry_count + 1);
+		res = qb_array_grow(my_src->poll_entries,
+				     my_src->poll_entry_count + 1);
+		if (res != 0) {
+			return res;
+		}
 
 #ifdef HAVE_EPOLL
 		new_size = (my_src->poll_entry_count+ 1) * sizeof(struct epoll_event);
@@ -421,7 +425,7 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 		my_src->ufds[i].events = 0;
 		my_src->ufds[i].revents = 0;
 #endif /* HAVE_EPOLL */
-		return 0;
+		return res;
 	}
 
 	return -EBADF;

@@ -202,7 +202,7 @@ static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 
 	if (c->response.u.shm.rb) {
 		if (peer_alive) {
-			qb_ipc_shm_send(&c->event, &msg, msg.size);
+			(void)qb_ipc_shm_send(&c->event, &msg, msg.size);
 			qb_rb_close(c->response.u.shm.rb, QB_FALSE);
 		} else {
 			qb_rb_close(c->response.u.shm.rb, QB_TRUE);

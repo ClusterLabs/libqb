@@ -240,7 +240,7 @@ case "$host_os" in
 	*linux*)
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
-		LINT_FLAGS+=" -expect 41"
+		LINT_FLAGS+=" -expect 22"
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
@@ -266,7 +266,7 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 		esac
-		LINT_FLAGS+=" -expect 55"
+		LINT_FLAGS="$LINT_FLAGS -expect 22"
 	;;
 	*solaris*)
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],

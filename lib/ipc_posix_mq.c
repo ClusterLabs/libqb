@@ -321,7 +321,7 @@ static void qb_ipcs_pmq_disconnect(struct qb_ipcs_connection *c)
 	msg.size = sizeof(msg);
 	msg.error = 0;
 
-	qb_ipc_pmq_send(&c->event, &msg, msg.size);
+	(void)qb_ipc_pmq_send(&c->event, &msg, msg.size);
 
 	mq_close(c->event.u.pmq.q);
 	mq_close(c->response.u.pmq.q);
@@ -358,13 +358,13 @@ static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
 	}
 
 	if (!s->needs_sock_for_poll) {
-		s->poll_fns.dispatch_add(s->poll_priority, c->request.u.pmq.q,
-					 POLLIN | POLLPRI | POLLNVAL,
-					 c, qb_ipcs_dispatch_service_request);
+		res = s->poll_fns.dispatch_add(s->poll_priority, (int32_t)c->request.u.pmq.q,
+					       POLLIN | POLLPRI | POLLNVAL,
+					       c, qb_ipcs_dispatch_service_request);
 	}
 
 	r->hdr.error = 0;
-	return 0;
+	return res;
 
 cleanup_request_response:
 	mq_close(c->response.u.pmq.q);
@@ -382,7 +382,7 @@ cleanup:
 static ssize_t qb_ipc_pmq_q_len_get(struct qb_ipc_one_way *one_way)
 {
 	struct mq_attr info;
-	int32_t res = mq_getattr(one_way->u.smq.q, &info);
+	int32_t res = mq_getattr(one_way->u.pmq.q, &info);
 	if (res == 0) {
 		return info.mq_curmsgs;
 	}

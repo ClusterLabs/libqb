@@ -112,25 +112,20 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	t->p = p;
 	qb_list_init(&t->item.list);
 
-	timerlist_add_duration(&my_src->timerlist,
+	return timerlist_add_duration(&my_src->timerlist,
 			       make_job_from_tmo, t,
 			       ((uint64_t)msec_duration) * QB_TIME_NS_IN_MSEC,
 			       timer_handle_out);
-
-	return 0;
 }
 
 int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 {
-	int32_t res = 0;
-
 	if (th == NULL) {
 		return -EINVAL;
 	}
 
 	timerlist_del(&my_src->timerlist, (void *)th);
-
-	return (res);
+	return 0;
 }
 
 

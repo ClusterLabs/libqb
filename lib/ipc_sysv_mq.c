@@ -93,7 +93,7 @@ retry_creating_the_q:
 }
 
 
-static int32_t sysv_split_and_send(mqd_t q, const void *msg_ptr,
+static int32_t sysv_split_and_send(int32_t q, const void *msg_ptr,
 				   size_t msg_len, int32_t last_chunk)
 {
 	int32_t res;
@@ -236,8 +236,9 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 
 	hdr.id = QB_IPC_MSG_DISCONNECT;
 	hdr.size = sizeof(hdr);
-	sysv_split_and_send(c->request.u.smq.q, (const char *)&hdr, hdr.size,
-			    QB_TRUE);
+	(void)sysv_split_and_send(c->request.u.smq.q,
+				  (const char *)&hdr, hdr.size,
+				  QB_TRUE);
 
 	msgctl(c->event.u.smq.q, IPC_RMID, NULL);
 	msgctl(c->response.u.smq.q, IPC_RMID, NULL);
@@ -302,7 +303,7 @@ static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 		msg.size = sizeof(msg);
 		msg.error = 0;
 
-		qb_ipc_smq_send(&c->event, &msg, msg.size);
+		(void)qb_ipc_smq_send(&c->event, &msg, msg.size);
 	} else {
 		msgctl(c->event.u.smq.q, IPC_RMID, NULL);
 		msgctl(c->response.u.smq.q, IPC_RMID, NULL);

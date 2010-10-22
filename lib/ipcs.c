@@ -148,19 +148,19 @@ void qb_ipcs_request_rate_limit(qb_ipcs_service_pt pt, enum qb_ipcs_rate_limit r
 		}
 
 		if (s->type == QB_IPC_POSIX_MQ && !s->needs_sock_for_poll) {
-			s->poll_fns.dispatch_mod(p, c->request.u.pmq.q,
-						 POLLIN | POLLPRI | POLLNVAL,
-						 c, qb_ipcs_dispatch_service_request);
+			(void)s->poll_fns.dispatch_mod(p, (int32_t)c->request.u.pmq.q,
+						       POLLIN | POLLPRI | POLLNVAL,
+						       c, qb_ipcs_dispatch_service_request);
 		} else if (s->type == QB_IPC_SOCKET) {
-			s->poll_fns.dispatch_mod(p, c->event.u.us.sock,
-						 POLLIN | POLLPRI | POLLNVAL,
-						 c,
-						 qb_ipcs_dispatch_connection_request);
+			(void)s->poll_fns.dispatch_mod(p, c->event.u.us.sock,
+						       POLLIN | POLLPRI | POLLNVAL,
+						       c,
+						       qb_ipcs_dispatch_connection_request);
 		} else {
-			s->poll_fns.dispatch_mod(p, c->setup.u.us.sock,
-						 POLLIN | POLLPRI | POLLNVAL,
-						 c,
-						 qb_ipcs_dispatch_connection_request);
+			(void)s->poll_fns.dispatch_mod(p, c->setup.u.us.sock,
+						       POLLIN | POLLPRI | POLLNVAL,
+						       c,
+						       qb_ipcs_dispatch_connection_request);
 		}
 		qb_ipcs_connection_ref_dec(c);
 	}
@@ -504,7 +504,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	} while (avail > 0 && res > 0);
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
-		qb_ipc_us_recv(&c->setup, bytes, recvd, 0);
+		(void)qb_ipc_us_recv(&c->setup, bytes, recvd, 0);
 	}
 
 	res = QB_MIN(0, res);

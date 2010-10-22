@@ -39,9 +39,12 @@
 
 #define SERVER_BACKLOG 5
 
+#ifndef UNIX_PATH_MAX
+#define UNIX_PATH_MAX    108
+#endif /* UNIX_PATH_MAX */
+
 #if defined(QB_LINUX) || defined(QB_SOLARIS)
 #define QB_SUN_LEN(a) sizeof(*(a))
-#define UNIX_PATH_MAX    108
 #else
 #define QB_SUN_LEN(a) SUN_LEN(a)
 #endif
@@ -297,7 +300,7 @@ static int32_t qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_p
 #if defined(QB_LINUX)
 	snprintf(address.sun_path + 1, UNIX_PATH_MAX, "%s", socket_name);
 #else
-	sprintf(address.sun_path, "%s/%s", SOCKETDIR, socket_name);
+	snprintf(address.sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR, socket_name);
 #endif
 	if (connect(request_fd, (struct sockaddr *)&address,
 		    QB_SUN_LEN(&address)) == -1) {
@@ -449,7 +452,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 				    SOCKETDIR);
 			goto error_close;
 		}
-		sprintf(un_addr.sun_path, "%s/%s", SOCKETDIR, s->name);
+		snprintf(un_addr.sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR, s->name);
 		unlink(un_addr.sun_path);
 	}
 #endif
@@ -478,10 +481,10 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		qb_util_log(LOG_ERR, "listen failed: %s.\n", error_str);
 	}
 
-	s->poll_fns.dispatch_add(s->poll_priority, s->server_sock,
-				 POLLIN | POLLPRI | POLLNVAL,
-				 s, qb_ipcs_us_connection_acceptor);
-	return 0;
+	res = s->poll_fns.dispatch_add(s->poll_priority, s->server_sock,
+					POLLIN | POLLPRI | POLLNVAL,
+					s, qb_ipcs_us_connection_acceptor);
+	return res;
 
 error_close:
 	close(s->server_sock);
@@ -545,20 +548,24 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	c->receive_buf = malloc(c->request.max_msg_size);
 
 	if (s->needs_sock_for_poll) {
-		s->poll_fns.dispatch_add(s->poll_priority, c->setup.u.us.sock,
-					 POLLIN | POLLPRI | POLLNVAL,
-					 c,
-					 qb_ipcs_dispatch_connection_request);
+		res = s->poll_fns.dispatch_add(s->poll_priority,
+					       c->setup.u.us.sock,
+					       POLLIN | POLLPRI | POLLNVAL,
+					       c,
+					       qb_ipcs_dispatch_connection_request);
 	}
 	if (s->type == QB_IPC_SOCKET) {
 		c->request.u.us.sock = c->setup.u.us.sock;
 		c->response.u.us.sock = c->setup.u.us.sock;
-		s->poll_fns.dispatch_add(s->poll_priority, c->request.u.us.sock,
-					 POLLIN | POLLPRI | POLLNVAL,
-					 c,
-					 qb_ipcs_dispatch_connection_request);
+		res = s->poll_fns.dispatch_add(s->poll_priority,
+					       c->request.u.us.sock,
+					       POLLIN | POLLPRI | POLLNVAL,
+					       c,
+					       qb_ipcs_dispatch_connection_request);
+		if (res < 0) {
+			qb_util_log(LOG_ERR, "Error adding socket to mainloop.");
+		}
 	}
-
 
 send_response:
 	response.hdr.id = QB_IPC_MSG_AUTHENTICATE;
@@ -571,7 +578,9 @@ send_response:
 		s->stats.active_connections++;
 	}
 
-	qb_ipc_us_send(&c->setup, &response, response.hdr.size);
+	if (qb_ipc_us_send(&c->setup, &response, response.hdr.size) < 0) {
+		qb_util_log(LOG_ERR, "Error send connection response.");
+	}
 
 	if (res == 0) {
 		if (s->serv_fns.connection_created) {
@@ -688,7 +697,7 @@ static int32_t qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	 * Usually Linux systems
 	 */
 	cmsg = CMSG_FIRSTHDR(&msg_recv);
-	assert(cmsg);
+	assert(cmsg != NULL);
 	cred = (struct ucred *)CMSG_DATA(cmsg);
 	if (cred) {
 		res = 0;
@@ -759,7 +768,7 @@ retry_accept:
 				       &ugp);
 
 	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
-		handle_new_connection(s, res, new_fd, &setup_msg, sizeof(setup_msg),
+		res = handle_new_connection(s, res, new_fd, &setup_msg, sizeof(setup_msg),
 				       &ugp);
 	} else if (setup_msg.hdr.id == QB_IPC_MSG_NEW_EVENT_SOCK) {
 		if (res == 0) {
