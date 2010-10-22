@@ -64,9 +64,10 @@ sem_wait_again:
 static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct sembuf sops[1];
+	int32_t res = 0;
+#ifndef QB_FREEBSD_GE_8
 	struct timespec ts_timeout;
 	struct timespec *ts_pt;
-	int32_t res = 0;
 
 	if (ms_timeout >= 0) {
 		/*
@@ -80,16 +81,25 @@ static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 	} else {
 		ts_pt = NULL;
 	}
+#endif /* bsd */
 
 	/*
 	 * wait for sem post.
 	 */
 	sops[0].sem_num = 0;
 	sops[0].sem_op = -1;
+#ifdef QB_FREEBSD_GE_8
+	sops[0].sem_flg = IPC_NOWAIT;
+#else
 	sops[0].sem_flg = 0;
+#endif /* bsd */
 
 semop_again:
+#ifdef QB_FREEBSD_GE_8
+	if (semop(rb->sem_id, sops, 1) == -1) {
+#else
 	if (semtimedop(rb->sem_id, sops, 1, ts_pt) == -1) {
+#endif
 		if (errno == EINTR) {
 			goto semop_again;
 		} else if (errno == EAGAIN) {

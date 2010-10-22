@@ -33,8 +33,8 @@ static void qb_hdb_create_first_run(struct qb_hdb *hdb)
 {
 	if (hdb->first_run == 1) {
 		hdb->first_run = 0;
-		hdb->handles = qb_array_create(32, sizeof(struct qb_hdb_handle));
 		qb_atomic_init();
+		hdb->handles = qb_array_create(32, sizeof(struct qb_hdb_handle));
 	}
 }
 

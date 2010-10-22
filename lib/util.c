@@ -47,10 +47,12 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 	int32_t res;
 
 #if defined(HAVE_PTHREAD_SPIN_LOCK)
+#if _POSIX_THREAD_PROCESS_SHARED > 0
 	if (type == QB_THREAD_LOCK_SHORT) {
 		tl->type = QB_THREAD_LOCK_SHORT;
 		res = pthread_spin_init(&tl->spinlock, 1);
 	} else
+#endif
 #endif
 	{
 		tl->type = QB_THREAD_LOCK_LONG;

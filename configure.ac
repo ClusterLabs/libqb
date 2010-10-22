@@ -182,6 +182,10 @@ if test x"$GCC" = xyes; then
 			memory_barrier_needed=no
 			;;
 		esac
+		AC_MSG_WARN([-----------------------------])
+		AC_MSG_WARN([You have gcc but not __sync_bool_compare_and_swap])
+		AC_MSG_WARN([try CFLAGS="-march=<your arch> -mtune=native" ./configure])
+		AC_MSG_WARN([-----------------------------])
 	fi
 fi
 
@@ -236,6 +240,7 @@ case "$host_os" in
 	*linux*)
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
+		LINT_FLAGS+=" -expect 41"
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
@@ -261,6 +266,7 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 		esac
+		LINT_FLAGS+=" -expect 55"
 	;;
 	*solaris*)
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],

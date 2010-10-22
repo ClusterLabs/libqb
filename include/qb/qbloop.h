@@ -44,7 +44,6 @@ typedef struct qb_loop qb_loop_t;
 
 typedef void *qb_loop_job_handle;
 typedef void *qb_loop_timer_handle;
-#define qb_poll_timer_handle qb_loop_timer_handle
 
 typedef int32_t (*qb_loop_poll_dispatch_fn) (int32_t fd, int32_t revents, void *data);
 typedef void (*qb_loop_job_dispatch_fn)(void *data);

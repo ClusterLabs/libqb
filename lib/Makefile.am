@@ -56,9 +56,9 @@ TESTS = $(check_SCRIPTS)
 
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) \
-		 $(LINT_FLAGS) -expect 41
+		 $(LINT_FLAGS)
 
-run_splint.sh:
+run_splint.sh: $(top_srcdir)/configure.ac
 	echo "$(SPLINT) $(ALL_LINT_FLAGS) $(source_to_lint)" > $@
 	chmod +x $@
 endif

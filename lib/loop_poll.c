@@ -225,7 +225,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 			// empty
 			continue;
 		}
-		pe = &s->poll_entries[i];
+		assert(qb_array_index(my_src->poll_entries, i, (void**)&pe) == 0);
 		if (s->ufds[i].revents == pe->ufd.revents) {
 			// entry already in the job queue.
 			continue;

@@ -50,6 +50,7 @@ void qb_atomic_init(void)
 	if (qb_atomic_mutex == NULL) {
 		qb_atomic_mutex = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 	}
+	assert(qb_atomic_mutex);
 }
 
 int32_t
