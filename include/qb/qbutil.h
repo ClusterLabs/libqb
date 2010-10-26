@@ -110,8 +110,30 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
  */
 int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes);
 
-
+/**
+ * Add milliseconds onto the timespec.
+ * @param ts the ts to add to
+ * @param ms the amount of milliseconds to increment ts
+ */
 void qb_timespec_add_ms(struct timespec *ts, int32_t ms);
+
+/**
+ * Get the current number of nanao secounds produced
+ * by the systems incrementing clock (CLOCK_MONOTOMIC
+ * if available).
+ */
+uint64_t qb_util_nano_current_get(void);
+
+/**
+ * Get the frequence of the clock used in
+ * qb_util_nano_current_get().
+ */
+uint64_t qb_util_nano_monotonic_hz(void);
+
+/**
+ * Get the time in nano seconds since epoch.
+ */
+uint64_t qb_util_nano_from_epoch_get(void);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

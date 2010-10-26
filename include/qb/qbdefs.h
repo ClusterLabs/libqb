@@ -50,6 +50,10 @@ extern "C" {
 /*
  * handy time based converters.
  */
+#ifndef HZ
+#define HZ 100			/* 10ms */
+#endif
+
 #define QB_TIME_MS_IN_SEC   1000ULL
 #define QB_TIME_US_IN_SEC   1000000ULL
 #define QB_TIME_NS_IN_SEC   1000000000ULL

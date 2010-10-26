@@ -67,7 +67,6 @@ static int32_t expire_the_timers(struct qb_loop_source* s, int32_t ms_timeout)
 	return expired_timers;
 }
 
-
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source)
 {
 	uint64_t left = timerlist_msec_duration_to_expire(&my_src->timerlist);
@@ -128,4 +127,11 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 	return 0;
 }
 
+uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle th)
+{
+	if (th == 0) {
+		return 0;
+	}
+	return timerlist_expire_time (&my_src->timerlist, th);
+}
 

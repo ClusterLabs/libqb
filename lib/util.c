@@ -144,7 +144,6 @@ void _qb_util_log(const char *file_name,
 	}
 }
 
-
 void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 {
 #ifndef S_SPLINT_S
@@ -157,6 +156,56 @@ void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 #endif /* S_SPLINT_S */
 }
 
+#if defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
+uint64_t qb_util_nano_current_get(void)
+{
+	uint64_t nano_monotonic;
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	nano_monotonic =
+	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
+	return (nano_monotonic);
+}
+
+uint64_t qb_util_nano_monotonic_hz(void)
+{
+	uint64_t nano_monotonic_hz;
+	struct timespec ts;
+
+	clock_getres(CLOCK_MONOTONIC, &ts);
+
+	nano_monotonic_hz =
+	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) +
+				   ts.tv_nsec);
+
+	return (nano_monotonic_hz);
+}
+#else
+#warning "Your system doesn't support monotonic timer. gettimeofday will be used"
+uint64_t qb_util_nano_current_get(void)
+{
+	return qb_util_nano_from_epoch_get();
+}
+
+uint64_t qb_util_nano_monotonic_hz(void)
+{
+	return HZ;
+}
+#endif
+
+uint64_t qb_util_nano_from_epoch_get(void)
+{
+	uint64_t nano_from_epoch;
+	struct timeval time_from_epoch;
+	gettimeofday(&time_from_epoch, 0);
+
+	nano_from_epoch = ((time_from_epoch.tv_sec * QB_TIME_NS_IN_SEC) +
+			   (time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
+
+	return (nano_from_epoch);
+}
 
 void qb_util_set_log_function(qb_util_log_fn_t fn)
 {

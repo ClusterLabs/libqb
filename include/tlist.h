@@ -24,11 +24,8 @@
 
 #include "os_base.h"
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 #include <qb/qblist.h>
-
-#ifndef HZ
-#define HZ 100			/* 10ms */
-#endif
 
 #ifndef TIMER_HANDLE
 typedef void *timer_handle;
@@ -54,57 +51,6 @@ static inline void timerlist_init(struct timerlist *timerlist)
 {
 	qb_list_init(&timerlist->timer_head);
 }
-
-static inline uint64_t timerlist_nano_from_epoch(void)
-{
-	uint64_t nano_from_epoch;
-	struct timeval time_from_epoch;
-	gettimeofday(&time_from_epoch, 0);
-
-	nano_from_epoch = ((time_from_epoch.tv_sec * QB_TIME_NS_IN_SEC) +
-			   (time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
-
-	return (nano_from_epoch);
-}
-
-#if defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
-static inline uint64_t timerlist_nano_current_get(void)
-{
-	uint64_t nano_monotonic;
-	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	nano_monotonic =
-	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
-	return (nano_monotonic);
-}
-
-static inline uint64_t timerlist_nano_monotonic_hz(void)
-{
-	uint64_t nano_monotonic_hz;
-	struct timespec ts;
-
-	clock_getres(CLOCK_MONOTONIC, &ts);
-
-	nano_monotonic_hz =
-	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) +
-				   ts.tv_nsec);
-
-	return (nano_monotonic_hz);
-}
-#else
-#warning "Your system doesn't support monotonic timer. gettimeofday will be used"
-static inline uint64_t timerlist_nano_current_get(void)
-{
-	return (timerlist_nano_from_epoch());
-}
-
-static inline uint64_t timerlist_nano_monotonic_hz(void)
-{
-	return HZ;
-}
-#endif
 
 static inline void timerlist_add(struct timerlist *timerlist,
 				 struct timerlist_timer *timer)
@@ -170,7 +116,7 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 		return -ENOMEM;
 	}
 
-	timer->expire_time = timerlist_nano_current_get() + nano_duration;
+	timer->expire_time = qb_util_nano_current_get() + nano_duration;
 	timer->is_absolute_timer = 0;
 	timer->data = data;
 	timer->timer_fn = timer_fn;
@@ -231,9 +177,7 @@ static inline void timerlist_post_dispatch(struct timerlist *timerlist,
 /*
  * returns the number of msec until the next timer will expire for use with poll
  */
-static inline uint64_t timerlist_msec_duration_to_expire(struct
-								   timerlist
-								   *timerlist)
+static inline uint64_t timerlist_msec_duration_to_expire(struct timerlist *timerlist)
 {
 	struct timerlist_timer *timer_from_list;
 	volatile uint64_t current_time;
@@ -250,9 +194,9 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct
 					struct timerlist_timer, list);
 
 	if (timer_from_list->is_absolute_timer) {
-		current_time = timerlist_nano_from_epoch();
+		current_time = qb_util_nano_from_epoch_get();
 	} else {
-		current_time = timerlist_nano_current_get();
+		current_time = qb_util_nano_current_get();
 	}
 
 	/*
@@ -278,8 +222,8 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 	uint64_t current_monotonic_time;
 	uint64_t current_time;
 
-	current_monotonic_time = timerlist_nano_current_get();
-	current_time_from_epoch = current_time = timerlist_nano_from_epoch();
+	current_monotonic_time = qb_util_nano_current_get();
+	current_time_from_epoch = current_time = qb_util_nano_from_epoch_get();
 
 	for (timerlist->timer_iter = timerlist->timer_head.next;
 	     timerlist->timer_iter != &timerlist->timer_head;) {

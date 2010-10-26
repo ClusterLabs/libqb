@@ -118,6 +118,15 @@ int32_t qb_loop_timer_add(qb_loop_t *l,
 int32_t qb_loop_timer_del(qb_loop_t *l, qb_loop_timer_handle th);
 
 /**
+ * Get the time remaining before it expires.
+ *
+ * @param l pointer to the loop instance
+ * @param th timer handle.
+ * @return nano seconds left
+ */
+uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle th);
+
+/**
  * Set a callback to receive events on file descriptors
  * getting low.
  * @param l pointer to the loop instance
