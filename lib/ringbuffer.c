@@ -202,7 +202,8 @@ void qb_rb_close(qb_ringbuffer_t * rb, int32_t force_it)
 
 	destroy_it = qb_atomic_int_dec_and_test(&rb->shared_hdr->ref_count);
 	if (destroy_it || force_it) {
-		qb_util_log(LOG_DEBUG, "Destroying ringbuffer");
+		qb_util_log(LOG_DEBUG, "Destroying ringbuffer: %s",
+			    rb->shared_hdr->hdr_path);
 		(void)rb->sem_destroy_fn(rb);
 
 		unlink(rb->shared_hdr->data_path);
