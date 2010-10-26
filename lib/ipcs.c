@@ -214,6 +214,22 @@ ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 	return res;
 }
 
+ssize_t qb_ipcs_response_sendv(struct qb_ipcs_connection *c, const struct iovec * iov, size_t iov_len)
+{
+	ssize_t res;
+
+	qb_ipcs_connection_ref_inc(c);
+	res = c->service->funcs.sendv(&c->response, iov, iov_len);
+	if (res > 0) {
+		c->stats.responses++;
+	} else if (res == -EAGAIN) {
+		c->stats.send_retries++;
+	}
+	qb_ipcs_connection_ref_dec(c);
+
+	return res;
+}
+
 ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 			   size_t size)
 {

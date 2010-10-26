@@ -159,6 +159,8 @@ void qb_ipcs_request_rate_limit(qb_ipcs_service_pt pt, enum qb_ipcs_rate_limit r
  */
 ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
+ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
+
 /**
  * Send an asyncronous event message to the client.
  * @param c connection instance
