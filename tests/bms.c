@@ -69,7 +69,7 @@ static void s1_connection_created_fn(qb_ipcs_connection_t *c)
 	       srv_stats.closed_connections);
 }
 
-static void s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
+static int32_t s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
 {
 	struct qb_ipcs_connection_stats stats;
 	struct qb_ipcs_stats srv_stats;
@@ -90,7 +90,7 @@ static void s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
 	printf(" Recv retries %"PRIu64"\n", stats.recv_retries);
 	printf(" FC state     %d\n", stats.flow_control_state);
 	printf(" FC count     %"PRIu64"\n\n", stats.flow_control_count);
-
+	return 0;
 }
 
 static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,

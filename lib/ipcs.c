@@ -299,22 +299,6 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection *c, const struct iovec * i
 	return res;
 }
 
-struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
-{
-	struct qb_ipcs_connection *c = calloc(1, sizeof(struct qb_ipcs_connection));
-
-	c->refcount = 1;
-	c->service = s;
-	c->pid = 0;
-	c->euid = -1;
-	c->egid = -1;
-	qb_list_init(&c->list);
-	c->receive_buf = NULL;
-	c->fc_enabled = QB_FALSE;
-
-	return c;
-}
-
 qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_pt pt)
 {
 	struct qb_ipcs_service *s;
@@ -356,6 +340,28 @@ qb_ipcs_connection_t * qb_ipcs_connection_next_get(qb_ipcs_service_pt pt,
 	return c;
 }
 
+int32_t qb_ipcs_service_id_get(struct qb_ipcs_connection *c)
+{
+	return c->service->service_id;
+}
+
+struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
+{
+	struct qb_ipcs_connection *c = calloc(1, sizeof(struct qb_ipcs_connection));
+
+	c->refcount = 1;
+	c->service = s;
+	c->pid = 0;
+	c->euid = -1;
+	c->egid = -1;
+	qb_list_init(&c->list);
+	c->receive_buf = NULL;
+	c->context = NULL;
+	c->fc_enabled = QB_FALSE;
+	c->state = QB_IPCS_CONNECTION_INACTIVE;
+	return c;
+}
+
 void qb_ipcs_connection_ref_inc(struct qb_ipcs_connection *c)
 {
 	qb_atomic_int_inc(&c->refcount);
@@ -363,36 +369,66 @@ void qb_ipcs_connection_ref_inc(struct qb_ipcs_connection *c)
 
 void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 {
-	int32_t kill_it;
+	int32_t free_it;
 
-	kill_it = qb_atomic_int_dec_and_test(&c->refcount);
-	if (kill_it) {
-		qb_util_log(LOG_DEBUG, "%s() %d", __func__, c->refcount);
-		c->service->stats.active_connections--;
-		c->service->stats.closed_connections++;
+	if (c->refcount < 1) {
+		qb_util_log(LOG_ERR, "%s() ref:%d state:%d fd:%d",
+			    __func__, c->refcount, c->state, c->setup.u.us.sock);
+		assert(0);
+	}
+	free_it = qb_atomic_int_dec_and_test(&c->refcount);
+	qb_util_log(LOG_DEBUG, "%s() ref:%d state:%d fd:%d",
+		    __func__, c->refcount, c->state, c->setup.u.us.sock);
+	if (free_it) {
 		qb_list_del(&c->list);
-		if (c->service->serv_fns.connection_destroyed) {
-			c->service->serv_fns.connection_destroyed(c);
-		}
 		c->service->funcs.disconnect(c);
-		if (c->service->needs_sock_for_poll) {
-			qb_ipcc_us_sock_close(c->setup.u.us.sock);
-		}
 		if (c->receive_buf) {
 			free(c->receive_buf);
 		}
+		if (c->context) {
+			free(c->context);
+		}
+		free(c);
 	}
-}
-
-int32_t qb_ipcs_service_id_get(struct qb_ipcs_connection *c)
-{
-	return c->service->service_id;
 }
 
 void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 {
-	qb_util_log(LOG_DEBUG, "%s()", __func__);
-	qb_ipcs_connection_ref_dec(c);
+	int32_t res = 0;
+	qb_loop_job_dispatch_fn rerun_job;
+
+	qb_util_log(LOG_DEBUG, "%s() state:%d", __func__, c->state);
+
+	if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		if (c->service->needs_sock_for_poll &&
+		    c->setup.u.us.sock > 0) {
+			qb_ipcc_us_sock_close(c->setup.u.us.sock);
+			c->setup.u.us.sock = -1;
+			qb_ipcs_connection_ref_dec(c);
+		}
+		c->state = QB_IPCS_CONNECTION_DOWN;
+		c->service->stats.active_connections--;
+		c->service->stats.closed_connections++;
+	}
+	if (c->state == QB_IPCS_CONNECTION_DOWN) {
+		res = 0;
+		if (c->service->serv_fns.connection_destroyed) {
+			res = c->service->serv_fns.connection_destroyed(c);
+		}
+		if (res == 0) {
+			qb_ipcs_connection_ref_dec(c);
+		} else {
+			/* ok, so they want the connection_destroyed()
+			 * function re-run */
+			rerun_job = (qb_loop_job_dispatch_fn)qb_ipcs_disconnect;
+			res = c->service->poll_fns.job_add(QB_LOOP_LOW, c,
+							   rerun_job);
+			if (res != 0) {
+				/* last ditch attempt to cleanup */
+				qb_ipcs_connection_ref_dec(c);
+			}
+		}
+	}
 }
 
 static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_enable)
@@ -500,12 +536,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	ssize_t avail;
 
 	if (revents & POLLHUP) {
-		qb_util_log(LOG_DEBUG, "%s HUP", __func__);
-		if (c->service->needs_sock_for_poll) {
-			qb_ipcc_us_sock_close(c->setup.u.us.sock);
-			c->setup.u.us.sock = -1;
-		}
-		qb_ipcs_connection_ref_dec(c);
+		qb_util_log(LOG_DEBUG, "%s HUP conn:%p fd:%d", __func__, c, fd);
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
@@ -531,6 +562,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	if (res != 0) {
 		qb_util_log(LOG_INFO, "%s returning %d : %s",
 			    __func__, res, strerror(-res));
+		qb_ipcs_connection_ref_dec(c);
 	}
 
 	return res;

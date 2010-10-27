@@ -63,7 +63,7 @@ struct qb_ipcs_connection_stats {
 };
 
 typedef int32_t (*qb_ipcs_dispatch_fn_t) (int32_t fd, int32_t revents,
-	void *data);
+					  void *data);
 
 typedef int32_t (*qb_ipcs_dispatch_add_fn)(enum qb_loop_priority p,
 					   int32_t fd,
@@ -78,8 +78,8 @@ typedef int32_t (*qb_ipcs_dispatch_mod_fn)(enum qb_loop_priority p,
 typedef int32_t (*qb_ipcs_dispatch_del_fn)(int32_t fd);
 
 typedef int32_t (*qb_ipcs_job_add_fn)(enum qb_loop_priority p,
-			void *data,
-			qb_loop_job_dispatch_fn dispatch_fn);
+				      void *data,
+				      qb_loop_job_dispatch_fn dispatch_fn);
 
 struct qb_ipcs_poll_handlers {
 	qb_ipcs_job_add_fn job_add;
@@ -101,10 +101,14 @@ typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c, uid_t 
  * This is called after a new connection has been created.
  */
 typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_t *c);
+
 /**
- * This is called after a connection has been destroyed.
+ * This is called after a connection has been disconnected.
+ *
+ * @note if you return anything but 0 this function will be
+ * repeativily called (until 0 is returned).
  */
-typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_t *c);
+typedef int32_t (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_t *c);
 /**
  * This is the message processing calback.
  * It is called with the message data.

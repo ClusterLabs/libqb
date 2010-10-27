@@ -166,7 +166,14 @@ struct qb_ipcs_service {
 	struct qb_ipcs_stats stats;
 };
 
+enum qb_ipcs_connection_state {
+	QB_IPCS_CONNECTION_INACTIVE,
+	QB_IPCS_CONNECTION_ACTIVE,
+	QB_IPCS_CONNECTION_DOWN,
+};
+
 struct qb_ipcs_connection {
+	enum qb_ipcs_connection_state state;
 	int32_t refcount;
 	pid_t pid;
 	uid_t euid;

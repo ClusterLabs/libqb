@@ -543,11 +543,13 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 			goto send_response;
 		}
 	}
+	c->state = QB_IPCS_CONNECTION_ACTIVE;
 
 	qb_list_add(&c->list, &s->connections);
 	c->receive_buf = malloc(c->request.max_msg_size);
 
 	if (s->needs_sock_for_poll) {
+		qb_ipcs_connection_ref_inc(c);
 		res = s->poll_fns.dispatch_add(s->poll_priority,
 					       c->setup.u.us.sock,
 					       POLLIN | POLLPRI | POLLNVAL,

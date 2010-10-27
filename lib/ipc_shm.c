@@ -207,12 +207,15 @@ static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 		} else {
 			qb_rb_close(c->response.u.shm.rb, QB_TRUE);
 		}
+		c->response.u.shm.rb = NULL;
 	}
 	if (c->event.u.shm.rb) {
 		qb_rb_close(c->event.u.shm.rb, !peer_alive);
+		c->event.u.shm.rb = NULL;
 	}
 	if (c->request.u.shm.rb) {
 		qb_rb_close(c->request.u.shm.rb, !peer_alive);
+		c->request.u.shm.rb = NULL;
 	}
 }
 
