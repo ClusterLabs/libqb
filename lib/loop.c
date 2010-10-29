@@ -32,25 +32,24 @@ static struct qb_loop_source * fd_source;
 static int32_t qb_loop_run_level(struct qb_loop_level *level)
 {
 	struct qb_loop_item *job;
-	struct qb_list_head *iter, *iter_next;
+	struct qb_list_head *iter;
 	int32_t processed = 0;
 
-	for (iter = level->job_head.next;
-			iter != &level->job_head;
-			iter = iter_next) {
-		if (processed >= level->to_process) {
-			break;
-		}
-		iter_next = iter->next;
+ Ill_have_another:
+
+	iter = level->job_head.next;
+	if (iter != &level->job_head) {
 		job = qb_list_entry(iter, struct qb_loop_item, list);
 		qb_list_del (&job->list);
 		qb_list_init (&job->list);
 		job->source->dispatch_and_take_back(job, level->priority);
+		processed++;
 		if (level->l->stop_requested) {
-			printf("%s:%d pr:%d STOP!!!\n", __func__, __LINE__, level->priority);
 			return processed;
 		}
-		processed++;
+		if (processed < level->to_process) {
+			goto Ill_have_another;
+		}
 	}
 	return processed;
 }
@@ -88,40 +87,33 @@ void qb_loop_stop(struct qb_loop *l)
 void qb_loop_run(struct qb_loop *l)
 {
 	int32_t p;
-	int32_t p_stop;
-	int32_t todo;
-	int32_t done;
+	int32_t p_stop = QB_LOOP_LOW;
+	int32_t todo = 0;
 	int32_t ms_timeout;
-	int32_t fd_poll_done = QB_FALSE;
 
 	do {
-		p_stop = QB_LOOP_HIGH;
-		todo = 0;
- poll_again:
-		if (!fd_poll_done) {
-			todo += fd_source->poll(fd_source, 0);
+		if (p_stop == QB_LOOP_LOW) {
+			p_stop = QB_LOOP_HIGH;
+		} else {
+			p_stop--;
 		}
+
 		todo += job_source->poll(job_source, 0);
 		todo += timer_source->poll(timer_source, 0);
 
+		if (todo > 0) {
+			ms_timeout = 0;
+		} else {
+			todo = 0;
+			ms_timeout = qb_loop_timer_msec_duration_to_expire(timer_source);
+		}
+		todo += fd_source->poll(fd_source, ms_timeout);
+
 		for (p = QB_LOOP_HIGH; p >= p_stop; p--) {
-			done = qb_loop_run_level(&l->level[p]);
+			todo -= qb_loop_run_level(&l->level[p]);
 			if (l->stop_requested) {
 				return;
 			}
-			todo -= done;
-		}
-		if (p_stop > QB_LOOP_LOW) {
-			p_stop--;
-			fd_poll_done = QB_FALSE;
-			goto poll_again;
-		}
-		if (todo == 0) {
-			ms_timeout = qb_loop_timer_msec_duration_to_expire(timer_source);
-			todo = fd_source->poll(fd_source, ms_timeout);
-			fd_poll_done = QB_TRUE;
-		} else {
-			fd_poll_done = QB_FALSE;
 		}
 	} while (!l->stop_requested);
 }

@@ -52,10 +52,10 @@ static int32_t get_more_jobs(struct qb_loop_source* s, int32_t ms_timeout)
 	// this is simple, move jobs from wait_head to job_head
 	for (p = QB_LOOP_LOW; p <= QB_LOOP_HIGH; p++) {
 		if (!qb_list_empty(&s->l->level[p].wait_head)) {
+			new_jobs += qb_list_length(&s->l->level[p].wait_head);
 			qb_list_splice(&s->l->level[p].wait_head, &s->l->level[p].job_head);
 			qb_list_init(&s->l->level[p].wait_head);
 		}
-		new_jobs += qb_list_length(&s->l->level[p].job_head);
 	}
 	return new_jobs;
 }
@@ -78,7 +78,15 @@ int32_t qb_loop_job_add(struct qb_loop *l,
 			void *data,
 			qb_loop_job_dispatch_fn dispatch_fn)
 {
-	struct qb_loop_job *job = malloc(sizeof(struct qb_loop_job));
+	struct qb_loop_job *job;
+
+	if (l == NULL || dispatch_fn == NULL) {
+		return -EINVAL;
+	}
+	if (p < QB_LOOP_LOW || p > QB_LOOP_HIGH) {
+		return -EINVAL;
+	}
+	job = malloc(sizeof(struct qb_loop_job));
 
 	job->dispatch_fn = dispatch_fn;
 	job->item.user_data = data;
