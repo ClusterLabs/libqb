@@ -377,8 +377,6 @@ void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 		assert(0);
 	}
 	free_it = qb_atomic_int_dec_and_test(&c->refcount);
-	qb_util_log(LOG_DEBUG, "%s() ref:%d state:%d fd:%d",
-		    __func__, c->refcount, c->state, c->setup.u.us.sock);
 	if (free_it) {
 		qb_list_del(&c->list);
 		c->service->funcs.disconnect(c);
