@@ -46,23 +46,31 @@ struct qb_loop_source {
 	void (*dispatch_and_take_back)(struct qb_loop_item *i,
 			 enum qb_loop_priority p);
 	int32_t (*poll)(struct qb_loop_source* s, int32_t ms_timeout);
-	struct qb_list_head list;
 };
 
 struct qb_loop {
 	struct qb_loop_level level[3];
 	int32_t stop_requested;
-	struct qb_list_head source_head;
+	struct qb_loop_source * timer_source;
+	struct qb_loop_source * job_source;
+	struct qb_loop_source * fd_source;
 };
 
 struct qb_loop_source *
-qb_loop_jobs_init(struct qb_loop *l);
+qb_loop_jobs_create(struct qb_loop *l);
 
 struct qb_loop_source*
-qb_loop_timer_init(struct qb_loop *l);
+qb_loop_timer_create(struct qb_loop *l);
 
 struct qb_loop_source*
-qb_loop_poll_init(struct qb_loop *l);
+qb_loop_poll_create(struct qb_loop *l);
+
+void qb_loop_jobs_destroy(struct qb_loop *l);
+
+void qb_loop_timer_destroy(struct qb_loop *l);
+
+void qb_loop_poll_destroy(struct qb_loop *l);
+
 
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source);
 

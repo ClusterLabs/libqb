@@ -59,6 +59,11 @@ typedef void (*qb_loop_poll_low_fds_event_fn) (int32_t not_enough, int32_t fds_a
 qb_loop_t * qb_loop_create(void);
 
 /**
+ *
+ */
+void qb_loop_destroy(struct qb_loop * l);
+
+/**
  * Stop the main loop.
  * @param l pointer to the loop instance
  */

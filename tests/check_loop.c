@@ -99,7 +99,7 @@ START_TEST(test_loop_job_input)
 	ck_assert_int_eq(res, -EINVAL);
 	res = qb_loop_job_add(l, QB_LOOP_LOW,  NULL, NULL);
 	ck_assert_int_eq(res, -EINVAL);
-
+	qb_loop_destroy(l);
 }
 END_TEST
 
@@ -116,6 +116,7 @@ START_TEST(test_loop_job_1)
 
 	qb_loop_run(l);
 	ck_assert_int_eq(job_1_run_count, 1);
+	qb_loop_destroy(l);
 }
 END_TEST
 
@@ -132,6 +133,7 @@ START_TEST(test_loop_job_4)
 	ck_assert_int_eq(job_1_run_count, 1);
 	ck_assert_int_eq(job_2_run_count, 1);
 	ck_assert_int_eq(job_3_run_count, 1);
+	qb_loop_destroy(l);
 }
 END_TEST
 
@@ -147,11 +149,11 @@ START_TEST(test_loop_job_nuts)
 
 	qb_loop_run(l);
 	fail_if(job_1_run_count < 500);
+	qb_loop_destroy(l);
 }
 END_TEST
 
-
-static Suite *rb_suite(void)
+static Suite *loop_job_suite(void)
 {
 	TCase *tc;
 	Suite *s = suite_create("qb_loop_job");
@@ -175,6 +177,110 @@ static Suite *rb_suite(void)
 	return s;
 }
 
+/*
+ * -----------------------------------------------------------------------
+ *  Timers
+ */
+
+START_TEST(test_loop_timer_input)
+{
+	int32_t res;
+	qb_loop_timer_handle th;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5, NULL, job_2, &th);
+	ck_assert_int_eq(res, -EINVAL);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, NULL, &th);
+	ck_assert_int_eq(res, -EINVAL);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, job_1, NULL);
+	ck_assert_int_eq(res, -ENOENT);
+	qb_loop_destroy(l);
+}
+END_TEST
+
+struct qb_stop_watch {
+	uint64_t start;
+	uint64_t end;
+	qb_loop_t *l;
+	int32_t ms_timer;
+	uint64_t total;
+	int32_t count;
+};
+
+static void stop_watch_tmo(void*data)
+{
+	qb_loop_timer_handle th;
+	struct qb_stop_watch *sw = (struct qb_stop_watch *)data;
+
+	sw->end = qb_util_nano_current_get();
+	sw->total += (sw->end - sw->start) / QB_TIME_NS_IN_MSEC;
+	sw->start = sw->end;
+	sw->count++;
+	if (sw->count < 50) {
+		qb_loop_timer_add(sw->l, QB_LOOP_HIGH, sw->ms_timer, data, stop_watch_tmo, &th);
+	} else {
+		printf("average timeout for %d ms timer is %ld\n", sw->ms_timer,
+		       sw->total/sw->count);
+		if (sw->ms_timer == 100) {
+			qb_loop_stop(sw->l);
+		}
+	}
+}
+
+static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
+{
+	qb_loop_timer_handle th;
+	int32_t res;
+
+	sw->l = l;
+	sw->count = 0;
+	sw->total = 0;
+	sw->ms_timer = timeout;
+	sw->start = qb_util_nano_current_get();
+	res = qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, sw, stop_watch_tmo, &th);
+	ck_assert_int_eq(res, 0);
+}
+
+
+START_TEST(test_loop_timer_basic)
+{
+	int32_t i;
+	int32_t max = RAND_MAX / 125;
+	int32_t tmo;
+	struct qb_stop_watch sw[11];
+	qb_loop_t *l = qb_loop_create();
+
+	fail_if(l == NULL);
+
+	for (i = 0; i < 10; i++) {
+		tmo = QB_MAX(1, random() / max);
+		start_timer(l, &sw[i], tmo);
+	}
+	start_timer(l, &sw[i], 100);
+
+	qb_loop_run(l);
+	qb_loop_destroy(l);
+}
+END_TEST
+
+static Suite *loop_timer_suite(void)
+{
+	TCase *tc;
+	Suite *s = suite_create("qb_loop_timers");
+
+	tc = tcase_create("limits");
+	tcase_add_test(tc, test_loop_timer_input);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("basic");
+	tcase_add_test(tc, test_loop_timer_basic);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
+
+	return s;
+}
+
 static void libqb_log_fn(const char *file_name,
 			 int32_t file_line, int32_t severity, const char *msg)
 {
@@ -184,9 +290,8 @@ static void libqb_log_fn(const char *file_name,
 int32_t main(void)
 {
 	int32_t number_failed;
-
-	Suite *s = rb_suite();
-	SRunner *sr = srunner_create(s);
+	SRunner *sr = srunner_create(loop_job_suite());
+	srunner_add_suite (sr, loop_timer_suite());
 
 	qb_util_set_log_function(libqb_log_fn);
 

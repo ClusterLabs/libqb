@@ -38,8 +38,6 @@ struct qb_timer_source {
 	struct timerlist timerlist;
 };
 
-static struct qb_timer_source * my_src;
-
 static void timer_dispatch(struct qb_loop_item * item,
 		enum qb_loop_priority p)
 {
@@ -69,6 +67,7 @@ static int32_t expire_the_timers(struct qb_loop_source* s, int32_t ms_timeout)
 
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source)
 {
+	struct qb_timer_source * my_src = (struct qb_timer_source *)timer_source;
 	uint64_t left = timerlist_msec_duration_to_expire(&my_src->timerlist);
 	if (left != -1 && left > 0xFFFFFFFF) {
 		left = 0xFFFFFFFE;
@@ -77,19 +76,22 @@ int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_sourc
 }
 
 struct qb_loop_source*
-qb_loop_timer_init(struct qb_loop *l)
+qb_loop_timer_create(struct qb_loop *l)
 {
-	my_src = malloc(sizeof(struct qb_timer_source));
+	struct qb_timer_source * my_src = malloc(sizeof(struct qb_timer_source));
 	my_src->s.l = l;
 	my_src->s.dispatch_and_take_back = timer_dispatch;
 	my_src->s.poll = expire_the_timers;
 
-	qb_list_init(&my_src->s.list);
-	qb_list_add_tail(&my_src->s.list, &l->source_head);
-
 	timerlist_init(&my_src->timerlist);
 
 	return (struct qb_loop_source*)my_src;
+}
+
+
+void qb_loop_timer_destroy(struct qb_loop *l)
+{
+	free(l->timer_source);
 }
 
 int32_t qb_loop_timer_add(struct qb_loop *l,
@@ -100,7 +102,12 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 			  qb_loop_timer_handle * timer_handle_out)
 {
 	struct qb_loop_timer *t;
+	struct qb_timer_source * my_src;
 
+	if (l == NULL || timer_fn == NULL) {
+		return -EINVAL;
+	}
+	my_src = (struct qb_timer_source *)l->timer_source;
 	if (timer_handle_out == NULL) {
 		return -ENOENT;
 	}
@@ -119,6 +126,7 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 
 int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 {
+	struct qb_timer_source * my_src = (struct qb_timer_source *)l->timer_source;
 	if (th == NULL) {
 		return -EINVAL;
 	}
@@ -129,6 +137,7 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 
 uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle th)
 {
+	struct qb_timer_source * my_src = (struct qb_timer_source *)l->timer_source;
 	if (th == 0) {
 		return 0;
 	}

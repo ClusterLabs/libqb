@@ -25,10 +25,6 @@
 #include <qb/qbloop.h>
 #include "loop_int.h"
 
-static struct qb_loop_source * timer_source;
-static struct qb_loop_source * job_source;
-static struct qb_loop_source * fd_source;
-
 static int32_t qb_loop_run_level(struct qb_loop_level *level)
 {
 	struct qb_loop_item *job;
@@ -70,13 +66,20 @@ struct qb_loop * qb_loop_create(void)
 	}
 
 	l->stop_requested = QB_FALSE;
-	qb_list_init(&l->source_head);
 	// install sources
-	timer_source = qb_loop_timer_init(l);
-	job_source = qb_loop_jobs_init(l);
-	fd_source = qb_loop_poll_init(l);
+	l->timer_source = qb_loop_timer_create(l);
+	l->job_source = qb_loop_jobs_create(l);
+	l->fd_source = qb_loop_poll_create(l);
 
 	return l;
+}
+
+void qb_loop_destroy(struct qb_loop * l)
+{
+	qb_loop_timer_destroy(l);
+	qb_loop_jobs_destroy(l);
+	qb_loop_poll_destroy(l);
+	free(l);
 }
 
 void qb_loop_stop(struct qb_loop *l)
@@ -98,16 +101,16 @@ void qb_loop_run(struct qb_loop *l)
 			p_stop--;
 		}
 
-		todo += job_source->poll(job_source, 0);
-		todo += timer_source->poll(timer_source, 0);
+		todo += l->job_source->poll(l->job_source, 0);
+		todo += l->timer_source->poll(l->timer_source, 0);
 
 		if (todo > 0) {
 			ms_timeout = 0;
 		} else {
 			todo = 0;
-			ms_timeout = qb_loop_timer_msec_duration_to_expire(timer_source);
+			ms_timeout = qb_loop_timer_msec_duration_to_expire(l->timer_source);
 		}
-		todo += fd_source->poll(fd_source, ms_timeout);
+		todo += l->fd_source->poll(l->fd_source, ms_timeout);
 
 		for (p = QB_LOOP_HIGH; p >= p_stop; p--) {
 			todo -= qb_loop_run_level(&l->level[p]);

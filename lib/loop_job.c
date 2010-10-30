@@ -30,9 +30,6 @@ struct qb_loop_job {
 	qb_loop_job_dispatch_fn dispatch_fn;
 };
 
-static struct qb_loop_source * my_src;
-
-
 static void job_dispatch(struct qb_loop_item * item,
 			 enum qb_loop_priority p)
 {
@@ -61,16 +58,19 @@ static int32_t get_more_jobs(struct qb_loop_source* s, int32_t ms_timeout)
 }
 
 struct qb_loop_source *
-qb_loop_jobs_init(struct qb_loop *l)
+qb_loop_jobs_create(struct qb_loop *l)
 {
-	my_src = malloc(sizeof(struct qb_loop_source));
-	my_src->l = l;
-	my_src->dispatch_and_take_back = job_dispatch;
-	my_src->poll = get_more_jobs;
+	struct qb_loop_source *s = malloc(sizeof(struct qb_loop_source));
+	s->l = l;
+	s->dispatch_and_take_back = job_dispatch;
+	s->poll = get_more_jobs;
 
-	qb_list_init(&my_src->list);
-	qb_list_add_tail(&my_src->list, &l->source_head);
-	return my_src;
+	return s;
+}
+
+void qb_loop_jobs_destroy(struct qb_loop *l)
+{
+	free(l->job_source);
 }
 
 int32_t qb_loop_job_add(struct qb_loop *l,
@@ -90,7 +90,7 @@ int32_t qb_loop_job_add(struct qb_loop *l,
 
 	job->dispatch_fn = dispatch_fn;
 	job->item.user_data = data;
-	job->item.source = my_src;
+	job->item.source = l->job_source;
 
 	qb_list_init(&job->item.list);
 	qb_list_add_tail(&job->item.list, &l->level[p].wait_head);
