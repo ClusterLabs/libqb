@@ -193,15 +193,24 @@ END_TEST
 
 static Suite *rb_suite(void)
 {
-	TCase *tc_load;
+	TCase *tc;
 	Suite *s = suite_create("ringbuffer");
 
-	tc_load = tcase_create("test01");
-	tcase_add_test(tc_load, test_ring_buffer1);
-	tcase_add_test(tc_load, test_ring_buffer2);
-	tcase_add_test(tc_load, test_ring_buffer3);
-	tcase_add_test(tc_load, test_ring_buffer4);
-	suite_add_tcase(s, tc_load);
+	tc = tcase_create("test01");
+	tcase_add_test(tc, test_ring_buffer1);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("test02");
+	tcase_add_test(tc, test_ring_buffer2);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("test03");
+	tcase_add_test(tc, test_ring_buffer3);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("test04");
+	tcase_add_test(tc, test_ring_buffer4);
+	suite_add_tcase(s, tc);
 
 	return s;
 }
@@ -222,7 +231,7 @@ int32_t main(void)
 
 	qb_util_set_log_function(libqb_log_fn);
 
-	srunner_run_all(sr, CK_NORMAL);
+	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);
 	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;

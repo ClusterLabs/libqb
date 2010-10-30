@@ -125,7 +125,7 @@ START_TEST(test_array_static_memory)
 }
 END_TEST
 
-static Suite *rb_suite(void)
+static Suite *array_suite(void)
 {
 	TCase *tc;
 	Suite *s = suite_create("qb_array");
@@ -155,12 +155,12 @@ int32_t main(void)
 {
 	int32_t number_failed;
 
-	Suite *s = rb_suite();
+	Suite *s = array_suite();
 	SRunner *sr = srunner_create(s);
 
 	qb_util_set_log_function(libqb_log_fn);
 
-	srunner_run_all(sr, CK_NORMAL);
+	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);
 	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
