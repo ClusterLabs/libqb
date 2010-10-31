@@ -111,7 +111,7 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
 		  time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
-		  sys/param.h sys/socket.h sys/time.h \
+		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h \
 		  sys/sockio.h sys/un.h syslog.h errno.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -137,7 +137,7 @@ AC_FUNC_REALLOC
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday memset munmap \
 		socket strchr strerror strstr epoll_create epoll_create1 \
-		pthread_spin_lock])
+		pthread_spin_lock timerfd_create])
 
 # Check for atomic support
 gcc_has_builtin_atomic_operations=no
@@ -227,6 +227,11 @@ AC_ARG_ENABLE([debug],
 AC_ARG_ENABLE([coverage],
 	[  --enable-coverage       : coverage analysis of the codebase. ],
 	[ default="no" ])
+
+AC_ARG_ENABLE([timerfd],
+	[  --enable-timerfd        : use timerfd timers. ],
+	[ enable_timerfd=$enableval ],
+	[ enable_timerfd="auto" ])
 
 AC_ARG_WITH([socket-dir],
 	[  --with-socket-dir=DIR   : socket dir. ],
@@ -335,6 +340,7 @@ for j in $WARNLIST; do
 	fi
 done
 
+# --- coverage ---
 if test "x${enable_coverage}" = xyes && \
 		cc_supports_flag -ftest-coverage && \
 		cc_supports_flag -fprofile-arcs ; then
@@ -348,6 +354,28 @@ else
 	COVERAGE_LDFLAGS=""
 fi
 
+# --- timerfd ---
+use_timerfd=no
+if test "x${enable_timerfd}" = xauto ; then
+	if test "x${ac_cv_func_timerfd_create}" = xyes ; then
+		use_timerfd=yes
+        fi
+fi
+if test "x${enable_timerfd}" = xyes ; then
+	if test "x${ac_cv_func_timerfd_create}" = xyes ; then
+		use_timerfd=yes
+	else
+		AC_MSG_ERROR([Asked for timerfd but none available])
+	fi
+fi
+if test "x$use_timerfd" = xyes ; then
+	AC_MSG_NOTICE([Enabling timerfd timers])
+	AC_DEFINE_UNQUOTED([USE_TIMERFD], 1, [use timerfd timers])
+	PACKAGE_FEATURES="$PACKAGE_FEATURES timerfd"
+fi
+AM_CONDITIONAL(USE_TIMERFD, [test "x$use_timerfd" = xyes])
+
+# --- ansi ---
 if test "x${enable_ansi}" = xyes && \
 		cc_supports_flag -std=iso9899:199409 ; then
 	AC_MSG_NOTICE([Enabling ANSI Compatibility])
@@ -357,6 +385,7 @@ else
 	ANSI_CPPFLAGS=""
 fi
 
+# --- fatal warnings ---
 if test "x${enable_fatal_warnings}" = xyes && \
 		cc_supports_flag -Werror ; then
 	AC_MSG_NOTICE([Enabling Fatal Warnings (-Werror)])

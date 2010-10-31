@@ -31,7 +31,6 @@
 static int32_t job_1_run_count = 0;
 static int32_t job_2_run_count = 0;
 static int32_t job_3_run_count = 0;
-static int32_t job_4_run_count = 0;
 
 static void job_1(void *data)
 {
@@ -156,7 +155,7 @@ END_TEST
 static Suite *loop_job_suite(void)
 {
 	TCase *tc;
-	Suite *s = suite_create("qb_loop_job");
+	Suite *s = suite_create("loop_job");
 
 	tc = tcase_create("limits");
 	tcase_add_test(tc, test_loop_job_input);
@@ -204,7 +203,7 @@ struct qb_stop_watch {
 	uint64_t end;
 	qb_loop_t *l;
 	int32_t ms_timer;
-	uint64_t total;
+	int64_t total;
 	int32_t count;
 };
 
@@ -212,16 +211,20 @@ static void stop_watch_tmo(void*data)
 {
 	qb_loop_timer_handle th;
 	struct qb_stop_watch *sw = (struct qb_stop_watch *)data;
+	int64_t per;
 
 	sw->end = qb_util_nano_current_get();
-	sw->total += (sw->end - sw->start) / QB_TIME_NS_IN_MSEC;
+	sw->total += sw->end - sw->start;
+	sw->total -= sw->ms_timer * QB_TIME_NS_IN_MSEC;
 	sw->start = sw->end;
 	sw->count++;
 	if (sw->count < 50) {
-		qb_loop_timer_add(sw->l, QB_LOOP_HIGH, sw->ms_timer, data, stop_watch_tmo, &th);
+		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, data, stop_watch_tmo, &th);
 	} else {
-		printf("average timeout for %d ms timer is %ld\n", sw->ms_timer,
-		       sw->total/sw->count);
+		per = (sw->total / sw->count) * 100 / (sw->ms_timer * QB_TIME_NS_IN_MSEC);
+		printf("average error for %d ms timer is %lld (ns) (%lld%%)\n",
+		       sw->ms_timer,
+		       sw->total/sw->count, per);
 		if (sw->ms_timer == 100) {
 			qb_loop_stop(sw->l);
 		}
@@ -246,7 +249,6 @@ static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
 START_TEST(test_loop_timer_basic)
 {
 	int32_t i;
-	int32_t max = RAND_MAX / 125;
 	int32_t tmo;
 	struct qb_stop_watch sw[11];
 	qb_loop_t *l = qb_loop_create();
@@ -254,7 +256,7 @@ START_TEST(test_loop_timer_basic)
 	fail_if(l == NULL);
 
 	for (i = 0; i < 10; i++) {
-		tmo = QB_MAX(1, random() / max);
+		tmo = 5 + i * 9;
 		start_timer(l, &sw[i], tmo);
 	}
 	start_timer(l, &sw[i], 100);
@@ -267,7 +269,7 @@ END_TEST
 static Suite *loop_timer_suite(void)
 {
 	TCase *tc;
-	Suite *s = suite_create("qb_loop_timers");
+	Suite *s = suite_create("loop_timers");
 
 	tc = tcase_create("limits");
 	tcase_add_test(tc, test_loop_timer_input);

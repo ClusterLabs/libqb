@@ -22,6 +22,7 @@
 #include <sys/poll.h>
 
 #include <qb/qbloop.h>
+#include <qb/qbutil.h>
 
 static struct qb_loop *l;
 static qb_loop_timer_handle th;
@@ -73,8 +74,15 @@ static int32_t read_stdin(int32_t fd, int32_t revents, void *data)
 	return 0;
 }
 
+static void libqb_log_fn(const char *file_name,
+			 int32_t file_line, int32_t severity, const char *msg)
+{
+	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
+}
+
 int main(int argc, char * argv[])
 {
+	qb_util_set_log_function(libqb_log_fn);
 
 	l = qb_loop_create();
 
