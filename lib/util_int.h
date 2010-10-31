@@ -33,4 +33,26 @@ void _qb_util_log(const char *file_name,
 		  const char *format,
 		  ...) __attribute__ ((format(printf, 4, 5)));
 
+/**
+ * Create a file to be used to back shared memory.
+ *
+ * @param path (out) the final absolute path of the file.
+ * @param file (in) the name of the file to be used.
+ * @param bytes the size to truncate the file to.
+ * @param file_flags same as passed into open()
+ * @return 0 (success) or -1 (error)
+ */
+int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
+			       uint32_t file_flags);
+
+/**
+ * Create a shared mamory circular buffer.
+ *
+ * @param fd an open file to use to back the shared memory.
+ * @param buf (out) the pointer to the start of the memory.
+ * @param bytes the size of the shared memory.
+ * @return 0 (success) or -1 (error)
+ */
+int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes);
+
 #endif /* QB_UTIL_INT_H_DEFINED */
