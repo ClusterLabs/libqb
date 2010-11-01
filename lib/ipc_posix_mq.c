@@ -192,7 +192,7 @@ static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
 	ssize_t res;
 
 	if (ms_timeout >= 0) {
-		clock_gettime(CLOCK_REALTIME, &ts_timeout);
+		qb_util_timespec_from_epoch_get(&ts_timeout);
 		qb_timespec_add_ms(&ts_timeout, ms_timeout);
 	}
 

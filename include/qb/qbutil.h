@@ -96,7 +96,7 @@ void qb_util_set_log_function(qb_util_log_fn_t fn);
 void qb_timespec_add_ms(struct timespec *ts, int32_t ms);
 
 /**
- * Get the current number of nanao secounds produced
+ * Get the current number of nano secounds produced
  * by the systems incrementing clock (CLOCK_MONOTOMIC
  * if available).
  */
@@ -112,6 +112,13 @@ uint64_t qb_util_nano_monotonic_hz(void);
  * Get the time in nano seconds since epoch.
  */
 uint64_t qb_util_nano_from_epoch_get(void);
+
+/**
+ * Get the time in timespec since epoch.
+ * @param ts (out) the timespec
+ * @return status (0 == ok, -errno on error)
+ */
+void qb_util_timespec_from_epoch_get(struct timespec *ts);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

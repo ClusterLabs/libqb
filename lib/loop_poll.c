@@ -21,10 +21,9 @@
 #include "os_base.h"
 
 #include <sys/resource.h>
-#ifdef HAVE_EPOLL_CREATE1
+#ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
-#define HAVE_EPOLL 1
-#endif /* HAVE_EPOLL_CREATE */
+#endif /* HAVE_SYS_EPOLL_H */
 #include <sys/poll.h>
 #ifndef S_SPLINT_S
 #ifdef HAVE_SYS_TIMERFD_H
@@ -227,7 +226,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	poll_fds_usage_check(s);
 
 	for (i = 0; i < s->poll_entry_count; i++) {
-		assert(qb_array_index(l->fd_source->poll_entries, i, (void**)&pe) == 0);
+		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
 		memcpy(&s->ufds[i], &pe->ufd, sizeof(struct pollfd));
 	}
 
@@ -244,7 +243,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 			// empty
 			continue;
 		}
-		assert(qb_array_index(l->fd_source->poll_entries, i, (void**)&pe) == 0);
+		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
 		if (s->ufds[i].revents == pe->ufd.revents) {
 			// entry already in the job queue.
 			continue;
@@ -370,8 +369,6 @@ static int32_t _poll_add_(struct qb_loop *l,
 	struct qb_poll_source * s;
 #ifdef HAVE_EPOLL
 	struct epoll_event *ev;
-#else
-	struct pollfd *ufds;
 #endif /* HAVE_EPOLL */
 
 	if (l == NULL) {
@@ -412,7 +409,7 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 			 void *data,
 			 qb_loop_poll_dispatch_fn dispatch_fn)
 {
-	struct qb_poll_entry *pe;
+	struct qb_poll_entry *pe = NULL;
 	int32_t res = _poll_add_(l, p, fd, events, data, &pe);
 	pe->poll_dispatch_fn = dispatch_fn;
 	pe->type = QB_POLL;
@@ -495,7 +492,7 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 	return -EBADF;
 }
 
-#ifdef USE_TIMERFD
+#ifdef HAVE_TIMERFD
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source)
 {
 	return 0;
@@ -573,7 +570,9 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 {
 	struct qb_poll_entry *pe;
 	struct qb_poll_source *s;
+#ifdef HAVE_EPOLL
 	int32_t res;
+#endif /* HAVE_EPOLL */
 
 	if (l == NULL || th == NULL) {
 		return -EINVAL;
@@ -593,9 +592,9 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 			return res;
 		}
 #else
-		s->ufds[i].fd = -1;
-		s->ufds[i].events = 0;
-		s->ufds[i].revents = 0;
+		s->ufds[pe->install_pos].fd = -1;
+		s->ufds[pe->install_pos].events = 0;
+		s->ufds[pe->install_pos].revents = 0;
 #endif /* HAVE_EPOLL */
 		close(pe->ufd.fd);
 
@@ -623,5 +622,5 @@ uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle t
 	return (its.it_value.tv_sec * QB_TIME_NS_IN_SEC) + its.it_value.tv_nsec;
 }
 
-#endif /* USE_TIMERFD */
+#endif /* HAVE_TIMERFD */
 

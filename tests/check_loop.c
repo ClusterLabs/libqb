@@ -222,7 +222,7 @@ static void stop_watch_tmo(void*data)
 		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, data, stop_watch_tmo, &th);
 	} else {
 		per = (sw->total / sw->count) * 100 / (sw->ms_timer * QB_TIME_NS_IN_MSEC);
-		printf("average error for %d ms timer is %lld (ns) (%lld%%)\n",
+		printf("average error for %d ms timer is %"PRIi64" (ns) (%"PRIi64"%%)\n",
 		       sw->ms_timer,
 		       sw->total/sw->count, per);
 		if (sw->ms_timer == 100) {

@@ -33,22 +33,9 @@
 #include <qb/qbipc_common.h>
 #include <qb/qbrb.h>
 
-/*
- * Darwin claims to support process shared synchronization
- * but it really does not.  The unistd.h header file is wrong.
- */
-#if defined(QB_DARWIN) || defined(__UCLIBC__)
-#undef _POSIX_THREAD_PROCESS_SHARED
-#define _POSIX_THREAD_PROCESS_SHARED -1
-#endif
-
-#ifndef _POSIX_THREAD_PROCESS_SHARED
-#define _POSIX_THREAD_PROCESS_SHARED -1
-#endif
-
-#if _POSIX_THREAD_PROCESS_SHARED > 0
+#ifdef HAVE_POSIX_SHARED_SEMAPHORE
 #include <semaphore.h>
-#endif
+#endif /* HAVE_POSIX_SHARED_SEMAPHORE */
 
 /*
 Client		Server

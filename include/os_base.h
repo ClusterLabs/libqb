@@ -43,6 +43,10 @@
 #include <stdint.h>
 #endif /* HAVE_STDINT_H */
 
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #include <assert.h>
 
 #ifdef HAVE_STDLIB_H
@@ -92,5 +96,35 @@
 #include <syslog.h>
 #endif /* HAVE_SYSLOG_H */
 #endif /* S_SPLINT_S */
+
+#if defined HAVE_CLOCK_GETTIME && defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
+#define HAVE_MONOTONIC_CLOCK 1
+#endif /* have monotonic clock */
+
+#ifdef HAVE_TIMERFD_CREATE
+#define HAVE_TIMERFD 1
+#endif /* HAVE_TIMERFD_CREATE */
+
+#ifdef HAVE_EPOLL_CREATE1
+#define HAVE_EPOLL 1
+#endif /* HAVE_EPOLL_CREATE */
+
+/*
+ * Darwin claims to support process shared synchronization
+ * but it really does not.  The unistd.h header file is wrong.
+ */
+#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED) || defined(__UCLIBC__)
+#undef HAVE_POSIX_SHARED_SEMAPHORE
+#undef HAVE_PTHREAD_SHARED_SPIN_LOCK
+#else
+#if _POSIX_THREAD_PROCESS_SHARED > 0
+#define HAVE_POSIX_SHARED_SEMAPHORE 1
+
+#if defined(HAVE_PTHREAD_SPIN_LOCK)
+#define HAVE_PTHREAD_SHARED_SPIN_LOCK 1
+#endif /* HAVE_PTHREAD_SPIN_LOCK */
+
+#endif /* _POSIX_THREAD_PROCESS_SHARED */
+#endif /* DISABLE_POSIX_THREAD_PROCESS_SHARED */
 
 #endif /* QB_OS_BASE_H_DEFINED */

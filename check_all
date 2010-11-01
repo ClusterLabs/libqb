@@ -1,0 +1,37 @@
+#!/bin/bash
+
+./autogen.sh
+
+
+check () {
+	echo "$1"
+	( ./configure $1 --enable-fatal-warnings )
+	make check
+	if [ $? -ne 0 ]
+	then
+		echo "======================"
+		echo failed: $1
+		echo "======================"
+		exit 1
+	fi
+}
+
+# use sys-v semaphores
+check "CFLAGS=-DDISABLE_POSIX_THREAD_PROCESS_SHARED"
+
+# no timerfd
+check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no"
+
+# no clock_gettime
+check "ac_cv_func_clock_gettime=no"
+
+# no epoll
+check "ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+
+# bsd-like
+check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+
+# normal configure with distcheck
+./configure
+make distchack
+

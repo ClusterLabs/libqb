@@ -27,7 +27,7 @@ static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 	int32_t res;
 
 	if (ms_timeout > 0) {
-		clock_gettime(CLOCK_REALTIME, &ts_timeout);
+		qb_util_timespec_from_epoch_get(&ts_timeout);
 		qb_timespec_add_ms(&ts_timeout, ms_timeout);
 	}
 
@@ -250,9 +250,9 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 {
 	int32_t can_use_shared_posix = QB_FALSE;
-#if _POSIX_THREAD_PROCESS_SHARED > 0
+#ifdef HAVE_POSIX_SHARED_SEMAPHORE
 	can_use_shared_posix = QB_TRUE;
-#endif
+#endif /* HAVE_POSIX_SHARED_SEMAPHORE */
 	if (!can_use_shared_posix && (rb->flags & QB_RB_FLAG_SHARED_PROCESS)) {
 		rb->sem_timedwait_fn = my_sysv_sem_timedwait;
 		rb->sem_post_fn = my_sysv_sem_post;

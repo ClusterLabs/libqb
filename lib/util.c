@@ -24,20 +24,15 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <pthread.h>
-#if _POSIX_THREAD_PROCESS_SHARED > 0
-#include <semaphore.h>
-#else
-#include <sys/sem.h>
-#endif
 #include <sys/stat.h>
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 
 struct qb_thread_lock_s {
 	qb_thread_lock_type_t type;
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
+#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	pthread_spinlock_t spinlock;
-#endif
+#endif /* HAVE_PTHREAD_SHARED_SPIN_LOCK */
 	pthread_mutex_t mutex;
 };
 
@@ -46,14 +41,12 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 	struct qb_thread_lock_s *tl = malloc(sizeof(struct qb_thread_lock_s));
 	int32_t res;
 
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
-#if _POSIX_THREAD_PROCESS_SHARED > 0
+#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (type == QB_THREAD_LOCK_SHORT) {
 		tl->type = QB_THREAD_LOCK_SHORT;
 		res = pthread_spin_init(&tl->spinlock, 1);
 	} else
-#endif
-#endif
+#endif /* HAVE_PTHREAD_SHARED_SPIN_LOCK */
 	{
 		tl->type = QB_THREAD_LOCK_LONG;
 		res = pthread_mutex_init(&tl->mutex, NULL);
@@ -69,11 +62,11 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 int32_t qb_thread_lock(qb_thread_lock_t * tl)
 {
 	int32_t res;
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
+#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = -pthread_spin_lock(&tl->spinlock);
 	} else
-#endif
+#endif /* HAVE_PTHREAD_SHARED_SPIN_LOCK */
 	{
 		res = -pthread_mutex_lock(&tl->mutex);
 	}
@@ -83,7 +76,7 @@ int32_t qb_thread_lock(qb_thread_lock_t * tl)
 int32_t qb_thread_unlock(qb_thread_lock_t * tl)
 {
 	int32_t res;
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
+#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = -pthread_spin_unlock(&tl->spinlock);
 	} else
@@ -97,7 +90,7 @@ int32_t qb_thread_unlock(qb_thread_lock_t * tl)
 int32_t qb_thread_trylock(qb_thread_lock_t * tl)
 {
 	int32_t res;
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
+#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = -pthread_spin_trylock(&tl->spinlock);
 	} else
@@ -111,7 +104,7 @@ int32_t qb_thread_trylock(qb_thread_lock_t * tl)
 int32_t qb_thread_lock_destroy(qb_thread_lock_t * tl)
 {
 	int32_t res;
-#if defined(HAVE_PTHREAD_SPIN_LOCK)
+#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (tl->type == QB_THREAD_LOCK_SHORT) {
 		res = -pthread_spin_destroy(&tl->spinlock);
 	} else
@@ -156,13 +149,24 @@ void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 #endif /* S_SPLINT_S */
 }
 
-#if defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
+#ifdef HAVE_MONOTONIC_CLOCK
 uint64_t qb_util_nano_current_get(void)
 {
 	uint64_t nano_monotonic;
 	struct timespec ts;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	nano_monotonic =
+	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
+	return (nano_monotonic);
+}
+uint64_t qb_util_nano_from_epoch_get(void)
+{
+	uint64_t nano_monotonic;
+	struct timespec ts;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
 
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
@@ -182,8 +186,12 @@ uint64_t qb_util_nano_monotonic_hz(void)
 
 	return (nano_monotonic_hz);
 }
+
+void qb_util_timespec_from_epoch_get(struct timespec *ts)
+{
+	clock_gettime(CLOCK_REALTIME, ts);
+}
 #else
-#warning "Your system doesn't support monotonic timer. gettimeofday will be used"
 uint64_t qb_util_nano_current_get(void)
 {
 	return qb_util_nano_from_epoch_get();
@@ -193,7 +201,17 @@ uint64_t qb_util_nano_monotonic_hz(void)
 {
 	return HZ;
 }
-#endif
+
+void qb_util_timespec_from_epoch_get(struct timespec *ts)
+{
+	struct timeval time_from_epoch;
+	gettimeofday(&time_from_epoch, 0);
+
+#ifndef S_SPLINT_S
+	ts->tv_sec = time_from_epoch.tv_sec;
+	ts->tv_nsec = time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC;
+#endif /* S_SPLINT_S */
+}
 
 uint64_t qb_util_nano_from_epoch_get(void)
 {
@@ -206,6 +224,7 @@ uint64_t qb_util_nano_from_epoch_get(void)
 
 	return (nano_from_epoch);
 }
+#endif
 
 void qb_util_set_log_function(qb_util_log_fn_t fn)
 {

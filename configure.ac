@@ -111,7 +111,7 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
 		  time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
-		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h \
+		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h sys/epoll.h \
 		  sys/sockio.h sys/un.h syslog.h errno.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -129,7 +129,6 @@ AC_TYPE_UINT64_T
 
 # Checks for library functions.
 AC_FUNC_CHOWN
-AC_FUNC_ERROR_AT_LINE
 AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
@@ -138,6 +137,16 @@ AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday memset munmap \
 		socket strchr strerror strstr epoll_create epoll_create1 \
 		pthread_spin_lock timerfd_create])
+
+## local defines
+PACKAGE_FEATURES=""
+
+if test $ac_cv_func_timerfd_create = yes; then
+	PACKAGE_FEATURES="$PACKAGE_FEATURES timerfd"
+fi
+if test $ac_cv_func_epoll_create = yes; then
+	PACKAGE_FEATURES="$PACKAGE_FEATURES epoll"
+fi
 
 # Check for atomic support
 gcc_has_builtin_atomic_operations=no
@@ -155,6 +164,7 @@ if test x"$GCC" = xyes; then
 	AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
 	if test $gcc_has_builtin_atomic_operations = yes; then
 		memory_barrier_needed=yes
+                PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
 	else
 		case $host_cpu in
 			sparc*)
@@ -198,18 +208,9 @@ AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
 	       [test $gcc_has_builtin_atomic_operations = yes])
 
 
-## local defines
-PACKAGE_FEATURES=""
-
 LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
 	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
 	-warnposix +matchanyintegral"
-
-# libraries SONAME
-SOMAJOR="0"
-SOMINOR="1"
-SOMICRO="0"
-SONAME="${SOMAJOR}.${SOMINOR}.${SOMICRO}"
 
 # local options
 AC_ARG_ENABLE([ansi],
@@ -228,11 +229,6 @@ AC_ARG_ENABLE([coverage],
 	[  --enable-coverage       : coverage analysis of the codebase. ],
 	[ default="no" ])
 
-AC_ARG_ENABLE([timerfd],
-	[  --enable-timerfd        : use timerfd timers. ],
-	[ enable_timerfd=$enableval ],
-	[ enable_timerfd="auto" ])
-
 AC_ARG_WITH([socket-dir],
 	[  --with-socket-dir=DIR   : socket dir. ],
 	[ SOCKETDIR="$withval" ],
@@ -245,7 +241,7 @@ case "$host_os" in
 	*linux*)
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
-		LINT_FLAGS+=" -expect 22"
+		LINT_FLAGS+=" -expect 21"
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
@@ -257,6 +253,8 @@ case "$host_os" in
 				   [Number of chars in a path name including nul])
 		AC_DEFINE_UNQUOTED([NAME_MAX], [255],
 				   [Number of chars in a file name])
+		AC_DEFINE_UNQUOTED([DISABLE_POSIX_THREAD_PROCESS_SHARED], [1],
+				   [Disable _POSIX_THREAD_PROCESS_SHARED])
 	;;
 	*bsd*)
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
@@ -354,26 +352,7 @@ else
 	COVERAGE_LDFLAGS=""
 fi
 
-# --- timerfd ---
-use_timerfd=no
-if test "x${enable_timerfd}" = xauto ; then
-	if test "x${ac_cv_func_timerfd_create}" = xyes ; then
-		use_timerfd=yes
-        fi
-fi
-if test "x${enable_timerfd}" = xyes ; then
-	if test "x${ac_cv_func_timerfd_create}" = xyes ; then
-		use_timerfd=yes
-	else
-		AC_MSG_ERROR([Asked for timerfd but none available])
-	fi
-fi
-if test "x$use_timerfd" = xyes ; then
-	AC_MSG_NOTICE([Enabling timerfd timers])
-	AC_DEFINE_UNQUOTED([USE_TIMERFD], 1, [use timerfd timers])
-	PACKAGE_FEATURES="$PACKAGE_FEATURES timerfd"
-fi
-AM_CONDITIONAL(USE_TIMERFD, [test "x$use_timerfd" = xyes])
+AM_CONDITIONAL(USE_TIMERFD, [test "x$ac_cv_func_timerfd_create" = xyes])
 
 # --- ansi ---
 if test "x${enable_ansi}" = xyes && \
@@ -403,11 +382,6 @@ LDFLAGS="$ENV_LDFLAGS $COVERAGE_LDFLAGS"
 
 # substitute what we need:
 AC_SUBST([SOCKETDIR])
-AC_SUBST([SOMAJOR])
-AC_SUBST([SOMINOR])
-AC_SUBST([SOMICRO])
-AC_SUBST([SONAME])
-
 AC_SUBST([LINT_FLAGS])
 
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
@@ -442,7 +416,6 @@ AC_MSG_RESULT([  SOCKETDIR                = ${SOCKETDIR}])
 AC_MSG_RESULT([  Features                 =${PACKAGE_FEATURES}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([$PACKAGE build info:])
-AC_MSG_RESULT([  Library SONAME           = ${SONAME}])
 AC_MSG_RESULT([  Default optimization     = ${OPT_CFLAGS}])
 AC_MSG_RESULT([  Default debug options    = ${GDB_CFLAGS}])
 AC_MSG_RESULT([  Extra compiler warnings  = ${EXTRA_WARNING}])
