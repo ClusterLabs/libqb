@@ -28,3 +28,4 @@ libtool
 compile
 ltmain.sh
 libqb-*
+lib/run_splint.sh
