@@ -72,6 +72,8 @@ struct qb_ipc_one_way {
 	union {
 		struct {
 			int32_t sock;
+			void* shared_data;
+			char shared_file_name[NAME_MAX];
 		} us;
 		struct {
 			mqd_t q;

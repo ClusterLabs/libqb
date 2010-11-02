@@ -29,7 +29,9 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#include <sys/mman.h>
 
+#include <qb/qbatomic.h>
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
 #include <qb/qbdefs.h>
@@ -49,6 +51,11 @@
 #define QB_SUN_LEN(a) SUN_LEN(a)
 #endif
 
+struct ipc_us_control {
+	int32_t sent;
+	int32_t flow_control;
+};
+
 struct ipc_auth_ugp {
 	uid_t uid;
 	gid_t gid;
@@ -56,6 +63,7 @@ struct ipc_auth_ugp {
 };
 
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
+static int32_t qb_ipc_us_fc_get(struct qb_ipc_one_way *one_way);
 
 #ifdef SO_NOSIGPIPE
 static void socket_nosigpipe(int32_t s)
@@ -113,6 +121,7 @@ ssize_t qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t l
 	struct iovec iov_send;
 	char *rbuf = (char *)msg;
 	int32_t processed = 0;
+	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 
 	msg_send.msg_iov = &iov_send;
 	msg_send.msg_iovlen = 1;
@@ -141,6 +150,9 @@ retry_send:
 	if (processed != len) {
 		goto retry_send;
 	}
+	if (ctl) {
+		qb_atomic_int_inc(&ctl->sent);
+	}
 	return processed;
 }
 
@@ -151,6 +163,7 @@ static ssize_t qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iove
 	int32_t processed = 0;
 	size_t len = 0;
 	int32_t i;
+	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 
 	for (i = 0; i < iov_len; i++) {
 		len += iov[i].iov_len;
@@ -178,6 +191,9 @@ retry_send:
 	processed += result;
 	if (processed != len) {
 		goto retry_send;
+	}
+	if (ctl) {
+		qb_atomic_int_inc(&ctl->sent);
 	}
 	return processed;
 }
@@ -244,6 +260,7 @@ ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way,
 		       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
+	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 
  retry_recv:
 	result = recv(one_way->u.us.sock, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
@@ -261,6 +278,9 @@ ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way,
 		return -errno;	//ENOTCONN
 	}
 #endif
+	if (ctl) {
+		(void)qb_atomic_int_dec_and_test(&ctl->sent);
+	}
 	return result;
 
 }
@@ -357,6 +377,8 @@ int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 
 static void qb_ipcc_us_disconnect(struct qb_ipcc_connection* c)
 {
+	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	unlink(c->request.u.us.shared_file_name);
 	close(c->request.u.us.sock);
 	close(c->event.u.us.sock);
 }
@@ -366,21 +388,51 @@ int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 {
 	int32_t res;
 	struct qb_ipc_event_connection_request request;
+	char path[PATH_MAX];
+	int32_t fd_hdr;
+	struct ipc_us_control * ctl;
 
 	c->needs_sock_for_poll = QB_FALSE;
 	c->funcs.send = qb_ipc_us_send;
 	c->funcs.sendv = qb_ipc_us_sendv;
 	c->funcs.recv = qb_ipc_us_recv;
-	c->funcs.fc_get = NULL;
+	c->funcs.fc_get = qb_ipc_us_fc_get;
 	c->funcs.disconnect = qb_ipcc_us_disconnect;
 
 	c->request.u.us.sock = c->setup.u.us.sock;
 	c->response.u.us.sock = c->setup.u.us.sock;
 	c->setup.u.us.sock = -1;
 
+	fd_hdr = qb_util_mmap_file_open(path, r->request,
+					sizeof(struct ipc_us_control),
+					O_RDWR);
+	if (fd_hdr < 0) {
+		res = -errno;
+		qb_util_log(LOG_ERR, "couldn't open file for mmap: %s",
+			    strerror(-res));
+		return res;
+	}
+	strcpy(c->request.u.us.shared_file_name, r->request);
+	c->request.u.us.shared_data = mmap(0,
+					   sizeof(struct ipc_us_control),
+					   PROT_READ | PROT_WRITE, MAP_SHARED,
+					   fd_hdr, 0);
+
+	if (c->request.u.us.shared_data == MAP_FAILED) {
+		res = -errno;
+		qb_util_log(LOG_ERR, "couldn't create mmap for header");
+		goto cleanup_hdr;
+	}
+
+	ctl = (struct ipc_us_control *)c->request.u.us.shared_data;
+	ctl->sent = 0;
+	ctl->flow_control = 0;
+
+	close(fd_hdr);
+
 	res = qb_ipcc_us_sock_connect(c->name, &c->event.u.us.sock);
 	if (res != 0) {
-		return res;
+		goto cleanup_hdr;
 	}
 
 	request.hdr.id = QB_IPC_MSG_NEW_EVENT_SOCK;
@@ -393,6 +445,12 @@ int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	}
 
 	return 0;
+
+cleanup_hdr:
+	close(fd_hdr);
+	unlink(r->request);
+	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	return res;
 }
 
 
@@ -785,8 +843,85 @@ retry_accept:
 	return 0;
 }
 
+static int32_t qb_ipcs_us_connect(struct qb_ipcs_service *s,
+				  struct qb_ipcs_connection *c,
+				  struct qb_ipc_connection_response *r)
+{
+	char path[PATH_MAX];
+	int32_t fd_hdr;
+	int32_t res = 0;
+	struct ipc_us_control * ctl;
+
+	qb_util_log(LOG_DEBUG, "connecting to client [%d]\n", c->pid);
+
+	snprintf(r->request, NAME_MAX, "qb-%s-control-%d-%d",
+		 s->name, c->pid, c->setup.u.us.sock);
+
+	fd_hdr = qb_util_mmap_file_open(path, r->request,
+					sizeof(struct ipc_us_control),
+					O_CREAT | O_TRUNC | O_RDWR);
+	if (fd_hdr < 0) {
+		res = -errno;
+		qb_util_log(LOG_ERR, "couldn't create file for mmap: %s",
+			    strerror(-res));
+		return res;
+	}
+	strcpy(r->request, path);
+	strcpy(c->request.u.us.shared_file_name, r->request);
+
+	c->request.u.us.shared_data = mmap(0,
+					   sizeof(struct ipc_us_control),
+					   PROT_READ | PROT_WRITE, MAP_SHARED,
+					   fd_hdr, 0);
+
+	if (c->request.u.us.shared_data == MAP_FAILED) {
+		res = -errno;
+		qb_util_log(LOG_ERR, "couldn't create mmap for header");
+		goto cleanup_hdr;
+	}
+
+	ctl = (struct ipc_us_control *)c->request.u.us.shared_data;
+	ctl->sent = 0;
+	ctl->flow_control = 0;
+
+	close(fd_hdr);
+	return res;
+
+cleanup_hdr:
+	close(fd_hdr);
+	unlink(r->request);
+	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	return res;
+}
+
+
+static void qb_ipc_us_fc_set(struct qb_ipc_one_way *one_way,
+			       int32_t fc_enable)
+{
+	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+
+	qb_atomic_int_set(&ctl->flow_control, fc_enable);
+}
+
+static int32_t qb_ipc_us_fc_get(struct qb_ipc_one_way *one_way)
+{
+	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+
+	return qb_atomic_int_get(&ctl->flow_control);
+}
+
+
+static ssize_t qb_ipc_us_q_len_get(struct qb_ipc_one_way *one_way)
+{
+	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+	return qb_atomic_int_get(&ctl->sent);
+}
+
 static void qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 {
+	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	unlink(c->request.u.us.shared_file_name);
+
 //	close(c->setup.u.us.sock);
 	close(c->request.u.us.sock);
 //	close(c->response.u.us.sock);
@@ -795,7 +930,7 @@ static void qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 
 void qb_ipcs_us_init(struct qb_ipcs_service *s)
 {
-	s->funcs.connect = NULL;
+	s->funcs.connect = qb_ipcs_us_connect;
 	s->funcs.disconnect = qb_ipcs_us_disconnect;
 
 	s->funcs.recv = qb_ipc_us_recv;
@@ -804,8 +939,8 @@ void qb_ipcs_us_init(struct qb_ipcs_service *s)
 	s->funcs.send = qb_ipc_us_send;
 	s->funcs.sendv = qb_ipc_us_sendv;
 
-	s->funcs.fc_set = NULL;
-	s->funcs.q_len_get = NULL;
+	s->funcs.fc_set = qb_ipc_us_fc_set;
+	s->funcs.q_len_get = qb_ipc_us_q_len_get;
 
 	s->needs_sock_for_poll = QB_FALSE;
 }

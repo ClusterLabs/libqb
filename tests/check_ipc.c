@@ -295,6 +295,14 @@ START_TEST(test_ipc_fc_shm)
 }
 END_TEST
 
+START_TEST(test_ipc_fc_us)
+{
+	turn_on_fc = QB_TRUE;
+	ipc_type = QB_IPC_SOCKET;
+	test_ipc_txrx();
+}
+END_TEST
+
 START_TEST(test_ipc_txrx_pmq)
 {
 	ipc_type = QB_IPC_POSIX_MQ;
@@ -402,6 +410,12 @@ static Suite *ipc_suite(void)
 	tcase_add_test(tc, test_ipc_fc_shm);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_fc_us");
+	tcase_add_test(tc, test_ipc_fc_us);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
 
 	uid = geteuid();
 	if (uid == 0) {

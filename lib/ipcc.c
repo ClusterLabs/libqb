@@ -32,7 +32,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	qb_ipcc_connection_t *c = NULL;
 	struct qb_ipc_connection_response response;
 
-	c = malloc(sizeof(struct qb_ipcc_connection));
+	c = calloc(1, sizeof(struct qb_ipcc_connection));
 	if (c == NULL) {
 		return NULL;
 	}
