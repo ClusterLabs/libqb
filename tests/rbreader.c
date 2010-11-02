@@ -15,7 +15,7 @@ static qb_ringbuffer_t *rb = NULL;
 static void sigterm_handler(int32_t num)
 {
 	printf("reader: %s(%d)\n", __func__, num);
-	qb_rb_close(rb, QB_FALSE);
+	qb_rb_close(rb);
 	exit(0);
 }
 
@@ -51,6 +51,6 @@ int32_t main(int32_t argc, char *argv[])
 			//usleep(1);
 		}
 	}
-	qb_rb_close(rb, QB_FALSE);
+	qb_rb_close(rb);
 	return 0;
 }

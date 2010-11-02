@@ -53,7 +53,7 @@ do {								\
 static void sigterm_handler(int32_t num)
 {
 	printf("writer: %s(%d)\n", __func__, num);
-	qb_rb_close(rb, QB_FALSE);
+	qb_rb_close(rb);
 	exit(0);
 }
 
@@ -165,6 +165,6 @@ int32_t main(int32_t argc, char *argv[])
 		}
 		bm_finish("ringbuffer", size);
 	}
-	qb_rb_close(rb, QB_FALSE);
+	qb_rb_close(rb);
 	return EXIT_SUCCESS;
 }

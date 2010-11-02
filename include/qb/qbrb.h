@@ -47,7 +47,7 @@
  *		}
  *	}
  *	...
- *	qb_rb_close(rb, QB_FALSE);
+ *	qb_rb_close(rb);
  * 
  * @endcode
  *
@@ -62,7 +62,7 @@
  *		}
  *	}
  *	...
- *	qb_rb_close(rb, QB_FALSE);
+ *	qb_rb_close(rb);
  * @endcode
  *
  * @author Angus Salkeld <asalkeld@redhat.com>
@@ -124,9 +124,8 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
  * All files, mmaped memory, semaphores and locks will be destroyed.
  *
  * @param rb ringbuffer instance
- * @param force_it ignore the refcount (if you know the other side has died)
  */
-void qb_rb_close(qb_ringbuffer_t * rb, int32_t force_it);
+void qb_rb_close(qb_ringbuffer_t * rb);
 
 /**
  * Get the name of the ringbuffer.
