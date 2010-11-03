@@ -46,6 +46,7 @@ loop_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 
 if HAVE_CHECK
+EXTRA_DIST = check_resources.sh
 
 TESTS = check_array check_rb check_loop check_ipc check_resources.sh
 

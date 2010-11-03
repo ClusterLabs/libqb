@@ -33,5 +33,5 @@ check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clo
 
 # normal configure with distcheck
 ./configure
-make distchack
+make distcheck
 
