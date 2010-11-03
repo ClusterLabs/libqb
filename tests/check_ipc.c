@@ -144,6 +144,7 @@ static void run_ipc_server(void)
 		.connection_created = NULL,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = NULL,
+		.connection_closed = NULL,
 	};
 
 	struct qb_ipcs_poll_handlers ph = {

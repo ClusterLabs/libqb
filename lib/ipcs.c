@@ -52,6 +52,7 @@ qb_ipcs_service_t* qb_ipcs_create(const char *name,
 	s->serv_fns.connection_accept = handlers->connection_accept;
 	s->serv_fns.connection_created = handlers->connection_created;
 	s->serv_fns.msg_process = handlers->msg_process;
+	s->serv_fns.connection_closed = handlers->connection_closed;
 	s->serv_fns.connection_destroyed = handlers->connection_destroyed;
 
 	qb_list_init(&s->connections);
@@ -362,12 +363,12 @@ void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
 	free_it = qb_atomic_int_dec_and_test(&c->refcount);
 	if (free_it) {
 		qb_list_del(&c->list);
+		if (c->service->serv_fns.connection_destroyed) {
+			c->service->serv_fns.connection_destroyed(c);
+		}
 		c->service->funcs.disconnect(c);
 		if (c->receive_buf) {
 			free(c->receive_buf);
-		}
-		if (c->context) {
-			free(c->context);
 		}
 		free(c);
 	}
@@ -393,13 +394,13 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 	}
 	if (c->state == QB_IPCS_CONNECTION_DOWN) {
 		res = 0;
-		if (c->service->serv_fns.connection_destroyed) {
-			res = c->service->serv_fns.connection_destroyed(c);
+		if (c->service->serv_fns.connection_closed) {
+			res = c->service->serv_fns.connection_closed(c);
 		}
 		if (res == 0) {
 			qb_ipcs_connection_ref_dec(c);
 		} else {
-			/* ok, so they want the connection_destroyed()
+			/* ok, so they want the connection_closedd()
 			 * function re-run */
 			rerun_job = (qb_loop_job_dispatch_fn)qb_ipcs_disconnect;
 			res = c->service->poll_fns.job_add(QB_LOOP_LOW, c,

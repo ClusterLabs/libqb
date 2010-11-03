@@ -109,7 +109,13 @@ typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_t *c);
  * @note if you return anything but 0 this function will be
  * repeativily called (until 0 is returned).
  */
-typedef int32_t (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_t *c);
+typedef int32_t (*qb_ipcs_connection_closed_fn) (qb_ipcs_connection_t *c);
+
+/**
+ * This is called just before a connection is freed.
+ */
+typedef void (*qb_ipcs_connection_destroyed_fn) (qb_ipcs_connection_t *c);
+
 /**
  * This is the message processing calback.
  * It is called with the message data.
@@ -121,6 +127,7 @@ struct qb_ipcs_service_handlers {
 	qb_ipcs_connection_accept_fn connection_accept;
 	qb_ipcs_connection_created_fn connection_created;
 	qb_ipcs_msg_process_fn msg_process;
+	qb_ipcs_connection_closed_fn connection_closed;
 	qb_ipcs_connection_destroyed_fn connection_destroyed;
 };
 

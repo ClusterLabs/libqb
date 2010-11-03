@@ -69,7 +69,12 @@ static void s1_connection_created_fn(qb_ipcs_connection_t *c)
 	       srv_stats.closed_connections);
 }
 
-static int32_t s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
+static void s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
+{
+	printf("connection about to be freed\n");
+}
+
+static int32_t s1_connection_closed_fn(qb_ipcs_connection_t *c)
 {
 	struct qb_ipcs_connection_stats stats;
 	struct qb_ipcs_stats srv_stats;
@@ -265,6 +270,7 @@ int32_t main(int32_t argc, char *argv[])
 		.connection_created = s1_connection_created_fn,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = s1_connection_destroyed_fn,
+		.connection_closed = s1_connection_closed_fn,
 	};
 	struct qb_ipcs_poll_handlers ph = {
 		.job_add = my_job_add,
