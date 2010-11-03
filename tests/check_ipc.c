@@ -68,7 +68,7 @@ enum my_msg_ids {
  * 8) multiple services
  */
 static qb_loop_t *my_loop;
-static qb_ipcs_service_pt s1;
+static qb_ipcs_service_t* s1;
 static int32_t turn_on_fc = QB_FALSE;
 static int32_t fc_enabled = 89;
 

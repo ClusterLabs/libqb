@@ -44,7 +44,8 @@ enum qb_ipcs_rate_limit {
 struct qb_ipcs_connection;
 typedef struct qb_ipcs_connection qb_ipcs_connection_t;
 
-typedef qb_handle_t qb_ipcs_service_pt;
+struct qb_ipcs_service;
+typedef struct qb_ipcs_service qb_ipcs_service_t;
 
 struct qb_ipcs_stats {
 	uint32_t active_connections;
@@ -125,17 +126,38 @@ struct qb_ipcs_service_handlers {
 
 /**
  * Create a new IPC server.
+ *
+ * @param name for clients to connect to.
+ * @param service_id an integer to associate with the service
+ * @param type transport type.
+ * @param handlers callbacks.
+ * @return the new service instance.
  */
-qb_ipcs_service_pt qb_ipcs_create(const char *name,
+qb_ipcs_service_t* qb_ipcs_create(const char *name,
 				  int32_t service_id,
 				  enum qb_ipc_type type,
 				  struct qb_ipcs_service_handlers *handlers);
+
+
+/**
+ * Increase the reference counter on the service object.
+ *
+ * @param s service instance
+ */
+void qb_ipcs_ref(qb_ipcs_service_t *s);
+
+/**
+ * Decrease the reference counter on the service object.
+ *
+ * @param s service instance
+ */
+void qb_ipcs_unref(qb_ipcs_service_t *s);
 
 /**
  * Set your poll callbacks.
  * @param s service instance
  */
-void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
+void qb_ipcs_poll_handlers_set(qb_ipcs_service_t* s,
 	struct qb_ipcs_poll_handlers *handlers);
 
 /**
@@ -143,19 +165,19 @@ void qb_ipcs_poll_handlers_set(qb_ipcs_service_pt s,
  * @param s service instance
  * @return 0 == ok; -errno to indicate a failure
  */
-int32_t qb_ipcs_run(qb_ipcs_service_pt s);
+int32_t qb_ipcs_run(qb_ipcs_service_t* s);
 
 /**
  * Destroy the IPC server.
  * @param s service instance
  */
-void qb_ipcs_destroy(qb_ipcs_service_pt s);
+void qb_ipcs_destroy(qb_ipcs_service_t* s);
 
 /**
  *
  * @param s service instance
  */
-void qb_ipcs_request_rate_limit(qb_ipcs_service_pt pt, enum qb_ipcs_rate_limit rl);
+void qb_ipcs_request_rate_limit(qb_ipcs_service_t* pt, enum qb_ipcs_rate_limit rl);
 
 /**
  * send a response to a incomming request.
@@ -232,7 +254,7 @@ int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
  * @param pt service instance
  * @return 0 == ok; -errno to indicate a failure
  */
-int32_t qb_ipcs_stats_get(qb_ipcs_service_pt pt,
+int32_t qb_ipcs_stats_get(qb_ipcs_service_t* pt,
 			  struct qb_ipcs_stats* stats,
 			  int32_t clear_after_read);
 
@@ -244,7 +266,7 @@ int32_t qb_ipcs_stats_get(qb_ipcs_service_pt pt,
  * @param pt service instance
  * @return first connection
  */
-qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_pt pt);
+qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_t* pt);
 
 /**
  * Get the next connection.
@@ -255,7 +277,7 @@ qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_pt pt);
  * @param current current connection
  * @return next connection
  */
-qb_ipcs_connection_t * qb_ipcs_connection_next_get(qb_ipcs_service_pt pt,
+qb_ipcs_connection_t * qb_ipcs_connection_next_get(qb_ipcs_service_t* pt,
 						   qb_ipcs_connection_t *current);
 
 /* *INDENT-OFF* */

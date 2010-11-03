@@ -39,7 +39,7 @@ static qb_loop_t *bms_loop;
 static GMainLoop *glib_loop;
 static qb_array_t *gio_map;
 #endif
-static qb_ipcs_service_pt s1;
+static qb_ipcs_service_t* s1;
 
 static int32_t s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
 {

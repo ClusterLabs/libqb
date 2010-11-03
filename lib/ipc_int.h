@@ -142,6 +142,7 @@ struct qb_ipcs_service {
 	enum qb_ipc_type type;
 	char name[NAME_MAX];
 	int32_t service_id;
+	int32_t ref_count;
 	pid_t pid;
 	int32_t needs_sock_for_poll;
 	int32_t server_sock;
@@ -152,6 +153,7 @@ struct qb_ipcs_service {
 	enum qb_loop_priority poll_priority;
 
 	struct qb_list_head connections;
+	struct qb_list_head list;
 	struct qb_ipcs_stats stats;
 };
 
