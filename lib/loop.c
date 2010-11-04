@@ -112,7 +112,7 @@ void qb_loop_run(struct qb_loop *l)
 			if (l->timer_source) {
 				ms_timeout = qb_loop_timer_msec_duration_to_expire(l->timer_source);
 			} else {
-				ms_timeout = 0;
+				ms_timeout = -1;
 			}
 		}
 		todo += l->fd_source->poll(l->fd_source, ms_timeout);
