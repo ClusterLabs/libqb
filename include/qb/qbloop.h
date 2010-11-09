@@ -21,6 +21,8 @@
 #ifndef QB_LOOP_DEFINED
 #define QB_LOOP_DEFINED
 
+#include <signal.h>
+
 /**
  * @file qbloop.h
  *
@@ -42,12 +44,13 @@ enum qb_loop_priority {
  */
 typedef struct qb_loop qb_loop_t;
 
-typedef void *qb_loop_job_handle;
 typedef void *qb_loop_timer_handle;
+typedef void *qb_loop_signal_handle;
 
 typedef int32_t (*qb_loop_poll_dispatch_fn) (int32_t fd, int32_t revents, void *data);
 typedef void (*qb_loop_job_dispatch_fn)(void *data);
 typedef void (*qb_loop_timer_dispatch_fn)(void *data);
+typedef int32_t (*qb_loop_signal_dispatch_fn)(int32_t rsignal, void *data);
 
 typedef void (*qb_loop_poll_low_fds_event_fn) (int32_t not_enough, int32_t fds_available);
 
@@ -141,8 +144,6 @@ uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle t
 int32_t qb_loop_poll_low_fds_event_set(qb_loop_t *l,
 				       qb_loop_poll_low_fds_event_fn fn);
 
-
-
 /**
  * Add a poll job to the mainloop.
  * @note it is a re-occuring job.
@@ -188,6 +189,54 @@ int32_t qb_loop_poll_mod(qb_loop_t *l,
  * @return status (0 == ok, -errno == failure)
  */
 int32_t qb_loop_poll_del(qb_loop_t *l, int32_t fd);
+
+/**
+ * Add a signal job.
+ *
+ * Get a callback on this signal (not in the context of the signal).
+ *
+ * @param l pointer to the loop instance
+ * @param p the priority
+ * @param signal (SIGHUP or SIGINT) etc ....
+ * @param data user data passed into the dispatch function
+ * @param dispatch_fn callback function
+ * @param handle (out) a reference to the signal job
+ * @return status (0 == ok, -errno == failure)
+ */
+int32_t qb_loop_signal_add(qb_loop_t *l,
+			   enum qb_loop_priority p,
+			   int32_t signal,
+			   void *data,
+			   qb_loop_signal_dispatch_fn dispatch_fn,
+			   qb_loop_signal_handle *handle);
+
+/**
+ * Modify the signal job
+ *
+ * @param l pointer to the loop instance
+ * @param p the priority
+ * @param signal (SIGHUP or SIGINT) etc ....
+ * @param data user data passed into the dispatch function
+ * @param dispatch_fn callback function
+ * @param handle (in) a reference to the signal job
+ * @return status (0 == ok, -errno == failure)
+ */
+int32_t qb_loop_signal_mod(qb_loop_t *l,
+			   enum qb_loop_priority p,
+			   int32_t signal,
+			   void *data,
+			   qb_loop_signal_dispatch_fn dispatch_fn,
+			   qb_loop_signal_handle handle);
+
+/**
+ * Delete the signal job.
+ *
+ * @param l pointer to the loop instance
+ * @param handle (in) a reference to the signal job
+ * @return status (0 == ok, -errno == failure)
+ */
+int32_t qb_loop_signal_del(qb_loop_t *l,
+			   qb_loop_signal_handle handle);
 
 #endif /* QB_LOOP_DEFINED */
 

@@ -54,6 +54,7 @@ struct qb_loop {
 	struct qb_loop_source * timer_source;
 	struct qb_loop_source * job_source;
 	struct qb_loop_source * fd_source;
+	struct qb_loop_source * signal_source;
 };
 
 struct qb_loop_source *
@@ -65,12 +66,16 @@ qb_loop_timer_create(struct qb_loop *l);
 struct qb_loop_source*
 qb_loop_poll_create(struct qb_loop *l);
 
+struct qb_loop_source *
+qb_loop_signals_create(struct qb_loop *l);
+
 void qb_loop_jobs_destroy(struct qb_loop *l);
 
 void qb_loop_timer_destroy(struct qb_loop *l);
 
 void qb_loop_poll_destroy(struct qb_loop *l);
 
+void qb_loop_signals_destroy(struct qb_loop *l);
 
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source);
 

@@ -205,13 +205,13 @@ struct qb_stop_watch {
 	int32_t ms_timer;
 	int64_t total;
 	int32_t count;
+	qb_loop_timer_handle th;
 };
 
 static void stop_watch_tmo(void*data)
 {
-	qb_loop_timer_handle th;
 	struct qb_stop_watch *sw = (struct qb_stop_watch *)data;
-	int64_t per;
+	float per;
 
 	sw->end = qb_util_nano_current_get();
 	sw->total += sw->end - sw->start;
@@ -219,10 +219,10 @@ static void stop_watch_tmo(void*data)
 	sw->start = sw->end;
 	sw->count++;
 	if (sw->count < 50) {
-		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, data, stop_watch_tmo, &th);
+		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, data, stop_watch_tmo, &sw->th);
 	} else {
-		per = (sw->total / sw->count) * 100 / (sw->ms_timer * QB_TIME_NS_IN_MSEC);
-		printf("average error for %d ms timer is %"PRIi64" (ns) (%"PRIi64"%%)\n",
+		per = ((sw->total * 100) / sw->count) / (sw->ms_timer * (float)QB_TIME_NS_IN_MSEC);
+		printf("average error for %d ms timer is %"PRIi64" (ns) (%f)\n",
 		       sw->ms_timer,
 		       sw->total/sw->count, per);
 		if (sw->ms_timer == 100) {
@@ -233,7 +233,6 @@ static void stop_watch_tmo(void*data)
 
 static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
 {
-	qb_loop_timer_handle th;
 	int32_t res;
 
 	sw->l = l;
@@ -241,7 +240,7 @@ static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
 	sw->total = 0;
 	sw->ms_timer = timeout;
 	sw->start = qb_util_nano_current_get();
-	res = qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, sw, stop_watch_tmo, &th);
+	res = qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, sw, stop_watch_tmo, &sw->th);
 	ck_assert_int_eq(res, 0);
 }
 

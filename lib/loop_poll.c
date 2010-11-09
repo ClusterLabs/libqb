@@ -30,6 +30,7 @@
 #include <sys/timerfd.h>
 #endif /* HAVE_SYS_TIMERFD_H */
 #endif /* S_SPLINT_S */
+#include <signal.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
@@ -46,17 +47,23 @@
 enum qb_poll_type {
 	QB_POLL,
 	QB_TIMER,
+	QB_SIGNAL,
+	QB_JOB,
 };
 
+struct qb_poll_entry;
+
+typedef int32_t (*qb_poll_add_to_jobs_fn) (struct qb_loop* l, struct qb_poll_entry* pe);
 
 struct qb_poll_entry {
 	struct qb_loop_item item;
-	struct pollfd ufd;
+	enum qb_poll_type type;
 	qb_loop_poll_dispatch_fn poll_dispatch_fn;
 	qb_loop_timer_dispatch_fn timer_dispatch_fn;
 	enum qb_loop_priority p;
 	int32_t install_pos;
-	enum qb_poll_type type;
+	struct pollfd ufd;
+	qb_poll_add_to_jobs_fn add_to_jobs;
 };
 
 struct qb_poll_source {
@@ -100,7 +107,7 @@ static int32_t epoll_to_poll_event(int32_t event)
 #endif /* HAVE_EPOLL */
 
 static void poll_dispatch_and_take_back(struct qb_loop_item * item,
-		enum qb_loop_priority p)
+					enum qb_loop_priority p)
 {
 	struct qb_poll_entry *pe = (struct qb_poll_entry *)item;
 	int32_t res;
@@ -207,9 +214,8 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 			continue;
 		}
 		pe->ufd.revents = epoll_to_poll_event(events[i].events);
-		qb_list_init(&pe->item.list);
-		qb_list_add_tail(&pe->item.list, &s->s.l->level[pe->p].job_head);
-		new_jobs++;
+
+		new_jobs += pe->add_to_jobs(src->l, pe);
 	}
 
 	return new_jobs;
@@ -249,9 +255,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 			continue;
 		}
 		pe->ufd.revents = s->ufds[i].revents;
-		qb_list_init(&pe->item.list);
-		qb_list_add_tail(&pe->item.list, &s->s.l->level[pe->p].job_head);
-		new_jobs++;
+		new_jobs += pe->add_to_jobs(src->l, pe);
 	}
 
 	return new_jobs;
@@ -286,14 +290,16 @@ void qb_loop_poll_destroy(struct qb_loop *l)
 	struct qb_poll_source * s = (struct qb_poll_source *)l->fd_source;
 	qb_array_free(s->poll_entries);
 #ifdef HAVE_EPOLL
-	close(s->epollfd);
+	if (s->epollfd != -1) {
+		close(s->epollfd);
+		s->epollfd = -1;
+	}
 #endif /* HAVE_EPOLL */
 	free(s);
 }
 
-int32_t qb_loop_poll_low_fds_event_set(
-	qb_loop_t *l,
-	qb_loop_poll_low_fds_event_fn fn)
+int32_t qb_loop_poll_low_fds_event_set(struct qb_loop *l,
+				       qb_loop_poll_low_fds_event_fn fn)
 {
 	struct qb_poll_source * s = (struct qb_poll_source *)l->fd_source;
 	s->low_fds_event_fn = fn;
@@ -301,7 +307,7 @@ int32_t qb_loop_poll_low_fds_event_set(
 	return 0;
 }
 
-static int32_t new_array_position_get(struct qb_poll_source * s)
+static int32_t _get_empty_array_position_(struct qb_poll_source * s)
 {
 	int32_t found = 0;
 	int32_t install_pos;
@@ -377,7 +383,7 @@ static int32_t _poll_add_(struct qb_loop *l,
 
 	s = (struct qb_poll_source *)l->fd_source;
 
-	install_pos = new_array_position_get(s);
+	install_pos = _get_empty_array_position_(s);
 
 	assert(qb_array_index(s->poll_entries, install_pos, (void**)&pe) == 0);
 	pe->install_pos = install_pos;
@@ -402,6 +408,13 @@ static int32_t _poll_add_(struct qb_loop *l,
 	return (res);
 }
 
+static int32_t _qb_poll_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe)
+{
+	qb_list_init(&pe->item.list);
+	qb_list_add_tail(&pe->item.list, &l->level[pe->p].job_head);
+	return 1;
+}
+
 int32_t qb_loop_poll_add(struct qb_loop *l,
 			 enum qb_loop_priority p,
 			 int32_t fd,
@@ -413,6 +426,7 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 	int32_t res = _poll_add_(l, p, fd, events, data, &pe);
 	pe->poll_dispatch_fn = dispatch_fn;
 	pe->type = QB_POLL;
+	pe->add_to_jobs = _qb_poll_add_to_jobs_;
 
 	return res;
 }
@@ -495,7 +509,7 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 #ifdef HAVE_TIMERFD
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source)
 {
-	return 0;
+	return -1;
 }
 
 struct qb_loop_source*
@@ -557,6 +571,7 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	}
 	pe->timer_dispatch_fn = timer_fn;
 	pe->type = QB_TIMER;
+	pe->add_to_jobs = _qb_poll_add_to_jobs_;
 	*timer_handle_out = pe;
 
 	return res;
@@ -596,7 +611,9 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 		s->ufds[pe->install_pos].events = 0;
 		s->ufds[pe->install_pos].revents = 0;
 #endif /* HAVE_EPOLL */
-		close(pe->ufd.fd);
+		if (pe->ufd.fd != -1) {
+			close(pe->ufd.fd);
+		}
 
 		pe->ufd.fd = -1;
 		pe->ufd.events = 0;
@@ -623,4 +640,232 @@ uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle t
 }
 
 #endif /* HAVE_TIMERFD */
+
+
+static int32_t pipe_fds[2] = {-1, -1};
+
+struct qb_signal_source {
+	struct qb_loop_source s;
+	struct qb_list_head sig_head;
+	sigset_t signal_superset;
+};
+
+struct qb_loop_sig {
+	struct qb_loop_item item;
+	int32_t signal;
+	enum qb_loop_priority p;
+	qb_loop_signal_dispatch_fn dispatch_fn;
+	struct qb_loop_sig *cloned_from;
+};
+
+static void _handle_real_signal_(int signal_num, siginfo_t * si, void *context)
+{
+	int32_t sig = signal_num;
+	if (pipe_fds[1] > 0) {
+		(void)write(pipe_fds[1], &sig, sizeof(int32_t));
+	}
+}
+
+static void signal_dispatch_and_take_back(struct qb_loop_item * item,
+					enum qb_loop_priority p)
+{
+	struct qb_loop_sig *sig = (struct qb_loop_sig *)item;
+	int32_t res;
+
+	res = sig->dispatch_fn(sig->signal, sig->item.user_data);
+	if (res != 0) {
+		qb_list_del(&sig->cloned_from->item.list);
+		free(sig->cloned_from);
+	}
+	free(sig);
+}
+
+
+struct qb_loop_source *
+qb_loop_signals_create(struct qb_loop *l)
+{
+	struct qb_signal_source *s = calloc(1, sizeof(struct qb_signal_source));
+	s->s.l = l;
+	s->s.dispatch_and_take_back = signal_dispatch_and_take_back;
+	s->s.poll = NULL;
+	qb_list_init(&s->sig_head);
+	sigemptyset(&s->signal_superset);
+
+	return (struct qb_loop_source *)s;
+}
+
+void qb_loop_signals_destroy(struct qb_loop *l)
+{
+	close(pipe_fds[0]);
+	pipe_fds[0] = -1;
+	close(pipe_fds[1]);
+	pipe_fds[1] = -1;
+	free(l->signal_source);
+}
+
+static int32_t _qb_signal_add_to_jobs_(struct qb_loop* l,
+				       struct qb_poll_entry* pe)
+{
+	struct qb_signal_source *s = (struct qb_signal_source *)l->signal_source;
+	struct qb_list_head *list;
+	struct qb_loop_sig *sig;
+	struct qb_loop_item *item;
+	struct qb_loop_sig *new_sig_job;
+	int32_t the_signal;
+	ssize_t res;
+	int32_t jobs_added = 0;
+
+	res = read(pipe_fds[0], &the_signal, sizeof(int32_t));
+	if (res != sizeof(int32_t)) {
+		res = -errno;
+		qb_util_log(LOG_ERR, "failed to read pipe: %s", strerror(errno));
+		return 0;
+	}
+	pe->ufd.revents = 0;
+
+	qb_list_for_each(list, &s->sig_head) {
+		item = qb_list_entry(list, struct qb_loop_item, list);
+		sig = (struct qb_loop_sig *)item;
+		if (sig->signal == the_signal) {
+			new_sig_job = calloc(1, sizeof(struct qb_loop_sig));
+			memcpy(new_sig_job, sig, sizeof(struct qb_loop_sig));
+
+			new_sig_job->cloned_from = sig;
+			qb_list_init(&new_sig_job->item.list);
+			qb_list_add_tail(&new_sig_job->item.list,
+					 &l->level[pe->p].job_head);
+			jobs_added++;
+		}
+	}
+	return jobs_added;
+}
+
+static void _adjust_sigactions_(struct qb_signal_source *s)
+{
+	struct qb_loop_sig *sig;
+	struct qb_loop_item *item;
+	struct sigaction sa;
+	int32_t i;
+	int32_t needed;
+
+	sa.sa_flags = SA_SIGINFO;
+	sa.sa_sigaction = _handle_real_signal_;
+	sigemptyset(&s->signal_superset);
+	sigemptyset(&sa.sa_mask);
+
+	/* re-set to default */
+	for (i = 0; i < 30; i++) {
+		needed = QB_FALSE;
+		qb_list_for_each_entry(item, &s->sig_head, list) {
+			sig = (struct qb_loop_sig *)item;
+			if (i == sig->signal) {
+				needed = QB_TRUE;
+				break;
+			}
+		}
+		if (needed) {
+			sigaddset(&s->signal_superset, i);
+			sigaction(i, &sa, NULL);
+		} else {
+			(void)signal(i, SIG_DFL);
+		}
+	}
+}
+
+int32_t qb_loop_signal_add(qb_loop_t *l,
+			   enum qb_loop_priority p,
+			   int32_t the_sig,
+			   void *data,
+			   qb_loop_signal_dispatch_fn dispatch_fn,
+			   qb_loop_signal_handle *handle)
+{
+	struct qb_loop_sig *sig;
+	struct qb_poll_entry *pe;
+	struct qb_signal_source *s;
+	int32_t res = 0;
+
+	if (l == NULL || dispatch_fn == NULL) {
+		return -EINVAL;
+	}
+	if (p < QB_LOOP_LOW || p > QB_LOOP_HIGH) {
+		return -EINVAL;
+	}
+	s = (struct qb_signal_source *)l->signal_source;
+	sig = calloc(1, sizeof(struct qb_loop_sig));
+
+	sig->dispatch_fn = dispatch_fn;
+	sig->p = p;
+	sig->signal = the_sig;
+	sig->item.user_data = data;
+	sig->item.source = l->signal_source;
+
+	qb_list_init(&sig->item.list);
+	qb_list_add_tail(&sig->item.list, &s->sig_head);
+
+	if (pipe_fds[0] < 0) {
+		pipe(pipe_fds);
+		res = _poll_add_(l, QB_LOOP_HIGH,
+				 pipe_fds[0], POLLIN,
+				 NULL, &pe);
+		if (res == 0) {
+			pe->poll_dispatch_fn = NULL;
+			pe->type = QB_SIGNAL;
+			pe->add_to_jobs = _qb_signal_add_to_jobs_;
+		} else {
+			qb_util_log(LOG_ERR,
+				    "failed to setup pipe: %s",
+				    strerror(-res));
+		}
+	}
+
+	if (sigismember(&s->signal_superset, the_sig) != 1) {
+		_adjust_sigactions_(s);
+	}
+	if (handle) {
+		*handle = sig;
+	}
+
+	return 0;
+}
+
+int32_t qb_loop_signal_mod(qb_loop_t *l,
+			   enum qb_loop_priority p,
+			   int32_t the_sig,
+			   void *data,
+			   qb_loop_signal_dispatch_fn dispatch_fn,
+			   qb_loop_signal_handle handle)
+{
+	struct qb_signal_source *s;
+	struct qb_loop_sig *sig = (struct qb_loop_sig *)handle;
+
+	if (l == NULL || dispatch_fn == NULL || handle == NULL) {
+		return -EINVAL;
+	}
+	if (p < QB_LOOP_LOW || p > QB_LOOP_HIGH) {
+		return -EINVAL;
+	}
+	s = (struct qb_signal_source *)l->signal_source;
+
+	sig->item.user_data = data;
+	sig->dispatch_fn = dispatch_fn;
+	sig->p = p;
+
+	if (sig->signal != the_sig) {
+		sig->signal = the_sig;
+		_adjust_sigactions_(s);
+	}
+
+	return 0;
+}
+
+int32_t qb_loop_signal_del(qb_loop_t *l,
+			   qb_loop_signal_handle handle)
+{
+	struct qb_loop_sig *sig = (struct qb_loop_sig *)handle;
+
+	qb_list_del(&sig->item.list);
+	free(sig);
+	return 0;
+}
+
 

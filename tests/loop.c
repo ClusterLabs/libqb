@@ -19,6 +19,8 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+#include <signal.h>
+
 #include <sys/poll.h>
 
 #include <qb/qbloop.h>
@@ -43,6 +45,19 @@ static void more_important_jobs(void *data)
 	printf("%s\n", __func__);
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_2);
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_9);
+}
+
+static int32_t handle_reconf_signal(int32_t sig, void *data)
+{
+	printf("%s(%d) \n", __func__, sig);
+	return 0;
+}
+
+static int32_t handle_exit_signal(int32_t sig, void *data)
+{
+	printf("%s(%d) exiting ... bye\n", __func__, sig);
+	qb_loop_stop(l);
+	return -1;
 }
 
 static void more_jobs(void *data)
@@ -82,6 +97,8 @@ static void libqb_log_fn(const char *file_name,
 
 int main(int argc, char * argv[])
 {
+	qb_loop_signal_handle sh;
+
 	qb_util_set_log_function(libqb_log_fn);
 
 	l = qb_loop_create();
@@ -96,6 +113,10 @@ int main(int argc, char * argv[])
 
 	qb_loop_poll_add(l, QB_LOOP_LOW, 0, POLLIN | POLLPRI | POLLNVAL,
 			     NULL, read_stdin);
+
+	qb_loop_signal_add(l, QB_LOOP_MED, SIGINT, NULL, handle_exit_signal, &sh);
+	qb_loop_signal_add(l, QB_LOOP_MED, SIGSEGV, NULL, handle_exit_signal, &sh);
+	qb_loop_signal_add(l, QB_LOOP_MED, SIGHUP, NULL, handle_reconf_signal, &sh);
 
 	qb_loop_run(l);
 	return 0;

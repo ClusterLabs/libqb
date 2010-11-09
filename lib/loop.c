@@ -70,6 +70,7 @@ struct qb_loop * qb_loop_create(void)
 	l->timer_source = qb_loop_timer_create(l);
 	l->job_source = qb_loop_jobs_create(l);
 	l->fd_source = qb_loop_poll_create(l);
+	l->signal_source = qb_loop_signals_create(l);
 
 	return l;
 }
@@ -79,6 +80,7 @@ void qb_loop_destroy(struct qb_loop * l)
 	qb_loop_timer_destroy(l);
 	qb_loop_jobs_destroy(l);
 	qb_loop_poll_destroy(l);
+	qb_loop_signals_destroy(l);
 	free(l);
 }
 
@@ -101,8 +103,10 @@ void qb_loop_run(struct qb_loop *l)
 			p_stop--;
 		}
 
-		todo += l->job_source->poll(l->job_source, 0);
-		if (l->timer_source) {
+		if (l->job_source && l->job_source->poll) {
+			todo += l->job_source->poll(l->job_source, 0);
+		}
+		if (l->timer_source && l->timer_source->poll) {
 			todo += l->timer_source->poll(l->timer_source, 0);
 		}
 		if (todo > 0) {
