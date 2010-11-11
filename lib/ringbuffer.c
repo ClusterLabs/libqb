@@ -198,6 +198,9 @@ cleanup_hdr:
 
 void qb_rb_close(qb_ringbuffer_t * rb)
 {
+	if (rb == NULL) {
+		return;
+	}
 	qb_util_log(LOG_DEBUG,
 		    "Destroying ringbuffer: %s",
 		    rb->shared_hdr->hdr_path);
