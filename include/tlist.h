@@ -32,6 +32,7 @@ typedef void *timer_handle;
 #define TIMER_HANDLE
 #endif
 
+static int64_t timerlist_hertz = HZ;
 
 struct timerlist {
 	struct qb_list_head timer_head;
@@ -50,6 +51,7 @@ struct timerlist_timer {
 static inline void timerlist_init(struct timerlist *timerlist)
 {
 	qb_list_init(&timerlist->timer_head);
+	timerlist_hertz = qb_util_nano_monotonic_hz();
 }
 
 static inline void timerlist_add(struct timerlist *timerlist,
@@ -208,7 +210,7 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct timerlist *timer
 
 	msec_duration_to_expire =
 	    ((timer_from_list->expire_time -
-	      current_time) / QB_TIME_NS_IN_MSEC) + (1000 / HZ);
+	      current_time) / QB_TIME_NS_IN_MSEC) + (1000 / timerlist_hertz);
 	return (msec_duration_to_expire);
 }
 

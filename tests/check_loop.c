@@ -212,11 +212,17 @@ static void stop_watch_tmo(void*data)
 {
 	struct qb_stop_watch *sw = (struct qb_stop_watch *)data;
 	float per;
+	int64_t diff;
 
 	sw->end = qb_util_nano_current_get();
-	sw->total += sw->end - sw->start;
+
+	diff = sw->end - sw->start;
+	ck_assert(diff >= (sw->ms_timer * QB_TIME_NS_IN_MSEC));
+
+	sw->total += diff;
 	sw->total -= sw->ms_timer * QB_TIME_NS_IN_MSEC;
 	sw->start = sw->end;
+
 	sw->count++;
 	if (sw->count < 50) {
 		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, data, stop_watch_tmo, &sw->th);
