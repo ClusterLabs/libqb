@@ -248,6 +248,10 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 			       uint32_t file_flags)
 {
 	int32_t fd;
+	int32_t i;
+	int32_t res = 0;
+	ssize_t written;
+	char *buffer = NULL;
 	char *is_absolute = strchr(file, '/');;
 
 	if (is_absolute) {
@@ -257,25 +261,57 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 	}
 	fd = open_mmap_file(path, file_flags);
 	if (fd < 0 && !is_absolute) {
+		res = -errno;
 		qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
-			    path, strerror(errno));
+			    path, strerror(-res));
 
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
 		fd = open_mmap_file(path, file_flags);
 		if (fd < 0) {
+			res = -errno;
 			qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
-					path, strerror(errno));
-			return -errno;
+					path, strerror(-res));
+			return res;
 		}
 	}
 
-	if (fd >= 0) {
-		ftruncate(fd, bytes);
-	} else {
-		qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
-				path, strerror(errno));
+	if (ftruncate(fd, bytes) == -1) {
+		res = -errno;
+		qb_util_log(LOG_ERR,
+			    "couldn't truncate file %s error: %s",
+			    path, strerror(-res));
+		goto unlink_exit;
 	}
+
+
+	if (file_flags & O_CREAT) {
+		long page_size = sysconf(_SC_PAGESIZE);
+		buffer = calloc(1, page_size);
+		if (buffer == NULL) {
+			goto unlink_exit;
+		}
+		for (i = 0; i < (bytes / page_size); i++) {
+retry_write:
+			written = write (fd, buffer, page_size);
+			if (written == -1 && errno == EINTR) {
+				goto retry_write;
+			}
+			if (written != page_size) {
+				free (buffer);
+				goto unlink_exit;
+			}
+		}
+		free (buffer);
+	}
+
 	return fd;
+
+unlink_exit:
+	unlink (path);
+	if (fd > 0) {
+		close (fd);
+	}
+	return res;
 }
 
 int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
