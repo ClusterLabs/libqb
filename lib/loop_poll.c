@@ -40,6 +40,10 @@
 #include "loop_int.h"
 #include "util_int.h"
 
+/*
+ * Define this to log slow (>10ms) jobs.
+ */
+#undef DEBUG_DISPATCH_TIME
 
 /* logs, std(in|out|err), pipe */
 #define POLL_FDS_USED_MISC 50
@@ -111,7 +115,12 @@ static void poll_dispatch_and_take_back(struct qb_loop_item * item,
 {
 	struct qb_poll_entry *pe = (struct qb_poll_entry *)item;
 	int32_t res;
+#ifdef DEBUG_DISPATCH_TIME
+	uint64_t start;
+	uint64_t stop;
 
+	start = qb_util_nano_current_get();
+#endif /* DEBUG_DISPATCH_TIME */
 	if (pe->type == QB_POLL) {
 		res = pe->poll_dispatch_fn(pe->ufd.fd, pe->ufd.revents, pe->item.user_data);
 		if (res < 0) {
@@ -126,6 +135,13 @@ static void poll_dispatch_and_take_back(struct qb_loop_item * item,
 			pe->ufd.revents = 0;
 		}
 	}
+#ifdef DEBUG_DISPATCH_TIME
+	stop = qb_util_nano_current_get();
+	if ((stop - start) > (10 * QB_TIME_NS_IN_MSEC)) {
+		qb_util_log(LOG_WARNING, " dispatch function \"%p\" took %d ms",
+			    pe->poll_dispatch_fn, (int32_t)((stop - start)/QB_TIME_NS_IN_MSEC));
+	}
+#endif /* DEBUG_DISPATCH_TIME */
 }
 
 static void poll_fds_usage_check(struct qb_poll_source *s)
