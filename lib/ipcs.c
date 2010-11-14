@@ -247,7 +247,7 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection *c, const void *data,
 				res2 = qb_ipc_us_send(&c->setup, &res, 1);
 			} while (res2 == -EAGAIN);
 		}
-	} else {
+	} else if (res != -EAGAIN) {
 		qb_util_log(LOG_ERR,
 			    "failed to send event : %s",
 			    strerror(-res));
@@ -281,7 +281,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection *c, const struct iovec * i
 				res2 = qb_ipc_us_send(&c->setup, &res, 1);
 			} while (res2 == -EAGAIN);
 		}
-	} else {
+	} else if (res != -EAGAIN) {
 		qb_util_log(LOG_ERR,
 			    "failed to send event : %s",
 			    strerror(-res));
