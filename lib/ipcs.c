@@ -176,7 +176,7 @@ void qb_ipcs_unref(struct qb_ipcs_service *s)
 			}
 			qb_ipcs_disconnect(c);
 		}
-		qb_ipcs_us_withdraw(s);
+		(void)qb_ipcs_us_withdraw(s);
 		free(s);
 	}
 }

@@ -180,20 +180,66 @@ static Suite *loop_job_suite(void)
  * -----------------------------------------------------------------------
  *  Timers
  */
+static qb_loop_timer_handle test_th;
 
 START_TEST(test_loop_timer_input)
 {
 	int32_t res;
-	qb_loop_timer_handle th;
 	qb_loop_t *l = qb_loop_create();
 	fail_if(l == NULL);
 
-	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5, NULL, job_2, &th);
+	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5, NULL, job_2, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, NULL, &th);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, NULL, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, job_1, NULL);
 	ck_assert_int_eq(res, -ENOENT);
+	qb_loop_destroy(l);
+}
+END_TEST
+
+static void one_shot_tmo(void*data)
+{
+	static int32_t been_here = QB_FALSE;
+	ck_assert_int_eq(been_here, QB_FALSE);
+	been_here = QB_TRUE;
+}
+
+static qb_loop_timer_handle reset_th;
+static int32_t reset_timer_step = 0;
+static void reset_one_shot_tmo(void*data)
+{
+	int32_t res;
+	qb_loop_t *l = data;
+	if (reset_timer_step == 0) {
+		res = qb_loop_timer_del(l, reset_th);
+		ck_assert_int_eq(res, -EINVAL);
+		res = qb_loop_timer_add(l, QB_LOOP_LOW, 8, l, reset_one_shot_tmo, &reset_th);
+		ck_assert_int_eq(res, 0);
+	}
+
+	reset_timer_step++;
+}
+
+START_TEST(test_loop_timer_basic)
+{
+	int32_t res;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, one_shot_tmo, &test_th);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7, l, reset_one_shot_tmo, &reset_th);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 60, l, job_stop, &test_th);
+	ck_assert_int_eq(res, 0);
+
+	qb_loop_run(l);
+
+	ck_assert_int_eq(reset_timer_step, 2);
+
 	qb_loop_destroy(l);
 }
 END_TEST
@@ -217,8 +263,10 @@ static void stop_watch_tmo(void*data)
 	sw->end = qb_util_nano_current_get();
 
 	diff = sw->end - sw->start;
+	if (diff < (sw->ms_timer * QB_TIME_NS_IN_MSEC)) {
+		printf("timer expired early! by %lld\n", (sw->ms_timer * QB_TIME_NS_IN_MSEC) - diff);
+	}
 	ck_assert(diff >= (sw->ms_timer * QB_TIME_NS_IN_MSEC));
-
 	sw->total += diff;
 	sw->total -= sw->ms_timer * QB_TIME_NS_IN_MSEC;
 	sw->start = sw->end;
@@ -251,7 +299,7 @@ static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
 }
 
 
-START_TEST(test_loop_timer_basic)
+START_TEST(test_loop_timer_precision)
 {
 	int32_t i;
 	int32_t tmo;
@@ -282,6 +330,11 @@ static Suite *loop_timer_suite(void)
 
 	tc = tcase_create("basic");
 	tcase_add_test(tc, test_loop_timer_basic);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("precision");
+	tcase_add_test(tc, test_loop_timer_precision);
 	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
 
