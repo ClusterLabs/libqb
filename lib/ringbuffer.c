@@ -217,7 +217,7 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 	(void)rb->sem_destroy_fn(rb);
 	unlink(rb->shared_hdr->data_path);
 	unlink(rb->shared_hdr->hdr_path);
-	munmap(rb->shared_data, rb->shared_hdr->size);
+	munmap(rb->shared_data, (rb->shared_hdr->size * sizeof(uint32_t)) << 1);
 	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
 	free(rb);
 }
