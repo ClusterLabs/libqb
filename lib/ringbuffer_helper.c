@@ -242,7 +242,7 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 		res = 0;
 	}
 	qb_util_log(LOG_INFO, "sem key:%d, id:%d, value:%d",
-		    sem_key, rb->sem_id, semctl(rb->sem_id, 0, GETVAL, 0));
+		    (int)sem_key, rb->sem_id, semctl(rb->sem_id, 0, GETVAL, 0));
 
 	return res;
 }

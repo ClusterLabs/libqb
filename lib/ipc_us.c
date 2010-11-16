@@ -726,6 +726,9 @@ static int32_t qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 		res = -EBADMSG;
 	}
 #else /* no credentials */
+	ugp->pid = 0;
+	ugp->uid = 0;
+	ugp->gid = 0;
 	res = -ENOTSUP;
 #endif /* no credentials */
 

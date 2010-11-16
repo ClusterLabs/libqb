@@ -132,7 +132,7 @@ try_smaller:
 	one_way->u.pmq.q = q;
 	strcpy(one_way->u.pmq.name, name);
 
-	res = fchown(q, c->euid, c->egid);
+	res = fchown((int)q, c->euid, c->egid);
 	if (res == -1) {
 		res = -errno;
 		qb_util_log(LOG_ERR, "fchown:%s %s", name, strerror(errno));
