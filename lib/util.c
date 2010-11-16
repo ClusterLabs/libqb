@@ -288,6 +288,7 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 		long page_size = sysconf(_SC_PAGESIZE);
 		buffer = calloc(1, page_size);
 		if (buffer == NULL) {
+			res = -ENOMEM;
 			goto unlink_exit;
 		}
 		for (i = 0; i < (bytes / page_size); i++) {
@@ -297,6 +298,7 @@ retry_write:
 				goto retry_write;
 			}
 			if (written != page_size) {
+				res = -ENOSPC;
 				free (buffer);
 				goto unlink_exit;
 			}

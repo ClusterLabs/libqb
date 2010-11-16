@@ -567,7 +567,6 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	struct qb_ipc_connection_request *req = msg;
 	int32_t res = auth_result;
 	struct qb_ipc_connection_response response;
-	char error_str[100];
 
 	if (res != 0) {
 		goto send_response;
@@ -638,8 +637,13 @@ send_response:
 		s->stats.active_connections++;
 	}
 
-	if (qb_ipc_us_send(&c->setup, &response, response.hdr.size) < 0) {
-		qb_util_log(LOG_ERR, "Error send connection response.");
+	res = qb_ipc_us_send(&c->setup, &response, response.hdr.size);
+	if (res == response.hdr.size) {
+		res = 0;
+	}
+	if (res < 0) {
+		qb_util_log(LOG_ERR, "Error sending connection response: %s",
+			    strerror(-res));
 	}
 
 	if (res == 0) {
@@ -649,9 +653,8 @@ send_response:
 	} else if (res == -EACCES) {
 		qb_util_log(LOG_ERR, "Invalid IPC credentials.");
 	} else {
-		strerror_r(-response.hdr.error, error_str, 100);
 		qb_util_log(LOG_ERR, "Error in connection setup: %s.",
-			    error_str);
+			    strerror(-res));
 	}
 	if (res != 0 && c) {
 		qb_ipcs_disconnect(c);
@@ -806,10 +809,10 @@ retry_accept:
 		return -1;
 	}
 	if (new_fd == -1) {
-		strerror_r(errno, error_str, 100);
+	res = -errno;
 		qb_util_log(LOG_ERR,
 			    "Could not accept Library connection: [%d] %s\n",
-			    errno, error_str);
+			    errno, strerror(-res));
 		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
 

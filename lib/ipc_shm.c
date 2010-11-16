@@ -149,14 +149,15 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 					 QB_RB_FLAG_SHARED_PROCESS,
 					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
-		perror("qb_rb_open:REQUEST");
-		return -errno;
+		res = -errno;
+		goto return_error;
 	}
 	c->response.u.shm.rb = qb_rb_open(response->response,
 					  c->response.max_msg_size,
 					  QB_RB_FLAG_SHARED_PROCESS, 0);
 
 	if (c->response.u.shm.rb == NULL) {
+		res = -errno;
 		perror("qb_rb_open:RESPONSE");
 		goto cleanup_request;
 	}
@@ -171,13 +172,15 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	}
 	return 0;
 
-cleanup_request_response:
+ cleanup_request_response:
 	qb_rb_close(c->response.u.shm.rb);
 
-cleanup_request:
+ cleanup_request:
 	qb_rb_close(c->request.u.shm.rb);
 
-	qb_util_log(LOG_DEBUG, "connection failed %d\n", res);
+ return_error:
+	qb_util_log(LOG_ERR, "connection failed %s\n",
+		    strerror(-res));
 
 	return res;
 }
@@ -226,7 +229,6 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	snprintf(r->response, NAME_MAX, "qb-%s-response-%d-%d", s->name, c->pid, c->setup.u.us.sock);
 	snprintf(r->event, NAME_MAX, "qb-%s-event-%d-%d", s->name, c->pid, c->setup.u.us.sock);
 
-	qb_util_log(LOG_DEBUG, "rb_open:%s", r->request);
 	c->request.u.shm.rb = qb_rb_open(r->request,
 					 c->request.max_msg_size,
 					 QB_RB_FLAG_CREATE |
@@ -257,7 +259,7 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
-		perror("mq_open:EVENT");
+		perror("qb_rb_open:EVENT");
 		goto cleanup_request_response;
 	}
 	res = qb_rb_chown(c->event.u.shm.rb, c->euid, c->egid);
@@ -273,6 +275,8 @@ cleanup_request:
 
 cleanup:
 	r->hdr.error = res;
+	qb_util_log(LOG_ERR, "shm connection FAILED [%s]\n",
+		    strerror(-res));
 
 	return res;
 }

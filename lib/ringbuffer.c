@@ -91,6 +91,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	uint32_t file_flags = O_RDWR;
 	size_t shared_size = sizeof(struct qb_ringbuffer_shared_s);
 	char filename[PATH_MAX];
+	int32_t error = 0;
 
 	shared_size += shared_user_data_size;
 
@@ -105,15 +106,17 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 					shared_size,
 					file_flags);
 	if (fd_hdr < 0) {
+		error = fd_hdr;
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
 		return NULL;
 	}
 
 	rb->shared_hdr = mmap(0,
-			      sizeof(struct qb_ringbuffer_shared_s),
+			      shared_size,
 			      PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 
 	if (rb->shared_hdr == MAP_FAILED) {
+		error = -errno;
 		qb_util_log(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
@@ -131,9 +134,10 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 		rb->shared_hdr->read_pt = 0;
 		strncpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
 	}
-	if (qb_rb_sem_create(rb, flags) < 0) {
+	error = qb_rb_sem_create(rb, flags);
+	if (error < 0) {
 		qb_util_log(LOG_ERR, "couldn't get a semaphore %s",
-			    strerror(errno));
+			    strerror(-error));
 		goto cleanup_hdr;
 	}
 
@@ -152,16 +156,20 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 						 real_size, file_flags);
 	}
 	if (fd_data < 0) {
+		error = fd_data;
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
 		goto cleanup_hdr;
 	}
 
 	qb_util_log(LOG_DEBUG,
-		    "shm \n size:%zd\n real_size:%zd\n rb->size:%d\n", size,
+		    "shm size:%zd; real_size:%zd; rb->size:%d", size,
 		    real_size, rb->shared_hdr->size);
 
-	if (qb_util_circular_mmap(fd_data,
-				  (void **)&rb->shared_data, real_size) != 0) {
+	error = qb_util_circular_mmap(fd_data,
+				  (void **)&rb->shared_data, real_size);
+	if (error != 0) {
+		qb_util_log(LOG_ERR, "couldn't create circular mmap on %s",
+			    rb->shared_hdr->data_path);
 		goto cleanup_data;
 	}
 
@@ -193,6 +201,7 @@ cleanup_hdr:
 		munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
 	}
 	free(rb);
+	errno = -error;
 	return NULL;
 }
 
