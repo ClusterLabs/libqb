@@ -470,23 +470,6 @@ static int32_t _poll_add_(struct qb_loop *l,
 	return (res);
 }
 
-static int32_t _qb_timer_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe)
-{
-	uint64_t expired = 0;
-
-	if (pe->ufd.revents == POLLIN) {
-		(void)read(pe->ufd.fd, &expired, sizeof(expired));
-		qb_list_init(&pe->item.list);
-		qb_list_add_tail(&pe->item.list, &l->level[pe->p].job_head);
-	} else {
-		qb_util_log(LOG_ERR, "timer revents: %d expected %d",
-			    pe->ufd.revents, POLLIN);
-	}
-	close(pe->ufd.fd);
-	pe->ufd.fd = -1;
-	return 1;
-}
-
 static int32_t _qb_poll_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe)
 {
 	qb_list_init(&pe->item.list);
@@ -587,6 +570,23 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 }
 
 #ifdef HAVE_TIMERFD
+static int32_t _qb_timer_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe)
+{
+	uint64_t expired = 0;
+
+	if (pe->ufd.revents == POLLIN) {
+		(void)read(pe->ufd.fd, &expired, sizeof(expired));
+		qb_list_init(&pe->item.list);
+		qb_list_add_tail(&pe->item.list, &l->level[pe->p].job_head);
+	} else {
+		qb_util_log(LOG_ERR, "timer revents: %d expected %d",
+			    pe->ufd.revents, POLLIN);
+	}
+	close(pe->ufd.fd);
+	pe->ufd.fd = -1;
+	return 1;
+}
+
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source)
 {
 	return -1;
