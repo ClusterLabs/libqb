@@ -73,43 +73,6 @@ static void socket_nosigpipe(int32_t s)
 }
 #endif
 
-static int32_t set_cloexec_flag(int32_t fd)
-{
-	int32_t res;
-	char error_str[100];
-	int32_t oldflags = fcntl(fd, F_GETFD, 0);
-
-	if (oldflags < 0) {
-		oldflags = 0;
-	}
-	oldflags |= FD_CLOEXEC;
-	res = fcntl(fd, F_SETFD, oldflags);
-	if (res == -1) {
-		res = -errno;
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_CRIT,
-			    "Could not set close-on-exit operation on socket: %s\n",
-			    error_str);
-	}
-	return res;
-}
-
-static int32_t set_nonblock_flag(int32_t fd)
-{
-	int32_t res;
-	char error_str[100];
-
-	res = fcntl(fd, F_SETFL, O_NONBLOCK);
-	if (res == -1) {
-		res = -errno;
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_CRIT,
-			    "Could not set non-blocking operation on socket: %s\n",
-			    error_str);
-	}
-	return res;
-}
-
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -302,11 +265,7 @@ static int32_t qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_p
 #ifdef SO_NOSIGPIPE
 	socket_nosigpipe(request_fd);
 #endif /* SO_NOSIGPIPE */
-	res = set_cloexec_flag(request_fd);
-	if (res < 0) {
-		goto error_connect;
-	}
-	res = set_nonblock_flag(request_fd);
+	res = qb_util_fd_nonblock_cloexec_set(request_fd);
 	if (res < 0) {
 		goto error_connect;
 	}
@@ -481,11 +440,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		return res;
 	}
 
-	res = set_cloexec_flag(s->server_sock);
-	if (res < 0) {
-		goto error_close;
-	}
-	res = set_nonblock_flag(s->server_sock);
+	res = qb_util_fd_nonblock_cloexec_set(s->server_sock);
 	if (res < 0) {
 		goto error_close;
 	}
@@ -816,12 +771,7 @@ retry_accept:
 		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
 
-	res = set_cloexec_flag(new_fd);
-	if (res < 0) {
-		close(new_fd);
-		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
-	}
-	res = set_nonblock_flag(new_fd);
+	res = qb_util_fd_nonblock_cloexec_set(new_fd);
 	if (res < 0) {
 		close(new_fd);
 		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */

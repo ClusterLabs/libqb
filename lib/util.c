@@ -353,3 +353,36 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 	*buf = addr_orig;
 	return (0);
 }
+
+int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
+{
+	int32_t res;
+	char error_str[100];
+	int32_t oldflags = fcntl(fd, F_GETFD, 0);
+
+	if (oldflags < 0) {
+		oldflags = 0;
+	}
+	oldflags |= FD_CLOEXEC;
+	res = fcntl(fd, F_SETFD, oldflags);
+	if (res == -1) {
+		res = -errno;
+		strerror_r(errno, error_str, 100);
+		qb_util_log(LOG_CRIT,
+			    "Could not set close-on-exit operation on fd: %s\n",
+			    error_str);
+		return res;
+	}
+
+	res = fcntl(fd, F_SETFL, O_NONBLOCK);
+	if (res == -1) {
+		res = -errno;
+		strerror_r(errno, error_str, 100);
+		qb_util_log(LOG_CRIT,
+			    "Could not set non-blocking operation on fd: %s\n",
+			    error_str);
+	}
+	return res;
+}
+
+

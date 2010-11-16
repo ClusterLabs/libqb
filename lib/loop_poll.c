@@ -95,6 +95,8 @@ struct qb_poll_source {
 	int32_t not_enough_fds;
 };
 
+static int32_t _qb_signal_add_to_jobs_(struct qb_loop* l,
+				       struct qb_poll_entry* pe);
 
 #ifdef HAVE_EPOLL
 static int32_t poll_to_epoll_event(int32_t event)
@@ -741,8 +743,17 @@ struct qb_loop_sig {
 static void _handle_real_signal_(int signal_num, siginfo_t * si, void *context)
 {
 	int32_t sig = signal_num;
+	int32_t res = 0;
+
 	if (pipe_fds[1] > 0) {
-		(void)write(pipe_fds[1], &sig, sizeof(int32_t));
+ try_again:
+		res = write(pipe_fds[1], &sig, sizeof(int32_t));
+		if (res == -1 && errno == EAGAIN) {
+			goto try_again;
+		} else if (res != sizeof(int32_t)) {
+			qb_util_log(LOG_ERR, "failed to write signal to pipe [%d]",
+				    res);
+		}
 	}
 }
 
@@ -764,14 +775,49 @@ static void signal_dispatch_and_take_back(struct qb_loop_item * item,
 struct qb_loop_source *
 qb_loop_signals_create(struct qb_loop *l)
 {
+	int32_t res = 0;
+	struct qb_poll_entry *pe;
 	struct qb_signal_source *s = calloc(1, sizeof(struct qb_signal_source));
+
 	s->s.l = l;
 	s->s.dispatch_and_take_back = signal_dispatch_and_take_back;
 	s->s.poll = NULL;
 	qb_list_init(&s->sig_head);
 	sigemptyset(&s->signal_superset);
 
+	if (pipe_fds[0] < 0) {
+		res = pipe(pipe_fds);
+		if (res == -1) {
+			res = -errno;
+			qb_util_log(LOG_ERR,
+				    "Can't light pipe: %s",
+				    strerror(-res));
+			goto error_exit;
+		}
+		(void)qb_util_fd_nonblock_cloexec_set(pipe_fds[0]);
+		(void)qb_util_fd_nonblock_cloexec_set(pipe_fds[1]);
+
+		res = _poll_add_(l, QB_LOOP_HIGH,
+				 pipe_fds[0], POLLIN,
+				 NULL, &pe);
+		if (res == 0) {
+			pe->poll_dispatch_fn = NULL;
+			pe->type = QB_SIGNAL;
+			pe->add_to_jobs = _qb_signal_add_to_jobs_;
+		} else {
+			qb_util_log(LOG_ERR,
+				    "Can't smoke pipe: %s",
+				    strerror(-res));
+			goto error_exit;
+		}
+	}
+
 	return (struct qb_loop_source *)s;
+
+ error_exit:
+	free(s);
+	errno = -res;
+	return NULL;
 }
 
 void qb_loop_signals_destroy(struct qb_loop *l)
@@ -860,9 +906,7 @@ int32_t qb_loop_signal_add(qb_loop_t *l,
 			   qb_loop_signal_handle *handle)
 {
 	struct qb_loop_sig *sig;
-	struct qb_poll_entry *pe;
 	struct qb_signal_source *s;
-	int32_t res = 0;
 
 	if (l == NULL || dispatch_fn == NULL) {
 		return -EINVAL;
@@ -881,22 +925,6 @@ int32_t qb_loop_signal_add(qb_loop_t *l,
 
 	qb_list_init(&sig->item.list);
 	qb_list_add_tail(&sig->item.list, &s->sig_head);
-
-	if (pipe_fds[0] < 0) {
-		pipe(pipe_fds);
-		res = _poll_add_(l, QB_LOOP_HIGH,
-				 pipe_fds[0], POLLIN,
-				 NULL, &pe);
-		if (res == 0) {
-			pe->poll_dispatch_fn = NULL;
-			pe->type = QB_SIGNAL;
-			pe->add_to_jobs = _qb_signal_add_to_jobs_;
-		} else {
-			qb_util_log(LOG_ERR,
-				    "failed to setup pipe: %s",
-				    strerror(-res));
-		}
-	}
 
 	if (sigismember(&s->signal_superset, the_sig) != 1) {
 		_adjust_sigactions_(s);

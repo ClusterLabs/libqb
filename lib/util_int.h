@@ -40,7 +40,7 @@ void _qb_util_log(const char *file_name,
  * @param file (in) the name of the file to be used.
  * @param bytes the size to truncate the file to.
  * @param file_flags same as passed into open()
- * @return 0 (success) or -1 (error)
+ * @return 0 (success) or -errno
  */
 int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 			       uint32_t file_flags);
@@ -51,8 +51,16 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
  * @param fd an open file to use to back the shared memory.
  * @param buf (out) the pointer to the start of the memory.
  * @param bytes the size of the shared memory.
- * @return 0 (success) or -1 (error)
+ * @return 0 (success) or -errno
  */
 int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes);
+
+
+/**
+ * Set O_NONBLOCK and FD_CLOEXEC on a file descriptor.
+ * @param fd the file descriptor.
+ * @return 0 (success) or -errno
+ */
+int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd);
 
 #endif /* QB_UTIL_INT_H_DEFINED */
