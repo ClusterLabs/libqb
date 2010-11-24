@@ -218,6 +218,8 @@ void qb_ipcs_connection_ref_inc(qb_ipcs_connection_t *c);
  */
 void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
 
+void qb_ipcs_disconnect(qb_ipcs_connection_t *c);
+
 /**
  * Get the service id related to this connection's service.
  * (as passed into qb_ipcs_create()

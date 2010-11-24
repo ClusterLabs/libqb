@@ -196,6 +196,4 @@ struct qb_ipcs_connection* qb_ipcs_connection_alloc(struct qb_ipcs_service *s);
 int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 	struct qb_ipc_request_header *hdr);
 
-void qb_ipcs_disconnect(struct qb_ipcs_connection *c);
-
 #endif /* QB_IPC_INT_H_DEFINED */
