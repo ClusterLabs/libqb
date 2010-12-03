@@ -178,6 +178,8 @@ struct qb_ipcs_connection {
 	char *receive_buf;
 	void *context;
 	int32_t fc_enabled;
+	int32_t poll_events;
+	int32_t outstanding_notifiers;
 	struct qb_ipcs_connection_stats stats;
 };
 
