@@ -84,7 +84,6 @@ struct qb_poll_entry {
 struct qb_poll_source {
 	struct qb_loop_source s;
 #ifdef HAVE_EPOLL
-	struct epoll_event *events;
 	int32_t epollfd;
 #else
 	struct pollfd *ufds;
@@ -337,7 +336,6 @@ qb_loop_poll_create(struct qb_loop *l)
 
 #ifdef HAVE_EPOLL
 	s->epollfd = epoll_create1(EPOLL_CLOEXEC);
-	s->events = 0;
 #else
 	s->ufds = 0;
 #endif /* HAVE_EPOLL */
@@ -372,12 +370,10 @@ static int32_t _get_empty_array_position_(struct qb_poll_source * s)
 	int32_t found = 0;
 	int32_t install_pos;
 	int32_t res = 0;
-	int32_t new_size = 0;
 	struct qb_poll_entry *pe;
-#ifdef HAVE_EPOLL
-	struct epoll_event *ev;
-#else
+#ifndef HAVE_EPOLL
 	struct pollfd *ufds;
+	int32_t new_size = 0;
 #endif /* HAVE_EPOLL */
 
 	for (found = 0, install_pos = 0;
@@ -399,14 +395,7 @@ static int32_t _get_empty_array_position_(struct qb_poll_source * s)
 			return res;
 		}
 
-#ifdef HAVE_EPOLL
-		new_size = (s->poll_entry_count+ 1) * sizeof(struct epoll_event);
-		ev = realloc(s->events, new_size);
-		if (ev == NULL) {
-			return -ENOMEM;
-		}
-		s->events = ev;
-#else
+#ifndef HAVE_EPOLL
 		new_size = (s->poll_entry_count+ 1) * sizeof(struct pollfd);
 		ufds = realloc(s->ufds, new_size);
 		if (ufds == NULL) {
@@ -434,7 +423,7 @@ static int32_t _poll_add_(struct qb_loop *l,
 	int32_t res = 0;
 	struct qb_poll_source * s;
 #ifdef HAVE_EPOLL
-	struct epoll_event *ev;
+	struct epoll_event ev;
 #endif /* HAVE_EPOLL */
 
 	if (l == NULL) {
@@ -456,11 +445,10 @@ static int32_t _poll_add_(struct qb_loop *l,
 	pe->p = p;
 	pe->runs = 0;
 #ifdef HAVE_EPOLL
-	ev = &s->events[install_pos];
-	ev->events = poll_to_epoll_event(events);
-	ev->data.u64 = 0; /* valgrind */
-	ev->data.u32 = install_pos;
-	if (epoll_ctl(s->epollfd, EPOLL_CTL_ADD, fd, ev) == -1) {
+	ev.events = poll_to_epoll_event(events);
+	ev.data.u64 = 0; /* valgrind */
+	ev.data.u32 = install_pos;
+	if (epoll_ctl(s->epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		res = -errno;
 		qb_util_log(LOG_ERR, "epoll_ctl(add) : %s", strerror(-res));
 	}
@@ -504,6 +492,9 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
 	struct qb_poll_source * s = (struct qb_poll_source *)l->fd_source;
+#ifdef HAVE_EPOLL
+	struct epoll_event ev;
+#endif /* HAVE_EPOLL */
 
 	/*
 	 * Find file descriptor to modify events and dispatch function
@@ -518,9 +509,9 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 		pe->p = p;
 		if (pe->ufd.events != events) {
 #ifdef HAVE_EPOLL
-			s->events[i].events = poll_to_epoll_event(events);
-			s->events[i].data.u32 = i;
-			if (epoll_ctl(s->epollfd, EPOLL_CTL_MOD, fd, &s->events[i]) == -1) {
+			ev.events = poll_to_epoll_event(events);
+			ev.data.u32 = i;
+			if (epoll_ctl(s->epollfd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				res = -errno;
 				qb_util_log(LOG_ERR, "epoll_ctl(mod) : %s", strerror(-res));
 			}
