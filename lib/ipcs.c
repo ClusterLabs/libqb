@@ -534,7 +534,7 @@ static ssize_t _request_q_len_get(struct qb_ipcs_connection *c)
 	if (c->service->funcs.q_len_get) {
 		q_len = c->service->funcs.q_len_get(&c->request);
 		if (q_len < 0) {
-			q_len = 1;
+			return q_len;
 		}
 		q_len = QB_MIN(q_len, MAX_RECV_MSGS);
 		if (c->service->poll_priority == QB_LOOP_MED)
@@ -573,6 +573,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 		return 0;
 	}
 	avail = _request_q_len_get(c);
+	res = avail; /* in case error */
 	do {
 		res = _process_request_(c, IPC_REQUEST_TIMEOUT);
 		if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
