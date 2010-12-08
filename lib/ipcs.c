@@ -250,7 +250,7 @@ static int32_t send_event_notification(int32_t fd, int32_t revents, void *data)
 		return 0;
 	} else {
 		c->outstanding_notifiers = 0;
-		c->poll_events = POLLIN;
+		c->poll_events = POLLIN | POLLPRI | POLLNVAL,
 		(void)_modify_dispatch_descriptor_(c);
 	}
 	return 0;
@@ -281,7 +281,7 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data,
 			 * notify the client later, when we can.
 			 */
 			c->outstanding_notifiers++;
-			c->poll_events = POLLOUT | POLLIN;
+			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL,
 			(void)_modify_dispatch_descriptor_(c);
 		}
 	}
@@ -310,7 +310,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 		if (c->outstanding_notifiers > 0) {
 			c->outstanding_notifiers++;
 		} else {
-			res2 = qb_ipc_us_send(&c->setup, res, 1);
+			res2 = qb_ipc_us_send(&c->setup, &res, 1);
 			if (res2 == 1) {
 				goto deref_and_return;
 			}
@@ -318,7 +318,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 			 * notify the client later, when we can.
 			 */
 			c->outstanding_notifiers++;
-			c->poll_events = POLLOUT | POLLIN;
+			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL,
 			(void)_modify_dispatch_descriptor_(c);
 		}
 	}
@@ -382,6 +382,7 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->context = NULL;
 	c->fc_enabled = QB_FALSE;
 	c->state = QB_IPCS_CONNECTION_INACTIVE;
+	c->poll_events = POLLIN | POLLPRI | POLLNVAL;
 	return c;
 }
 
