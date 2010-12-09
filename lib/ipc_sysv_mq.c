@@ -229,7 +229,7 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_request_header hdr;
 
-	qb_util_log(LOG_DEBUG, "%s()\n", __func__);
+	qb_util_log(LOG_DEBUG, "%s()", __func__);
 	//if (c->needs_sock_for_poll) {
 	//	return;
 	//}

@@ -180,7 +180,7 @@ void qb_ipcs_unref(struct qb_ipcs_service *s)
 	assert(s->ref_count > 0);
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
-		qb_util_log(LOG_DEBUG, "%s() - destorying\n", __func__);
+		qb_util_log(LOG_DEBUG, "%s() - destorying", __func__);
 		qb_list_for_each_safe(iter, iter_next, &s->connections) {
 			c = qb_list_entry(iter, struct qb_ipcs_connection, list);
 			if (c == NULL) {

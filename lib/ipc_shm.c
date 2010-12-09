@@ -197,7 +197,7 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	qb_rb_close(c->request.u.shm.rb);
 
  return_error:
-	qb_util_log(LOG_ERR, "connection failed %s\n",
+	qb_util_log(LOG_ERR, "connection failed %s",
 		    strerror(-res));
 
 	return res;
@@ -241,7 +241,7 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 {
 	int32_t res;
 
-	qb_util_log(LOG_DEBUG, "connecting to client [%d]\n", c->pid);
+	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
 	snprintf(r->request, NAME_MAX, "qb-%s-request-%d-%d", s->name, c->pid, c->setup.u.us.sock);
 	snprintf(r->response, NAME_MAX, "qb-%s-response-%d-%d", s->name, c->pid, c->setup.u.us.sock);
@@ -293,7 +293,7 @@ cleanup_request:
 
 cleanup:
 	r->hdr.error = res;
-	qb_util_log(LOG_ERR, "shm connection FAILED [%s]\n",
+	qb_util_log(LOG_ERR, "shm connection FAILED [%s]",
 		    strerror(-res));
 
 	return res;

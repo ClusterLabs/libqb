@@ -369,7 +369,7 @@ int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
 		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_CRIT,
-			    "Could not set close-on-exit operation on fd: %s\n",
+			    "Could not set close-on-exit operation on fd: %s",
 			    error_str);
 		return res;
 	}
@@ -379,7 +379,7 @@ int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
 		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_CRIT,
-			    "Could not set non-blocking operation on fd: %s\n",
+			    "Could not set non-blocking operation on fd: %s",
 			    error_str);
 	}
 	return res;

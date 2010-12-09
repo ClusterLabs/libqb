@@ -436,7 +436,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
-			    "Cannot create server socket: %s\n", error_str);
+			    "Cannot create server socket: %s", error_str);
 		return res;
 	}
 
@@ -461,7 +461,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		if (res == -1 || (res == 0 && !S_ISDIR(stat_out.st_mode))) {
 			res = -errno;
 			qb_util_log(LOG_CRIT,
-				    "Required directory not present %s\n",
+				    "Required directory not present %s",
 				    SOCKETDIR);
 			goto error_close;
 		}
@@ -477,7 +477,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		res = -errno;
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_CRIT,
-			    "Could not bind AF_UNIX (%s): %s.\n",
+			    "Could not bind AF_UNIX (%s): %s.",
 			    un_addr.sun_path, error_str);
 		goto error_close;
 	}
@@ -491,7 +491,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
 		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_ERR, "listen failed: %s.\n", error_str);
+		qb_util_log(LOG_ERR, "listen failed: %s.", error_str);
 	}
 
 	res = s->poll_fns.dispatch_add(s->poll_priority, s->server_sock,
@@ -506,7 +506,7 @@ error_close:
 
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 {
-	qb_util_log(LOG_INFO, "withdrawing server sockets\n");
+	qb_util_log(LOG_INFO, "withdrawing server sockets");
 	shutdown(s->server_sock, SHUT_RDWR);
 	close(s->server_sock);
 	return 0;
@@ -762,14 +762,14 @@ retry_accept:
 	if (new_fd == -1 && errno == EBADF) {
 		strerror_r(errno, error_str, 100);
 		qb_util_log(LOG_ERR,
-			    "Could not accept Library connection:(fd: %d) [%d] %s\n",
+			    "Could not accept Library connection:(fd: %d) [%d] %s",
 			    fd, errno, error_str);
 		return -1;
 	}
 	if (new_fd == -1) {
 	res = -errno;
 		qb_util_log(LOG_ERR,
-			    "Could not accept Library connection: [%d] %s\n",
+			    "Could not accept Library connection: [%d] %s",
 			    errno, strerror(-res));
 		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
 	}
@@ -808,7 +808,7 @@ static int32_t qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	int32_t res = 0;
 	struct ipc_us_control * ctl;
 
-	qb_util_log(LOG_DEBUG, "connecting to client [%d]\n", c->pid);
+	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
 	snprintf(r->request, NAME_MAX, "qb-%s-control-%d-%d",
 		 s->name, c->pid, c->setup.u.us.sock);
