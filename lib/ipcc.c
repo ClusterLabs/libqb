@@ -129,7 +129,16 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		     size_t msg_len)
 {
-	return c->funcs.recv(&c->response, msg_ptr, msg_len, -1);
+	int32_t res = 0;
+
+	res = c->funcs.recv(&c->response, msg_ptr, msg_len, 1000);
+	if (res == -EAGAIN && c->needs_sock_for_poll) {
+		res = qb_ipc_us_recv_ready(&c->setup, 10);
+		if (res < 0) {
+			return res;
+		}
+	}
+	return res;
 }
 
 ssize_t qb_ipcc_sendv_recv (

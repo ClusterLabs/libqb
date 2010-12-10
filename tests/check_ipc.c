@@ -111,7 +111,6 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 			perror("qb_ipcs_event_send");
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
-		printf("recv'ed server fail - exitting...\n");
 		exit(0);
 	}
 	return 0;
@@ -405,7 +404,6 @@ static void test_ipc_server_fail(void)
 {
 	struct qb_ipc_request_header req_header;
 	struct qb_ipc_response_header res_header;
-	size_t size;
 	int32_t res;
 	int32_t try_times = 0;
 	int32_t j;
@@ -427,30 +425,32 @@ static void test_ipc_server_fail(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
+	/*
+	 * tell the server to exit
+	 */
 	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
  repeat_send:
-	printf("sending server fail\n");
 	res = qb_ipcc_send(conn, &req_header, req_header.size);
 	try_times++;
 	if (res < 0) {
 		if (res == -EAGAIN && try_times < 10) {
 			goto repeat_send;
-		} else {
-			errno = -res;
-			perror("qb_ipcc_send");
-			return res;
 		}
+		ck_assert_int_eq(res, 0);
 	}
-	printf("trying to recv from failed server\n");
 
- repeat_recv:
+	/*
+	 * try recv from the exit'ed server
+	 */
 	res = qb_ipcc_recv(conn,
 			&res_header,
 			sizeof(struct qb_ipc_response_header));
-	printf("recv %d\n", res);
-	ck_assert_int_eq(res, 0);
+	/*
+	 * confirm we get -ENOTCONN
+	 */
+	ck_assert_int_eq(res, -ENOTCONN);
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
@@ -541,7 +541,7 @@ int32_t main(void)
 
 	qb_util_set_log_function(ipc_log_fn);
 
-	srunner_run_all(sr, CK_NORMAL);
+	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);
 	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;

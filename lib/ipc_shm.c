@@ -58,7 +58,7 @@ static ssize_t qb_ipc_shm_sendv(struct qb_ipc_one_way *one_way,
 	char *pt = NULL;
 
 	if (one_way->u.shm.rb == NULL) {
-		return -EIDRM;
+		return -ENOTCONN;
 	}
 
 	for (i = 0; i < iov_len; i++) {
@@ -88,7 +88,7 @@ static ssize_t qb_ipc_shm_recv(struct qb_ipc_one_way *one_way,
 {
 	ssize_t res;
 	if (one_way->u.shm.rb == NULL) {
-		return -EIDRM;
+		return -ENOTCONN;
 	}
 	res = qb_rb_chunk_read(one_way->u.shm.rb,
 			       (void *)msg_ptr,
@@ -105,7 +105,7 @@ static ssize_t qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out, 
 	ssize_t res;
 
 	if (one_way->u.shm.rb == NULL) {
-		return -EIDRM;
+		return -ENOTCONN;
 	}
 	res = qb_rb_chunk_peek(one_way->u.shm.rb,
 			       data_out,
@@ -141,7 +141,7 @@ static int32_t qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
 static ssize_t qb_ipc_shm_q_len_get(struct qb_ipc_one_way *one_way)
 {
 	if (one_way->u.shm.rb == NULL) {
-		return -EIDRM;
+		return -ENOTCONN;
 	}
 	return qb_rb_chunks_used(one_way->u.shm.rb);
 }

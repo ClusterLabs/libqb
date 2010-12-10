@@ -214,7 +214,7 @@ int32_t qb_ipc_us_recv_ready(struct qb_ipc_one_way *one_way, int32_t ms_timeout)
 	} else if (poll_events == -1) {
 		return -errno;
 	} else if (poll_events == 1 && (ufds.revents & (POLLERR|POLLHUP))) {
-		return -ESHUTDOWN;
+		return -ENOTCONN;
 	}
 	return 0;
 }
@@ -233,14 +233,9 @@ ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way,
 	if (result == -1) {
 		return -errno;
 	}
-#if defined(QB_SOLARIS) || defined(QB_BSD) || defined(QB_DARWIN)
-	/* On many OS poll never return POLLHUP or POLLERR.
-	 * EOF is detected when recvmsg return 0.
-	 */
 	if (result == 0) {
-		return -errno;	//ENOTCONN
+		return -ENOTCONN;
 	}
-#endif
 	if (ctl) {
 		(void)qb_atomic_int_dec_and_test(&ctl->sent);
 	}
