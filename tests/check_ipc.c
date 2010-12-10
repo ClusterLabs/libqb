@@ -46,7 +46,9 @@ enum my_msg_ids {
 	IPC_MSG_REQ_TX_RX,
 	IPC_MSG_RES_TX_RX,
 	IPC_MSG_REQ_DISPATCH,
-	IPC_MSG_RES_DISPATCH
+	IPC_MSG_RES_DISPATCH,
+	IPC_MSG_REQ_SERVER_FAIL,
+	IPC_MSG_RES_SERVER_FAIL,
 };
 
 /* Test Cases
@@ -72,11 +74,12 @@ static qb_ipcs_service_t* s1;
 static int32_t turn_on_fc = QB_FALSE;
 static int32_t fc_enabled = 89;
 
-static void sigterm_handler(int32_t num)
+static int32_t exit_handler(int32_t rsignal, void *data)
 {
 	qb_ipcs_destroy(s1);
 	qb_loop_stop(my_loop);
 	exit(0);
+	return -1;
 }
 
 static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
@@ -107,6 +110,9 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		if (res < 0) {
 			perror("qb_ipcs_event_send");
 		}
+	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
+		printf("recv'ed server fail - exitting...\n");
+		exit(0);
 	}
 	return 0;
 }
@@ -138,6 +144,7 @@ static int32_t my_dispatch_del(int32_t fd)
 static void run_ipc_server(void)
 {
 	int32_t res;
+	qb_loop_signal_handle handle;
 
 	struct qb_ipcs_service_handlers sh = {
 		.connection_accept = NULL,
@@ -153,7 +160,10 @@ static void run_ipc_server(void)
 		.dispatch_del = my_dispatch_del,
 	};
 
-	signal(SIGTERM, sigterm_handler);
+	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGSTOP,
+			   NULL, exit_handler, &handle);
+	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
+			   NULL, exit_handler, &handle);
 
 	my_loop = qb_loop_create();
 
@@ -366,7 +376,7 @@ static void test_ipc_dispatch(void)
 			goto repeat_event_recv;
 		} else {
 			errno = -res;
-			perror("qb_ipcc_send");
+			perror("qb_ipcc_event_recv");
 			goto repeat_send;
 		}
 	}
@@ -391,11 +401,90 @@ START_TEST(test_ipc_disp_us)
 }
 END_TEST
 
+static void test_ipc_server_fail(void)
+{
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	size_t size;
+	int32_t res;
+	int32_t try_times = 0;
+	int32_t j;
+	int32_t c = 0;
+	pid_t pid;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(IPC_NAME, MAX_MSG_SIZE);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+ repeat_send:
+	printf("sending server fail\n");
+	res = qb_ipcc_send(conn, &req_header, req_header.size);
+	try_times++;
+	if (res < 0) {
+		if (res == -EAGAIN && try_times < 10) {
+			goto repeat_send;
+		} else {
+			errno = -res;
+			perror("qb_ipcc_send");
+			return res;
+		}
+	}
+	printf("trying to recv from failed server\n");
+
+ repeat_recv:
+	res = qb_ipcc_recv(conn,
+			&res_header,
+			sizeof(struct qb_ipc_response_header));
+	printf("recv %d\n", res);
+	ck_assert_int_eq(res, 0);
+
+	qb_ipcc_disconnect(conn);
+	stop_process(pid);
+}
+
+START_TEST(test_ipc_server_fail_soc)
+{
+	ipc_type = QB_IPC_SOCKET;
+	test_ipc_server_fail();
+}
+END_TEST
+
+START_TEST(test_ipc_server_fail_shm)
+{
+	ipc_type = QB_IPC_SHM;
+	test_ipc_server_fail();
+}
+END_TEST
+
 static Suite *ipc_suite(void)
 {
 	TCase *tc;
 	uid_t uid;
 	Suite *s = suite_create("ipc");
+
+	tc = tcase_create("ipc_server_fail_shm");
+	tcase_add_test(tc, test_ipc_server_fail_shm);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_server_fail_soc");
+	tcase_add_test(tc, test_ipc_server_fail_soc);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_txrx_shm");
 	tcase_add_test(tc, test_ipc_txrx_shm);
