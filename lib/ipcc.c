@@ -136,6 +136,8 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		res = qb_ipc_us_recv_ready(&c->setup, 10);
 		if (res < 0) {
 			return res;
+		} else {
+			return -EAGAIN;
 		}
 	}
 	return res;
