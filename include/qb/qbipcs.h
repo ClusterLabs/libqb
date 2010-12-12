@@ -162,7 +162,9 @@ void qb_ipcs_unref(qb_ipcs_service_t *s);
 
 /**
  * Set your poll callbacks.
+ *
  * @param s service instance
+ * @param handlers the handlers that you want ipcs to use.
  */
 void qb_ipcs_poll_handlers_set(qb_ipcs_service_t* s,
 	struct qb_ipcs_poll_handlers *handlers);
@@ -176,44 +178,68 @@ int32_t qb_ipcs_run(qb_ipcs_service_t* s);
 
 /**
  * Destroy the IPC server.
- * @param s service instance
+ *
+ * @param s service instance to destroy
  */
 void qb_ipcs_destroy(qb_ipcs_service_t* s);
 
 /**
- *
+ * Limit the incomming request rate.
  * @param s service instance
+ * @param rl the new rate
  */
-void qb_ipcs_request_rate_limit(qb_ipcs_service_t* pt, enum qb_ipcs_rate_limit rl);
+void qb_ipcs_request_rate_limit(qb_ipcs_service_t* s, enum qb_ipcs_rate_limit rl);
 
 /**
- * send a response to a incomming request.
+ * Send a response to a incomming request.
+ *
  * @param c connection instance
+ * @param data the message to send
+ * @param size the size of the message
+ * @return size sent or -errno for errors
  */
 ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
+/**
+ * Send a response to a incomming request.
+ *
+ * @param c connection instance
+ * @param iov the iovec struct that points to the message to send
+ * @param iov_len the number of iovecs.
+ * @return size sent or -errno for errors
+ */
 ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
 
 /**
  * Send an asyncronous event message to the client.
+ *
  * @param c connection instance
+ * @param data the message to send
+ * @param size the size of the message
+ * @return size sent or -errno for errors
  */
 ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data, size_t size);
 
 /**
  * Send an asyncronous event message to the client.
+ *
  * @param c connection instance
+ * @param iov the iovec struct that points to the message to send
+ * @param iov_len the number of iovecs.
+ * @return size sent or -errno for errors
  */
 ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
 
 /**
  * Increment the connection's reference counter.
+ *
  * @param c connection instance
  */
 void qb_ipcs_connection_ref_inc(qb_ipcs_connection_t *c);
 
 /**
  * Decrement the connection's reference counter.
+ *
  * @param c connection instance
  */
 void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
@@ -223,6 +249,7 @@ void qb_ipcs_disconnect(qb_ipcs_connection_t *c);
 /**
  * Get the service id related to this connection's service.
  * (as passed into qb_ipcs_create()
+ *
  * @return service id.
  */
 int32_t qb_ipcs_service_id_get(qb_ipcs_connection_t *c);
@@ -248,6 +275,7 @@ void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
 /**
  * Get the connection statistics.
  *
+ * @param stats (out) the statistics structure
  * @param clear_after_read clear stats after copying them into stats
  * @param c connection instance
  * @return 0 == ok; -errno to indicate a failure
@@ -259,6 +287,7 @@ int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
 /**
  * Get the service statistics.
  *
+ * @param stats (out) the statistics structure
  * @param clear_after_read clear stats after copying them into stats
  * @param pt service instance
  * @return 0 == ok; -errno to indicate a failure
