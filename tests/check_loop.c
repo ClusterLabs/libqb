@@ -188,11 +188,11 @@ START_TEST(test_loop_timer_input)
 	qb_loop_t *l = qb_loop_create();
 	fail_if(l == NULL);
 
-	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5, NULL, job_2, &test_th);
+	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, NULL, job_2, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, NULL, &test_th);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, NULL, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, job_1, NULL);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, job_1, NULL);
 	ck_assert_int_eq(res, -ENOENT);
 	qb_loop_destroy(l);
 }
@@ -214,7 +214,7 @@ static void reset_one_shot_tmo(void*data)
 	if (reset_timer_step == 0) {
 		res = qb_loop_timer_del(l, reset_th);
 		ck_assert_int_eq(res, -EINVAL);
-		res = qb_loop_timer_add(l, QB_LOOP_LOW, 8, l, reset_one_shot_tmo, &reset_th);
+		res = qb_loop_timer_add(l, QB_LOOP_LOW, 8*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
 		ck_assert_int_eq(res, 0);
 	}
 
@@ -227,13 +227,13 @@ START_TEST(test_loop_timer_basic)
 	qb_loop_t *l = qb_loop_create();
 	fail_if(l == NULL);
 
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5, l, one_shot_tmo, &test_th);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, one_shot_tmo, &test_th);
 	ck_assert_int_eq(res, 0);
 
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7, l, reset_one_shot_tmo, &reset_th);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
 	ck_assert_int_eq(res, 0);
 
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 60, l, job_stop, &test_th);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 60*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(l);
@@ -248,9 +248,10 @@ struct qb_stop_watch {
 	uint64_t start;
 	uint64_t end;
 	qb_loop_t *l;
-	int32_t ms_timer;
+	uint64_t ns_timer;
 	int64_t total;
 	int32_t count;
+	int32_t killer;
 	qb_loop_timer_handle th;
 };
 
@@ -263,38 +264,39 @@ static void stop_watch_tmo(void*data)
 	sw->end = qb_util_nano_current_get();
 
 	diff = sw->end - sw->start;
-	if (diff < (sw->ms_timer * QB_TIME_NS_IN_MSEC)) {
-		printf("timer expired early! by %lld\n", (sw->ms_timer * QB_TIME_NS_IN_MSEC) - diff);
+	if (diff < sw->ns_timer) {
+		printf("timer expired early! by %"PRIi64"\n", (int64_t)(sw->ns_timer - diff));
 	}
-	ck_assert(diff >= (sw->ms_timer * QB_TIME_NS_IN_MSEC));
+	ck_assert(diff >= sw->ns_timer);
 	sw->total += diff;
-	sw->total -= sw->ms_timer * QB_TIME_NS_IN_MSEC;
+	sw->total -= sw->ns_timer;
 	sw->start = sw->end;
 
 	sw->count++;
 	if (sw->count < 50) {
-		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, data, stop_watch_tmo, &sw->th);
+		qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ns_timer, data, stop_watch_tmo, &sw->th);
 	} else {
-		per = ((sw->total * 100) / sw->count) / (sw->ms_timer * (float)QB_TIME_NS_IN_MSEC);
-		printf("average error for %d ms timer is %"PRIi64" (ns) (%f)\n",
-		       sw->ms_timer,
+		per = ((sw->total * 100) / sw->count) / (float)sw->ns_timer;
+		printf("average error for %"PRIu64" ns timer is %"PRIi64" (ns) (%f)\n",
+		       sw->ns_timer,
 		       sw->total/sw->count, per);
-		if (sw->ms_timer == 100) {
+		if (sw->killer) {
 			qb_loop_stop(sw->l);
 		}
 	}
 }
 
-static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
+static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, uint64_t timeout, int32_t killer)
 {
 	int32_t res;
 
 	sw->l = l;
 	sw->count = 0;
 	sw->total = 0;
-	sw->ms_timer = timeout;
+	sw->killer = killer;
+	sw->ns_timer = timeout;
 	sw->start = qb_util_nano_current_get();
-	res = qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ms_timer, sw, stop_watch_tmo, &sw->th);
+	res = qb_loop_timer_add(sw->l, QB_LOOP_LOW, sw->ns_timer, sw, stop_watch_tmo, &sw->th);
 	ck_assert_int_eq(res, 0);
 }
 
@@ -302,17 +304,17 @@ static void start_timer(qb_loop_t *l, struct qb_stop_watch *sw, int32_t timeout)
 START_TEST(test_loop_timer_precision)
 {
 	int32_t i;
-	int32_t tmo;
+	uint64_t tmo;
 	struct qb_stop_watch sw[11];
 	qb_loop_t *l = qb_loop_create();
 
 	fail_if(l == NULL);
 
 	for (i = 0; i < 10; i++) {
-		tmo = 5 + i * 9;
-		start_timer(l, &sw[i], tmo);
+		tmo = ((1 + i * 9) * QB_TIME_NS_IN_MSEC) + 500000;
+		start_timer(l, &sw[i], tmo, QB_FALSE);
 	}
-	start_timer(l, &sw[i], 100);
+	start_timer(l, &sw[i], 100 * QB_TIME_NS_IN_MSEC, QB_TRUE);
 
 	qb_loop_run(l);
 	qb_loop_destroy(l);

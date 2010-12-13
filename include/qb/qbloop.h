@@ -103,7 +103,7 @@ int32_t qb_loop_job_add(qb_loop_t *l,
  *
  * @param l pointer to the loop instance
  * @param p the priority
- * @param msec_duration milli-secs in the future to run the dispatch.
+ * @param nsec_duration nano-secs in the future to run the dispatch.
  * @param data user data passed into the dispatch function
  * @param dispatch_fn callback function
  * @param timer_handle_out handle to delete the timer if needed.
@@ -111,7 +111,7 @@ int32_t qb_loop_job_add(qb_loop_t *l,
  */
 int32_t qb_loop_timer_add(qb_loop_t *l,
 			  enum qb_loop_priority p,
-			  int32_t msec_duration,
+			  uint64_t nsec_duration,
 			  void *data,
 			  qb_loop_timer_dispatch_fn dispatch_fn,
 			  qb_loop_timer_handle * timer_handle_out);

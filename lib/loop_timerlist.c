@@ -96,7 +96,7 @@ void qb_loop_timer_destroy(struct qb_loop *l)
 
 int32_t qb_loop_timer_add(struct qb_loop *l,
 			  enum qb_loop_priority p,
-			  int32_t msec_duration,
+			  uint64_t nsec_duration,
 			  void *data,
 			  qb_loop_timer_dispatch_fn timer_fn,
 			  qb_loop_timer_handle * timer_handle_out)
@@ -120,7 +120,7 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 
 	return timerlist_add_duration(&my_src->timerlist,
 			       make_job_from_tmo, t,
-			       ((uint64_t)msec_duration) * QB_TIME_NS_IN_MSEC,
+			       nsec_duration,
 			       timer_handle_out);
 }
 

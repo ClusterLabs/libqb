@@ -25,6 +25,7 @@
 
 #include <qb/qbloop.h>
 #include <qb/qbutil.h>
+#include <qb/qbdefs.h>
 
 static struct qb_loop *l;
 static qb_loop_timer_handle th;
@@ -63,14 +64,14 @@ static int32_t handle_exit_signal(int32_t sig, void *data)
 static void more_jobs(void *data)
 {
 	printf("%s\n", __func__);
-	qb_loop_timer_add(l, QB_LOOP_HIGH, 3109, NULL, job_1_1, &th);
+	qb_loop_timer_add(l, QB_LOOP_HIGH, 3109*QB_TIME_NS_IN_MSEC, NULL, job_1_1, &th);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_7);
-	qb_loop_timer_add(l, QB_LOOP_LOW, 1000, NULL, more_important_jobs, &th);
+	qb_loop_timer_add(l, QB_LOOP_LOW, 1000*QB_TIME_NS_IN_MSEC, NULL, more_important_jobs, &th);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_7);
-	qb_loop_timer_add(l, QB_LOOP_LOW, 2341, NULL, job_3_7, &th);
+	qb_loop_timer_add(l, QB_LOOP_LOW, 2341*QB_TIME_NS_IN_MSEC, NULL, job_3_7, &th);
 	qb_loop_timer_add(l, QB_LOOP_LOW, 900, NULL, job_3_6, &th);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_5);
-	qb_loop_timer_add(l, QB_LOOP_MED, 4000, NULL, more_jobs, &th);
+	qb_loop_timer_add(l, QB_LOOP_MED, 4000*QB_TIME_NS_IN_MSEC, NULL, more_jobs, &th);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_9);
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_9);
 	qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_2_3);
@@ -107,7 +108,7 @@ int main(int argc, char * argv[])
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_2_4);
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_2);
 	qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_3_7);
-//	qb_loop_timer_add(l, QB_LOOP_HIGH, 40, NULL, more_jobs, &th);
+//	qb_loop_timer_add(l, QB_LOOP_HIGH, 40*QB_TIME_NS_IN_MSEC, NULL, more_jobs, &th);
 	qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_2_8);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_6);
 

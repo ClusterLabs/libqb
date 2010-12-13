@@ -595,7 +595,7 @@ void qb_loop_timer_destroy(struct qb_loop *l)
 
 int32_t qb_loop_timer_add(struct qb_loop *l,
 			  enum qb_loop_priority p,
-			  int32_t msec_duration,
+			  uint64_t nsec_duration,
 			  void *data,
 			  qb_loop_timer_dispatch_fn timer_fn,
 			  qb_loop_timer_handle * timer_handle_out)
@@ -621,9 +621,8 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 
 	its.it_interval.tv_sec = 0;
 	its.it_interval.tv_nsec = 0;
-	its.it_value.tv_sec = 0;
-	its.it_value.tv_nsec = 0;
-	qb_timespec_add_ms(&its.it_value, msec_duration);
+	its.it_value.tv_sec = nsec_duration / QB_TIME_NS_IN_SEC;
+	its.it_value.tv_nsec = nsec_duration % QB_TIME_NS_IN_SEC;
 
 	res = timerfd_settime(fd, 0, &its, NULL);
 	if (res == -1) {
