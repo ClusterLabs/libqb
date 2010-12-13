@@ -235,15 +235,20 @@ ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, s
  *
  * @param c connection instance
  */
-void qb_ipcs_connection_ref_inc(qb_ipcs_connection_t *c);
+void qb_ipcs_connection_ref(qb_ipcs_connection_t *c);
 
 /**
  * Decrement the connection's reference counter.
  *
  * @param c connection instance
  */
-void qb_ipcs_connection_ref_dec(qb_ipcs_connection_t *c);
+void qb_ipcs_connection_unref(qb_ipcs_connection_t *c);
 
+/**
+ * Disconnect from this client.
+ *
+ * @param c connection instance
+ */
 void qb_ipcs_disconnect(qb_ipcs_connection_t *c);
 
 /**

@@ -152,16 +152,16 @@ void qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 	}
 
 	qb_list_for_each_entry(c, &s->connections, list) {
-		qb_ipcs_connection_ref_inc(c);
+		qb_ipcs_connection_ref(c);
 
 		qb_ipcs_flowcontrol_set(c, (rl == QB_IPCS_RATE_OFF));
 		if (old_p == s->poll_priority) {
-			qb_ipcs_connection_ref_dec(c);
+			qb_ipcs_connection_unref(c);
 			continue;
 		}
 
 		(void)_modify_dispatch_descriptor_(c);
-		qb_ipcs_connection_ref_dec(c);
+		qb_ipcs_connection_unref(c);
 	}
 }
 
@@ -207,14 +207,14 @@ ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 {
 	ssize_t res;
 
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.send(&c->response, data, size);
 	if (res == size) {
 		c->stats.responses++;
 	} else if (res == -EAGAIN) {
 		c->stats.send_retries++;
 	}
-	qb_ipcs_connection_ref_dec(c);
+	qb_ipcs_connection_unref(c);
 
 	return res;
 }
@@ -223,14 +223,14 @@ ssize_t qb_ipcs_response_sendv(struct qb_ipcs_connection *c, const struct iovec 
 {
 	ssize_t res;
 
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.sendv(&c->response, iov, iov_len);
 	if (res > 0) {
 		c->stats.responses++;
 	} else if (res == -EAGAIN) {
 		c->stats.send_retries++;
 	}
-	qb_ipcs_connection_ref_dec(c);
+	qb_ipcs_connection_unref(c);
 
 	return res;
 }
@@ -262,7 +262,7 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data,
 	ssize_t res;
 	ssize_t res2 = 0;
 
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 
 	res = c->service->funcs.send(&c->event, data, size);
 	if (res != size) {
@@ -288,7 +288,7 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data,
 
 deref_and_return:
 
-	qb_ipcs_connection_ref_dec(c);
+	qb_ipcs_connection_unref(c);
 
 	return res;
 }
@@ -299,7 +299,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 	ssize_t res;
 	ssize_t res2;
 
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 
 	res = c->service->funcs.sendv(&c->event, iov, iov_len);
 	if (res < 0) {
@@ -325,7 +325,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 
 deref_and_return:
 
-	qb_ipcs_connection_ref_dec(c);
+	qb_ipcs_connection_unref(c);
 
 	return res;
 }
@@ -341,7 +341,7 @@ qb_ipcs_connection_t *qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
 	iter = s->connections.next;
 
 	c = qb_list_entry(iter, struct qb_ipcs_connection, list);
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 
 	return c;
 }
@@ -358,7 +358,7 @@ qb_ipcs_connection_t * qb_ipcs_connection_next_get(struct qb_ipcs_service* s,
 	iter = current->list.next;
 
 	c = qb_list_entry(iter, struct qb_ipcs_connection, list);
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 
 	return c;
 }
@@ -386,12 +386,12 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	return c;
 }
 
-void qb_ipcs_connection_ref_inc(struct qb_ipcs_connection *c)
+void qb_ipcs_connection_ref(struct qb_ipcs_connection *c)
 {
 	qb_atomic_int_inc(&c->refcount);
 }
 
-void qb_ipcs_connection_ref_dec(struct qb_ipcs_connection *c)
+void qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 {
 	int32_t free_it;
 
@@ -426,7 +426,7 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		    c->setup.u.us.sock > 0) {
 			qb_ipcc_us_sock_close(c->setup.u.us.sock);
 			c->setup.u.us.sock = -1;
-			qb_ipcs_connection_ref_dec(c);
+			qb_ipcs_connection_unref(c);
 		}
 		c->state = QB_IPCS_CONNECTION_DOWN;
 		c->service->stats.active_connections--;
@@ -438,7 +438,7 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 			res = c->service->serv_fns.connection_closed(c);
 		}
 		if (res == 0) {
-			qb_ipcs_connection_ref_dec(c);
+			qb_ipcs_connection_unref(c);
 		} else {
 			/* ok, so they want the connection_closedd()
 			 * function re-run */
@@ -447,7 +447,7 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 							   rerun_job);
 			if (res != 0) {
 				/* last ditch attempt to cleanup */
-				qb_ipcs_connection_ref_dec(c);
+				qb_ipcs_connection_unref(c);
 			}
 		}
 	}
@@ -470,7 +470,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 	ssize_t size;
 	struct qb_ipc_request_header *hdr;
 
-	qb_ipcs_connection_ref_inc(c);
+	qb_ipcs_connection_ref(c);
 
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
 		size = c->service->funcs.peek(&c->request, (void**)&hdr,
@@ -510,7 +510,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 	}
 
 cleanup:
-	qb_ipcs_connection_ref_dec(c);
+	qb_ipcs_connection_unref(c);
 	return res;
 }
 
@@ -595,7 +595,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	if (res != 0) {
 		qb_util_log(LOG_INFO, "%s returning %d : %s",
 			    __func__, res, strerror(-res));
-		qb_ipcs_connection_ref_dec(c);
+		qb_ipcs_connection_unref(c);
 	}
 
 	return res;

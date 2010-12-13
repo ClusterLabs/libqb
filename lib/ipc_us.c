@@ -556,7 +556,7 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	c->receive_buf = malloc(c->request.max_msg_size);
 
 	if (s->needs_sock_for_poll) {
-		qb_ipcs_connection_ref_inc(c);
+		qb_ipcs_connection_ref(c);
 		res = s->poll_fns.dispatch_add(s->poll_priority,
 					       c->setup.u.us.sock,
 					       POLLIN | POLLPRI | POLLNVAL,
