@@ -82,6 +82,7 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 		     size_t msg_len)
 {
 	ssize_t res;
+	ssize_t res2;
 
 	if (msg_len > c->request.max_msg_size) {
 		return -EINVAL;
@@ -91,10 +92,13 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 	}
 
 	res = c->funcs.send(&c->request, msg_ptr, msg_len);
-	if (res > 0 && c->needs_sock_for_poll) {
+	if (res == msg_len && c->needs_sock_for_poll) {
 		do {
-			res = qb_ipc_us_send(&c->setup, msg_ptr, 1);
-		} while (res == -EAGAIN);
+			res2 = qb_ipc_us_send(&c->setup, msg_ptr, 1);
+		} while (res2 == -EAGAIN);
+		if (res2 != 1) {
+			res = res2;
+		}
 	}
 	return res;
 }
