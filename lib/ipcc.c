@@ -134,11 +134,16 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		     size_t msg_len)
 {
 	int32_t res = 0;
+	int32_t retries = 0;
 
-	res = c->funcs.recv(&c->response, msg_ptr, msg_len, 1000);
+ recv_retry:
+	retries++;
+	res = c->funcs.recv(&c->response, msg_ptr, msg_len, 100);
 	if (res == -EAGAIN && c->needs_sock_for_poll) {
-		res = qb_ipc_us_recv_ready(&c->setup, 10);
-		if (res < 0) {
+		res = qb_ipc_us_recv_ready(&c->setup, 0);
+		if (res == -EAGAIN && retries < 50) {
+			goto recv_retry;
+		} else if (res < 0) {
 			return res;
 		} else {
 			return -EAGAIN;
