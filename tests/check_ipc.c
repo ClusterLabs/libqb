@@ -111,6 +111,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 			perror("qb_ipcs_event_send");
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
+		qb_ipcs_destroy(s1);
 		exit(0);
 	}
 	return 0;
@@ -229,13 +230,8 @@ repeat_send:
 		}
 	}
 
- repeat_recv:
-	res = qb_ipcc_recv(conn,
-			&res_header,
-			sizeof(struct qb_ipc_response_header));
-	if (res == -EAGAIN) {
-		goto repeat_recv;
-	}
+	res = qb_ipcc_recv(conn, &res_header,
+			sizeof(struct qb_ipc_response_header), -1);
 	if (res == -EINTR) {
 		return -1;
 	}
@@ -371,7 +367,7 @@ static void test_ipc_dispatch(void)
  repeat_event_recv:
 	res = qb_ipcc_event_recv(conn, res_header, IPC_BUF_SIZE, 0);
 	if (res < 0) {
-		if (res == -EAGAIN) {
+		if (res == -EAGAIN || res == -ETIMEDOUT) {
 			goto repeat_event_recv;
 		} else {
 			errno = -res;
@@ -442,11 +438,14 @@ static void test_ipc_server_fail(void)
 	}
 
 	/*
+	 * wait a bit for the server to die.
+	 */
+	sleep(1);
+	/*
 	 * try recv from the exit'ed server
 	 */
-	res = qb_ipcc_recv(conn,
-			&res_header,
-			sizeof(struct qb_ipc_response_header));
+	res = qb_ipcc_recv(conn, &res_header,
+			   sizeof(struct qb_ipc_response_header), 100);
 	/*
 	 * confirm we get -ENOTCONN
 	 */

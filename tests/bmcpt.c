@@ -123,19 +123,14 @@ repeat_send:
 		}
 	}
 
- repeat_recv:
-	res = qb_ipcc_recv(ctx->conn,
-			&res_header,
-			sizeof(struct qb_ipc_response_header));
-		if (res == -EAGAIN) {
-			goto repeat_recv;
-		}
-		if (res == -EINTR) {
-			return -1;
-		}
-		if (res < 0) {
-			perror("qb_ipcc_recv");
-		}
+	res = qb_ipcc_recv(ctx->conn, &res_header,
+			   sizeof(struct qb_ipc_response_header), -1);
+	if (res == -EINTR) {
+		return -1;
+	}
+	if (res < 0) {
+		perror("qb_ipcc_recv");
+	}
 	assert(res == sizeof(struct qb_ipc_response_header));
 	assert(res_header.id == 13);
 	assert(res_header.size == sizeof(struct qb_ipc_response_header));

@@ -131,55 +131,40 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 }
 
 ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
-		     size_t msg_len)
+		     size_t msg_len, int32_t ms_timeout)
 {
 	int32_t res = 0;
-	int32_t retries = 0;
+	int32_t res2 = 0;
 
- recv_retry:
-	retries++;
-	res = c->funcs.recv(&c->response, msg_ptr, msg_len, 100);
-	if (res == -EAGAIN && c->needs_sock_for_poll) {
-		res = qb_ipc_us_recv_ready(&c->setup, 0);
-		if (res == -EAGAIN && retries < 50) {
-			goto recv_retry;
-		} else if (res < 0) {
-			return res;
+	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
+	if ((res == -EAGAIN || res == -ETIMEDOUT) && c->needs_sock_for_poll) {
+		res2 = qb_ipc_us_recv_ready(&c->setup, 0);
+		if (res2 < 0) {
+			return res2;
 		} else {
-			return -EAGAIN;
+			return res;
 		}
 	}
 	return res;
 }
 
-ssize_t qb_ipcc_sendv_recv (
-	qb_ipcc_connection_t *c,
-	const struct iovec *iov,
-	unsigned int iov_len,
-	void *res_msg,
-	size_t res_len)
+ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
+			   const struct iovec *iov, uint32_t iov_len,
+			   void *res_msg, size_t res_len,
+			   int32_t ms_timeout)
 {
-	ssize_t res;
+	ssize_t res = 0;
 
 	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
 		return -EAGAIN;
 	}
 
-repeat_send:
 	res = qb_ipcc_sendv(c, iov, iov_len);
 	if (res < 0) {
-		if (res == -EAGAIN) {
-			goto repeat_send;
-		}
 		return res;
 	}
 
-repeat_recv:
-	res = qb_ipcc_recv(c, res_msg, res_len);
-	if (res == -EAGAIN) {
-		goto repeat_recv;
-	}
-	return res;
+	return qb_ipcc_recv(c, res_msg, res_len, ms_timeout);
 }
 
 int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
@@ -217,7 +202,7 @@ ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 		return size;
 	}
 	if (c->needs_sock_for_poll) {
-		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, 0);
+		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
 		if (res < 0) {
 			return res;
 		}

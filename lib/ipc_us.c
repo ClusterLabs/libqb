@@ -227,7 +227,7 @@ ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way,
 
  retry_recv:
 	result = recv(one_way->u.us.sock, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
-	if (result == -1 && errno == EAGAIN) {
+	if (timeout == -1 && result == -1 && errno == EAGAIN) {
 		goto retry_recv;
 	}
 	if (result == -1) {
@@ -318,7 +318,7 @@ int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		return res;
 	}
 
-	res = qb_ipc_us_recv(&c->setup, r, sizeof(struct qb_ipc_connection_response), 0);
+	res = qb_ipc_us_recv(&c->setup, r, sizeof(struct qb_ipc_connection_response), -1);
 	if (res < 0) {
 		return res;
 	}

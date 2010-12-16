@@ -86,34 +86,23 @@ static ssize_t qb_ipc_shm_recv(struct qb_ipc_one_way *one_way,
 			       size_t msg_len,
 			       int32_t ms_timeout)
 {
-	ssize_t res;
 	if (one_way->u.shm.rb == NULL) {
 		return -ENOTCONN;
 	}
-	res = qb_rb_chunk_read(one_way->u.shm.rb,
+	return qb_rb_chunk_read(one_way->u.shm.rb,
 			       (void *)msg_ptr,
 			       msg_len,
 			       ms_timeout);
-	if (res == -ETIMEDOUT) {
-		return -EAGAIN;
-	}
-	return res;
 }
 
 static ssize_t qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out, int32_t ms_timeout)
 {
-	ssize_t res;
-
 	if (one_way->u.shm.rb == NULL) {
 		return -ENOTCONN;
 	}
-	res = qb_rb_chunk_peek(one_way->u.shm.rb,
+	return qb_rb_chunk_peek(one_way->u.shm.rb,
 			       data_out,
 			       ms_timeout);
-	if (res == -ETIMEDOUT) {
-		return -EAGAIN;
-	}
-	return res;
 }
 
 static void qb_ipc_shm_reclaim(struct qb_ipc_one_way *one_way)

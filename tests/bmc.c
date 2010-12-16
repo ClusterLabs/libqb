@@ -99,13 +99,9 @@ repeat_send:
 	}
 
 	if (blocking) {
- repeat_recv:
 		res = qb_ipcc_recv(conn,
 				&res_header,
-				sizeof(struct qb_ipc_response_header));
-		if (res == -EAGAIN) {
-			goto repeat_recv;
-		}
+				sizeof(struct qb_ipc_response_header), -1);
 		if (res == -EINTR) {
 			return -1;
 		}
@@ -117,13 +113,9 @@ repeat_send:
 		assert(res_header.size == sizeof(struct qb_ipc_response_header));
 	}
 	if (events) {
- repeat_event_recv:
 		res = qb_ipcc_event_recv(conn,
 				&res_header,
-				sizeof(struct qb_ipc_response_header), 0);
-		if (res == -EAGAIN) {
-			goto repeat_event_recv;
-		}
+				sizeof(struct qb_ipc_response_header), -1);
 		if (res == -EINTR) {
 			return -1;
 		}

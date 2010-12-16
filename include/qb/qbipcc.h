@@ -113,7 +113,7 @@ ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
  * @return (size recv'ed, -errno == error)
  */
 ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
-                     size_t msg_len);
+                     size_t msg_len, int32_t ms_timeout);
 
 /**
  * This is a convenience function that simply sends and then recvs.
@@ -127,10 +127,9 @@ ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
  * @see qb_ipcc_sendv() qb_ipcc_recv()
  */
 ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
-			   const struct iovec *iov,
-			   unsigned int iov_len,
-			   void *msg_ptr,
-			   size_t msg_len);
+			   const struct iovec *iov, uint32_t iov_len,
+			   void *msg_ptr, size_t msg_len,
+			   int32_t ms_timeout);
 
 /**
  * Receive an event.
