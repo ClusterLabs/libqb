@@ -214,6 +214,7 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 		    "Destroying ringbuffer: %s",
 		    rb->shared_hdr->hdr_path);
 
+	(void)qb_atomic_int_dec_and_test(&rb->shared_hdr->ref_count);
 	(void)rb->sem_destroy_fn(rb);
 	unlink(rb->shared_hdr->data_path);
 	unlink(rb->shared_hdr->hdr_path);
@@ -230,6 +231,11 @@ char *qb_rb_name_get(qb_ringbuffer_t * rb)
 void *qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
 {
 	return rb->shared_hdr->user_data;
+}
+
+int32_t qb_rb_refcount_get(qb_ringbuffer_t * rb)
+{
+	return qb_atomic_int_get(&rb->shared_hdr->ref_count);
 }
 
 ssize_t qb_rb_space_free(qb_ringbuffer_t * rb)

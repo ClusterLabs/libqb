@@ -221,6 +221,14 @@ ssize_t qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 			 int32_t ms_timeout);
 
 /**
+ * Get the reference count.
+ *
+ * @param rb ringbuffer instance
+ * @return the number of references
+ */
+int32_t qb_rb_refcount_get(qb_ringbuffer_t * rb);
+
+/**
  * The amount of free space in the ring buffer.
  *
  * @note Some of this space will be consumed by the chunk headers.
