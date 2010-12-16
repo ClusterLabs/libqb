@@ -203,7 +203,7 @@ static int32_t stop_process(pid_t pid)
 
 #define IPC_BUF_SIZE (1024 * 1024)
 static char buffer[IPC_BUF_SIZE];
-static int32_t send_and_check(uint32_t size)
+static int32_t send_and_check(uint32_t size, int32_t ms_timeout)
 {
 	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
@@ -229,11 +229,14 @@ repeat_send:
 			return res;
 		}
 	}
-
+ repeat_recv:
 	res = qb_ipcc_recv(conn, &res_header,
-			sizeof(struct qb_ipc_response_header), -1);
+			sizeof(struct qb_ipc_response_header), ms_timeout);
 	if (res == -EINTR) {
 		return -1;
+	}
+	if (res == -EAGAIN || res == -ETIMEDOUT) {
+		goto repeat_recv;
 	}
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 	ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
@@ -241,6 +244,7 @@ repeat_send:
 	return 0;
 }
 
+static int32_t recv_timeout = -1;
 static void test_ipc_txrx(void)
 {
 	int32_t j;
@@ -268,7 +272,7 @@ static void test_ipc_txrx(void)
 		size *= 2;
 		if (size >= MAX_MSG_SIZE)
 			break;
-		if (send_and_check(size) < 0) {
+		if (send_and_check(size, recv_timeout) < 0) {
 			break;
 		}
 	}
@@ -279,16 +283,34 @@ static void test_ipc_txrx(void)
 	stop_process(pid);
 }
 
-START_TEST(test_ipc_txrx_shm)
+START_TEST(test_ipc_txrx_shm_tmo)
 {
 	ipc_type = QB_IPC_SHM;
+	recv_timeout = 1000;
 	test_ipc_txrx();
 }
 END_TEST
 
-START_TEST(test_ipc_txrx_us)
+START_TEST(test_ipc_txrx_shm_block)
+{
+	ipc_type = QB_IPC_SHM;
+	recv_timeout = -1;
+	test_ipc_txrx();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_us_block)
 {
 	ipc_type = QB_IPC_SOCKET;
+	recv_timeout = -1;
+	test_ipc_txrx();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_us_tmo)
+{
+	ipc_type = QB_IPC_SOCKET;
+	recv_timeout = 1000;
 	test_ipc_txrx();
 }
 END_TEST
@@ -485,13 +507,23 @@ static Suite *ipc_suite(void)
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
-	tc = tcase_create("ipc_txrx_shm");
-	tcase_add_test(tc, test_ipc_txrx_shm);
+	tc = tcase_create("ipc_txrx_shm_block");
+	tcase_add_test(tc, test_ipc_txrx_shm_block);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
-	tc = tcase_create("ipc_txrx_us");
-	tcase_add_test(tc, test_ipc_txrx_us);
+	tc = tcase_create("ipc_txrx_shm_tmo");
+	tcase_add_test(tc, test_ipc_txrx_shm_tmo);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_txrx_us_block");
+	tcase_add_test(tc, test_ipc_txrx_us_block);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_txrx_us_tmo");
+	tcase_add_test(tc, test_ipc_txrx_us_tmo);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
