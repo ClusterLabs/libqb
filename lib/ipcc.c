@@ -87,8 +87,17 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 	if (msg_len > c->request.max_msg_size) {
 		return -EINVAL;
 	}
-	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
-		return -EAGAIN;
+	if (c->funcs.fc_get) {
+		res = c->funcs.fc_get(&c->request);
+		if (res < 0) {
+			return res;
+		} else if (res > 0) {
+			return -EAGAIN;
+		} else {
+			/*
+			 * we can transmit
+			 */
+		}
 	}
 
 	res = c->funcs.send(&c->request, msg_ptr, msg_len);
@@ -96,6 +105,9 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 		do {
 			res2 = qb_ipc_us_send(&c->setup, msg_ptr, 1);
 		} while (res2 == -EAGAIN);
+		if (res2 == -EPIPE) {
+			return -ENOTCONN;
+		}
 		if (res2 != 1) {
 			res = res2;
 		}
@@ -109,6 +121,7 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 	int32_t total_size = 0;
 	int32_t i;
 	int32_t res;
+	int32_t res2;
 
 	for (i = 0; i < iov_len; i++) {
 		total_size += iov[i].iov_len;
@@ -117,15 +130,30 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 		return -EINVAL;
 	}
 
-	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
-		return -EAGAIN;
+	if (c->funcs.fc_get) {
+		res = c->funcs.fc_get(&c->request);
+		if (res < 0) {
+			return res;
+		} else if (res > 0) {
+			return -EAGAIN;
+		} else {
+			/*
+			 * we can transmit
+			 */
+		}
 	}
 
 	res = c->funcs.sendv(&c->request, iov, iov_len);
 	if (res > 0 && c->needs_sock_for_poll) {
 		do {
-			res = qb_ipc_us_send(&c->setup, &res, 1);
-		} while (res == -EAGAIN);
+			res2 = qb_ipc_us_send(&c->setup, &res, 1);
+		} while (res2 == -EAGAIN);
+		if (res2 == -EPIPE) {
+			return -ENOTCONN;
+		}
+		if (res2 != 1) {
+			res = res2;
+		}
 	}
 	return res;
 }
@@ -155,8 +183,17 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
 {
 	ssize_t res = 0;
 
-	if (c->funcs.fc_get && c->funcs.fc_get(&c->request)) {
-		return -EAGAIN;
+	if (c->funcs.fc_get) {
+		res = c->funcs.fc_get(&c->request);
+		if (res < 0) {
+			return res;
+		} else if (res > 0) {
+			return -EAGAIN;
+		} else {
+			/*
+			 * we can transmit
+			 */
+		}
 	}
 
 	res = qb_ipcc_sendv(c, iov, iov_len);

@@ -88,7 +88,7 @@ repeat_send:
 	if (res < 0) {
 		if (res == -EAGAIN) {
 			goto repeat_send;
-		} else if (res == -EINVAL || res == -EINTR) {
+		} else if (res == -EINVAL || res == -EINTR || res == -ENOTCONN) {
 			perror("qb_ipcc_send");
 			return -1;
 		} else {

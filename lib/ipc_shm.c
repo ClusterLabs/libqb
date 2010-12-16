@@ -123,6 +123,11 @@ static void qb_ipc_shm_fc_set(struct qb_ipc_one_way *one_way,
 static int32_t qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
 {
 	int32_t *fc;
+	int32_t rc = qb_rb_refcount_get(one_way->u.shm.rb);
+
+	if (rc != 2) {
+		return -ENOTCONN;
+	}
 	fc = qb_rb_shared_user_data_get(one_way->u.shm.rb);
 	return *fc;
 }
