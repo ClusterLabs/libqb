@@ -208,7 +208,12 @@ static void poll_fds_usage_check(struct qb_poll_source *s)
 		if (pe->state == QB_POLL_ENTRY_ACTIVE && pe->ufd.fd != -1) {
 			socks_used++;
 		}
+		if (pe->state == QB_POLL_ENTRY_DELETED ||
+		    pe->state == QB_POLL_ENTRY_EXPIRED) {
+		    pe->state = QB_POLL_ENTRY_EMPTY;
+		}
 	}
+
 	socks_avail = socks_limit - socks_used;
 	if (socks_avail < 0) {
 		socks_avail = 0;
@@ -238,19 +243,11 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	int32_t i;
 	int32_t res;
 	int32_t new_jobs = 0;
-	struct qb_poll_entry * pe;
+	struct qb_poll_entry * pe = NULL;
 	struct qb_poll_source * s = (struct qb_poll_source *)src;
 	struct epoll_event events[MAX_EVENTS];
 
 	poll_fds_usage_check(s);
-
-	for (i = 0; i < s->poll_entry_count; i++) {
-		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
-		if (pe->state == QB_POLL_ENTRY_DELETED ||
-		    pe->state == QB_POLL_ENTRY_EXPIRED) {
-		    pe->state = QB_POLL_ENTRY_EMPTY;
-		}
-	}
 
  retry_poll:
 
@@ -293,11 +290,6 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	for (i = 0; i < s->poll_entry_count; i++) {
 		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
 		memcpy(&s->ufds[i], &pe->ufd, sizeof(struct pollfd));
-
-		if (pe->state == QB_POLL_ENTRY_DELETED ||
-		    pe->state == QB_POLL_ENTRY_EXPIRED) {
-		    pe->state = QB_POLL_ENTRY_EMPTY;
-		}
 	}
 
  retry_poll:
