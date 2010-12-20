@@ -36,6 +36,7 @@ struct qb_loop_item {
 struct qb_loop_level {
 	enum qb_loop_priority priority;
 	int32_t to_process;
+	int32_t todo;
 	struct qb_list_head wait_head;
 	struct qb_list_head job_head;
 	struct qb_loop *l;
@@ -79,6 +80,11 @@ void qb_loop_signals_destroy(struct qb_loop *l);
 
 int32_t qb_loop_timer_msec_duration_to_expire(struct qb_loop_source *timer_source);
 
+void qb_loop_level_item_add(struct qb_loop_level *level,
+			    struct qb_loop_item *job);
+
+void qb_loop_level_item_del(struct qb_loop_level *level,
+			    struct qb_loop_item *job);
 
 #endif /* QB_LOOP_INT_DEFINED */
 

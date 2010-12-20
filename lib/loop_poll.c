@@ -460,8 +460,8 @@ static int32_t _poll_add_(struct qb_loop *l,
 
 static int32_t _qb_poll_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe)
 {
-	qb_list_init(&pe->item.list);
-	qb_list_add_tail(&pe->item.list, &l->level[pe->p].job_head);
+	assert(pe->type == QB_POLL);
+	qb_loop_level_item_add(&l->level[pe->p], &pe->item);
 	return 1;
 }
 
@@ -565,10 +565,10 @@ static int32_t _qb_timer_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* p
 {
 	uint64_t expired = 0;
 
+	assert(pe->type == QB_TIMER);
 	if (pe->ufd.revents == POLLIN) {
 		(void)read(pe->ufd.fd, &expired, sizeof(expired));
-		qb_list_init(&pe->item.list);
-		qb_list_add_tail(&pe->item.list, &l->level[pe->p].job_head);
+		qb_loop_level_item_add(&l->level[pe->p], &pe->item);
 	} else {
 		qb_util_log(LOG_ERR, "timer revents: %d expected %d",
 			    pe->ufd.revents, POLLIN);
@@ -847,9 +847,7 @@ static int32_t _qb_signal_add_to_jobs_(struct qb_loop* l,
 			memcpy(new_sig_job, sig, sizeof(struct qb_loop_sig));
 
 			new_sig_job->cloned_from = sig;
-			qb_list_init(&new_sig_job->item.list);
-			qb_list_add_tail(&new_sig_job->item.list,
-					 &l->level[pe->p].job_head);
+			qb_loop_level_item_add(&l->level[pe->p], &new_sig_job->item);
 			jobs_added++;
 		}
 	}

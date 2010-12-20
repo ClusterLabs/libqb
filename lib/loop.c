@@ -24,6 +24,7 @@
 #include <qb/qblist.h>
 #include <qb/qbloop.h>
 #include "loop_int.h"
+#include "util_int.h"
 
 static int32_t qb_loop_run_level(struct qb_loop_level *level)
 {
@@ -39,6 +40,7 @@ static int32_t qb_loop_run_level(struct qb_loop_level *level)
 		qb_list_del (&job->list);
 		qb_list_init (&job->list);
 		job->source->dispatch_and_take_back(job, level->priority);
+		level->todo--;
 		processed++;
 		if (level->l->stop_requested) {
 			return processed;
@@ -50,6 +52,21 @@ static int32_t qb_loop_run_level(struct qb_loop_level *level)
 	return processed;
 }
 
+void qb_loop_level_item_add(struct qb_loop_level *level,
+			    struct qb_loop_item *job)
+{
+	qb_list_init(&job->list);
+	qb_list_add_tail(&job->list, &level->job_head);
+	level->todo++;
+}
+
+void qb_loop_level_item_del(struct qb_loop_level *level,
+			    struct qb_loop_item *job)
+{
+	qb_list_del(&job->list);
+	qb_list_init(&job->list);
+	level->todo--;
+}
 
 struct qb_loop * qb_loop_create(void)
 {
@@ -59,6 +76,7 @@ struct qb_loop * qb_loop_create(void)
 	for (p = QB_LOOP_LOW; p <= QB_LOOP_HIGH; p++) {
 		l->level[p].priority = p;
 		l->level[p].to_process = 4;
+		l->level[p].todo = 0;
 		l->level[p].l = l;
 
 		qb_list_init(&l->level[p].job_head);
@@ -120,6 +138,7 @@ void qb_loop_run(struct qb_loop *l)
 			}
 		}
 		todo += l->fd_source->poll(l->fd_source, ms_timeout);
+//		qb_poll_print(l);
 
 		for (p = QB_LOOP_HIGH; p >= p_stop; p--) {
 			todo -= qb_loop_run_level(&l->level[p]);
