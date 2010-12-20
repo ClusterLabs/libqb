@@ -49,10 +49,11 @@
 #define POLL_FDS_USED_MISC 50
 
 enum qb_poll_type {
-	QB_POLL,
-	QB_TIMER,
-	QB_SIGNAL,
+	QB_UNKNOWN,
 	QB_JOB,
+	QB_POLL,
+	QB_SIGNAL,
+	QB_TIMER,
 };
 
 enum qb_poll_entry_state {
@@ -140,10 +141,14 @@ static void poll_dispatch_and_take_back(struct qb_loop_item * item,
 			pe->state = QB_POLL_ENTRY_EXPIRED;
 			pe->ufd.fd = -1; /* empty entry */
 		}
-	} else {
+	} else if (pe->type == QB_TIMER) {
 		pe->state = QB_POLL_ENTRY_EXPIRED;
 		memset(pe->handle_addr, 0, sizeof(struct qb_poll_entry *));
 		pe->timer_dispatch_fn(pe->item.user_data);
+	} else {
+		qb_util_log(LOG_WARNING, "poll entry of unknown type:%d state:%d",
+				pe->type, pe->state);
+		return;
 	}
 	if (pe->state == QB_POLL_ENTRY_ACTIVE) {
 		pe->ufd.revents = 0;
