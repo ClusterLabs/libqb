@@ -321,6 +321,77 @@ START_TEST(test_loop_timer_precision)
 }
 END_TEST
 
+static int expire_leak_counter = 0;
+#define EXPIRE_NUM_RUNS 10
+static int expire_leak_runs = 0;
+
+static void empty_func_tmo(void*data)
+{
+	expire_leak_counter++;
+}
+
+static void stop_func_tmo(void*data)
+{
+	qb_loop_t *l = (qb_loop_t *)data;
+	printf("%s(%d)\n", __func__, expire_leak_counter);
+	qb_loop_stop(l);
+}
+
+static void next_func_tmo(void*data)
+{
+	qb_loop_t *l = (qb_loop_t *)data;
+	int32_t i;
+	uint64_t tmo;
+	uint64_t max_tmo = 0;
+	qb_loop_timer_handle th;
+
+	printf("%s(%d)\n", __func__, expire_leak_counter);
+	for (i = 0; i < 300; i++) {
+		tmo = ((1 + i) * QB_TIME_NS_IN_MSEC) + 500000;
+		qb_loop_timer_add(l, QB_LOOP_LOW, tmo, NULL, empty_func_tmo, &th);
+		qb_loop_timer_add(l, QB_LOOP_MED, tmo, NULL, empty_func_tmo, &th);
+		qb_loop_timer_add(l, QB_LOOP_HIGH, tmo, NULL, empty_func_tmo, &th);
+		max_tmo = QB_MAX(max_tmo, tmo);
+	}
+	expire_leak_runs++;
+	if (expire_leak_runs == EXPIRE_NUM_RUNS) {
+		qb_loop_timer_add(l, QB_LOOP_LOW, max_tmo, l, stop_func_tmo, &th);
+	} else {
+		qb_loop_timer_add(l, QB_LOOP_LOW, max_tmo, l, next_func_tmo, &th);
+	}
+}
+
+/*
+ * make sure that file descriptors don't get leaked with no qb_loop_timer_del()
+ */
+START_TEST(test_loop_timer_expire_leak)
+{
+	int32_t i;
+	uint64_t tmo;
+	uint64_t max_tmo = 0;
+	qb_loop_timer_handle th;
+	qb_loop_t *l = qb_loop_create();
+
+	fail_if(l == NULL);
+
+	expire_leak_counter = 0;
+	for (i = 0; i < 300; i++) {
+		tmo = ((1 + i) * QB_TIME_NS_IN_MSEC) + 500000;
+		qb_loop_timer_add(l, QB_LOOP_LOW, tmo, NULL, empty_func_tmo, &th);
+		qb_loop_timer_add(l, QB_LOOP_MED, tmo, NULL, empty_func_tmo, &th);
+		qb_loop_timer_add(l, QB_LOOP_HIGH, tmo, NULL, empty_func_tmo, &th);
+		max_tmo = QB_MAX(max_tmo, tmo);
+	}
+	qb_loop_timer_add(l, QB_LOOP_LOW, max_tmo, l, next_func_tmo, &th);
+	expire_leak_runs = 1;
+
+	qb_loop_run(l);
+
+	ck_assert_int_eq(expire_leak_counter, 300*3* EXPIRE_NUM_RUNS);
+	qb_loop_destroy(l);
+}
+END_TEST
+
 static Suite *loop_timer_suite(void)
 {
 	TCase *tc;
@@ -339,6 +410,12 @@ static Suite *loop_timer_suite(void)
 	tcase_add_test(tc, test_loop_timer_precision);
 	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
+
+	tc = tcase_create("expire_leak");
+	tcase_add_test(tc, test_loop_timer_expire_leak);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
+
 
 	return s;
 }
