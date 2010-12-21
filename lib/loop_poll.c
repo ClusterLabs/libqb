@@ -99,7 +99,7 @@ static int32_t _qb_signal_add_to_jobs_(struct qb_loop* l,
 				       struct qb_poll_entry* pe);
 
 #ifdef HAVE_EPOLL
-static int32_t poll_to_epoll_event(int32_t event)
+static int32_t _poll_to_epoll_event_(int32_t event)
 {
 	int32_t out = 0;
 	if (event & POLLIN) out |= EPOLLIN;
@@ -111,7 +111,7 @@ static int32_t poll_to_epoll_event(int32_t event)
 	return out;
 }
 
-static int32_t epoll_to_poll_event(int32_t event)
+static int32_t _epoll_to_poll_event_(int32_t event)
 {
 	int32_t out = 0;
 	if (event & EPOLLIN)   out |= POLLIN;
@@ -123,7 +123,7 @@ static int32_t epoll_to_poll_event(int32_t event)
 }
 #endif /* HAVE_EPOLL */
 
-static void poll_dispatch_and_take_back(struct qb_loop_item * item,
+static void _poll_dispatch_and_take_back_(struct qb_loop_item * item,
 					enum qb_loop_priority p)
 {
 	struct qb_poll_entry *pe = (struct qb_poll_entry *)item;
@@ -179,7 +179,7 @@ static void poll_dispatch_and_take_back(struct qb_loop_item * item,
 	}
 }
 
-static void poll_fds_usage_check(struct qb_poll_source *s)
+static void _poll_fds_usage_check_(struct qb_poll_source *s)
 {
 	struct rlimit lim;
 	static int32_t socks_limit = 0;
@@ -238,7 +238,7 @@ static void poll_fds_usage_check(struct qb_poll_source *s)
 
 #ifdef HAVE_EPOLL
 #define MAX_EVENTS 12
-static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeout)
+static int32_t _poll_and_add_to_jobs_(struct qb_loop_source* src, int32_t ms_timeout)
 {
 	int32_t i;
 	int32_t res;
@@ -247,7 +247,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	struct qb_poll_source * s = (struct qb_poll_source *)src;
 	struct epoll_event events[MAX_EVENTS];
 
-	poll_fds_usage_check(s);
+	_poll_fds_usage_check_(s);
 
  retry_poll:
 
@@ -269,7 +269,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 			// entry already in the job queue.
 			continue;
 		}
-		pe->ufd.revents = epoll_to_poll_event(events[i].events);
+		pe->ufd.revents = _epoll_to_poll_event_(events[i].events);
 
 		new_jobs += pe->add_to_jobs(src->l, pe);
 	}
@@ -277,7 +277,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	return new_jobs;
 }
 #else
-static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeout)
+static int32_t _poll_and_add_to_jobs_(struct qb_loop_source* src, int32_t ms_timeout)
 {
 	int32_t i;
 	int32_t res;
@@ -285,7 +285,7 @@ static int32_t poll_and_add_to_jobs(struct qb_loop_source* src, int32_t ms_timeo
 	struct qb_poll_entry * pe;
 	struct qb_poll_source * s = (struct qb_poll_source *)src;
 
-	poll_fds_usage_check(s);
+	_poll_fds_usage_check_(s);
 
 	for (i = 0; i < s->poll_entry_count; i++) {
 		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
@@ -323,8 +323,8 @@ qb_loop_poll_create(struct qb_loop *l)
 {
 	struct qb_poll_source *s = malloc(sizeof(struct qb_poll_source));
 	s->s.l = l;
-	s->s.dispatch_and_take_back = poll_dispatch_and_take_back;
-	s->s.poll = poll_and_add_to_jobs;
+	s->s.dispatch_and_take_back = _poll_dispatch_and_take_back_;
+	s->s.poll = _poll_and_add_to_jobs_;
 
 	s->poll_entries = qb_array_create(128, sizeof(struct qb_poll_entry));
 	s->poll_entry_count = 0;
@@ -442,7 +442,7 @@ static int32_t _poll_add_(struct qb_loop *l,
 	pe->p = p;
 	pe->runs = 0;
 #ifdef HAVE_EPOLL
-	ev.events = poll_to_epoll_event(events);
+	ev.events = _poll_to_epoll_event_(events);
 	ev.data.u64 = 0; /* valgrind */
 	ev.data.u32 = install_pos;
 	if (epoll_ctl(s->epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
@@ -506,7 +506,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 		pe->p = p;
 		if (pe->ufd.events != events) {
 #ifdef HAVE_EPOLL
-			ev.events = poll_to_epoll_event(events);
+			ev.events = _poll_to_epoll_event_(events);
 			ev.data.u32 = i;
 			if (epoll_ctl(s->epollfd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				res = -errno;
@@ -744,7 +744,7 @@ static void _handle_real_signal_(int signal_num, siginfo_t * si, void *context)
 	}
 }
 
-static void signal_dispatch_and_take_back(struct qb_loop_item * item,
+static void _signal_dispatch_and_take_back_(struct qb_loop_item * item,
 					enum qb_loop_priority p)
 {
 	struct qb_loop_sig *sig = (struct qb_loop_sig *)item;
@@ -767,7 +767,7 @@ qb_loop_signals_create(struct qb_loop *l)
 	struct qb_signal_source *s = calloc(1, sizeof(struct qb_signal_source));
 
 	s->s.l = l;
-	s->s.dispatch_and_take_back = signal_dispatch_and_take_back;
+	s->s.dispatch_and_take_back = _signal_dispatch_and_take_back_;
 	s->s.poll = NULL;
 	qb_list_init(&s->sig_head);
 	sigemptyset(&s->signal_superset);
