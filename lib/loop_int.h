@@ -86,5 +86,12 @@ void qb_loop_level_item_add(struct qb_loop_level *level,
 void qb_loop_level_item_del(struct qb_loop_level *level,
 			    struct qb_loop_item *job);
 
+enum qb_poll_entry_state {
+	QB_POLL_ENTRY_EMPTY,
+	QB_POLL_ENTRY_JOBLIST,
+	QB_POLL_ENTRY_DELETED,
+	QB_POLL_ENTRY_ACTIVE,
+};
+
 #endif /* QB_LOOP_INT_DEFINED */
 

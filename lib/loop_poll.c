@@ -56,13 +56,6 @@ enum qb_poll_type {
 	QB_TIMER,
 };
 
-enum qb_poll_entry_state {
-	QB_POLL_ENTRY_EMPTY,
-	QB_POLL_ENTRY_EXPIRED,
-	QB_POLL_ENTRY_DELETED,
-	QB_POLL_ENTRY_ACTIVE,
-};
-
 
 struct qb_poll_entry;
 
@@ -74,12 +67,12 @@ struct qb_poll_entry {
 	qb_loop_poll_dispatch_fn poll_dispatch_fn;
 	qb_loop_timer_dispatch_fn timer_dispatch_fn;
 	enum qb_loop_priority p;
-	int32_t install_pos;
+	uint32_t install_pos;
 	struct pollfd ufd;
 	qb_poll_add_to_jobs_fn add_to_jobs;
 	uint32_t runs;
 	enum qb_poll_entry_state state;
-	qb_loop_timer_handle handle_addr;
+	uint32_t check;
 };
 
 struct qb_poll_source {
@@ -123,8 +116,56 @@ static int32_t _epoll_to_poll_event_(int32_t event)
 }
 #endif /* HAVE_EPOLL */
 
+static void _poll_entry_check_generate_(struct qb_poll_entry *pe)
+{
+	int32_t i;
+
+	for (i = 0; i < 200; i++) {
+		pe->check = random();
+
+		if (pe->check != 0 && pe->check != 0xffffffff) {
+			break;
+		}
+	}
+}
+
+#if defined(HAVE_TIMERFD) || defined(HAVE_EPOLL)
+static int32_t _poll_entry_from_handle_(struct qb_poll_source *s,
+					uint64_t handle_in,
+					struct qb_poll_entry **pe_pt)
+{
+	int32_t res = 0;
+	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
+	uint32_t handle = handle_in & 0xffffffff;
+	struct qb_poll_entry *pe;
+
+	res = qb_array_index(s->poll_entries, handle, (void**)&pe);
+	if (res != 0) {
+		return res;
+	}
+	if (pe->check != check) {
+		return -EINVAL;
+	}
+	*pe_pt = pe;
+	return 0;
+}
+#endif /* HAVE_TIMERFD or HAVE_EPOLL */
+
+static void _poll_entry_mark_deleted_(struct qb_poll_entry *pe)
+{
+	pe->ufd.fd = -1;
+	pe->state = QB_POLL_ENTRY_DELETED;
+	pe->check = 0;
+}
+
+static void _poll_entry_empty_(struct qb_poll_entry *pe)
+{
+	memset(pe, 0, sizeof(struct qb_poll_entry));
+	pe->ufd.fd = -1;
+}
+
 static void _poll_dispatch_and_take_back_(struct qb_loop_item * item,
-					enum qb_loop_priority p)
+					  enum qb_loop_priority p)
 {
 	struct qb_poll_entry *pe = (struct qb_poll_entry *)item;
 	int32_t res;
@@ -135,23 +176,26 @@ static void _poll_dispatch_and_take_back_(struct qb_loop_item * item,
 
 	start = qb_util_nano_current_get();
 #endif /* DEBUG_DISPATCH_TIME */
+
+	assert(pe->state == QB_POLL_ENTRY_JOBLIST);
+
 	if (pe->type == QB_POLL) {
 		res = pe->poll_dispatch_fn(pe->ufd.fd, pe->ufd.revents, pe->item.user_data);
 		if (res < 0) {
-			pe->state = QB_POLL_ENTRY_EXPIRED;
-			pe->ufd.fd = -1; /* empty entry */
+			_poll_entry_mark_deleted_(pe);
+		} else {
+			pe->state = QB_POLL_ENTRY_ACTIVE;
+			pe->ufd.revents = 0;
 		}
 	} else if (pe->type == QB_TIMER) {
-		pe->state = QB_POLL_ENTRY_EXPIRED;
-		memset(pe->handle_addr, 0, sizeof(struct qb_poll_entry *));
+		_poll_entry_mark_deleted_(pe);
 		pe->timer_dispatch_fn(pe->item.user_data);
 	} else {
 		qb_util_log(LOG_WARNING, "poll entry of unknown type:%d state:%d",
-				pe->type, pe->state);
+			    pe->type, pe->state);
 		return;
 	}
 	if (pe->state == QB_POLL_ENTRY_ACTIVE) {
-		pe->ufd.revents = 0;
 #ifdef DEBUG_DISPATCH_TIME
 		pe->runs++;
 		if ((pe->runs % 50) == 0) {
@@ -205,12 +249,13 @@ static void _poll_fds_usage_check_(struct qb_poll_source *s)
 
 	for (i = 0; i < s->poll_entry_count; i++) {
 		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
-		if (pe->state == QB_POLL_ENTRY_ACTIVE && pe->ufd.fd != -1) {
+		if ((pe->state == QB_POLL_ENTRY_ACTIVE ||
+		     pe->state == QB_POLL_ENTRY_JOBLIST) &&
+		    pe->ufd.fd != -1) {
 			socks_used++;
 		}
-		if (pe->state == QB_POLL_ENTRY_DELETED ||
-		    pe->state == QB_POLL_ENTRY_EXPIRED) {
-		    pe->state = QB_POLL_ENTRY_EMPTY;
+		if (pe->state == QB_POLL_ENTRY_DELETED) {
+			_poll_entry_empty_(pe);
 		}
 	}
 
@@ -232,7 +277,7 @@ static void _poll_fds_usage_check_(struct qb_poll_source *s)
 	}
 	if (send_event && s->low_fds_event_fn) {
 		s->low_fds_event_fn(s->not_enough_fds,
-			socks_avail);
+				    socks_avail);
 	}
 }
 
@@ -242,6 +287,7 @@ static int32_t _poll_and_add_to_jobs_(struct qb_loop_source* src, int32_t ms_tim
 {
 	int32_t i;
 	int32_t res;
+	int32_t event_count;
 	int32_t new_jobs = 0;
 	struct qb_poll_entry * pe = NULL;
 	struct qb_poll_source * s = (struct qb_poll_source *)src;
@@ -251,22 +297,32 @@ static int32_t _poll_and_add_to_jobs_(struct qb_loop_source* src, int32_t ms_tim
 
  retry_poll:
 
-	res = epoll_wait(s->epollfd, events, MAX_EVENTS, ms_timeout);
+	event_count = epoll_wait(s->epollfd, events, MAX_EVENTS, ms_timeout);
 
-	if (errno == EINTR && res == -1) {
+	if (errno == EINTR && event_count == -1) {
 		goto retry_poll;
-	} else if (res == -1) {
+	} else if (event_count == -1) {
 		return -errno;
 	}
 
-	for (i = 0; i < res; i++) {
-		assert(qb_array_index(s->poll_entries, events[i].data.u32, (void**)&pe) == 0);
-		if (pe->ufd.fd == -1) {
-			// empty
+	for (i = 0; i < event_count; i++) {
+		res = _poll_entry_from_handle_(s, events[i].data.u64, &pe);
+		if (res != 0) {
+			qb_util_log(LOG_WARNING, "can't find poll entry for new event.");
 			continue;
 		}
-		if (events[i].events == pe->ufd.revents) {
-			// entry already in the job queue.
+		if (pe->ufd.fd == -1 || pe->state == QB_POLL_ENTRY_DELETED) {
+			qb_util_log(LOG_WARNING, "can't post new event to a deleted entry.");
+			/*
+			 * empty/deleted
+			 */
+			continue;
+		}
+		if (events[i].events == pe->ufd.revents ||
+		    pe->state == QB_POLL_ENTRY_JOBLIST) {
+			/*
+			 * entry already in the job queue.
+			 */
 			continue;
 		}
 		pe->ufd.revents = _epoll_to_poll_event_(events[i].events);
@@ -302,12 +358,17 @@ static int32_t _poll_and_add_to_jobs_(struct qb_loop_source* src, int32_t ms_tim
 
 	for (i = 0; i < s->poll_entry_count; i++) {
 		if (s->ufds[i].fd == -1 || s->ufds[i].revents == 0) {
-			// empty
+			/*
+			 * empty entry
+			 */
 			continue;
 		}
 		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
-		if (s->ufds[i].revents == pe->ufd.revents) {
-			// entry already in the job queue.
+		if (pe->state != QB_POLL_ENTRY_ACTIVE ||
+		    s->ufds[i].revents == pe->ufd.revents) {
+			/*
+			 * Wrong state to accept an event.
+			 */
 			continue;
 		}
 		pe->ufd.revents = s->ufds[i].revents;
@@ -365,7 +426,7 @@ int32_t qb_loop_poll_low_fds_event_set(struct qb_loop *l,
 static int32_t _get_empty_array_position_(struct qb_poll_source * s)
 {
 	int32_t found = 0;
-	int32_t install_pos;
+	uint32_t install_pos;
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
 #ifndef HAVE_EPOLL
@@ -387,7 +448,7 @@ static int32_t _get_empty_array_position_(struct qb_poll_source * s)
 		 * Grow pollfd list
 		 */
 		res = qb_array_grow(s->poll_entries,
-				     s->poll_entry_count + 1);
+				    s->poll_entry_count + 1);
 		if (res != 0) {
 			return res;
 		}
@@ -407,16 +468,15 @@ static int32_t _get_empty_array_position_(struct qb_poll_source * s)
 	return install_pos;
 }
 
-
 static int32_t _poll_add_(struct qb_loop *l,
-			 enum qb_loop_priority p,
-			 int32_t fd,
-			 int32_t events,
-			 void *data,
-			 struct qb_poll_entry **pe_pt)
+			  enum qb_loop_priority p,
+			  int32_t fd,
+			  int32_t events,
+			  void *data,
+			  struct qb_poll_entry **pe_pt)
 {
 	struct qb_poll_entry *pe;
-	int32_t install_pos;
+	uint32_t install_pos;
 	int32_t res = 0;
 	struct qb_poll_source * s;
 #ifdef HAVE_EPOLL
@@ -434,6 +494,7 @@ static int32_t _poll_add_(struct qb_loop *l,
 	assert(qb_array_index(s->poll_entries, install_pos, (void**)&pe) == 0);
 	pe->state = QB_POLL_ENTRY_ACTIVE;
 	pe->install_pos = install_pos;
+	_poll_entry_check_generate_(pe);
 	pe->ufd.fd = fd;
 	pe->ufd.events = events;
 	pe->ufd.revents = 0;
@@ -443,8 +504,7 @@ static int32_t _poll_add_(struct qb_loop *l,
 	pe->runs = 0;
 #ifdef HAVE_EPOLL
 	ev.events = _poll_to_epoll_event_(events);
-	ev.data.u64 = 0; /* valgrind */
-	ev.data.u32 = install_pos;
+	ev.data.u64 = (((uint64_t) (pe->check)) << 32) | pe->install_pos;
 	if (epoll_ctl(s->epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		res = -errno;
 		qb_util_log(LOG_ERR, "epoll_ctl(add) : %s", strerror(-res));
@@ -459,6 +519,7 @@ static int32_t _qb_poll_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe
 {
 	assert(pe->type == QB_POLL);
 	qb_loop_level_item_add(&l->level[pe->p], &pe->item);
+	pe->state = QB_POLL_ENTRY_JOBLIST;
 	return 1;
 }
 
@@ -470,10 +531,23 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 			 qb_loop_poll_dispatch_fn dispatch_fn)
 {
 	struct qb_poll_entry *pe = NULL;
-	int32_t res = _poll_add_(l, p, fd, events, data, &pe);
+	int32_t size;
+	int32_t new_size;
+	int32_t res;
+
+	size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
+	res = _poll_add_(l, p, fd, events, data, &pe);
+	new_size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
+
 	pe->poll_dispatch_fn = dispatch_fn;
 	pe->type = QB_POLL;
 	pe->add_to_jobs = _qb_poll_add_to_jobs_;
+
+	if (new_size > size) {
+		qb_util_log(LOG_DEBUG,
+			    "grown poll array to %d for FD %d",
+			    new_size, fd);
+	}
 
 	return res;
 }
@@ -485,7 +559,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 			 void *data,
 			 qb_loop_poll_dispatch_fn dispatch_fn)
 {
-	int32_t i;
+	uint32_t i;
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
 	struct qb_poll_source * s = (struct qb_poll_source *)l->fd_source;
@@ -501,13 +575,18 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 		if (pe->ufd.fd != fd) {
 			continue;
 		}
+		if (pe->state == QB_POLL_ENTRY_DELETED || pe->check == 0) {
+			qb_util_log(LOG_ERR,
+				    "poll_mod : can't modify entry already deleted");
+			return -EBADF;
+		}
 		pe->poll_dispatch_fn = dispatch_fn;
 		pe->item.user_data = data;
 		pe->p = p;
 		if (pe->ufd.events != events) {
 #ifdef HAVE_EPOLL
 			ev.events = _poll_to_epoll_event_(events);
-			ev.data.u32 = i;
+			ev.data.u64 = (((uint64_t) (pe->check)) << 32) | i;
 			if (epoll_ctl(s->epollfd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				res = -errno;
 				qb_util_log(LOG_ERR, "epoll_ctl(mod) : %s", strerror(-res));
@@ -528,18 +607,18 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 	struct qb_poll_entry *pe;
 	struct qb_poll_source * s = (struct qb_poll_source *)l->fd_source;
 
-	/*
-	 * Find file descriptor to modify events and dispatch function
-	 */
 	for (i = 0; i < s->poll_entry_count; i++) {
 		assert(qb_array_index(s->poll_entries, i, (void**)&pe) == 0);
-		if (pe->ufd.fd != fd) {
+		if (pe->ufd.fd != fd || pe->type != QB_POLL) {
 			continue;
 		}
-		pe->ufd.fd = -1;
-		pe->state = QB_POLL_ENTRY_DELETED;
-		pe->ufd.events = 0;
-		pe->ufd.revents = 0;
+		if (pe->state == QB_POLL_ENTRY_DELETED ||
+		    pe->state == QB_POLL_ENTRY_EMPTY) {
+			return 0;
+		}
+		if (pe->state == QB_POLL_ENTRY_JOBLIST) {
+			qb_loop_level_item_del(&l->level[pe->p], &pe->item);
+		}
 #ifdef HAVE_EPOLL
 		if (epoll_ctl(s->epollfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
 			res = -errno;
@@ -551,6 +630,7 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 		s->ufds[i].events = 0;
 		s->ufds[i].revents = 0;
 #endif /* HAVE_EPOLL */
+		_poll_entry_mark_deleted_(pe);
 		return res;
 	}
 
@@ -572,6 +652,7 @@ static int32_t _qb_timer_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* p
 	}
 	close(pe->ufd.fd);
 	pe->ufd.fd = -1;
+	pe->state = QB_POLL_ENTRY_JOBLIST;
 	return 1;
 }
 
@@ -600,19 +681,23 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	struct qb_poll_entry *pe;
 	int32_t fd;
 	int32_t res;
+	int32_t size, new_size;
 	struct itimerspec its;
 
 	if (l == NULL || timer_fn == NULL) {
+		qb_util_log(LOG_ERR,
+			    "can't add a timer with either (l == NULL || timer_fn == NULL)");
 		return -EINVAL;
 	}
 	if (timer_handle_out == NULL) {
+		qb_util_log(LOG_ERR, "can't add a timer with (timer_handle_out == NULL)");
 		return -ENOENT;
 	}
 	fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC|TFD_NONBLOCK);
 	if (fd == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "timerfd_create() : %s",
-				    strerror(-res));
+		qb_util_log(LOG_ERR, "failed to create timer: %s",
+			    strerror(-res));
 		return res;
 	}
 
@@ -624,22 +709,26 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	res = timerfd_settime(fd, 0, &its, NULL);
 	if (res == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "timerfd_settime() : %s",
-				    strerror(-res));
+		qb_util_log(LOG_ERR, "failed to set time on timer: %s",
+			    strerror(-res));
 		goto close_and_return;
 	}
 
+	size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
 	res = _poll_add_(l, p, fd, POLLIN, data, &pe);
 	if (res != 0) {
-		qb_util_log(LOG_ERR, "_poll_add_() : %s",
-				    strerror(-res));
 		goto close_and_return;
+	}
+	new_size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
+	if (new_size > size) {
+		qb_util_log(LOG_DEBUG, "grown poll array to %d for timer %d",
+			    new_size, fd);
 	}
 	pe->timer_dispatch_fn = timer_fn;
 	pe->type = QB_TIMER;
 	pe->add_to_jobs = _qb_timer_add_to_jobs_;
-	*timer_handle_out = pe;
-	pe->handle_addr = timer_handle_out;
+
+	*timer_handle_out = (((uint64_t) (pe->check)) << 32) | pe->install_pos;
 
 	return res;
 
@@ -652,22 +741,34 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 {
 	struct qb_poll_entry *pe;
 	struct qb_poll_source *s;
-#ifdef HAVE_EPOLL
 	int32_t res;
-#endif /* HAVE_EPOLL */
 
-	if (l == NULL || th == NULL) {
+	if (l == NULL || th == 0) {
 		return -EINVAL;
 	}
-	pe = (struct qb_poll_entry *)th;
 	s = (struct qb_poll_source *)l->fd_source;
+	res = _poll_entry_from_handle_(s, th, &pe);
+	if (res != 0) {
+		return res;
+	}
 
 	if (pe->type != QB_TIMER) {
+		qb_util_log(LOG_WARNING,
+			    "trying to delete timer but handle points to type:%d",
+			    pe->type);
 		return -EINVAL;
 	}
-	memset(pe->handle_addr, 0, sizeof(struct qb_poll_entry *));
+	if (pe->state == QB_POLL_ENTRY_DELETED) {
+		return 0;
+	}
+	if (pe->state == QB_POLL_ENTRY_JOBLIST) {
+		qb_loop_level_item_del(&l->level[pe->p], &pe->item);
+		qb_util_log(LOG_DEBUG, "trying to delete timer in JOBLIST");
+	}
 	if (pe->state != QB_POLL_ENTRY_ACTIVE &&
-	    pe->state != QB_POLL_ENTRY_EXPIRED) {
+	    pe->state != QB_POLL_ENTRY_JOBLIST) {
+		qb_util_log(LOG_WARNING, "trying to delete timer with state:%d",
+			    pe->state);
 		return -EINVAL;
 	}
 	if (pe->ufd.fd != -1) {
@@ -683,11 +784,8 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 		s->ufds[pe->install_pos].revents = 0;
 #endif /* HAVE_EPOLL */
 		close(pe->ufd.fd);
-		pe->ufd.fd = -1;
 	}
-	pe->ufd.events = 0;
-	pe->ufd.revents = 0;
-	pe->state = QB_POLL_ENTRY_DELETED;
+	_poll_entry_mark_deleted_(pe);
 
 	return 0;
 }
@@ -695,12 +793,18 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle th)
 {
 	struct qb_poll_entry *pe;
+	struct qb_poll_source *s;
+	int32_t res = 0;
 	struct itimerspec its;
 
-	if (l == NULL || th == NULL) {
+	if (l == NULL || th == 0) {
 		return 0;
 	}
-	pe = (struct qb_poll_entry *)th;
+	s = (struct qb_poll_source *)l->fd_source;
+	res = _poll_entry_from_handle_(s, th, &pe);
+	if (res != 0) {
+		return res;
+	}
 
 	if (timerfd_gettime(pe->ufd.fd, &its) == -1) {
 		return 0;
@@ -745,7 +849,7 @@ static void _handle_real_signal_(int signal_num, siginfo_t * si, void *context)
 }
 
 static void _signal_dispatch_and_take_back_(struct qb_loop_item * item,
-					enum qb_loop_priority p)
+					    enum qb_loop_priority p)
 {
 	struct qb_loop_sig *sig = (struct qb_loop_sig *)item;
 	int32_t res;
