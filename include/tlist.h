@@ -79,31 +79,6 @@ static inline void timerlist_add(struct timerlist *timerlist,
 	}
 }
 
-static inline int32_t timerlist_add_absolute(struct timerlist *timerlist,
-					 void (*timer_fn) (void *data),
-					 void *data,
-					 uint64_t nano_from_epoch,
-					 timer_handle * handle)
-{
-	struct timerlist_timer *timer;
-
-	timer =
-	    (struct timerlist_timer *)malloc(sizeof(struct timerlist_timer));
-	if (timer == 0) {
-		return (-ENOMEM);
-	}
-
-	timer->expire_time = nano_from_epoch;
-	timer->is_absolute_timer = 1;
-	timer->data = data;
-	timer->timer_fn = timer_fn;
-	timer->handle_addr = handle;
-	timerlist_add(timerlist, timer);
-
-	*handle = timer;
-	return (0);
-}
-
 static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 					 void (*timer_fn) (void *data),
 					 void *data,
