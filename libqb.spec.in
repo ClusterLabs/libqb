@@ -2,71 +2,68 @@
 %global numcomm @numcomm@
 %global dirty @dirty@
 
-Name: libqb
-Summary: The Quarterback Client Server Developer Library
-Version: @version@
-Release: 1%{?numcomm:.%{numcomm}}%{?alphatag:.%{alphatag}}%{?dirty:.%{dirty}}%{?dist}
-License: LGPLv2+
-Group: System Environment/Libraries
-URL: http://www.libqb.org
-Source0: https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.gz
+Name:           libqb
+Version:        @version@
+Release:        1%{?numcomm:.%{numcomm}}%{?alphatag:.%{alphatag}}%{?dirty:.%{dirty}}%{?dist}
+Summary:        An IPC library for high performance servers.
 
-BuildRequires: autoconf automake libtool doxygen
+Group:          System Environment/Libraries
+License:        LGPLv2+
+URL:            http://www.libqb.org
+Source0:        https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.gz
+BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRequires:  autoconf automake libtool doxygen procps check-devel
+
+%description
+libqb provides high performance client server reusable features.
+Initially these are IPC and poll.
+
+%package        devel
+Summary:        Development files for %{name}
+Group:          Development/Libraries
+Requires:       %{name} = %{version}-%{release} pkgconfig
+
+%description    devel
+The %{name}-devel package contains libraries and header files for
+developing applications that use %{name}.
+
 
 %prep
 %setup -q -n %{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}
 
-./autogen.sh
-
-%{configure}
 
 %build
-make %{_smp_mflags}
+./autogen.sh
+%configure --disable-static
+make %{?_smp_mflags}
+
+%check
+make check
 
 %install
-rm -rf %{buildroot}
-
-make install DESTDIR=%{buildroot}
-
-## tree fixup
-# drop static libs
-rm -f %{buildroot}%{_libdir}/*.a
-# drop docs and html docs for now
-rm -rf %{buildroot}%{_docdir}/*
+rm -rf $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+find $RPM_BUILD_ROOT -name '*.la' -exec rm -f {} ';'
+rm -rf $RPM_BUILD_ROOT/%{_docdir}/*
 
 %clean
-rm -rf %{buildroot}
+rm -rf $RPM_BUILD_ROOT
 
-%description
-This package contains libqb libraries.
+%post -p /sbin/ldconfig
 
-%files -n libqb
+%postun -p /sbin/ldconfig
+
+%files
 %defattr(-,root,root,-)
 %doc COPYING
 %{_libdir}/libqb.so.*
 
-%post -n libqb -p /sbin/ldconfig
-
-%postun -n libqb -p /sbin/ldconfig
-
-%package -n libqb-devel
-Summary: The Quarterback Development Kit
-Group: Development/Libraries
-Requires: libqb = %{version}-%{release}
-Requires: pkgconfig
-
-%description -n libqb-devel
-This package contains include files and man pages used to develop using
-The Quarterback APIs.
-
-%files -n libqb-devel
+%files devel
 %defattr(-,root,root,-)
 %doc COPYING README
 %dir %{_includedir}/qb/
 %{_libdir}/libqb.so
-%{_libdir}/libqb.la
 %{_libdir}/pkgconfig/libqb.pc
 %{_includedir}/qb/qbloop.h
 %{_includedir}/qb/qbhdb.h
@@ -80,6 +77,7 @@ The Quarterback APIs.
 %{_includedir}/qb/qbatomic.h
 %{_includedir}/qb/qbarray.h
 %{_mandir}/man3/qb*3*
+
 
 %changelog
 * @date@ Autotools generated version <nobody@nowhere.org> - @version@-1-@numcomm@.@alphatag@.@dirty@
