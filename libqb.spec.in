@@ -1,20 +1,22 @@
 %global alphatag @alphatag@
+%global numcomm @numcomm@
+%global dirty @dirty@
 
 Name: libqb
 Summary: The Quarterback Client Server Developer Library
 Version: @version@
-Release: 1%{?alphatag:.%{alphatag}}%{?dist}
-License: LGPL-2.1
+Release: 1%{?numcomm:.%{numcomm}}%{?alphatag:.%{alphatag}}%{?dirty:.%{dirty}}%{?dist}
+License: LGPLv2+
 Group: System Environment/Libraries
 URL: http://www.libqb.org
-Source0: https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}.tar.gz
+Source0: https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.gz
 
 BuildRequires: autoconf automake
 
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %prep
-%setup -q -n %{name}-%{version}
+%setup -q -n %{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}
 
 ./autogen.sh
 
@@ -54,7 +56,6 @@ Summary: The Quarterback Development Kit
 Group: Development/Libraries
 Requires: libqb = %{version}-%{release}
 Requires: pkgconfig
-Provides: libqb-devel = %{version}
 
 %description -n libqb-devel
 This package contains include files and man pages used to develop using
@@ -81,5 +82,5 @@ The Quarterback APIs.
 %{_mandir}/man3/qb*3*
 
 %changelog
-* @date@ Autotools generated version <nobody@nowhere.org> - @version@-1.@alphatag@
+* @date@ Autotools generated version <nobody@nowhere.org> - @version@-1-@numcomm@.@alphatag@.@dirty@
 - Autotools generated version
