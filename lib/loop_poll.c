@@ -641,10 +641,16 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 static int32_t _qb_timer_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* pe)
 {
 	uint64_t expired = 0;
+	ssize_t bytes = 0;
 
 	assert(pe->type == QB_TIMER);
 	if (pe->ufd.revents == POLLIN) {
-		(void)read(pe->ufd.fd, &expired, sizeof(expired));
+		bytes = read(pe->ufd.fd, &expired, sizeof(expired));
+		if (bytes != sizeof(expired)) {
+			qb_util_log(LOG_WARNING,
+				"couldn't read from timer fd %zd %s",
+				bytes, strerror(errno));
+		}
 		qb_loop_level_item_add(&l->level[pe->p], &pe->item);
 	} else {
 		qb_util_log(LOG_ERR, "timer revents: %d expected %d",
