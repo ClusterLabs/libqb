@@ -1,0 +1,157 @@
+#!/bin/bash
+
+help_all() {
+	echo 
+	echo "Usage: check <command>"
+	echo 
+	echo "Commands:"
+	echo 
+	echo "  sysv            Check using sys-v semaphores"
+	echo "  noepoll         Check using poll (not epoll)"
+	echo "  nogettime       Check without gettime()"
+	echo "  notimerfd       Check without timerfd"
+	echo "  bsd             Check with a bsd-like config"
+	echo "  dist            do make distcheck"
+	echo "  rpm             do a rpmlint"
+	echo 
+	echo "  help            This help"
+	echo 
+	exit 1
+}
+
+if [ $# -lt 1 ]
+then
+    help_all
+fi
+
+command=$1
+shift
+args="$@"
+
+if [ -n "$(git rev-parse)" ] ; then
+        perror "Must be inside a git repository to work"
+        exit 1
+fi
+
+up=$(git rev-parse --show-cdup)
+if [ "x$up" == "x" ] ; then
+	up="."
+fi
+cd $up
+
+set -e
+if [ ! -e install-sh ]
+then
+	./autogen.sh
+fi
+if [ ! -e Makefile ]
+then
+	./configure
+fi
+
+check() {
+	echo "$1"
+	( ./configure $1 --enable-fatal-warnings )
+	make check
+	if [ $? -ne 0 ]
+	then
+		echo "======================"
+		echo failed: $1
+		echo "======================"
+		exit 1
+	fi
+}
+
+check_sysv() {
+	# use sys-v semaphores
+	check "CFLAGS=-DDISABLE_POSIX_THREAD_PROCESS_SHARED"
+}
+
+check_notimerfd() {
+	# no timerfd
+	check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no"
+}
+
+check_nogettime() {
+	# no clock_gettime
+	check "ac_cv_func_clock_gettime=no"
+}
+
+check_noepoll() {
+	# no epoll
+	check "ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+}
+
+check_bsd() {
+	# bsd-like
+	check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+}
+
+check_dist() {
+	# normal configure with distcheck
+	./configure
+	make distcheck
+}
+
+check_rpm() {
+	# check rpm
+	make maintainer-clean
+	./autogen.sh
+	./configure
+	make rpm
+	echo
+	sudo rpm -Uvf --force libqb-*.rpm
+	echo rpmlint libqb
+	rpmlint libqb
+	echo rpmlint libqb-debuginfo
+	rpmlint libqb-debuginfo
+	echo rpmlint libqb-devel
+	rpmlint libqb-devel
+}
+
+check_all() {
+		check_sysv
+		check_noepoll
+		check_nogettime
+		check_notimerfd
+		check_bsd
+		check_dist
+		check_rpm
+}
+
+
+case $command in
+	help)
+	help_all $args
+	;;
+	sysv)
+		check_sysv
+	;;
+	noepoll)
+		check_noepoll
+	;;
+	nogettime)
+		check_nogettime
+	;;
+	bsd)
+		check_bsd
+	;;
+	rpm)
+		check_rpm
+	;;
+	bsd)
+		check_dist
+	;;
+	notimerfd)
+		check_notimerfd
+	;;
+	all)
+		check_all
+	;;
+	*)
+		help_all
+	;;
+esac
+cd -
+exit 0
+
