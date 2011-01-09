@@ -11,7 +11,7 @@ Group: System Environment/Libraries
 URL: http://www.libqb.org
 Source0: https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.gz
 
-BuildRequires: autoconf automake
+BuildRequires: autoconf automake libtool doxygen
 
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
