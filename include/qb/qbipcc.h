@@ -110,6 +110,7 @@ ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
  * @param c connection instance
  * @param msg_ptr pointer to a message buffer to receive into
  * @param msg_len the size of the buffer
+ * @param ms_timeout max time to wait for a response
  * @return (size recv'ed, -errno == error)
  */
 ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
@@ -123,6 +124,7 @@ ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
  * @param iov_len the number of iovecs used
  * @param msg_ptr pointer to a message buffer to receive into
  * @param msg_len the size of the buffer
+ * @param ms_timeout max time to wait for a response
  *
  * @see qb_ipcc_sendv() qb_ipcc_recv()
  */
@@ -139,6 +141,7 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
  * @param msg_len the size of the buffer
  * @param ms_timeout time in milli seconds to wait for a message
  *        0 == no wait, negative == block, positive == wait X ms.
+ * @param ms_timeout max time to wait for a response
  * @return size of the message or error (-errno)
  */
 ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_ptr,
