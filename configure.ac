@@ -299,16 +299,12 @@ ENV_LDFLAGS="$LDFLAGS"
 if test "x${enable_debug}" = xyes; then
 	AC_DEFINE_UNQUOTED([DEBUG], [1], [Compiling Debugging code])
 	OPT_CFLAGS="-O0"
+	if test "x${GCC}" = xyes; then
+		GDB_FLAGS="-ggdb3"
+	else
+		GDB_FLAGS="-g"
+	fi
 	PACKAGE_FEATURES="$PACKAGE_FEATURES debug"
-else
-	OPT_CFLAGS="-O3"
-fi
-
-# gdb flags
-if test "x${GCC}" = xyes; then
-	GDB_FLAGS="-ggdb3"
-else
-	GDB_FLAGS="-g"
 fi
 
 # extra warnings
@@ -419,8 +415,8 @@ AC_MSG_RESULT([  SOCKETDIR                = ${SOCKETDIR}])
 AC_MSG_RESULT([  Features                 =${PACKAGE_FEATURES}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([$PACKAGE build info:])
-AC_MSG_RESULT([  Default optimization     = ${OPT_CFLAGS}])
-AC_MSG_RESULT([  Default debug options    = ${GDB_CFLAGS}])
+AC_MSG_RESULT([  Optimization             = ${OPT_CFLAGS}])
+AC_MSG_RESULT([  Debug options            = ${GDB_CFLAGS}])
 AC_MSG_RESULT([  Extra compiler warnings  = ${EXTRA_WARNING}])
 AC_MSG_RESULT([  Env. defined CFLAG       = ${ENV_CFLAGS}])
 AC_MSG_RESULT([  Env. defined CPPFLAGS    = ${ENV_CPPFLAGS}])
