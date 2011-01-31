@@ -1,7 +1,7 @@
 # to build official release tarballs, handle tagging and publish.
 
 # signing key
-gpgsignkey=
+gpgsignkey=956EEFB5
 
 project=libqb
 
