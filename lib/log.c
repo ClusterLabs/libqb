@@ -18,34 +18,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <config.h>
-
 #include "os_base.h"
 #include <ctype.h>
 #include <stdarg.h>
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
 #include <qb/qblog.h>
+#include "log_int.h"
 
-struct qb_log_filter_file {
-	char *filename;
-	int32_t start;
-	int32_t end;
-	struct qb_list_head list;
-};
-
-struct qb_log_filter {
-	uint8_t priority;
-	struct qb_list_head files_head;
-};
-
-struct qb_log_destination {
-	qb_log_logger_fn logger;
-};
-
-#define COMBINE_BUFFER_SIZE 256
 static struct qb_log_destination destination;
-
 
 void qb_log_real_(struct qb_log_callsite *cs,
 		  int32_t error_number, ...)
@@ -72,7 +53,11 @@ void qb_log_real_(struct qb_log_callsite *cs,
 		len -= 1;
 	}
 
-	destination.logger(cs, buf);
+	if (destination.threaded) {
+		// TODO
+	} else {
+		destination.logger(cs, buf);
+	}
 	in_logger = 0;
 }
 
