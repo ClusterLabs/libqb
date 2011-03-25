@@ -445,13 +445,15 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
-	int32_t res;
+	int32_t res = 0;
 
-	res = rb->sem_timedwait_fn(rb, timeout);
+	if (rb->sem_timedwait_fn) {
+		res = rb->sem_timedwait_fn(rb, timeout);
+	}
 	if (res < 0 && res != -EIDRM) {
 		if (res != -ETIMEDOUT) {
 			qb_util_log(LOG_ERR,
-				    "sem_timedwait %s", strerror(errno));
+				"sem_timedwait %s", strerror(errno));
 		}
 		return res;
 	}
@@ -532,17 +534,18 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 	/*
 	 * store the read & write pointers
 	 */
-	result +=
-	    write(fd, (void *)&rb->shared_hdr->write_pt, sizeof(uint32_t));
+	result = write(fd, (void *)&rb->shared_hdr->write_pt, sizeof(uint32_t));
 	if ((result < 0) || (result != sizeof(uint32_t))) {
 		return -errno;
 	}
 	written_size += result;
-	result += write(fd, (void *)&rb->shared_hdr->read_pt, sizeof(uint32_t));
+	result = write(fd, (void *)&rb->shared_hdr->read_pt, sizeof(uint32_t));
 	if ((result < 0) || (result != sizeof(uint32_t))) {
 		return -errno;
 	}
 	written_size += result;
+
+	printf(" writting total of: %zd\n", written_size);
 
 	return written_size;
 }
@@ -551,8 +554,12 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 {
 	ssize_t n_read;
 	size_t n_required;
-	qb_ringbuffer_t *rb = malloc(sizeof(qb_ringbuffer_t));
-	rb->shared_hdr = malloc(sizeof(struct qb_ringbuffer_shared_s));
+	size_t total_read = 0;
+	uint32_t read_pt;
+	uint32_t write_pt;
+	qb_ringbuffer_t *rb = calloc(1, sizeof(qb_ringbuffer_t));
+
+	rb->shared_hdr = calloc(1, sizeof(struct qb_ringbuffer_shared_s));
 
 	rb->flags = flags;
 
@@ -563,8 +570,9 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 			    strerror(errno));
 		return NULL;
 	}
+	total_read += n_read;
 
-	n_required = ((rb->shared_hdr->size + 2) * sizeof(uint32_t));
+	n_required = (rb->shared_hdr->size * sizeof(uint32_t));
 
 	if ((rb->shared_data = malloc(n_required)) == NULL) {
 		qb_util_log(LOG_ERR, "exhausted virtual memory");
@@ -575,15 +583,24 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 		qb_util_log(LOG_ERR, "file read failed: %s", strerror(errno));
 		return NULL;
 	}
+	total_read += n_read;
 
 	if (n_read != n_required) {
 		qb_util_log(LOG_WARNING, "read %zd bytes, but expected %zu",
 			    n_read, n_required);
 	}
 
-	rb->shared_hdr->write_pt = rb->shared_data[QB_RB_WRITE_PT_INDEX];
-	rb->shared_hdr->read_pt = rb->shared_data[QB_RB_READ_PT_INDEX];
+	n_read = read(fd, &write_pt, sizeof(uint32_t));
+	assert(n_read == sizeof(uint32_t));
+	rb->shared_hdr->write_pt = write_pt;
+	total_read += n_read;
 
+	n_read = read(fd, &read_pt, sizeof(uint32_t));
+	assert(n_read == sizeof(uint32_t));
+	rb->shared_hdr->read_pt = read_pt;
+	total_read += n_read;
+
+	printf("read total of: %zd\n", total_read);
 	print_header(rb);
 
 	return rb;

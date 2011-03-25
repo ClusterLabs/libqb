@@ -110,14 +110,39 @@ void qb_log_tag(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit);
 void qb_log_handler_set(qb_log_logger_fn logger_fn);
 
 /**
- *
+ * Start the logging pthread.
  */
 void qb_log_thread_start(void);
 
 /**
- *
+ * Stop the logging pthread
  */
 void qb_log_thread_stop(void);
 
+/**
+ * Initialize the blackbox
+ *
+ * @param size the size of the blackbox.
+ */
+void qb_log_blackbox_start(size_t size);
+
+/**
+ * Add the log message to the blackbox.
+ *
+ * @note call this from your log handler
+ * @see qb_log_handler_set()
+ */
+void qb_log_blackbox_append(struct qb_log_callsite *cs,
+		      const char *buffer);
+
+/**
+ * Write the blackbox to file.
+ */
+ssize_t qb_log_blackbox_write_to_file(const char *filename);
+
+/**
+ * Read the blackbox for file and print it out.
+ */
+void qb_log_blackbox_print_from_file(const char* filename);
 
 #endif /* QB_LOG_H_DEFINED */
