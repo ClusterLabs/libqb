@@ -18,7 +18,7 @@
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop
+noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop simple-log
 
 bmc_SOURCES = bmc.c $(top_builddir)/include/qb/qbipcc.h
 bmc_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
@@ -43,6 +43,10 @@ rbreader_LDADD = -lrt $(top_builddir)/lib/libqb.la
 loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
 loop_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 loop_LDADD = -lrt $(top_builddir)/lib/libqb.la
+
+simple_log_SOURCES = simple-log.c $(top_builddir)/include/qb/qblog.h
+simple_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+simple_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 
 if HAVE_CHECK

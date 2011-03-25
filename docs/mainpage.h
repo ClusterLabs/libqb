@@ -52,6 +52,12 @@
  */
 
 /**
+ * @page qb_log_overview Logging
+ * @copydoc qblog.h
+ * @see qblog.h
+ */
+
+/**
  * @page qb_ipc_overview IPC Overview
  *
  * @par Overview

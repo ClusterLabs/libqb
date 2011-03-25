@@ -48,6 +48,16 @@ extern "C" {
 #define	QB_TRUE			(!QB_FALSE)
 
 /*
+ * bit manipulation
+ */
+#define qb_bit_value(bit) (1 << (bit))
+#define qb_bit_set(barray, bit) (barray |= qb_bit_value(bit))
+#define qb_bit_clear(barray, bit) (barray &= ~(qb_bit_value(bit)))
+#define qb_bit_is_set(barray, bit) (barray & qb_bit_value(bit))
+#define qb_bit_is_clear(barray, bit) (!(barray & qb_bit_value(bit)))
+
+
+/*
  * handy time based converters.
  */
 #ifndef HZ
