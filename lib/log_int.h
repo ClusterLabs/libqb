@@ -49,5 +49,11 @@ struct qb_log_record {
 
 #define COMBINE_BUFFER_SIZE 256
 
+extern struct qb_log_destination *destination;
+
+void qb_log_thread_log_post(struct qb_log_callsite *cs,
+		      const char *buffer);
+
+
 #endif /* _QB_LOG_INT_H_ */
 

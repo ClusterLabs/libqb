@@ -26,7 +26,7 @@
 #include <qb/qblog.h>
 #include "log_int.h"
 
-static struct qb_log_destination destination;
+struct qb_log_destination *destination;
 
 void qb_log_real_(struct qb_log_callsite *cs,
 		  int32_t error_number, ...)
@@ -36,7 +36,7 @@ void qb_log_real_(struct qb_log_callsite *cs,
 	size_t len;
 	static int32_t in_logger = 0;
 
-	if (destination.logger == NULL) {
+	if (destination == NULL || destination->logger == NULL) {
 		return;
 	}
 	if (in_logger) {
@@ -53,10 +53,10 @@ void qb_log_real_(struct qb_log_callsite *cs,
 		len -= 1;
 	}
 
-	if (destination.threaded) {
-		// TODO
+	if (destination->threaded) {
+		qb_log_thread_log_post(cs, buf);
 	} else {
-		destination.logger(cs, buf);
+		destination->logger(cs, buf);
 	}
 	in_logger = 0;
 }
@@ -137,8 +137,13 @@ void qb_log_tag(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit)
 
 void qb_log_handler_set(qb_log_logger_fn logger_fn)
 {
-	destination.logger = NULL;
+	if (destination == NULL) {
+		destination = calloc(1, sizeof(struct qb_log_destination));
+	}
+
+	destination->logger = NULL;
 	qb_log(LOG_DEBUG, " ");
-	destination.logger = logger_fn;
+	destination->logger = logger_fn;
+	destination->threaded = QB_FALSE;
 }
 

@@ -9,3 +9,4 @@ rbreader
 rbwriter
 loop
 simple-log
+threaded-log

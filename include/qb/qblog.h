@@ -109,5 +109,15 @@ void qb_log_tag(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit);
  */
 void qb_log_handler_set(qb_log_logger_fn logger_fn);
 
+/**
+ *
+ */
+void qb_log_thread_start(void);
+
+/**
+ *
+ */
+void qb_log_thread_stop(void);
+
 
 #endif /* QB_LOG_H_DEFINED */
