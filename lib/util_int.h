@@ -20,18 +20,20 @@
 #ifndef QB_UTIL_INT_H_DEFINED
 #define QB_UTIL_INT_H_DEFINED
 
-#include <syslog.h>
+#include <qb/qblog.h>
 
-#define qb_util_log(severity, args...)				\
-do {							\
-	_qb_util_log (__FILE__,  __LINE__, severity, ##args);	\
-} while(0)
-
-void _qb_util_log(const char *file_name,
-		  int32_t file_line,
-		  int32_t severity,
-		  const char *format,
-		  ...) __attribute__ ((format(printf, 4, 5)));
+/**
+ * This is used internally by libqb.
+ *
+ * It sets the 32nd bit of the tags so that internal logs can be
+ * destinguished from external ones.
+ */
+#define qb_util_log(priority, fmt, args...) do {		\
+	static struct qb_log_callsite descriptor		\
+	__attribute__((section("__verbose"), aligned(8))) =	\
+	{ __func__, __FILE__, fmt, priority, __LINE__, 1<<31 };	\
+	qb_log_real_(&descriptor, 0, ##args);			\
+    } while(0)
 
 /**
  * Create a file to be used to back shared memory.

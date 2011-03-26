@@ -116,27 +116,6 @@ int32_t qb_thread_lock_destroy(qb_thread_lock_t * tl)
 	return res;
 }
 
-/*
- * ---------------------------------------------------
- * Logging functions for the library.
- */
-static qb_util_log_fn_t real_log_fn = NULL;
-
-void _qb_util_log(const char *file_name,
-		  int32_t file_line, int32_t severity, const char *format, ...)
-{
-	if (real_log_fn) {
-		va_list ap;
-		char msg[256];
-
-		va_start(ap, format);
-		vsnprintf(msg, 256, format, ap);
-		va_end(ap);
-
-		real_log_fn(file_name, file_line, severity, msg);
-	}
-}
-
 void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 {
 #ifndef S_SPLINT_S
@@ -225,11 +204,6 @@ uint64_t qb_util_nano_from_epoch_get(void)
 	return (nano_from_epoch);
 }
 #endif
-
-void qb_util_set_log_function(qb_util_log_fn_t fn)
-{
-	real_log_fn = fn;
-}
 
 static int32_t open_mmap_file(char *path, uint32_t file_flags)
 {

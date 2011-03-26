@@ -24,9 +24,17 @@
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
 #include <qb/qblog.h>
+#include <qb/qbutil.h>
 #include "log_int.h"
 
 struct qb_log_destination *destination;
+
+/* deprecated method of getting internal log messages */
+static qb_util_log_fn_t old_internal_log_fn = NULL;
+void qb_util_set_log_function(qb_util_log_fn_t fn)
+{
+	old_internal_log_fn = fn;
+}
 
 void qb_log_real_(struct qb_log_callsite *cs,
 		  int32_t error_number, ...)
@@ -53,6 +61,11 @@ void qb_log_real_(struct qb_log_callsite *cs,
 		len -= 1;
 	}
 
+	if (old_internal_log_fn) {
+		if (qb_bit_is_set(cs->tags, 31)) {
+			old_internal_log_fn(cs->filename, cs->lineno, cs->priority, buf);
+		}
+	}
 	if (destination->threaded) {
 		qb_log_thread_log_post(cs, buf);
 	} else {
