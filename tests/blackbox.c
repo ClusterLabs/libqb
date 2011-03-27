@@ -39,18 +39,6 @@ static void func_two(void) {
 	qb_log(LOG_INFO,  "arrrg!");
 }
 
-static void show_usage(const char *name)
-{
-	printf("usage: \n");
-	printf("%s <options>\n", name);
-	printf("\n");
-	printf("  options:\n");
-	printf("\n");
-	printf("  -v             verbose\n");
-	printf("  -h             show this help text\n");
-	printf("\n");
-}
-
 static void my_log_writer(struct qb_log_callsite *cs, const char *msg)
 {
 	qb_log_blackbox_append(cs, msg);
