@@ -18,6 +18,7 @@
  * - @subpage qb_hdb_overview
  * - @subpage qb_rb_overview
  * - @subpage qb_loop_overview
+ * - @subpage qb_log_overview
  * - @subpage qb_ipc_overview
  */
 

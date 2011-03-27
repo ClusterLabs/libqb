@@ -29,11 +29,37 @@
 
 /**
  * @file qblog.h
- * This is a the logging API.
+ * The logging API provides four main parts (basics, filtering, threading & blackbox).
+ *
+ * The idea behind this logging system is not to be prescriptive but to provide a
+ * set of tools to help the developer achieve what they want quickly and easily.
+ *
+ * @par Basic logging API.
+ * Call qb_log() to generate a log message. Then to write the message
+ * somewhere meaningful call qb_log_handler_set() and write the messages
+ * where ever you wish.
+ *
+ * @par Filtering messages.
+ * In your log handler you can filter messages based on priority, but
+ * to provide more powerful and flexible filtering you can tag messages
+ * based on their location. This means that CPU intensive string
+ * comparisons are done up front and in your log handler you only need
+ * to check a if a bit is set.
+ *
+ * @par Threaded logging.
+ * To achieve non-blocking logging you can use threaded logging. With
+ * this your log handler is called from a new pthread. So any calls to
+ * write() or syslog() will not hold up your program.
+ *
+ * @par A blackbox for in-field diagnosis.
+ * This stores log messages in a ringbuffer so they can be written to
+ * file if the program crashes (you will need to catch SIGSEGV). These
+ * can then be easily printed out later.
+ *
  */
 
 
-/*
+/**
  * An instance of this structure is created in a special
  * ELF section at every dynamic debug callsite.  At runtime,
  * the special section is treated as an array of these.
