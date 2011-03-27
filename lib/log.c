@@ -115,7 +115,8 @@ void qb_log_filter_file_add(struct qb_log_filter* flt,
 	qb_list_add(&ff->list, &flt->files_head);
 }
 
-void qb_log_tag(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit)
+static void _set_bit_in_tags(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit)
+
 {
 	struct qb_log_callsite *cs;
 	struct qb_log_filter_file *ff;
@@ -146,6 +147,16 @@ void qb_log_tag(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit)
 		}
 	}
 
+}
+
+void qb_log_tag(struct qb_log_filter* flt, int32_t tag_bit)
+{
+	_set_bit_in_tags(flt, QB_TRUE, tag_bit);
+}
+
+void qb_log_untag(struct qb_log_filter* flt, int32_t tag_bit)
+{
+	_set_bit_in_tags(flt, QB_FALSE, tag_bit);
 }
 
 void qb_log_handler_set(qb_log_logger_fn logger_fn)

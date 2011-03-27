@@ -130,9 +130,14 @@ void qb_log_filter_file_add(struct qb_log_filter* flt,
 			    int32_t start, int32_t end);
 
 /**
- * tag the callsites defined by the filter.
+ * Set a bit in the tags field of the callsites defined by the filter.
  */
-void qb_log_tag(struct qb_log_filter* flt, int32_t is_set, int32_t tag_bit);
+void qb_log_tag(struct qb_log_filter* flt, int32_t tag_bit);
+
+/**
+ * Unset a bit in the tags field of the callsites defined by the filter.
+ */
+void qb_log_untag(struct qb_log_filter* flt, int32_t tag_bit);
 
 /**
  * set your log handling function.

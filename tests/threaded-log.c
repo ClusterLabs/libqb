@@ -94,19 +94,19 @@ int32_t main(int32_t argc, char *argv[])
 	qb_log_filter_priority_set(ls1, priority);
 	qb_log_filter_file_add(ls1, __FILE__, 1, 33); // line 1 to 33
 	qb_log_filter_file_add(ls1, __FILE__, 75, INT32_MAX); // line 75 to EOF
-	qb_log_tag(ls1, QB_TRUE, MY_STDOUT_TAG);
+	qb_log_tag(ls1, MY_STDOUT_TAG);
 
 	/* syslog */
 	ls2 = qb_log_filter_create();
 	qb_log_filter_priority_set(ls2, LOG_WARNING);
-	qb_log_tag(ls2, QB_TRUE, MY_LOG_TAG);
+	qb_log_tag(ls2, MY_LOG_TAG);
 
 	qb_log(LOG_DEBUG, "hello");
 	qb_log(LOG_INFO, "hello");
 	qb_log(LOG_NOTICE, "hello");
 	func_one();
 	func_two();
-	qb_log_tag(ls2, QB_FALSE, MY_LOG_TAG);
+	qb_log_untag(ls2, MY_LOG_TAG);
 	qb_log(LOG_WARNING, "no syslog");
 	qb_log(LOG_ERR, "no syslog");
 
