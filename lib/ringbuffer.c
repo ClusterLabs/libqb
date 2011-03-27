@@ -545,7 +545,7 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 	}
 	written_size += result;
 
-	printf(" writting total of: %zd\n", written_size);
+	qb_util_log(LOG_DEBUG, " writting total of: %zd\n", written_size);
 
 	return written_size;
 }
@@ -600,7 +600,7 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	rb->shared_hdr->read_pt = read_pt;
 	total_read += n_read;
 
-	printf("read total of: %zd\n", total_read);
+	qb_util_log(LOG_DEBUG, "read total of: %zd\n", total_read);
 	print_header(rb);
 
 	return rb;

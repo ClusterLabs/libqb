@@ -85,13 +85,13 @@ retry_sem_wait:
 			}
 
 
-		qb_thread_lock(logt_wthread_lock);
+		(void)qb_thread_lock(logt_wthread_lock);
 		if (wthread_should_exit) {
 			int value;
 
 			res = sem_getvalue(&logt_print_finished, &value);
 			if (value == 0) {
-				qb_thread_unlock(logt_wthread_lock);
+				(void)qb_thread_unlock(logt_wthread_lock);
 				pthread_exit(NULL);
 			}
 		}
@@ -102,7 +102,7 @@ retry_sem_wait:
 			sizeof(struct qb_log_record) - 1;
 		dropped = logt_dropped_messages;
 		logt_dropped_messages = 0;
-		qb_thread_unlock(logt_wthread_lock);
+		(void)qb_thread_unlock(logt_wthread_lock);
 		if (dropped) {
 			printf("%d messages lost\n", dropped);
 		}
@@ -177,7 +177,7 @@ static void wthread_create(void)
 
 void qb_log_thread_start(void)
 {
-	assert(destination);
+	assert(destination != NULL);
 	wthread_create();
 
 	logt_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
@@ -207,20 +207,20 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 	memcpy(rec->buffer, buffer, length + 1);
 
 	qb_list_init (&rec->list);
-	qb_thread_lock(logt_wthread_lock);
+	(void)qb_thread_lock(logt_wthread_lock);
 	logt_memory_used += length + 1 + sizeof(struct qb_log_record);
 	if (logt_memory_used > 512000) {
 		free(rec->buffer);
 		free(rec);
 		logt_memory_used = logt_memory_used - length - 1 - sizeof(struct qb_log_record);
 		logt_dropped_messages += 1;
-		qb_thread_unlock(logt_wthread_lock);
+		(void)qb_thread_unlock(logt_wthread_lock);
 		return;
 
 	} else {
 		qb_list_add_tail(&rec->list, &logt_print_finished_records);
 	}
-	qb_thread_unlock(logt_wthread_lock);
+	(void)qb_thread_unlock(logt_wthread_lock);
 
 	sem_post(&logt_print_finished);
 }
@@ -233,11 +233,11 @@ void qb_log_thread_stop(void)
 
 	if (wthread_active == 0) {
 		for (;;) {
-			qb_thread_lock(logt_wthread_lock);
+			(void)qb_thread_lock(logt_wthread_lock);
 
 			res = sem_getvalue(&logt_print_finished, &value);
 			if (res != 0 || value == 0) {
-				qb_thread_unlock(logt_wthread_lock);
+				(void)qb_thread_unlock(logt_wthread_lock);
 				return;
 			}
 			sem_wait(&logt_print_finished);
@@ -246,7 +246,7 @@ void qb_log_thread_stop(void)
 			qb_list_del(&rec->list);
 			logt_memory_used = logt_memory_used - strlen(rec->buffer) -
 				sizeof (struct qb_log_record) - 1;
-			qb_thread_unlock(logt_wthread_lock);
+			(void)qb_thread_unlock(logt_wthread_lock);
 
 			if (destination->logger) {
 				destination->logger(rec->cs, rec->buffer);

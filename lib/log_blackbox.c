@@ -67,7 +67,7 @@ void qb_log_blackbox_append(struct qb_log_callsite *cs,
 	chunk += sizeof(uint32_t);
 	memcpy(chunk, buffer, buf_size);
 
-	qb_rb_chunk_commit(bb_rb, size);
+	(void)qb_rb_chunk_commit(bb_rb, size);
 }
 
 ssize_t qb_log_blackbox_write_to_file(const char *filename)

@@ -70,12 +70,16 @@ void qb_log_real_(struct qb_log_callsite *cs,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
+#ifndef S_SPLINT_S
 #define qb_log(priority, fmt, args...) do {			\
 	static struct qb_log_callsite descriptor		\
 	__attribute__((section("__verbose"), aligned(8))) =	\
 	{ __func__, __FILE__, fmt, priority, __LINE__, 0 };	\
 	qb_log_real_(&descriptor, 0, ##args);			\
     } while(0)
+#else
+#define qb_log
+#endif
 
 /**
  * Create a filter to tag the callsites.
