@@ -108,7 +108,7 @@ retry_sem_wait:
 		}
 
 		if (destination->logger) {
-			destination->logger(rec->cs, rec->buffer);
+			destination->logger(rec->cs, rec->timestamp, rec->buffer);
 		}
 		free(rec->buffer);
 		free(rec);
@@ -186,33 +186,43 @@ void qb_log_thread_start(void)
 }
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-		      const char *buffer)
+			    const char* timestamp_str,
+			    const char *buffer)
 {
 	struct qb_log_record *rec;
-	uint32_t length;
+	size_t buf_size;
+	size_t time_size;
+	size_t total_size;
 
 	rec = malloc(sizeof(struct qb_log_record));
 	if (rec == NULL) {
 		return;
 	}
 
-	length = strlen (buffer);
+	buf_size = strlen(buffer) + 1;
+	time_size = strlen(timestamp_str) + 1;
+	total_size = sizeof(struct qb_log_record) + buf_size + time_size;
 
 	rec->cs = cs;
-	rec->buffer = malloc (length + 1);
+	rec->buffer = malloc(buf_size);
 	if (rec->buffer == NULL) {
-		free(rec);
-		return;
+		goto free_record;
 	}
-	memcpy(rec->buffer, buffer, length + 1);
+	memcpy(rec->buffer, buffer, buf_size);
+
+	rec->timestamp = malloc(time_size);
+	if (rec->timestamp == NULL) {
+		goto free_buffer;
+	}
+	memcpy(rec->timestamp, timestamp_str, time_size);
 
 	qb_list_init (&rec->list);
 	(void)qb_thread_lock(logt_wthread_lock);
-	logt_memory_used += length + 1 + sizeof(struct qb_log_record);
+	logt_memory_used += total_size;
 	if (logt_memory_used > 512000) {
 		free(rec->buffer);
 		free(rec);
-		logt_memory_used = logt_memory_used - length - 1 - sizeof(struct qb_log_record);
+		logt_memory_used = logt_memory_used - total_size;
 		logt_dropped_messages += 1;
 		(void)qb_thread_unlock(logt_wthread_lock);
 		return;
@@ -223,6 +233,13 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 	(void)qb_thread_unlock(logt_wthread_lock);
 
 	sem_post(&logt_print_finished);
+	return;
+
+ free_buffer:
+	free(rec->timestamp);
+
+ free_record:
+	free(rec);
 }
 
 void qb_log_thread_stop(void)
@@ -249,7 +266,7 @@ void qb_log_thread_stop(void)
 			(void)qb_thread_unlock(logt_wthread_lock);
 
 			if (destination->logger) {
-				destination->logger(rec->cs, rec->buffer);
+				destination->logger(rec->cs, rec->timestamp, rec->buffer);
 			}
 			free(rec->buffer);
 			free(rec);

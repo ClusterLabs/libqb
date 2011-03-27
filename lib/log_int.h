@@ -43,6 +43,7 @@ struct qb_log_destination {
 
 struct qb_log_record {
 	struct qb_log_callsite *cs;
+	char *timestamp;
 	char *buffer;
 	struct qb_list_head list;
 };
@@ -52,7 +53,8 @@ struct qb_log_record {
 extern struct qb_log_destination *destination;
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-		      const char *buffer);
+			    const char* timestamp_str,
+			    const char *buffer);
 
 
 #endif /* _QB_LOG_INT_H_ */

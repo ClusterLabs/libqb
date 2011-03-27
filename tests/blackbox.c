@@ -39,9 +39,11 @@ static void func_two(void) {
 	qb_log(LOG_INFO,  "arrrg!");
 }
 
-static void my_log_writer(struct qb_log_callsite *cs, const char *msg)
+static void my_log_writer(struct qb_log_callsite *cs,
+			  const char *timestamp_str,
+			  const char *msg)
 {
-	qb_log_blackbox_append(cs, msg);
+	qb_log_blackbox_append(cs, timestamp_str, msg);
 }
 
 int32_t main(int32_t argc, char *argv[])

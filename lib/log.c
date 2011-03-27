@@ -29,11 +29,30 @@
 
 struct qb_log_destination *destination;
 
+#define TIME_STRING_SIZE 128
+
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
 void qb_util_set_log_function(qb_util_log_fn_t fn)
 {
 	old_internal_log_fn = fn;
+}
+
+static const char log_month_name[][4] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+};
+
+static void _log_timestamp(char * char_time)
+{
+	struct timeval tv;
+	struct tm tm_res;
+
+	gettimeofday (&tv, NULL);
+	(void)localtime_r ((time_t *)&tv.tv_sec, &tm_res);
+	snprintf (char_time, TIME_STRING_SIZE, "%s %02d %02d:%02d:%02d",
+		log_month_name[tm_res.tm_mon], tm_res.tm_mday, tm_res.tm_hour,
+		tm_res.tm_min, tm_res.tm_sec);
 }
 
 void qb_log_real_(struct qb_log_callsite *cs,
@@ -43,6 +62,7 @@ void qb_log_real_(struct qb_log_callsite *cs,
 	char buf[COMBINE_BUFFER_SIZE];
 	size_t len;
 	static int32_t in_logger = 0;
+	char char_time[TIME_STRING_SIZE];
 
 	if (destination == NULL || destination->logger == NULL) {
 		return;
@@ -50,7 +70,7 @@ void qb_log_real_(struct qb_log_callsite *cs,
 	if (in_logger) {
 		return;
 	}
-	in_logger = 1;
+	in_logger = QB_TRUE;;
 
 	va_start(ap, error_number);
 	len = vsnprintf(buf, COMBINE_BUFFER_SIZE, cs->format, ap);
@@ -61,17 +81,19 @@ void qb_log_real_(struct qb_log_callsite *cs,
 		len -= 1;
 	}
 
+	_log_timestamp(char_time);
+
 	if (old_internal_log_fn) {
 		if (qb_bit_is_set(cs->tags, 31)) {
 			old_internal_log_fn(cs->filename, cs->lineno, cs->priority, buf);
 		}
 	}
 	if (destination->threaded) {
-		qb_log_thread_log_post(cs, buf);
+		qb_log_thread_log_post(cs, char_time, buf);
 	} else {
-		destination->logger(cs, buf);
+		destination->logger(cs, char_time, buf);
 	}
-	in_logger = 0;
+	in_logger = QB_FALSE;
 }
 
 qb_log_filter_t* qb_log_filter_create(void)

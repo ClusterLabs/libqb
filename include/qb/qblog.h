@@ -77,6 +77,7 @@ struct qb_log_callsite {
 typedef struct qb_log_filter qb_log_filter_t;
 
 typedef void (*qb_log_logger_fn)(struct qb_log_callsite *cs,
+				 const char* timestamp_str,
 				 const char *msg);
 
 /* will be assigned by ld linker magic */
@@ -168,7 +169,8 @@ void qb_log_blackbox_start(size_t size);
  * @see qb_log_handler_set()
  */
 void qb_log_blackbox_append(struct qb_log_callsite *cs,
-		      const char *buffer);
+			   const char *timestamp_str,
+			   const char *buffer);
 
 /**
  * Write the blackbox to file.

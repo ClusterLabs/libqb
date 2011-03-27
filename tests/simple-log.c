@@ -54,10 +54,10 @@ static void show_usage(const char *name)
 #define MY_STDOUT_TAG 1
 #define MY_LOG_TAG 2
 
-static void my_log_writer(struct qb_log_callsite *cs, const char *msg)
+static void my_log_writer(struct qb_log_callsite *cs, const char* timestamp_str, const char *msg)
 {
 	if (qb_bit_is_set(cs->tags, MY_STDOUT_TAG)) {
-		fprintf(stdout, "[%s:%d] <%d> %s\n", cs->filename, cs->lineno, cs->priority, msg);
+		fprintf(stdout, "%s [%s:%d] <%d> %s\n", timestamp_str, cs->filename, cs->lineno, cs->priority, msg);
 	}
 	if (qb_bit_is_set(cs->tags, MY_LOG_TAG)) {
 		syslog(cs->priority, "%s", msg);
