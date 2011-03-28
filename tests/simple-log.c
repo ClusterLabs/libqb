@@ -26,10 +26,16 @@
 #include <qb/qblog.h>
 
 static void func_one(void) {
+	FILE* fd;
 	qb_log(LOG_DEBUG, "hello");
 	qb_log(LOG_CRIT, "hello");
 	qb_log(LOG_ERR, "hello");
 	qb_log(LOG_INFO, "hello");
+
+	fd = fopen("/nothing.txt", "r+");
+	if (fd == NULL) {
+		qb_perror(LOG_ERR, "can't open(\"/nothing.txt\")");
+	}
 }
 
 static void func_two(void) {
@@ -90,7 +96,7 @@ int32_t main(int32_t argc, char *argv[])
 	/* stdout logging */
 	ls1 = qb_log_filter_create();
 	qb_log_filter_priority_set(ls1, priority);
-	qb_log_filter_file_add(ls1, __FILE__, 1, 33); // line 1 to 33
+	qb_log_filter_file_add(ls1, __FILE__, 1, 40); // line 1 to 40
 	qb_log_filter_file_add(ls1, __FILE__, 75, INT32_MAX); // line 75 to EOF
 	qb_log_tag(ls1, MY_STDOUT_TAG);
 

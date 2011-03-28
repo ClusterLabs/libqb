@@ -136,8 +136,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	}
 	error = qb_rb_sem_create(rb, flags);
 	if (error < 0) {
-		qb_util_log(LOG_ERR, "couldn't get a semaphore %s",
-			    strerror(-error));
+		qb_util_perror(LOG_ERR, "couldn't get a semaphore");
 		goto cleanup_hdr;
 	}
 
@@ -422,7 +421,7 @@ ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 	res = rb->sem_timedwait_fn(rb, timeout);
 	if (res < 0 && res != -EIDRM) {
 		if (res != -ETIMEDOUT) {
-			qb_util_log(LOG_ERR, "sem_timedwait %s", strerror(-res));
+			qb_util_perror(LOG_ERR, "sem_timedwait");
 		}
 		return res;
 	}
@@ -452,8 +451,7 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 	}
 	if (res < 0 && res != -EIDRM) {
 		if (res != -ETIMEDOUT) {
-			qb_util_log(LOG_ERR,
-				"sem_timedwait %s", strerror(errno));
+			qb_util_perror(LOG_ERR, "sem_timedwait");
 		}
 		return res;
 	}
@@ -566,8 +564,7 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	n_required = sizeof(uint32_t);
 	n_read = read(fd, &rb->shared_hdr->size, n_required);
 	if (n_read != n_required) {
-		qb_util_log(LOG_ERR, "Unable to read fdata header %s",
-			    strerror(errno));
+		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
 		return NULL;
 	}
 	total_read += n_read;
@@ -575,12 +572,12 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	n_required = (rb->shared_hdr->size * sizeof(uint32_t));
 
 	if ((rb->shared_data = malloc(n_required)) == NULL) {
-		qb_util_log(LOG_ERR, "exhausted virtual memory");
+		qb_util_perror(LOG_ERR, "exhausted virtual memory");
 		return NULL;
 	}
 	n_read = read(fd, rb->shared_data, n_required);
 	if (n_read < 0) {
-		qb_util_log(LOG_ERR, "file read failed: %s", strerror(errno));
+		qb_util_perror(LOG_ERR, "Unable to read blackbox file data");
 		return NULL;
 	}
 	total_read += n_read;

@@ -55,8 +55,7 @@ static void _log_timestamp(char * char_time)
 		tm_res.tm_min, tm_res.tm_sec);
 }
 
-void qb_log_real_(struct qb_log_callsite *cs,
-		  int32_t error_number, ...)
+void qb_log_real_(struct qb_log_callsite *cs, ...)
 {
 	va_list ap;
 	char buf[COMBINE_BUFFER_SIZE];
@@ -72,7 +71,7 @@ void qb_log_real_(struct qb_log_callsite *cs,
 	}
 	in_logger = QB_TRUE;;
 
-	va_start(ap, error_number);
+	va_start(ap, cs);
 	len = vsnprintf(buf, COMBINE_BUFFER_SIZE, cs->format, ap);
 	va_end(ap);
 

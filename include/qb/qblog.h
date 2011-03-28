@@ -87,8 +87,7 @@ extern struct qb_log_callsite __stop___verbose[];
 /**
  * Internal function use qb_log()
  */
-void qb_log_real_(struct qb_log_callsite *cs,
-		  int32_t error_number, ...);
+void qb_log_real_(struct qb_log_callsite *cs, ...);
 
 /**
  * This is the main function to generate a log message.
@@ -102,11 +101,28 @@ void qb_log_real_(struct qb_log_callsite *cs,
 	static struct qb_log_callsite descriptor		\
 	__attribute__((section("__verbose"), aligned(8))) =	\
 	{ __func__, __FILE__, fmt, priority, __LINE__, 0 };	\
-	qb_log_real_(&descriptor, 0, ##args);			\
+	qb_log_real_(&descriptor, ##args);			\
     } while(0)
 #else
 #define qb_log
 #endif
+
+/**
+ * This is similar to perror except it goes into the logging system.
+ *
+ * @param priority this takes syslog priorities.
+ * @param fmt usual printf style format specifiers
+ * @param args usual printf style args
+ */
+#ifndef S_SPLINT_S
+#define qb_perror(priority, fmt, args...) do {			\
+	const char *err = strerror(errno);			\
+	qb_log(priority, fmt ": %s (%d)", ##args, err, errno);	\
+    } while(0)
+#else
+#define qb_perror
+#endif
+
 
 /**
  * Create a filter to tag the callsites.

@@ -52,9 +52,8 @@ sem_wait_again:
 			break;
 		default:
 			res = -errno;
-			qb_util_log(LOG_ERR,
-				    "error waiting for semaphore : %s",
-				    strerror(errno));
+			qb_util_perror(LOG_ERR,
+				       "error waiting for semaphore");
 			break;
 		}
 	}
@@ -107,9 +106,8 @@ semop_again:
 			res = -ETIMEDOUT;
 		} else {
 			res = -errno;
-			qb_util_log(LOG_ERR,
-				    "error waiting for semaphore : %s",
-				    strerror(errno));
+			qb_util_perror(LOG_ERR,
+				       "error waiting for semaphore");
 		}
 		return res;
 	}
@@ -152,9 +150,8 @@ semop_again:
 		if (errno == EINTR) {
 			goto semop_again;
 		} else {
-			qb_util_log(LOG_ERR,
-				    "could not increment semaphore : %s",
-				    strerror(errno));
+			qb_util_perror(LOG_ERR,
+				       "could not increment semaphore");
 		}
 
 		return -errno;
@@ -216,8 +213,7 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 
 	if (sem_key == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "couldn't get a sem id %s",
-			    strerror(errno));
+		qb_util_perror(LOG_ERR, "couldn't get a sem id");
 		return res;
 	}
 
@@ -225,8 +221,7 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 		rb->sem_id = semget(sem_key, 1, IPC_CREAT | IPC_EXCL | 0600);
 		if (rb->sem_id == -1) {
 			res = -errno;
-			qb_util_log(LOG_ERR, "couldn't create a semaphore %s",
-				    strerror(errno));
+			qb_util_perror(LOG_ERR, "couldn't create a semaphore");
 			return res;
 		}
 		options.val = 0;
@@ -235,13 +230,12 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 		rb->sem_id = semget(sem_key, 0, 0600);
 		if (rb->sem_id == -1) {
 			res = -errno;
-			qb_util_log(LOG_ERR, "couldn't get a sem id %s",
-				    strerror(errno));
+			qb_util_perror(LOG_ERR, "couldn't get a sem id");
 			return res;
 		}
 		res = 0;
 	}
-	qb_util_log(LOG_INFO, "sem key:%d, id:%d, value:%d",
+	qb_util_log(LOG_DEBUG, "sem key:%d, id:%d, value:%d",
 		    (int)sem_key, rb->sem_id, semctl(rb->sem_id, 0, GETVAL, 0));
 
 	return res;
