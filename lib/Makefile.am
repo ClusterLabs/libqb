@@ -21,7 +21,7 @@
 
 MAINTAINERCLEANFILES	= Makefile.in
 
-noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h
+noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h log_int.h
 
 #
 # Here are a set of rules to help you update your library version information:
