@@ -38,6 +38,42 @@ void qb_util_set_log_function(qb_util_log_fn_t fn)
 	old_internal_log_fn = fn;
 }
 
+/*
+ * syslog prioritynames, facility names to value mapping
+ * Some C libraries build this in to their headers, but it is non-portable
+ * so logsys supplies its own version.
+ */
+struct syslog_names {
+	const char *c_name;
+	int32_t c_val;
+};
+
+struct syslog_names prioritynames[] =
+{
+	{ "alert", LOG_ALERT },
+	{ "crit", LOG_CRIT },
+	{ "debug", LOG_DEBUG },
+	{ "emerg", LOG_EMERG },
+	{ "err", LOG_ERR },
+	{ "error", LOG_ERR },
+	{ "info", LOG_INFO },
+	{ "notice", LOG_NOTICE },
+	{ "warning", LOG_WARNING },
+	{ NULL, -1 }
+};
+
+const char *qb_log_priority_name_get(uint32_t priority)
+{
+	uint32_t i;
+
+	for (i = 0; prioritynames[i].c_name != NULL; i++) {
+		if (priority == prioritynames[i].c_val) {
+			return prioritynames[i].c_name;
+		}
+	}
+	return NULL;
+}
+
 static const char log_month_name[][4] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"

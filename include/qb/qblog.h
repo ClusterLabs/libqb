@@ -123,6 +123,11 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
 #define qb_perror
 #endif
 
+/**
+ * Utility function to get the priority name from it's ID
+ * like this: LOG_ERR - > "error"
+ */
+const char *qb_log_priority_name_get(uint32_t priority);
 
 /**
  * Create a filter to tag the callsites.
