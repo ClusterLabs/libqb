@@ -107,9 +107,7 @@ retry_sem_wait:
 			printf("%d messages lost\n", dropped);
 		}
 
-		if (destination->logger) {
-			destination->logger(rec->cs, rec->timestamp, rec->buffer);
-		}
+		qb_log_thread_log_write(rec->cs, rec->timestamp, rec->buffer);
 		free(rec->buffer);
 		free(rec);
 	}
@@ -177,12 +175,8 @@ static void wthread_create(void)
 
 void qb_log_thread_start(void)
 {
-	assert(destination != NULL);
 	wthread_create();
-
 	logt_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-
-	destination->threaded = QB_TRUE;
 }
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
@@ -265,9 +259,7 @@ void qb_log_thread_stop(void)
 				sizeof (struct qb_log_record) - 1;
 			(void)qb_thread_unlock(logt_wthread_lock);
 
-			if (destination->logger) {
-				destination->logger(rec->cs, rec->timestamp, rec->buffer);
-			}
+			qb_log_thread_log_write(rec->cs, rec->timestamp, rec->buffer);
 			free(rec->buffer);
 			free(rec);
 		}

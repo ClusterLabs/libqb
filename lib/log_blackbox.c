@@ -21,14 +21,14 @@
 #include "os_base.h"
 
 #include <qb/qbrb.h>
-#include <qb/qblog.h>
+#include "log_int.h"
 
-qb_ringbuffer_t *bb_rb = NULL;
 
-void qb_log_blackbox_start(size_t size)
+static void _blackbox_reload(struct qb_log_target *t)
 {
-	bb_rb = qb_rb_open("blackbox", size,
-			   QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
+	qb_rb_close(t->instance);
+	t->instance = qb_rb_open(t->name, t->size,
+				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
 }
 
 /* <u32> file lineno
@@ -37,9 +37,10 @@ void qb_log_blackbox_start(size_t size)
  * <u32> buffer lenght
  * <string> buffer
  */
-void qb_log_blackbox_append(struct qb_log_callsite *cs,
-			    const char *timestamp_str,
-			    const char *buffer)
+static void _blackbox_logger(struct qb_log_target *t,
+				 struct qb_log_callsite *cs,
+				 const char* timestamp_str,
+				 const char *buffer)
 {
 	size_t size = sizeof(uint32_t);
 	size_t fn_size;
@@ -47,7 +48,7 @@ void qb_log_blackbox_append(struct qb_log_callsite *cs,
 	size_t time_size;
 	char *chunk;
 
-	if (bb_rb == NULL) {
+	if (t->instance == NULL) {
 		return;
 	}
 
@@ -57,7 +58,7 @@ void qb_log_blackbox_append(struct qb_log_callsite *cs,
 
 	size += 3 * sizeof(uint32_t) + fn_size + buf_size + time_size;
 
-	chunk = qb_rb_chunk_alloc(bb_rb, size);
+	chunk = qb_rb_chunk_alloc(t->instance, size);
 
 	/* line number */
 	memcpy(chunk, &cs->lineno, sizeof(uint32_t));
@@ -80,18 +81,42 @@ void qb_log_blackbox_append(struct qb_log_callsite *cs,
 	chunk += sizeof(uint32_t);
 	memcpy(chunk, buffer, buf_size);
 
-	(void)qb_rb_chunk_commit(bb_rb, size);
+	(void)qb_rb_chunk_commit(t->instance, size);
+}
+
+static void _blackbox_close(struct qb_log_target *t)
+{
+	qb_rb_close(t->instance);
+}
+
+int32_t qb_log_blackbox_open(struct qb_log_target *t)
+{
+	if (t->size < 1024) {
+		return -EINVAL;
+	}
+
+	t->instance = qb_rb_open(t->name, t->size,
+				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
+	if (t->instance == NULL) {
+		return -errno;
+	}
+	t->logger = _blackbox_logger;
+	t->reload = _blackbox_reload;
+	t->close = _blackbox_close;
+	return 0;
 }
 
 ssize_t qb_log_blackbox_write_to_file(const char *filename)
 {
 	ssize_t written_size = 0;
+	struct qb_log_target *t;
 	int fd = open (filename, O_CREAT|O_RDWR, 0700);
 
 	if (fd < 0) {
 		return -errno;
 	}
-	written_size = qb_rb_write_to_file(bb_rb, fd);
+	t = qb_log_target_get(QB_LOG_BLACKBOX);
+	written_size = qb_rb_write_to_file(t->instance, fd);
 	close (fd);
 
 	return written_size;
@@ -99,7 +124,7 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename)
 
 void qb_log_blackbox_print_from_file(const char* bb_filename)
 {
-	qb_ringbuffer_t * rb;
+	qb_ringbuffer_t * instance;
 	ssize_t bytes_read;
 	char chunk[512];
 	int fd;
@@ -109,7 +134,7 @@ void qb_log_blackbox_print_from_file(const char* bb_filename)
 		perror("qb_log_blackbox_print_from_file");
 		return;
 	}
-	rb = qb_rb_create_from_file(fd, 0);
+	instance = qb_rb_create_from_file(fd, 0);
 
 	do {
 		char     *ptr;
@@ -121,7 +146,7 @@ void qb_log_blackbox_print_from_file(const char* bb_filename)
 		uint32_t *log_size;
 		char     *logmsg;
 
-		bytes_read = qb_rb_chunk_read(rb, chunk, 512, 0);
+		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;
 		if (bytes_read > 0) {
 			/* lineno */

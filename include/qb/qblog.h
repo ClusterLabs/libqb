@@ -73,13 +73,6 @@ struct qb_log_callsite {
 	uint32_t tags;
 } __attribute__((aligned(8)));
 
-
-typedef struct qb_log_filter qb_log_filter_t;
-
-typedef void (*qb_log_logger_fn)(struct qb_log_callsite *cs,
-				 const char* timestamp_str,
-				 const char *msg);
-
 /* will be assigned by ld linker magic */
 extern struct qb_log_callsite __start___verbose[];
 extern struct qb_log_callsite __stop___verbose[];
@@ -129,42 +122,41 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
  */
 const char *qb_log_priority_name_get(uint32_t priority);
 
-/**
- * Create a filter to tag the callsites.
- */
-qb_log_filter_t* qb_log_filter_create(void);
+#define QB_LOG_SYSLOG 0
+#define QB_LOG_STDERR 1
+#define QB_LOG_BLACKBOX 2
 
-/**
- * destroy a filter.
- */
-void qb_log_filter_destroy(struct qb_log_filter* flt);
+enum qb_log_conf {
+	QB_LOG_CONF_ENABLED,
+	QB_LOG_CONF_FACILITY,
+	QB_LOG_CONF_DEBUG,
+	QB_LOG_CONF_SIZE,
+	QB_LOG_CONF_THREADED,
+};
 
-/**
- * Set the priority on the filter
- */
-int32_t qb_log_filter_priority_set(qb_log_filter_t* flt, uint8_t priority);
+enum qb_log_filter_type {
+	QB_LOG_FILTER_FILE,
+	QB_LOG_FILTER_FUNCTION,
+	QB_LOG_FILTER_FORMAT,
+};
 
-/**
- * add a chunk of code to a filter.
- */
-void qb_log_filter_file_add(struct qb_log_filter* flt,
-			    const char* filename,
-			    int32_t start, int32_t end);
+enum qb_log_filter_conf {
+	QB_LOG_FILTER_ADD,
+	QB_LOG_FILTER_REMOVE,
+	QB_LOG_FILTER_CLEAR_ALL,
+};
 
-/**
- * Set a bit in the tags field of the callsites defined by the filter.
- */
-void qb_log_tag(struct qb_log_filter* flt, int32_t tag_bit);
+void qb_log_init(const char *name,
+		 int32_t facility,
+		 int32_t priority);
 
-/**
- * Unset a bit in the tags field of the callsites defined by the filter.
- */
-void qb_log_untag(struct qb_log_filter* flt, int32_t tag_bit);
+int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg);
 
-/**
- * set your log handling function.
- */
-void qb_log_handler_set(qb_log_logger_fn logger_fn);
+int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
+			  enum qb_log_filter_type type, const char * text,
+			  uint32_t priority);
+
+int32_t qb_log_file_open(const char *filename);
 
 /**
  * Start the logging pthread.
@@ -175,23 +167,6 @@ void qb_log_thread_start(void);
  * Stop the logging pthread
  */
 void qb_log_thread_stop(void);
-
-/**
- * Initialize the blackbox
- *
- * @param size the size of the blackbox.
- */
-void qb_log_blackbox_start(size_t size);
-
-/**
- * Add the log message to the blackbox.
- *
- * @note call this from your log handler
- * @see qb_log_handler_set()
- */
-void qb_log_blackbox_append(struct qb_log_callsite *cs,
-			   const char *timestamp_str,
-			   const char *buffer);
 
 /**
  * Write the blackbox to file.

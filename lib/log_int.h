@@ -23,23 +23,46 @@
 
 #include <qb/qblist.h>
 #include <qb/qblog.h>
+#include <qb/qbrb.h>
 
-struct qb_log_filter_file {
-	char *filename;
-	int32_t start;
-	int32_t end;
-	struct qb_list_head list;
+enum qb_log_state {
+	QB_LOG_STATE_UNUSED,
+	QB_LOG_STATE_DISABLED,
+	QB_LOG_STATE_ENABLED,
+};
+
+struct qb_log_target;
+
+typedef void (*qb_log_logger_fn)(struct qb_log_target *t,
+				 struct qb_log_callsite *cs,
+				 const char* timestamp_str,
+				 const char *msg);
+
+typedef void (*qb_log_close_fn)(struct qb_log_target *t);
+typedef void (*qb_log_reload_fn)(struct qb_log_target *t);
+
+struct qb_log_target {
+	uint32_t pos;
+	enum qb_log_state state;
+	char name[PATH_MAX];
+//	struct qb_log_filter *filters;
+	int32_t facility;
+	int32_t debug;
+	size_t size;
+	int32_t threaded;
+	void *instance;
+
+	qb_log_reload_fn reload;
+	qb_log_close_fn close;
+	qb_log_logger_fn logger;
 };
 
 struct qb_log_filter {
-	uint8_t priority;
-	struct qb_list_head files_head;
+	enum qb_log_filter_type type;
+	char *text;
+	int32_t priority;
 };
 
-struct qb_log_destination {
-	qb_log_logger_fn logger;
-	int32_t threaded;
-};
 
 struct qb_log_record {
 	struct qb_log_callsite *cs;
@@ -49,13 +72,21 @@ struct qb_log_record {
 };
 
 #define COMBINE_BUFFER_SIZE 256
+struct qb_log_target * qb_log_target_alloc(void);
+void qb_log_target_free(struct qb_log_target *t);
+struct qb_log_target * qb_log_target_get(int32_t pos);
 
-extern struct qb_log_destination *destination;
+int32_t qb_log_syslog_open(struct qb_log_target *t);
+int32_t qb_log_stderr_open(struct qb_log_target *t);
+int32_t qb_log_blackbox_open(struct qb_log_target *t);
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
 			    const char* timestamp_str,
 			    const char *buffer);
 
+void qb_log_thread_log_write(struct qb_log_callsite *cs,
+			    const char* timestamp_str,
+			    const char *buffer);
 
 #endif /* _QB_LOG_INT_H_ */
 
