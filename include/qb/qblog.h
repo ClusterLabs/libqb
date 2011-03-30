@@ -84,10 +84,24 @@ extern struct qb_log_callsite __start___verbose[];
 extern struct qb_log_callsite __stop___verbose[];
 
 /**
- * Internal function use qb_log()
+ * Internal function: use qb_log()
  */
 void qb_log_real_(struct qb_log_callsite *cs, ...);
 
+/**
+ * This function is to import logs from other code (like libraries)
+ * that provide a callback with their logs.
+ *
+ * @note the performance of this will not impress you, as
+ * the filtering is done on each log message, not
+ * before hand. So try doing basic pre-filtering.
+ */
+void qb_log_from_external_source(const char *function,
+				 const char *filename,
+				 const char *format,
+				 uint8_t priority,
+				 uint32_t lineno,
+				 const char *msg);
 /**
  * This is the main function to generate a log message.
  *

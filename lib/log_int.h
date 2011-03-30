@@ -45,7 +45,7 @@ struct qb_log_target {
 	uint32_t pos;
 	enum qb_log_state state;
 	char name[PATH_MAX];
-//	struct qb_log_filter *filters;
+	struct qb_list_head filter_head;
 	int32_t facility;
 	int32_t debug;
 	size_t size;
@@ -61,6 +61,7 @@ struct qb_log_filter {
 	enum qb_log_filter_type type;
 	char *text;
 	int32_t priority;
+	struct qb_list_head list;
 };
 
 
