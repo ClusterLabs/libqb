@@ -28,7 +28,11 @@ static void _syslog_logger(struct qb_log_target *t,
 			   const char* timestamp_str,
 			   const char *msg)
 {
-	syslog(cs->priority, "%s", msg);
+	char output_buffer[COMBINE_BUFFER_SIZE];
+
+	qb_log_target_format(t, cs, msg, output_buffer);
+
+	syslog(cs->priority, "%s", output_buffer);
 }
 
 static void _syslog_close(struct qb_log_target *t)

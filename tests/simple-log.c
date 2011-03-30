@@ -129,6 +129,7 @@ int32_t main(int32_t argc, char *argv[])
 				  QB_LOG_FILTER_FUNCTION, "func_one", LOG_DEBUG);
 		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 				  QB_LOG_FILTER_FILE, __FILE__, priority);
+		qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
 		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 	}
 	if (do_blackbox) {
@@ -142,6 +143,7 @@ int32_t main(int32_t argc, char *argv[])
 		log_fd = qb_log_file_open(logfile);
 		qb_log_filter_ctl(log_fd, QB_LOG_FILTER_ADD,
 				  QB_LOG_FILTER_FILE, __FILE__, priority);
+		qb_log_format_set(log_fd, "%t %n() [%p] %b");
 		qb_log_ctl(log_fd, QB_LOG_CONF_THREADED, do_threaded);
 	}
 	if (do_threaded) {

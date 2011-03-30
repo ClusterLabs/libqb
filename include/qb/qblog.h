@@ -199,6 +199,21 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			  uint32_t priority);
 
 /**
+ * Set the format specifiers.
+ *
+ * %n FUNCTION NAME
+ * %f FILENAME
+ * %l FILELINE
+ * %p PRIORITY
+ * %t TIMESTAMP
+ * %b BUFFER
+ * %s SUBSYSTEM
+ *
+ * any number between % and character specify field length to pad or chop
+ */
+void qb_log_format_set(int32_t t, const char* format);
+
+/**
  * Open a log file.
  *
  * @retval -errno on error

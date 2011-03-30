@@ -79,6 +79,29 @@ static const char log_month_name[][4] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
+static int strcpy_cutoff (char *dest, const char *src, size_t cutoff,
+				 size_t buf_len)
+{
+	size_t len = strlen (src);
+	if (buf_len <= 1) {
+		if (buf_len == 0)
+			dest[0] = 0;
+		return 0;
+	}
+
+	if (cutoff == 0) {
+		cutoff = len;
+	}
+
+	cutoff = QB_MIN(cutoff, buf_len - 1);
+	len = QB_MIN(len, cutoff);
+	memcpy(dest, src, len);
+	memset(dest + len, ' ', cutoff - len);
+	dest[cutoff] = '\0';
+
+	return (cutoff);
+}
+
 static void _log_timestamp(char * char_time)
 {
 	struct timeval tv;
@@ -89,6 +112,107 @@ static void _log_timestamp(char * char_time)
 	snprintf (char_time, TIME_STRING_SIZE, "%s %02d %02d:%02d:%02d",
 		log_month_name[tm_res.tm_mon], tm_res.tm_mday, tm_res.tm_hour,
 		tm_res.tm_min, tm_res.tm_sec);
+}
+
+/*
+ * %n FUNCTION NAME
+ * %f FILENAME
+ * %l FILELINE
+ * %p PRIORITY
+ * %t TIMESTAMP
+ * %b BUFFER
+ * %s SUBSYSTEM
+ *
+ * any number between % and character specify field length to pad or chop
+*/
+void qb_log_target_format(struct qb_log_target *t,
+			  struct qb_log_callsite *cs,
+			  const char* formatted_message,
+			  char *output_buffer)
+{
+	char char_time[128];
+	char line_no[30];
+	unsigned int format_buffer_idx = 0;
+	unsigned int output_buffer_idx = 0;
+	size_t cutoff;
+	uint32_t len;
+	int c;
+	int i;
+
+	while ((c = t->format[format_buffer_idx])) {
+		cutoff = 0;
+		if (c != '%') {
+			output_buffer[output_buffer_idx++] = c;
+			format_buffer_idx++;
+		} else {
+			const char *p;
+
+			format_buffer_idx += 1;
+			if (isdigit(t->format[format_buffer_idx])) {
+				cutoff = atoi(&t->format[format_buffer_idx]);
+			}
+			while (isdigit(t->format[format_buffer_idx])) {
+				format_buffer_idx += 1;
+			}
+
+			switch (t->format[format_buffer_idx]) {
+			case 's':
+				/* FIXME subsystem
+				 * short term hack is get the basename of
+				 * the filename and toupper it.
+				 */
+				for (i = 0; i < strlen(cs->filename); i++) {
+					if ((cs->filename[i] == '.') ||
+					    (cs->filename[i] == '/')) {
+						break;
+					}
+					line_no[i] = toupper(cs->filename[i]);
+				}
+				p = line_no;
+				break;
+
+			case 'n':
+				p = cs->function;
+				break;
+
+			case 'f':
+				p = cs->filename;
+				break;
+
+			case 'l':
+				snprintf(line_no, 30, "%d", cs->lineno);
+				p = line_no;
+				break;
+
+			case 't':
+				_log_timestamp(char_time);
+				p = char_time;
+				break;
+
+			case 'b':
+				p = formatted_message;
+				break;
+
+			case 'p':
+				p = prioritynames[cs->priority].c_name;
+				break;
+
+			default:
+				p = "";
+				break;
+			}
+			len = strcpy_cutoff (output_buffer + output_buffer_idx,
+					     p, cutoff,
+					     (COMBINE_BUFFER_SIZE - output_buffer_idx));
+			output_buffer_idx += len;
+			format_buffer_idx += 1;
+		}
+		if (output_buffer_idx >= COMBINE_BUFFER_SIZE - 1) {
+			break;
+		}
+	}
+
+	output_buffer[output_buffer_idx] = '\0';
 }
 
 static int32_t _cs_matches_filter_(struct qb_log_callsite *cs,
@@ -320,6 +444,7 @@ void qb_log_init(const char *name,
 		conf[i].name[0] = '\0';
 		conf[i].facility = facility;
 		qb_list_init(&conf[i].filter_head);
+		qb_log_format_set(i, NULL);
 	}
 	conf[QB_LOG_SYSLOG].state = QB_LOG_STATE_ENABLED;
 	conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
@@ -350,6 +475,7 @@ void qb_log_target_free(struct qb_log_target *t)
 	t->debug = QB_FALSE;
 	t->state = QB_LOG_STATE_UNUSED;
 	t->name[0] = '\0';
+	qb_log_format_set(t->pos, NULL);
 }
 
 struct qb_log_target * qb_log_target_get(int32_t pos)
@@ -411,6 +537,17 @@ int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
 		conf[t].reload(&conf[t]);
 	}
 	return rc;
+}
+
+void qb_log_format_set(int32_t t, const char* format)
+{
+	if (conf[t].format) {
+		free(conf[t].format);
+		conf[t].format = NULL;
+	}
+
+	conf[t].format = strdup(format ? format : "%p [%6s] %b");
+	assert(conf[t].format != NULL);
 }
 
 

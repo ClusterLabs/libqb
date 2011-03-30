@@ -49,6 +49,7 @@ struct qb_log_target {
 	int32_t facility;
 	int32_t debug;
 	size_t size;
+	char *format;
 	int32_t threaded;
 	void *instance;
 
@@ -76,6 +77,10 @@ struct qb_log_record {
 struct qb_log_target * qb_log_target_alloc(void);
 void qb_log_target_free(struct qb_log_target *t);
 struct qb_log_target * qb_log_target_get(int32_t pos);
+void qb_log_target_format(struct qb_log_target *t,
+			  struct qb_log_callsite *cs,
+			  const char* formatted_message,
+			  char *output_buffer);
 
 int32_t qb_log_syslog_open(struct qb_log_target *t);
 int32_t qb_log_stderr_open(struct qb_log_target *t);
