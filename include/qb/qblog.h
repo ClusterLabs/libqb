@@ -179,6 +179,11 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 int32_t qb_log_file_open(const char *filename);
 
 /**
+ * Close a log file and release is resources.
+ */
+void qb_log_file_close(int32_t t);
+
+/**
  * Start the logging pthread.
  */
 void qb_log_thread_start(void);
