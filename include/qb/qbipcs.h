@@ -23,16 +23,16 @@
 #ifndef QB_IPCS_H_DEFINED
 #define QB_IPCS_H_DEFINED
 
-#include <stdlib.h>
-#include <qb/qbipc_common.h>
-#include <qb/qbhdb.h>
-#include <qb/qbloop.h>
-
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
 /* *INDENT-ON* */
+
+#include <stdlib.h>
+#include <qb/qbipc_common.h>
+#include <qb/qbhdb.h>
+#include <qb/qbloop.h>
 
 enum qb_ipcs_rate_limit {
 	QB_IPCS_RATE_FAST,

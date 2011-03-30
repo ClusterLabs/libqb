@@ -25,6 +25,12 @@
 #ifndef QB_ATOMIC_DEFINED
 #define QB_ATOMIC_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 #include <stdint.h>
 #include <qb/qbdefs.h>
 
@@ -60,12 +66,6 @@
  * functions. Use qb_atomic_int_compare_and_exchange() or
  * qb_atomic_pointer_compare_and_exchange() respectively.
  */
-
-/* *INDENT-OFF* */
-#ifdef __cplusplus
-extern "C" {
-#endif
-/* *INDENT-ON* */
 
 void qb_atomic_init(void);
 

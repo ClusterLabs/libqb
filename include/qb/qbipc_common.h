@@ -23,6 +23,12 @@
 #ifndef QB_IPC_COMMON_H_DEFINED
 #define QB_IPC_COMMON_H_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 struct qb_ipc_request_header {
 	int32_t id __attribute__ ((aligned(8)));
 	int32_t size __attribute__ ((aligned(8)));
@@ -48,5 +54,10 @@ enum qb_ipc_type {
 #define QB_IPC_MSG_NEW_EVENT_SOCK -2
 #define QB_IPC_MSG_DISCONNECT -3
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+}
+#endif
+/* *INDENT-ON* */
 
 #endif /* QB_IPC_COMMON_H_DEFINED */

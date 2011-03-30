@@ -20,18 +20,18 @@
 #ifndef QB_DEFS_H_DEFINED
 #define QB_DEFS_H_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 /**
  * @file qbdefs.h
  * @author Angus Salkeld <asalkeld@redhat.com>
  *
  * These are some convience macros and defines.
  */
-
-/* *INDENT-OFF* */
-#ifdef __cplusplus
-extern "C" {
-#endif
-/* *INDENT-ON* */
 
 /*
  * simple math macros

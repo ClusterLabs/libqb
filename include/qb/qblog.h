@@ -22,6 +22,12 @@
 #ifndef QB_LOG_H_DEFINED
 #define QB_LOG_H_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -178,4 +184,9 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename);
  */
 void qb_log_blackbox_print_from_file(const char* filename);
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+/* *INDENT-ON* */
 #endif /* QB_LOG_H_DEFINED */

@@ -21,17 +21,17 @@
 #ifndef QB_IPCC_H_DEFINED
 #define QB_IPCC_H_DEFINED
 
-#include <pthread.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <qb/qbhdb.h>
-#include <qb/qbipc_common.h>
-
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
 #endif
 /* *INDENT-ON* */
+
+#include <pthread.h>
+#include <sys/poll.h>
+#include <sys/socket.h>
+#include <qb/qbhdb.h>
+#include <qb/qbipc_common.h>
 
 /**
  * @file qbipcc.h
