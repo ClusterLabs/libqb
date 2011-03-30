@@ -237,10 +237,10 @@ void qb_log_init(const char *name,
 	conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
 	strncpy(conf[QB_LOG_SYSLOG].name, name, PATH_MAX);
 
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, "*", priority);
+	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+				QB_LOG_FILTER_FILE, "*", priority);
 
-	qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
+	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
 }
 
 struct qb_log_target * qb_log_target_alloc(void)
