@@ -166,16 +166,44 @@ enum qb_log_filter_conf {
 	QB_LOG_FILTER_CLEAR_ALL,
 };
 
+/**
+ * Init the logging system.
+ *
+ * @param name will be passed into openlog()
+ * @param facility default for all new targets.
+ * @param priority a basic filter with this priority will be added.
+ */
 void qb_log_init(const char *name,
 		 int32_t facility,
 		 int32_t priority);
 
+/**
+ * Main logging control function.
+ *
+ * @param t QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
+ * @param c what to configure
+ * @param arg the new value
+ * @see qb_log_conf
+ * @retval -errno on error
+ * @retval 0 on success
+ */
 int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg);
 
+/**
+ * Filter control
+ *
+ * This allows you define which log messages go to which target.
+ */
 int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,
 			  uint32_t priority);
 
+/**
+ * Open a log file.
+ *
+ * @retval -errno on error
+ * @retval 3 to 31 (to be passed into other qb_log_* functions)
+ */
 int32_t qb_log_file_open(const char *filename);
 
 /**
