@@ -9,5 +9,4 @@ rbreader
 rbwriter
 loop
 simple-log
-blackbox
-threaded-log
+bench-log
