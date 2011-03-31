@@ -154,12 +154,6 @@ void qb_log_from_external_source(const char *function,
 #define qb_perror
 #endif
 
-/**
- * Utility function to get the priority name from it's ID
- * like this: LOG_ERR - > "error"
- */
-const char *qb_log_priority_name_get(uint32_t priority);
-
 #define QB_LOG_SYSLOG 0
 #define QB_LOG_STDERR 1
 #define QB_LOG_BLACKBOX 2

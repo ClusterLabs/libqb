@@ -54,29 +54,16 @@ struct syslog_names {
 
 struct syslog_names prioritynames[] =
 {
+	{ "emerg", LOG_EMERG },
 	{ "alert", LOG_ALERT },
 	{ "crit", LOG_CRIT },
-	{ "debug", LOG_DEBUG },
-	{ "emerg", LOG_EMERG },
-	{ "err", LOG_ERR },
 	{ "error", LOG_ERR },
-	{ "info", LOG_INFO },
-	{ "notice", LOG_NOTICE },
 	{ "warning", LOG_WARNING },
+	{ "notice", LOG_NOTICE },
+	{ "info", LOG_INFO },
+	{ "debug", LOG_DEBUG },
 	{ NULL, -1 }
 };
-
-const char *qb_log_priority_name_get(uint32_t priority)
-{
-	uint32_t i;
-
-	for (i = 0; prioritynames[i].c_name != NULL; i++) {
-		if (priority == prioritynames[i].c_val) {
-			return prioritynames[i].c_name;
-		}
-	}
-	return NULL;
-}
 
 static const char log_month_name[][4] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",

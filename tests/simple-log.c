@@ -93,7 +93,6 @@ static const char *my_tags_stringify(uint32_t tags)
 	} else {
 		return "MAIN";
 	}
-
 }
 
 int32_t main(int32_t argc, char *argv[])
@@ -171,8 +170,8 @@ int32_t main(int32_t argc, char *argv[])
 		qb_log_thread_start();
 	}
 	qb_log(LOG_DEBUG, 0, "hello");
-	qb_log(LOG_INFO, 0, "hello");
-	qb_log(LOG_NOTICE, 0, "hello");
+	qb_log(LOG_INFO, 0, "this is an info");
+	qb_log(LOG_NOTICE, 0, "hello - notice?");
 	func_one();
 	func_two();
 
