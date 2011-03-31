@@ -56,6 +56,8 @@ struct qb_log_target {
 	qb_log_reload_fn reload;
 	qb_log_close_fn close;
 	qb_log_logger_fn logger;
+
+	struct qb_list_head active_list;
 };
 
 struct qb_log_filter {
@@ -73,7 +75,8 @@ struct qb_log_record {
 	struct qb_list_head list;
 };
 
-#define COMBINE_BUFFER_SIZE 256
+#define COMBINE_BUFFER_SIZE 512
+
 struct qb_log_target * qb_log_target_alloc(void);
 void qb_log_target_free(struct qb_log_target *t);
 struct qb_log_target * qb_log_target_get(int32_t pos);
