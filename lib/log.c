@@ -241,7 +241,7 @@ static int32_t _cs_matches_filter_(struct qb_log_callsite *cs,
 
 /*
  * 1 alloc a new callsite
- * 2 apply correct tags based on current filters
+ * 2 apply correct targets based on current filters
  * 3 pass onto qb_log_real_()
  *
  * Later:
@@ -272,7 +272,7 @@ void qb_log_from_external_source(const char *function,
 						flt->type,
 						flt->text,
 						flt->priority)) {
-				qb_bit_set(cs->tags, t->pos);
+				qb_bit_set(cs->targets, t->pos);
 				break;
 			}
 		}
@@ -314,7 +314,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 	gettimeofday(&tv, NULL);
 
 	if (old_internal_log_fn) {
-		if (qb_bit_is_set(cs->tags, 31)) {
+		if (qb_bit_is_set(cs->targets, 31)) {
 			old_internal_log_fn(cs->filename, cs->lineno, cs->priority, buf);
 		}
 	}
@@ -326,11 +326,11 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 	found_threaded = QB_FALSE;
 	qb_list_for_each_entry(t, &active_targets, active_list) {
 		if (t->threaded) {
-			if (!found_threaded && qb_bit_is_set(cs->tags, t->pos)) {
+			if (!found_threaded && qb_bit_is_set(cs->targets, t->pos)) {
 				found_threaded = QB_TRUE;
 			}
 		} else {
-			if (qb_bit_is_set(cs->tags, t->pos) && t->logger) {
+			if (qb_bit_is_set(cs->targets, t->pos) && t->logger) {
 				t->logger(t, cs, tv.tv_sec, buf);
 			}
 		}
@@ -353,7 +353,7 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 		if (t->threaded) {
 			continue;
 		}
-		if (qb_bit_is_set(cs->tags, t->pos)) {
+		if (qb_bit_is_set(cs->targets, t->pos)) {
 			t->logger(t, cs, timestamp, buffer);
 		}
 	}
@@ -400,15 +400,15 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 	for (cs = __start___verbose; cs < __stop___verbose; cs++) {
 
 		if (c == QB_LOG_FILTER_CLEAR_ALL) {
-			qb_bit_clear(cs->tags, t);
+			qb_bit_clear(cs->targets, t);
 			continue;
 		}
 
 		if (_cs_matches_filter_(cs, type, text, priority)) {
 			if (c == QB_LOG_FILTER_ADD) {
-				qb_bit_set(cs->tags, t);
+				qb_bit_set(cs->targets, t);
 			} else {
-				qb_bit_clear(cs->tags, t);
+				qb_bit_clear(cs->targets, t);
 			}
 #if 0
 			printf("matched: %-12s %20s:%u fmt:<%d>%s\n",

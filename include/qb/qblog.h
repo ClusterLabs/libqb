@@ -76,7 +76,7 @@ struct qb_log_callsite {
         const char *format;
 	uint8_t priority;
         uint32_t lineno;
-	uint32_t tags;
+	uint32_t targets;
 } __attribute__((aligned(8)));
 
 /* will be assigned by ld linker magic */
