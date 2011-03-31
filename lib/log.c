@@ -29,6 +29,8 @@
 
 static struct qb_log_target conf[32];
 
+static QB_LIST_DECLARE(active_targets);
+
 #define TIME_STRING_SIZE 128
 
 /* deprecated method of getting internal log messages */
@@ -102,18 +104,6 @@ static int strcpy_cutoff (char *dest, const char *src, size_t cutoff,
 	return (cutoff);
 }
 
-static void _log_timestamp(char * char_time)
-{
-	struct timeval tv;
-	struct tm tm_res;
-
-	gettimeofday (&tv, NULL);
-	(void)localtime_r ((time_t *)&tv.tv_sec, &tm_res);
-	snprintf (char_time, TIME_STRING_SIZE, "%s %02d %02d:%02d:%02d",
-		log_month_name[tm_res.tm_mon], tm_res.tm_mday, tm_res.tm_hour,
-		tm_res.tm_min, tm_res.tm_sec);
-}
-
 /*
  * %n FUNCTION NAME
  * %f FILENAME
@@ -127,10 +117,12 @@ static void _log_timestamp(char * char_time)
 */
 void qb_log_target_format(struct qb_log_target *t,
 			  struct qb_log_callsite *cs,
+			  time_t current_time,
 			  const char* formatted_message,
 			  char *output_buffer)
 {
 	char char_time[128];
+	struct tm tm_res;
 	char line_no[30];
 	unsigned int format_buffer_idx = 0;
 	unsigned int output_buffer_idx = 0;
@@ -185,7 +177,10 @@ void qb_log_target_format(struct qb_log_target *t,
 				break;
 
 			case 't':
-				_log_timestamp(char_time);
+				(void)localtime_r(&current_time, &tm_res);
+				snprintf(char_time, TIME_STRING_SIZE, "%s %02d %02d:%02d:%02d",
+					 log_month_name[tm_res.tm_mon], tm_res.tm_mday, tm_res.tm_hour,
+					 tm_res.tm_min, tm_res.tm_sec);
 				p = char_time;
 				break;
 
@@ -301,9 +296,9 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 	char buf[COMBINE_BUFFER_SIZE];
 	size_t len;
 	static int32_t in_logger = 0;
-	char char_time[TIME_STRING_SIZE];
 	int32_t found_threaded;
 	int32_t i;
+	struct timeval tv;
 
 	if (in_logger) {
 		return;
@@ -319,7 +314,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 		len -= 1;
 	}
 
-	_log_timestamp(char_time);
+	gettimeofday(&tv, NULL);
 
 	if (old_internal_log_fn) {
 		if (qb_bit_is_set(cs->tags, 31)) {
@@ -342,12 +337,12 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 			}
 		} else {
 			if (qb_bit_is_set(cs->tags, conf[i].pos) && conf[i].logger) {
-				conf[i].logger(&conf[i], cs, char_time, buf);
+				conf[i].logger(&conf[i], cs, tv.tv_sec, buf);
 			}
 		}
 	}
 	if (found_threaded) {
-		qb_log_thread_log_post(cs, char_time, buf);
+		qb_log_thread_log_post(cs, tv.tv_sec, buf);
 	} else {
 		qb_log_external_source_free(cs);
 	}
@@ -355,7 +350,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 }
 
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
-			     const char* timestamp_str,
+			     time_t timestamp,
 			     const char *buffer)
 {
 	int32_t i;
@@ -365,7 +360,7 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			continue;
 		}
 		if (qb_bit_is_set(cs->tags, conf[i].pos)) {
-			conf[i].logger(&conf[i], cs, timestamp_str, buffer);
+			conf[i].logger(&conf[i], cs, timestamp, buffer);
 		}
 	}
 	qb_log_external_source_free(cs);
@@ -516,9 +511,6 @@ int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
 		if (t == QB_LOG_SYSLOG) {
 			need_reload = QB_TRUE;
 		}
-		break;
-	case QB_LOG_CONF_DEBUG:
-		conf[t].debug = arg;
 		break;
 	case QB_LOG_CONF_SIZE:
 		conf[t].size = arg;

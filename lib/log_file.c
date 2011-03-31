@@ -25,11 +25,11 @@
 
 static void _file_logger(struct qb_log_target *t,
 				 struct qb_log_callsite *cs,
-				 const char* timestamp_str,
+				 time_t timestamp,
 				 const char *msg)
 {	char output_buffer[COMBINE_BUFFER_SIZE];
 
-	qb_log_target_format(t, cs, msg, output_buffer);
+	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
 	fprintf(t->instance, "%s\n", output_buffer);
 }

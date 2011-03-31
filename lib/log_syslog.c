@@ -25,12 +25,12 @@
 
 static void _syslog_logger(struct qb_log_target *t,
 			   struct qb_log_callsite *cs,
-			   const char* timestamp_str,
+			   time_t timestamp,
 			   const char *msg)
 {
 	char output_buffer[COMBINE_BUFFER_SIZE];
 
-	qb_log_target_format(t, cs, msg, output_buffer);
+	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
 	syslog(cs->priority, "%s", output_buffer);
 }

@@ -39,13 +39,12 @@ static void _blackbox_reload(struct qb_log_target *t)
  */
 static void _blackbox_logger(struct qb_log_target *t,
 				 struct qb_log_callsite *cs,
-				 const char* timestamp_str,
+				 time_t timestamp,
 				 const char *buffer)
 {
 	size_t size = sizeof(uint32_t);
 	size_t fn_size;
 	size_t buf_size;
-	size_t time_size;
 	char *chunk;
 
 	if (t->instance == NULL) {
@@ -54,9 +53,8 @@ static void _blackbox_logger(struct qb_log_target *t,
 
 	fn_size = strlen(cs->function) + 1;
 	buf_size = strlen(buffer) + 1;
-	time_size = strlen(timestamp_str) + 1;
 
-	size += 3 * sizeof(uint32_t) + fn_size + buf_size + time_size;
+	size += 2 * sizeof(uint32_t) + fn_size + buf_size + sizeof(time_t);
 
 	chunk = qb_rb_chunk_alloc(t->instance, size);
 
@@ -71,10 +69,8 @@ static void _blackbox_logger(struct qb_log_target *t,
 	chunk += fn_size;
 
 	/* timestamp */
-	memcpy(chunk, &time_size, sizeof(uint32_t));
-	chunk += sizeof(uint32_t);
-	memcpy(chunk, timestamp_str, time_size);
-	chunk += time_size;
+	memcpy(chunk, &timestamp, sizeof(time_t));
+	chunk += sizeof(time_t);
 
 	/* log message */
 	memcpy(chunk, &buf_size, sizeof(uint32_t));
@@ -122,12 +118,14 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename)
 	return written_size;
 }
 
+
 void qb_log_blackbox_print_from_file(const char* bb_filename)
 {
 	qb_ringbuffer_t * instance;
 	ssize_t bytes_read;
 	char chunk[512];
 	int fd;
+	char time_buf[64];
 
 	fd = open(bb_filename, O_CREAT|O_RDWR, 0700);
 	if (fd < 0) {
@@ -141,8 +139,7 @@ void qb_log_blackbox_print_from_file(const char* bb_filename)
 		uint32_t *lineno;
 		uint32_t *fn_size;
 		char     *function;
-		uint32_t *time_size;
-		char     *timestamp;
+		time_t   *timestamp;
 		uint32_t *log_size;
 		char     *logmsg;
 
@@ -161,17 +158,15 @@ void qb_log_blackbox_print_from_file(const char* bb_filename)
 			ptr += *fn_size;
 
 			/* timestamp size & content */
-			time_size = (uint32_t*)ptr;
-			ptr += sizeof(uint32_t);
-
-			timestamp = ptr;
-			ptr += *time_size;
+			timestamp = (time_t*)ptr;
+			ptr += sizeof(time_t);
+			(void)strftime(time_buf, sizeof(time_buf), "%b %d %T", localtime(timestamp));
 
 			/* message size & content */
 			log_size = (uint32_t*)ptr;
 			ptr += sizeof(uint32_t);
 			logmsg = ptr;
-			printf("%s %s():%d %s\n", timestamp, function, *lineno, logmsg);
+			printf("%s %s():%d %s\n", time_buf, function, *lineno, logmsg);
 		}
 	} while (bytes_read > 0);
 }

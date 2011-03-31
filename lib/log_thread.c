@@ -180,12 +180,11 @@ void qb_log_thread_start(void)
 }
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-			    const char* timestamp_str,
+			    time_t timestamp,
 			    const char *buffer)
 {
 	struct qb_log_record *rec;
 	size_t buf_size;
-	size_t time_size;
 	size_t total_size;
 
 	rec = malloc(sizeof(struct qb_log_record));
@@ -194,8 +193,7 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 	}
 
 	buf_size = strlen(buffer) + 1;
-	time_size = strlen(timestamp_str) + 1;
-	total_size = sizeof(struct qb_log_record) + buf_size + time_size;
+	total_size = sizeof(struct qb_log_record) + buf_size;
 
 	rec->cs = cs;
 	rec->buffer = malloc(buf_size);
@@ -204,11 +202,7 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 	}
 	memcpy(rec->buffer, buffer, buf_size);
 
-	rec->timestamp = malloc(time_size);
-	if (rec->timestamp == NULL) {
-		goto free_buffer;
-	}
-	memcpy(rec->timestamp, timestamp_str, time_size);
+	rec->timestamp = timestamp;
 
 	qb_list_init (&rec->list);
 	(void)qb_thread_lock(logt_wthread_lock);
@@ -228,9 +222,6 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 
 	sem_post(&logt_print_finished);
 	return;
-
- free_buffer:
-	free(rec->timestamp);
 
  free_record:
 	free(rec);

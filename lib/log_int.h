@@ -35,7 +35,7 @@ struct qb_log_target;
 
 typedef void (*qb_log_logger_fn)(struct qb_log_target *t,
 				 struct qb_log_callsite *cs,
-				 const char* timestamp_str,
+				 time_t timestamp,
 				 const char *msg);
 
 typedef void (*qb_log_close_fn)(struct qb_log_target *t);
@@ -68,7 +68,7 @@ struct qb_log_filter {
 
 struct qb_log_record {
 	struct qb_log_callsite *cs;
-	char *timestamp;
+	time_t timestamp;
 	char *buffer;
 	struct qb_list_head list;
 };
@@ -79,6 +79,7 @@ void qb_log_target_free(struct qb_log_target *t);
 struct qb_log_target * qb_log_target_get(int32_t pos);
 void qb_log_target_format(struct qb_log_target *t,
 			  struct qb_log_callsite *cs,
+			  time_t timestamp,
 			  const char* formatted_message,
 			  char *output_buffer);
 
@@ -87,11 +88,11 @@ int32_t qb_log_stderr_open(struct qb_log_target *t);
 int32_t qb_log_blackbox_open(struct qb_log_target *t);
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-			    const char* timestamp_str,
+			    time_t current_time,
 			    const char *buffer);
 
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
-			    const char* timestamp_str,
+			    time_t current_time,
 			    const char *buffer);
 
 #endif /* _QB_LOG_INT_H_ */
