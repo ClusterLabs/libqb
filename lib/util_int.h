@@ -29,12 +29,7 @@
  * destinguished from external ones.
  */
 #ifndef S_SPLINT_S
-#define qb_util_log(priority, fmt, args...) do {		\
-	static struct qb_log_callsite descriptor		\
-	__attribute__((section("__verbose"), aligned(8))) =	\
-	{ __func__, __FILE__, fmt, priority, __LINE__, 1<<31 };	\
-	qb_log_real_(&descriptor, ##args);			\
-    } while(0)
+#define qb_util_log(priority, fmt, args...) qb_log(priority, QB_LOG_TAG_LIBQB_MSG, fmt, ##args)
 #else
 #define qb_util_log
 #endif
@@ -42,13 +37,11 @@
 #ifndef S_SPLINT_S
 #define qb_util_perror(priority, fmt, args...) do {		\
 	const char *err = strerror(errno);			\
-	qb_util_log(priority, fmt ": %s (%d)", ##args, err, errno);	\
+	qb_log(priority, QB_LOG_TAG_LIBQB_MSG, fmt ": %s (%d)", ##args, err, errno); \
     } while(0)
 #else
 #define qb_util_perror
 #endif
-
-
 
 /**
  * Create a file to be used to back shared memory.

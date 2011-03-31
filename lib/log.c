@@ -31,6 +31,8 @@ static struct qb_log_target conf[32];
 
 static QB_LIST_DECLARE(active_targets);
 
+static qb_log_tags_stringify_fn _user_tags_stringify_fn;
+
 #define TIME_STRING_SIZE 128
 
 /* deprecated method of getting internal log messages */
@@ -111,7 +113,7 @@ static int strcpy_cutoff (char *dest, const char *src, size_t cutoff,
  * %p PRIORITY
  * %t TIMESTAMP
  * %b BUFFER
- * %s SUBSYSTEM
+ * %g SUBSYSTEM
  *
  * any number between % and character specify field length to pad or chop
 */
@@ -129,7 +131,6 @@ void qb_log_target_format(struct qb_log_target *t,
 	size_t cutoff;
 	uint32_t len;
 	int c;
-	int i;
 
 	while ((c = t->format[format_buffer_idx])) {
 		cutoff = 0;
@@ -148,19 +149,12 @@ void qb_log_target_format(struct qb_log_target *t,
 			}
 
 			switch (t->format[format_buffer_idx]) {
-			case 's':
-				/* FIXME subsystem
-				 * short term hack is get the basename of
-				 * the filename and toupper it.
-				 */
-				for (i = 0; i < strlen(cs->filename); i++) {
-					if ((cs->filename[i] == '.') ||
-					    (cs->filename[i] == '/')) {
-						break;
-					}
-					line_no[i] = toupper(cs->filename[i]);
+			case 'g':
+				if (_user_tags_stringify_fn) {
+					p = _user_tags_stringify_fn(cs->tags);
+				} else {
+					p = "";
 				}
-				p = line_no;
 				break;
 
 			case 'n':
@@ -254,6 +248,7 @@ void qb_log_from_external_source(const char *function,
 				 const char *format,
 				 uint8_t priority,
 				 uint32_t lineno,
+				 uint32_t tags,
 				 const char *msg)
 {
 	struct qb_log_callsite *cs = calloc(1, sizeof(struct qb_log_callsite));
@@ -265,6 +260,7 @@ void qb_log_from_external_source(const char *function,
 	cs->format = format;
 	cs->priority = priority;
 	cs->lineno = lineno;
+	cs->tags = tags;
 
 	qb_list_for_each_entry(t, &active_targets, active_list) {
 		qb_list_for_each_entry(flt, &t->filter_head, list) {
@@ -282,7 +278,7 @@ void qb_log_from_external_source(const char *function,
 
 static void qb_log_external_source_free(struct qb_log_callsite *cs)
 {
-	if (cs < __start___verbose || cs > __stop___verbose) {
+	if (qb_bit_is_set(cs->tags, QB_LOG_TAG_EXTERNAL_BIT)) {
 		free(cs);
 	}
 }
@@ -314,7 +310,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 	gettimeofday(&tv, NULL);
 
 	if (old_internal_log_fn) {
-		if (qb_bit_is_set(cs->targets, 31)) {
+		if (qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
 			old_internal_log_fn(cs->filename, cs->lineno, cs->priority, buf);
 		}
 	}
@@ -442,6 +438,7 @@ void qb_log_init(const char *name,
 	conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
 	conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
 	strncpy(conf[QB_LOG_SYSLOG].name, name, PATH_MAX);
+	snprintf(conf[QB_LOG_BLACKBOX].name, PATH_MAX, "%s-blackbox", name);
 
 	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 				QB_LOG_FILTER_FILE, "*", priority);
@@ -530,6 +527,12 @@ int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
 	return rc;
 }
 
+
+void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
+{
+	_user_tags_stringify_fn = fn;
+}
+
 void qb_log_format_set(int32_t t, const char* format)
 {
 	if (conf[t].format) {
@@ -537,7 +540,7 @@ void qb_log_format_set(int32_t t, const char* format)
 		conf[t].format = NULL;
 	}
 
-	conf[t].format = strdup(format ? format : "%p [%6s] %b");
+	conf[t].format = strdup(format ? format : "[%p] %b");
 	assert(conf[t].format != NULL);
 }
 

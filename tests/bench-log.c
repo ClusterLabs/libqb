@@ -91,23 +91,27 @@ int main (void)
 
 	printf ("heating up cache with qb_log functionality\n");
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, "hello");
+		qb_log(LOG_DEBUG, 0, "hello");
 	}
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, "RecordA");
+		qb_log(LOG_DEBUG, 0, "RecordA");
 	}
 	bm_finish ("qb_log 1 arguments:");
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, "%s%s", "RecordA", "RecordB");
+		qb_log(LOG_DEBUG, 0, "%s%s", "RecordA", "RecordB");
 	}
 	bm_finish ("qb_log 2 arguments:");
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, "%s%s%s", "RecordA", "RecordB", "RecordC");
+		qb_log(LOG_DEBUG, 0, "%s%s%s", "RecordA", "RecordB", "RecordC");
 	}
 	bm_finish ("qb_log 3 arguments:");
+
+	/* this will close the ringbuffer
+	 */
+	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
 
 	return 0;
 }

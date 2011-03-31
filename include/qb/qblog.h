@@ -65,6 +65,8 @@ extern "C" {
  */
 
 
+typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
+
 /**
  * An instance of this structure is created in a special
  * ELF section at every dynamic debug callsite.  At runtime,
@@ -77,6 +79,7 @@ struct qb_log_callsite {
 	uint8_t priority;
         uint32_t lineno;
 	uint32_t targets;
+	uint32_t tags;
 } __attribute__((aligned(8)));
 
 /* will be assigned by ld linker magic */
@@ -88,6 +91,11 @@ extern struct qb_log_callsite __stop___verbose[];
  */
 void qb_log_real_(struct qb_log_callsite *cs, ...);
 
+#define QB_LOG_TAG_EXTERNAL_BIT 30
+#define QB_LOG_TAG_EXTERNAL (1 << QB_LOG_TAG_EXTERNAL_BIT)
+#define QB_LOG_TAG_LIBQB_MSG_BIT 31
+#define QB_LOG_TAG_LIBQB_MSG (1 << QB_LOG_TAG_LIBQB_MSG_BIT)
+
 /**
  * This function is to import logs from other code (like libraries)
  * that provide a callback with their logs.
@@ -95,26 +103,36 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
  * @note the performance of this will not impress you, as
  * the filtering is done on each log message, not
  * before hand. So try doing basic pre-filtering.
+ *
+ * @param tags This MUST have QB_LOG_EXTERNAL_TAG or'ed in
+ *             so that it gets free'ed.
  */
 void qb_log_from_external_source(const char *function,
 				 const char *filename,
 				 const char *format,
 				 uint8_t priority,
 				 uint32_t lineno,
+				 uint32_t tags,
 				 const char *msg);
+
+
 /**
  * This is the main function to generate a log message.
  *
  * @param priority this takes syslog priorities.
+ * @param tags this is a bit field that you can use with
+ *             qb_log_tags_stringify_fn_set() to "tag" a log message
+ *             with a feature or sub-system then you can use "%g"
+ *             in the format specifer to print it out.
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
 #ifndef S_SPLINT_S
-#define qb_log(priority, fmt, args...) do {			\
-	static struct qb_log_callsite descriptor		\
-	__attribute__((section("__verbose"), aligned(8))) =	\
-	{ __func__, __FILE__, fmt, priority, __LINE__, 0 };	\
-	qb_log_real_(&descriptor, ##args);			\
+#define qb_log(priority, tags, fmt, args...) do {			\
+	static struct qb_log_callsite descriptor			\
+	__attribute__((section("__verbose"), aligned(8))) =		\
+	{ __func__, __FILE__, fmt, priority, __LINE__, 0, tags };	\
+	qb_log_real_(&descriptor, ##args);				\
     } while(0)
 #else
 #define qb_log
@@ -128,9 +146,9 @@ void qb_log_from_external_source(const char *function,
  * @param args usual printf style args
  */
 #ifndef S_SPLINT_S
-#define qb_perror(priority, fmt, args...) do {			\
-	const char *err = strerror(errno);			\
-	qb_log(priority, fmt ": %s (%d)", ##args, err, errno);	\
+#define qb_perror(priority, tags, fmt, args...) do {			\
+	const char *err = strerror(errno);				\
+	qb_log(priority, tags, fmt ": %s (%d)", ##args, err, errno);	\
     } while(0)
 #else
 #define qb_perror
@@ -199,6 +217,11 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			  uint32_t priority);
 
 /**
+ * Set the callback to map the tags bit map to a string.
+ */
+void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
+
+/**
  * Set the format specifiers.
  *
  * %n FUNCTION NAME
@@ -207,7 +230,7 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
  * %p PRIORITY
  * %t TIMESTAMP
  * %b BUFFER
- * %s SUBSYSTEM
+ * %g TAGS
  *
  * any number between % and character specify field length to pad or chop
  */

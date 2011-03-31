@@ -597,7 +597,7 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	rb->shared_hdr->read_pt = read_pt;
 	total_read += n_read;
 
-	qb_util_log(LOG_DEBUG, "read total of: %zd\n", total_read);
+	qb_util_log(LOG_DEBUG, "read total of: %zd", total_read);
 	print_header(rb);
 
 	return rb;

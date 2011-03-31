@@ -25,24 +25,28 @@
 #include <qb/qbdefs.h>
 #include <qb/qblog.h>
 
+#define MY_TAG_ONE   (1)
+#define MY_TAG_TWO   (1 << 1)
+#define MY_TAG_THREE (1 << 2)
+
 static void func_one(void) {
 	FILE* fd;
-	qb_log(LOG_DEBUG, "arf arf?");
-	qb_log(LOG_CRIT,  "arrrg!");
-	qb_log(LOG_ERR,   "oops, I did it again");
-	qb_log(LOG_INFO,  "are you aware ...");
+	qb_log(LOG_DEBUG, MY_TAG_TWO, "arf arf?");
+	qb_log(LOG_CRIT, MY_TAG_THREE,  "arrrg!");
+	qb_log(LOG_ERR, MY_TAG_THREE,   "oops, I did it again");
+	qb_log(LOG_INFO, 0,  "are you aware ...");
 
 	fd = fopen("/nothing.txt", "r+");
 	if (fd == NULL) {
-		qb_perror(LOG_ERR, "can't open(\"/nothing.txt\")");
+		qb_perror(LOG_ERR, 0, "can't open(\"/nothing.txt\")");
 	}
 }
 
 static void func_two(void) {
-	qb_log(LOG_DEBUG, "arf arf?");
-	qb_log(LOG_CRIT,  "arrrg!");
-	qb_log(LOG_ERR,   "oops, I did it again");
-	qb_log(LOG_INFO,  "are you aware ...");
+	qb_log(LOG_DEBUG, 0, "arf arf?");
+	qb_log(LOG_CRIT, MY_TAG_ONE,  "arrrg!");
+	qb_log(LOG_ERR, 0,   "oops, I did it again");
+	qb_log(LOG_INFO, MY_TAG_THREE,  "are you aware ...");
 }
 
 static void show_usage(const char *name)
@@ -74,6 +78,22 @@ static void sigsegv_handler(int sig)
 		qb_log_blackbox_write_to_file("simple-log.fdata");
 	}
 	raise(SIGSEGV);
+}
+
+static const char *my_tags_stringify(uint32_t tags)
+{
+	if (qb_bit_is_set(tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
+		return "libqb";
+	} else if (qb_bit_is_set(tags, 0)) {
+		return "ONE";
+	} else if (qb_bit_is_set(tags, 1)) {
+		return "TWO";
+	} else if (qb_bit_is_set(tags, 2)) {
+		return "THREE";
+	} else {
+		return "MAIN";
+	}
+
 }
 
 int32_t main(int32_t argc, char *argv[])
@@ -123,13 +143,14 @@ int32_t main(int32_t argc, char *argv[])
 
 	qb_log_init("simple-log", LOG_USER, LOG_INFO);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, do_threaded);
+	qb_log_tags_stringify_fn_set(my_tags_stringify);
 
 	if (do_stderr) {
 		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 				  QB_LOG_FILTER_FUNCTION, "func_one", LOG_DEBUG);
 		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 				  QB_LOG_FILTER_FILE, __FILE__, priority);
-		qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
+		qb_log_format_set(QB_LOG_STDERR, "%4g: %f:%l [%p] %b");
 		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 	}
 	if (do_blackbox) {
@@ -149,22 +170,25 @@ int32_t main(int32_t argc, char *argv[])
 	if (do_threaded) {
 		qb_log_thread_start();
 	}
-	qb_log(LOG_DEBUG, "hello");
-	qb_log(LOG_INFO, "hello");
-	qb_log(LOG_NOTICE, "hello");
+	qb_log(LOG_DEBUG, 0, "hello");
+	qb_log(LOG_INFO, 0, "hello");
+	qb_log(LOG_NOTICE, 0, "hello");
 	func_one();
 	func_two();
 
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 
-	qb_log(LOG_WARNING, "no syslog");
-	qb_log(LOG_ERR, "no syslog");
+	qb_log(LOG_WARNING, 0, "no syslog");
+	qb_log(LOG_ERR, 0, "no syslog");
 
 #if 0
 	// test blackbox
 	logfile = NULL;
 	logfile[5] = 'a';
 #endif
+	if (do_blackbox) {
+		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
+	}
 	if (do_threaded) {
 		qb_log_thread_stop();
 	}
