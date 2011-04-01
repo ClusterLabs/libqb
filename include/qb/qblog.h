@@ -42,26 +42,143 @@ extern "C" {
  *
  * @par Basic logging API.
  * Call qb_log() to generate a log message. Then to write the message
- * somewhere meaningful call qb_log_handler_set() and write the messages
- * where ever you wish.
+ * somewhere meaningful call qb_log_ctl() to configure the targets.
+ *
+ * Simplist possible use:
+ * @code
+ * main() {
+ *	qb_log_init("simple-log", LOG_DAEMON, LOG_INFO);
+ * 	// ...
+ *	qb_log(LOG_WARNING, 0, "watch out");
+ * 	// ...
+ *	qb_log_fini();
+ * }
+ * @endcode
+ *
+ * @par Configuring log targets.
+ * A log target can by syslog, stderr, the blackbox or a text file.
+ * By default only syslog is enabled.
+ *
+ * To enable a target do the following
+ * @code
+ *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
+ * @endcode
+ *
+ * syslog, stderr and the blackbox are static (they don't need
+ * to be created, just enabled or disabled. However you can open multiple
+ * logfiles (32 - QB_LOG_BLACKBOX). To do this use the following code.
+ * @code
+ *	mytarget = qb_log_file_open("/var/log/mylogfile");
+ * @endcode
+ *
+ * Once your targets are enabled/opened you can configure them as follows:
+ * Configure the size of blackbox
+ * @code
+ *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);
+ * @endcode
+ *
+ * Make logging to file threaded:
+ * @code
+ *	qb_log_ctl(mytarget, QB_LOG_CONF_THREADED, QB_TRUE);
+ * @endcode
  *
  * @par Filtering messages.
- * In your log handler you can filter messages based on priority, but
- * to provide more powerful and flexible filtering you can tag messages
- * based on their location. This means that CPU intensive string
- * comparisons are done up front and in your log handler you only need
- * to check a if a bit is set.
+ * To have more power over what log messages go to which target you can apply
+ * filters to the targets. What happens is the desired callsites have the
+ * correct bit set. Then when the log message is generated it gets sent to the
+ * targets based on which bit is set in the callsite's "target" bitmap.
+ * Messages can be filtered based on the:
+ * -# filename + priority
+ * -# function name + priority
+ * -# format string + priority
+ *
+ * So to make all logs from evil_fnunction() go to stderr do the following:
+ * @code
+ *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+ *			  QB_LOG_FILTER_FUNCTION, "evil_fnunction", LOG_DEBUG);
+ * @endcode
  *
  * @par Threaded logging.
- * To achieve non-blocking logging you can use threaded logging. With
- * this your log handler is called from a new pthread. So any calls to
- * write() or syslog() will not hold up your program.
+ * To achieve non-blocking logging you can use threaded logging. So any
+ * calls to write() or syslog() will not hold up your program.
+ *
+ * Threaded logging use:
+ * @code
+ * main() {
+ *	qb_log_init("simple-log", LOG_DAEMON, LOG_INFO);
+ *	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, QB_TRUE);
+ * 	// ...
+ * 	daemonize();
+ * 	// call this after you fork()
+ * 	qb_log_thread_start();
+ * 	// ...
+ *	qb_log(LOG_WARNING, 0, "watch out");
+ * 	// ...
+ *	qb_log_fini();
+ * }
+ * @endcode
  *
  * @par A blackbox for in-field diagnosis.
  * This stores log messages in a ringbuffer so they can be written to
  * file if the program crashes (you will need to catch SIGSEGV). These
  * can then be easily printed out later.
  *
+ * @note the blackbox is not enabled by default.
+ *
+ * Blackbox usage:
+ * @code
+ *
+ * static void sigsegv_handler(int sig)
+ * {
+ * 	(void)signal (SIGSEGV, SIG_DFL);
+ * 	qb_log_blackbox_write_to_file("simple-log.fdata");
+ * 	qb_log_fini();
+ * 	raise(SIGSEGV);
+ * }
+ *
+ * main() {
+ *
+ *	signal(SIGSEGV, sigsegv_handler);
+ *
+ *	qb_log_init("simple-log", LOG_DAEMON, LOG_INFO);
+ *	qb_log_filter_ctl(QB_LOG_BLACKBOX, QB_LOG_FILTER_ADD,
+ *			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+ *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);
+ *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
+ * 	// ...
+ *	qb_log(LOG_WARNING, 0, "watch out");
+ * 	// ...
+ *	qb_log_fini();
+ * }
+ * @endcode
+ *
+ * @par Tagging messages.
+ * You can tag messages (again a bit field) using the second argument
+ * to qb_log(). this can be used to add feature or sub-system information
+ * to the logs.
+ *
+ * @code
+ * const char* my_tags_stringify(uint32_t tags) {
+ * 	if (qb_bit_is_set(tags, 3) {
+ * 		return "three";
+ * 	} else {
+ * 		return "MAIN";
+ * 	}
+ * }
+ * main() {
+ * 	// ...
+ * 	qb_log_tags_stringify_fn_set(my_tags_stringify);
+ * 	qb_log_format_set(QB_LOG_STDERR, "[%5g] %p %b");
+ * 	// ...
+ * 	qb_log(LOG_INFO, (1<<3), "hello");
+ * 	qb_log(LOG_INFO, 0, "hello");
+ * }
+ * @endcode
+ * The code above will produce:
+ * @code
+ * [three] info hello
+ * [MAIN ] info hello
+ * @endcode
  */
 
 
@@ -104,8 +221,14 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
  * the filtering is done on each log message, not
  * before hand. So try doing basic pre-filtering.
  *
+ * @param function originating function name
+ * @param filename originating filename
+ * @param format format string
+ * @param priority this takes syslog priorities.
+ * @param lineno file line number
  * @param tags This MUST have QB_LOG_EXTERNAL_TAG or'ed in
  *             so that it gets free'ed.
+ * @param msg the log message text
  */
 void qb_log_from_external_source(const char *function,
 				 const char *filename,
@@ -142,6 +265,7 @@ void qb_log_from_external_source(const char *function,
  * This is similar to perror except it goes into the logging system.
  *
  * @param priority this takes syslog priorities.
+ * @param tags the tags bit field
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
