@@ -75,6 +75,7 @@ struct qb_log_record {
 	struct qb_list_head list;
 };
 
+#define TIME_STRING_SIZE 64
 #define COMBINE_BUFFER_SIZE 512
 
 struct qb_log_target * qb_log_target_alloc(void);
