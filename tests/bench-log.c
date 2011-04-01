@@ -111,7 +111,7 @@ int main (void)
 
 	/* this will close the ringbuffer
 	 */
-	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_fini();
 
 	return 0;
 }

@@ -190,6 +190,15 @@ void qb_log_init(const char *name,
 		 int32_t priority);
 
 /**
+ * Logging system finalization function.
+ *
+ * It releases any shared memory.
+ * Stops the logging thread if running.
+ * Flushes the last message to their destinations.
+ */
+void qb_log_fini(void);
+
+/**
  * Main logging control function.
  *
  * @param t QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
@@ -211,7 +220,7 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			  uint32_t priority);
 
 /**
- * Set the callback to map the tags bit map to a string.
+ * Set the callback to map the 'tags' bit map to a string.
  */
 void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
 
@@ -247,11 +256,6 @@ void qb_log_file_close(int32_t t);
  * Start the logging pthread.
  */
 void qb_log_thread_start(void);
-
-/**
- * Stop the logging pthread
- */
-void qb_log_thread_stop(void);
 
 /**
  * Write the blackbox to file.

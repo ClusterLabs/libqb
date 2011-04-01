@@ -35,6 +35,11 @@ static qb_log_tags_stringify_fn _user_tags_stringify_fn;
 
 #define TIME_STRING_SIZE 128
 
+
+static int32_t _log_target_enable(struct qb_log_target *t);
+static void _log_target_disable(struct qb_log_target *t);
+
+
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
 void qb_util_set_log_function(qb_util_log_fn_t fn)
@@ -433,6 +438,20 @@ void qb_log_init(const char *name,
 	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
 }
 
+void qb_log_fini(void)
+{
+	struct qb_log_target *t;
+	struct qb_list_head* iter;
+	struct qb_list_head* next;
+
+	qb_log_thread_stop();
+
+	qb_list_for_each_safe(iter, next, &active_targets) {
+		t = qb_list_entry(iter, struct qb_log_target, active_list);
+		_log_target_disable(t);
+	}
+}
+
 struct qb_log_target * qb_log_target_alloc(void)
 {
 	int32_t i;
@@ -459,6 +478,39 @@ struct qb_log_target * qb_log_target_get(int32_t pos)
 	return &conf[pos];
 }
 
+static int32_t _log_target_enable(struct qb_log_target *t)
+{
+	int32_t rc = 0;
+
+	if (t->state == QB_LOG_STATE_ENABLED) {
+		return 0;
+	}
+	if (t->pos == QB_LOG_STDERR) {
+		rc = qb_log_stderr_open(t);
+	} else if (t->pos == QB_LOG_SYSLOG) {
+		rc = qb_log_syslog_open(t);
+	} else if (t->pos == QB_LOG_BLACKBOX) {
+		rc = qb_log_blackbox_open(t);
+	}
+	if (rc == 0) {
+		t->state = QB_LOG_STATE_ENABLED;
+		qb_list_add(&t->active_list, &active_targets);
+	}
+	return rc;
+}
+
+static void _log_target_disable(struct qb_log_target *t)
+{
+	if (t->state != QB_LOG_STATE_ENABLED) {
+		return;
+	}
+	if (t->close) {
+		t->close(t);
+	}
+	t->state = QB_LOG_STATE_DISABLED;
+	qb_list_del(&t->active_list);
+}
+
 int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
 {
 	int32_t rc = 0;
@@ -469,24 +521,10 @@ int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
 	}
 	switch (c) {
 	case QB_LOG_CONF_ENABLED:
-		if (arg == QB_TRUE && conf[t].state != QB_LOG_STATE_ENABLED) {
-			if (t == QB_LOG_STDERR) {
-				rc = qb_log_stderr_open(&conf[t]);
-			} else if (t == QB_LOG_SYSLOG) {
-				rc = qb_log_syslog_open(&conf[t]);
-			} else if (t == QB_LOG_BLACKBOX) {
-				rc = qb_log_blackbox_open(&conf[t]);
-			}
-			if (rc == 0) {
-				conf[t].state = QB_LOG_STATE_ENABLED;
-				qb_list_add(&conf[t].active_list, &active_targets);
-			}
-		} else if (arg == QB_FALSE && conf[t].state == QB_LOG_STATE_ENABLED) {
-			if (conf[t].close) {
-				conf[t].close(&conf[t]);
-			}
-			conf[t].state = QB_LOG_STATE_DISABLED;
-			qb_list_del(&conf[t].active_list);
+		if (arg == QB_TRUE) {
+			rc = _log_target_enable(&conf[t]);
+		} else {
+			_log_target_disable(&conf[t]);
 		}
 		break;
 	case QB_LOG_CONF_FACILITY:

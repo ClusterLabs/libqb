@@ -90,10 +90,10 @@ int32_t qb_log_syslog_open(struct qb_log_target *t);
 int32_t qb_log_stderr_open(struct qb_log_target *t);
 int32_t qb_log_blackbox_open(struct qb_log_target *t);
 
+void qb_log_thread_stop(void);
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
 			    time_t current_time,
 			    const char *buffer);
-
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			    time_t current_time,
 			    const char *buffer);

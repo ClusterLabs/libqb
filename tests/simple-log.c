@@ -71,9 +71,7 @@ static int32_t do_threaded = QB_FALSE;
 static void sigsegv_handler(int sig)
 {
 	(void)signal (SIGSEGV, SIG_DFL);
-	if (do_threaded) {
-		qb_log_thread_stop();
-	}
+	qb_log_fini();
 	if (do_blackbox) {
 		qb_log_blackbox_write_to_file("simple-log.fdata");
 	}
@@ -188,9 +186,7 @@ int32_t main(int32_t argc, char *argv[])
 	if (do_blackbox) {
 		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
 	}
-	if (do_threaded) {
-		qb_log_thread_stop();
-	}
+	qb_log_fini();
 	return 0;
 }
 

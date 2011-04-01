@@ -56,7 +56,7 @@ static struct sched_param logt_sched_param;
 
 static int logt_after_log_ops_yield = 10;
 
-static pthread_t logt_thread_id;
+static pthread_t logt_thread_id = 0;
 
 
 static void *qb_logt_worker_thread(void *data) __attribute__((noreturn));
@@ -233,6 +233,9 @@ void qb_log_thread_stop(void)
 	int value;
 	struct qb_log_record *rec;
 
+	if (wthread_active == 0 && logt_wthread_lock == NULL) {
+		return;
+	}
 	if (wthread_active == 0) {
 		for (;;) {
 			(void)qb_thread_lock(logt_wthread_lock);
