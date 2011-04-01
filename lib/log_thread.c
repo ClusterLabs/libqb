@@ -19,8 +19,6 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
-//#include <ctype.h>
-//#include <stdarg.h>
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -36,7 +34,7 @@ static int wthread_should_exit = 0;
 
 static void wthread_create(void);
 
-static qb_thread_lock_t * logt_wthread_lock = NULL;
+static qb_thread_lock_t *logt_wthread_lock = NULL;
 
 static QB_LIST_DECLARE(logt_print_finished_records);
 
@@ -58,8 +56,7 @@ static int logt_after_log_ops_yield = 10;
 
 static pthread_t logt_thread_id = 0;
 
-
-static void *qb_logt_worker_thread(void *data) __attribute__((noreturn));
+static void *qb_logt_worker_thread(void *data) __attribute__ ((noreturn));
 static void *qb_logt_worker_thread(void *data)
 {
 	struct qb_log_record *rec;
@@ -76,14 +73,12 @@ retry_sem_wait:
 		res = sem_wait(&logt_print_finished);
 		if (res == -1 && errno == EINTR) {
 			goto retry_sem_wait;
-		} else
-			if (res == -1) {
-				/*
-				 * This case shouldn't happen
-				 */
-				pthread_exit(NULL);
-			}
-
+		} else if (res == -1) {
+			/*
+			 * This case shouldn't happen
+			 */
+			pthread_exit(NULL);
+		}
 
 		(void)qb_thread_lock(logt_wthread_lock);
 		if (wthread_should_exit) {
@@ -96,10 +91,12 @@ retry_sem_wait:
 			}
 		}
 
-		rec = qb_list_entry(logt_print_finished_records.next, struct qb_log_record, list);
+		rec =
+		    qb_list_entry(logt_print_finished_records.next,
+				  struct qb_log_record, list);
 		qb_list_del(&rec->list);
-		logt_memory_used = logt_memory_used - strlen (rec->buffer) -
-			sizeof(struct qb_log_record) - 1;
+		logt_memory_used = logt_memory_used - strlen(rec->buffer) -
+		    sizeof(struct qb_log_record) - 1;
 		dropped = logt_dropped_messages;
 		logt_dropped_messages = 0;
 		(void)qb_thread_unlock(logt_wthread_lock);
@@ -116,20 +113,18 @@ retry_sem_wait:
 static int logt_thread_priority_set(int policy,
 				    const struct sched_param *param,
 				    unsigned int after_log_ops_yield)
-
 {
 	int res = 0;
 	if (param == NULL) {
-		return (0);
+		return 0;
 	}
-
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 	if (wthread_active == 0) {
 		logsys_sched_policy = policy;
 		memcpy(&logsys_sched_param, param, sizeof(struct sched_param));
 		logsys_sched_param_queued = 1;
 	} else {
-		res = pthread_setschedparam (logsys_thread_id, policy, param);
+		res = pthread_setschedparam(logsys_thread_id, policy, param);
 	}
 #endif
 
@@ -137,7 +132,7 @@ static int logt_thread_priority_set(int policy,
 		logt_after_log_ops_yield = after_log_ops_yield;
 	}
 
-	return (res);
+	return res;
 }
 
 static void wthread_create(void)
@@ -180,8 +175,7 @@ void qb_log_thread_start(void)
 }
 
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-			    time_t timestamp,
-			    const char *buffer)
+			    time_t timestamp, const char *buffer)
 {
 	struct qb_log_record *rec;
 	size_t buf_size;
@@ -204,7 +198,7 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 
 	rec->timestamp = timestamp;
 
-	qb_list_init (&rec->list);
+	qb_list_init(&rec->list);
 	(void)qb_thread_lock(logt_wthread_lock);
 	logt_memory_used += total_size;
 	if (logt_memory_used > 512000) {
@@ -223,7 +217,7 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 	sem_post(&logt_print_finished);
 	return;
 
- free_record:
+free_record:
 	free(rec);
 }
 
@@ -250,7 +244,7 @@ void qb_log_thread_stop(void)
 			rec = qb_list_entry(logt_print_finished_records.next, struct qb_log_record, list);
 			qb_list_del(&rec->list);
 			logt_memory_used = logt_memory_used - strlen(rec->buffer) -
-				sizeof (struct qb_log_record) - 1;
+			    sizeof(struct qb_log_record) - 1;
 			(void)qb_thread_unlock(logt_wthread_lock);
 
 			qb_log_thread_log_write(rec->cs, rec->timestamp, rec->buffer);

@@ -20,13 +20,11 @@
  */
 #include "os_base.h"
 #include <syslog.h>
-#include <qb/qbrb.h>
 #include "log_int.h"
 
 static void _syslog_logger(struct qb_log_target *t,
 			   struct qb_log_callsite *cs,
-			   time_t timestamp,
-			   const char *msg)
+			   time_t timestamp, const char *msg)
 {
 	char output_buffer[COMBINE_BUFFER_SIZE];
 
@@ -55,5 +53,3 @@ int32_t qb_log_syslog_open(struct qb_log_target *t)
 	openlog(t->name, LOG_PID, t->facility);
 	return 0;
 }
-
-

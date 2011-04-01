@@ -36,17 +36,16 @@ struct syslog_names {
 	int32_t c_val;
 };
 
-struct syslog_names prioritynames[] =
-{
-	{ "emerg", LOG_EMERG },
-	{ "alert", LOG_ALERT },
-	{ "crit", LOG_CRIT },
-	{ "error", LOG_ERR },
-	{ "warning", LOG_WARNING },
-	{ "notice", LOG_NOTICE },
-	{ "info", LOG_INFO },
-	{ "debug", LOG_DEBUG },
-	{ NULL, -1 }
+struct syslog_names prioritynames[] = {
+	{"emerg", LOG_EMERG},
+	{"alert", LOG_ALERT},
+	{"crit", LOG_CRIT},
+	{"error", LOG_ERR},
+	{"warning", LOG_WARNING},
+	{"notice", LOG_NOTICE},
+	{"info", LOG_INFO},
+	{"debug", LOG_DEBUG},
+	{NULL, -1}
 };
 
 static const char log_month_name[][4] = {
@@ -60,7 +59,7 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
 }
 
 static int _strcpy_cutoff(char *dest, const char *src, size_t cutoff,
-			 size_t buf_len)
+			  size_t buf_len)
 {
 	size_t len = strlen(src);
 	if (buf_len <= 1) {
@@ -96,8 +95,7 @@ static int _strcpy_cutoff(char *dest, const char *src, size_t cutoff,
 void qb_log_target_format(struct qb_log_target *t,
 			  struct qb_log_callsite *cs,
 			  time_t current_time,
-			  const char* formatted_message,
-			  char *output_buffer)
+			  const char *formatted_message, char *output_buffer)
 {
 	char char_time[128];
 	struct tm tm_res;
@@ -148,8 +146,10 @@ void qb_log_target_format(struct qb_log_target *t,
 
 			case 't':
 				(void)localtime_r(&current_time, &tm_res);
-				snprintf(char_time, TIME_STRING_SIZE, "%s %02d %02d:%02d:%02d",
-					 log_month_name[tm_res.tm_mon], tm_res.tm_mday, tm_res.tm_hour,
+				snprintf(char_time, TIME_STRING_SIZE,
+					 "%s %02d %02d:%02d:%02d",
+					 log_month_name[tm_res.tm_mon],
+					 tm_res.tm_mday, tm_res.tm_hour,
 					 tm_res.tm_min, tm_res.tm_sec);
 				p = char_time;
 				break;
@@ -179,4 +179,3 @@ void qb_log_target_format(struct qb_log_target *t,
 
 	output_buffer[output_buffer_idx] = '\0';
 }
-

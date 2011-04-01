@@ -19,15 +19,17 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
-
-#include <qb/qbrb.h>
 #include "log_int.h"
 
 static void _file_logger(struct qb_log_target *t,
-				 struct qb_log_callsite *cs,
-				 time_t timestamp,
-				 const char *msg)
-{	char output_buffer[COMBINE_BUFFER_SIZE];
+			 struct qb_log_callsite *cs,
+			 time_t timestamp, const char *msg)
+{
+	char output_buffer[COMBINE_BUFFER_SIZE];
+
+	if (t->instance == NULL) {
+		return;
+	}
 
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
@@ -38,6 +40,7 @@ static void _file_close(struct qb_log_target *t)
 {
 	if (t->instance) {
 		fclose(t->instance);
+		t->instance = NULL;
 	}
 }
 
@@ -62,7 +65,7 @@ int32_t qb_log_stderr_open(struct qb_log_target *t)
 int32_t qb_log_file_open(const char *filename)
 {
 	struct qb_log_target *t;
-	FILE* fp;
+	FILE *fp;
 	int32_t rc;
 
 	t = qb_log_target_alloc();
@@ -88,8 +91,7 @@ int32_t qb_log_file_open(const char *filename)
 
 void qb_log_file_close(int32_t t)
 {
-	struct qb_log_target * target = qb_log_target_get(t);
+	struct qb_log_target *target = qb_log_target_get(t);
 	target->close(target);
 	qb_log_target_free(target);
 }
-

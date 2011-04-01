@@ -34,7 +34,6 @@ static QB_LIST_DECLARE(active_targets);
 static int32_t _log_target_enable(struct qb_log_target *t);
 static void _log_target_disable(struct qb_log_target *t);
 
-
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
 void qb_util_set_log_function(qb_util_log_fn_t fn)
@@ -178,8 +177,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 }
 
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
-			     time_t timestamp,
-			     const char *buffer)
+			     time_t timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
 
@@ -194,16 +192,14 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 	qb_log_external_source_free(cs);
 }
 
-
 int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type,
-			  const char * text,
-			  uint32_t priority)
+			  const char *text, uint32_t priority)
 {
 	struct qb_log_callsite *cs;
 	struct qb_log_filter *flt;
-	struct qb_list_head* iter;
-	struct qb_list_head* next;
+	struct qb_list_head *iter;
+	struct qb_list_head *next;
 
 	if (c == QB_LOG_FILTER_ADD) {
 		flt = calloc(1, sizeof(struct qb_log_filter));
@@ -246,17 +242,15 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			}
 #if 0
 			printf("matched: %-12s %20s:%u fmt:<%d>%s\n",
-				cs->function, cs->filename, cs->lineno,
-				cs->priority, cs->format);
+			       cs->function, cs->filename, cs->lineno,
+			       cs->priority, cs->format);
 #endif
 		}
 	}
 	return 0;
 }
 
-void qb_log_init(const char *name,
-		 int32_t facility,
-		 int32_t priority)
+void qb_log_init(const char *name, int32_t facility, int32_t priority)
 {
 	int32_t i;
 
@@ -287,8 +281,8 @@ void qb_log_init(const char *name,
 void qb_log_fini(void)
 {
 	struct qb_log_target *t;
-	struct qb_list_head* iter;
-	struct qb_list_head* next;
+	struct qb_list_head *iter;
+	struct qb_list_head *next;
 
 	qb_log_thread_stop();
 
@@ -298,7 +292,7 @@ void qb_log_fini(void)
 	}
 }
 
-struct qb_log_target * qb_log_target_alloc(void)
+struct qb_log_target *qb_log_target_alloc(void)
 {
 	int32_t i;
 	for (i = 0; i < 32; i++) {
@@ -319,7 +313,7 @@ void qb_log_target_free(struct qb_log_target *t)
 	qb_log_format_set(t->pos, NULL);
 }
 
-struct qb_log_target * qb_log_target_get(int32_t pos)
+struct qb_log_target *qb_log_target_get(int32_t pos)
 {
 	return &conf[pos];
 }
@@ -398,7 +392,7 @@ int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
 	return rc;
 }
 
-void qb_log_format_set(int32_t t, const char* format)
+void qb_log_format_set(int32_t t, const char *format)
 {
 	if (conf[t].format) {
 		free(conf[t].format);
@@ -408,5 +402,3 @@ void qb_log_format_set(int32_t t, const char* format)
 	conf[t].format = strdup(format ? format : "[%p] %b");
 	assert(conf[t].format != NULL);
 }
-
-

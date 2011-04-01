@@ -23,9 +23,11 @@
 #include <qb/qbrb.h>
 #include "log_int.h"
 
-
 static void _blackbox_reload(struct qb_log_target *t)
 {
+	if (t->instance == NULL) {
+		return;
+	}
 	qb_rb_close(t->instance);
 	t->instance = qb_rb_open(t->name, t->size,
 				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
@@ -38,9 +40,8 @@ static void _blackbox_reload(struct qb_log_target *t)
  * <string> buffer
  */
 static void _blackbox_logger(struct qb_log_target *t,
-				 struct qb_log_callsite *cs,
-				 time_t timestamp,
-				 const char *buffer)
+			     struct qb_log_callsite *cs,
+			     time_t timestamp, const char *buffer)
 {
 	size_t size = sizeof(uint32_t);
 	size_t fn_size;
@@ -82,7 +83,10 @@ static void _blackbox_logger(struct qb_log_target *t,
 
 static void _blackbox_close(struct qb_log_target *t)
 {
-	qb_rb_close(t->instance);
+	if (t->instance) {
+		qb_rb_close(t->instance);
+		t->instance = NULL;
+	}
 }
 
 int32_t qb_log_blackbox_open(struct qb_log_target *t)
@@ -106,68 +110,76 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename)
 {
 	ssize_t written_size = 0;
 	struct qb_log_target *t;
-	int fd = open (filename, O_CREAT|O_RDWR, 0700);
+	int fd = open(filename, O_CREAT | O_RDWR, 0700);
 
 	if (fd < 0) {
 		return -errno;
 	}
 	t = qb_log_target_get(QB_LOG_BLACKBOX);
-	written_size = qb_rb_write_to_file(t->instance, fd);
-	close (fd);
+	if (t->instance) {
+		written_size = qb_rb_write_to_file(t->instance, fd);
+	} else {
+		written_size = -ENOENT;
+	}
+	close(fd);
 
 	return written_size;
 }
 
-
-void qb_log_blackbox_print_from_file(const char* bb_filename)
+void qb_log_blackbox_print_from_file(const char *bb_filename)
 {
-	qb_ringbuffer_t * instance;
+	qb_ringbuffer_t *instance;
 	ssize_t bytes_read;
 	char chunk[512];
 	int fd;
 	char time_buf[64];
 
-	fd = open(bb_filename, O_CREAT|O_RDWR, 0700);
+	fd = open(bb_filename, O_CREAT | O_RDWR, 0700);
 	if (fd < 0) {
-		perror("qb_log_blackbox_print_from_file");
+		qb_perror(LOG_ERR, 0, "qb_log_blackbox_print_from_file");
 		return;
 	}
 	instance = qb_rb_create_from_file(fd, 0);
+	close(fd);
+	if (instance == NULL) {
+		return;
+	}
 
 	do {
-		char     *ptr;
+		char *ptr;
 		uint32_t *lineno;
 		uint32_t *fn_size;
-		char     *function;
-		time_t   *timestamp;
+		char *function;
+		time_t *timestamp;
 		uint32_t *log_size;
-		char     *logmsg;
+		char *logmsg;
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;
 		if (bytes_read > 0) {
 			/* lineno */
-			lineno = (uint32_t*)ptr;
-			ptr  += sizeof(uint32_t);
+			lineno = (uint32_t *) ptr;
+			ptr += sizeof(uint32_t);
 
 			/* function size & name */
-			fn_size = (uint32_t*)ptr;
+			fn_size = (uint32_t *) ptr;
 			ptr += sizeof(uint32_t);
 
 			function = ptr;
 			ptr += *fn_size;
 
 			/* timestamp size & content */
-			timestamp = (time_t*)ptr;
+			timestamp = (time_t *) ptr;
 			ptr += sizeof(time_t);
-			(void)strftime(time_buf, sizeof(time_buf), "%b %d %T", localtime(timestamp));
+			(void)strftime(time_buf, sizeof(time_buf), "%b %d %T",
+				       localtime(timestamp));
 
 			/* message size & content */
-			log_size = (uint32_t*)ptr;
+			log_size = (uint32_t *) ptr;
 			ptr += sizeof(uint32_t);
 			logmsg = ptr;
-			printf("%s %s():%d %s\n", time_buf, function, *lineno, logmsg);
+			printf("%s %s():%d %s\n", time_buf, function, *lineno,
+			       logmsg);
 		}
 	} while (bytes_read > 0);
 }
-
