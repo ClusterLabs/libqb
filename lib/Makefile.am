@@ -21,7 +21,7 @@
 
 MAINTAINERCLEANFILES	= Makefile.in
 
-noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h
+noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h log_int.h
 
 #
 # Here are a set of rules to help you update your library version information:
@@ -40,7 +40,8 @@ libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqb_la_LDFLAGS	= -version-info 4:1:4
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  loop.c loop_poll.c loop_job.c \
-			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c
+			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c \
+			  log.c log_thread.c log_blackbox.c log_file.c log_syslog.c log_format.c
 libqb_la_SOURCES	= $(source_to_lint)
 if USE_TIMERFD
 else

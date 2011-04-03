@@ -20,18 +20,18 @@
 #ifndef QB_DEFS_H_DEFINED
 #define QB_DEFS_H_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 /**
  * @file qbdefs.h
  * @author Angus Salkeld <asalkeld@redhat.com>
  *
  * These are some convience macros and defines.
  */
-
-/* *INDENT-OFF* */
-#ifdef __cplusplus
-extern "C" {
-#endif
-/* *INDENT-ON* */
 
 /*
  * simple math macros
@@ -46,6 +46,16 @@ extern "C" {
  */
 #define	QB_FALSE		0
 #define	QB_TRUE			(!QB_FALSE)
+
+/*
+ * bit manipulation
+ */
+#define qb_bit_value(bit) (1 << (bit))
+#define qb_bit_set(barray, bit) (barray |= qb_bit_value(bit))
+#define qb_bit_clear(barray, bit) (barray &= ~(qb_bit_value(bit)))
+#define qb_bit_is_set(barray, bit) (barray & qb_bit_value(bit))
+#define qb_bit_is_clear(barray, bit) (!(barray & qb_bit_value(bit)))
+
 
 /*
  * handy time based converters.

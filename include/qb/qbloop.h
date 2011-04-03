@@ -21,6 +21,12 @@
 #ifndef QB_LOOP_DEFINED
 #define QB_LOOP_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 #include <signal.h>
 
 /**
@@ -239,5 +245,10 @@ int32_t qb_loop_signal_mod(qb_loop_t *l,
 int32_t qb_loop_signal_del(qb_loop_t *l,
 			   qb_loop_signal_handle handle);
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+/* *INDENT-ON* */
 #endif /* QB_LOOP_DEFINED */
 

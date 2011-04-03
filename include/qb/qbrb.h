@@ -21,6 +21,12 @@
 #ifndef QB_RB_DEFINED
 #define QB_RB_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 #include <sys/types.h>
 #include <stdint.h>
 
@@ -67,12 +73,6 @@
  *
  * @author Angus Salkeld <asalkeld@redhat.com>
  */
-
-/* *INDENT-OFF* */
-#ifdef __cplusplus
-extern "C" {
-#endif
-/* *INDENT-ON* */
 
 /**
  * create a ring buffer (rather than open and existing one)

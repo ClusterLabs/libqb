@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export CFLAGS=-Wp,-D_FORTIFY_SOURCE=2
+
 help_all() {
 	echo 
 	echo "Usage: check <command>"

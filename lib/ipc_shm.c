@@ -191,8 +191,8 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 	qb_rb_close(c->request.u.shm.rb);
 
  return_error:
-	qb_util_log(LOG_ERR, "connection failed %s",
-		    strerror(-res));
+	errno = -res;
+	qb_util_perror(LOG_ERR, "connection failed");
 
 	return res;
 }
@@ -287,8 +287,8 @@ cleanup_request:
 
 cleanup:
 	r->hdr.error = res;
-	qb_util_log(LOG_ERR, "shm connection FAILED [%s]",
-		    strerror(-res));
+	errno = -res;
+	qb_util_perror(LOG_ERR, "shm connection FAILED");
 
 	return res;
 }

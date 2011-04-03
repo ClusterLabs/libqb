@@ -123,8 +123,7 @@ try_smaller:
 	}
 	if (q == (mqd_t) - 1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "Can't create mq \"%s\": %s",
-			    name, strerror(errno));
+		qb_util_perror(LOG_ERR, "Can't create mq \"%s\"", name);
 		return res;
 	}
 	q_space_used += max_msg_size * q_len;
@@ -135,7 +134,7 @@ try_smaller:
 	res = fchown((int)q, c->euid, c->egid);
 	if (res == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "fchown:%s %s", name, strerror(errno));
+		qb_util_perror(LOG_ERR, "fchown:%s", name);
 		mq_close(q);
 		mq_unlink(name);
 	}
@@ -222,9 +221,8 @@ static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
 			break;
 		default:
 			res = -errno;
-			qb_util_log(LOG_ERR,
-				    "error waiting for mq_timedreceive : %s",
-				    strerror(errno));
+			qb_util_perror(LOG_ERR,
+				       "error waiting for mq_timedreceive");
 			break;
 		}
 	}

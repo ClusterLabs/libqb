@@ -482,7 +482,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 	}
 	if (size < 0) {
 		if (size != -EAGAIN && size != -ETIMEDOUT) {
-			qb_util_log(LOG_ERR, "%s(): %s", __func__, strerror(-res));
+			qb_util_perror(LOG_ERR, "recv from client connection failed");
 		} else {
 			c->stats.recv_retries++;
 		}
@@ -492,7 +492,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 	c->stats.requests++;
 
 	if (hdr->id == QB_IPC_MSG_DISCONNECT) {
-		qb_util_log(LOG_DEBUG, "%s() QB_IPC_MSG_DISCONNECT", __func__);
+		qb_util_log(LOG_DEBUG, "client requesting a disconnect");
 		qb_ipcs_disconnect(c);
 		res = -ESHUTDOWN;
 	} else {
@@ -599,8 +599,7 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 		res = 0;
 	}
 	if (res != 0) {
-		qb_util_log(LOG_DEBUG, "%s returning %d : %s",
-			    __func__, res, strerror(-res));
+		qb_util_perror(LOG_DEBUG, "request returned error");
 		qb_ipcs_connection_unref(c);
 	}
 

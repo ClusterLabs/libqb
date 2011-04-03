@@ -362,8 +362,7 @@ int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 					O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "couldn't open file for mmap: %s",
-			    strerror(-res));
+		qb_util_perror(LOG_ERR, "couldn't open file for mmap");
 		return res;
 	}
 	strcpy(c->request.u.us.shared_file_name, r->request);
@@ -374,7 +373,7 @@ int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 
 	if (c->request.u.us.shared_data == MAP_FAILED) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "couldn't create mmap for header");
+		qb_util_perror(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
 
@@ -417,7 +416,6 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 {
 	struct sockaddr_un un_addr;
 	int32_t res;
-	char error_str[100];
 
 	/*
 	 * Create socket for IPC clients, name socket, listen for connections
@@ -429,9 +427,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 	if (s->server_sock == -1) {
 		res = -errno;
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_ERR,
-			    "Cannot create server socket: %s", error_str);
+		qb_util_perror(LOG_ERR, "Cannot create server socket");
 		return res;
 	}
 
@@ -465,15 +461,12 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	}
 #endif
 
-	res =
-		bind(s->server_sock, (struct sockaddr *)&un_addr,
+	res = bind(s->server_sock, (struct sockaddr *)&un_addr,
 		     QB_SUN_LEN(&un_addr));
 	if (res) {
 		res = -errno;
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_CRIT,
-			    "Could not bind AF_UNIX (%s): %s.",
-			    un_addr.sun_path, error_str);
+		qb_util_perror(LOG_ERR, "Could not bind AF_UNIX (%s)",
+			    un_addr.sun_path);
 		goto error_close;
 	}
 
@@ -485,8 +478,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_ERR, "listen failed: %s.", error_str);
+		qb_util_perror(LOG_ERR, "socket listen failed");
 	}
 
 	res = s->poll_fns.dispatch_add(s->poll_priority, s->server_sock,
@@ -591,10 +583,6 @@ send_response:
 	if (res == response.hdr.size) {
 		res = 0;
 	}
-	if (res < 0) {
-		qb_util_log(LOG_ERR, "Error sending connection response: %s",
-			    strerror(-res));
-	}
 
 	if (res == 0) {
 		if (s->serv_fns.connection_created) {
@@ -603,8 +591,7 @@ send_response:
 	} else if (res == -EACCES) {
 		qb_util_log(LOG_ERR, "Invalid IPC credentials.");
 	} else {
-		qb_util_log(LOG_ERR, "Error in connection setup: %s.",
-			    strerror(-res));
+		qb_util_perror(LOG_ERR, "Error in connection setup");
 	}
 	if (res != 0 && c) {
 		qb_ipcs_disconnect(c);
@@ -745,7 +732,6 @@ static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data)
 	struct qb_ipc_connection_request setup_msg;
 	struct ipc_auth_ugp ugp;
 	socklen_t addrlen = sizeof(struct sockaddr_un);
-	char error_str[100];
 
 retry_accept:
 	errno = 0;
@@ -755,24 +741,27 @@ retry_accept:
 	}
 
 	if (new_fd == -1 && errno == EBADF) {
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_ERR,
-			    "Could not accept Library connection:(fd: %d) [%d] %s",
-			    fd, errno, error_str);
+		qb_util_perror(LOG_ERR,
+			       "Could not accept client connection from fd:%d", fd);
 		return -1;
 	}
 	if (new_fd == -1) {
-	res = -errno;
-		qb_util_log(LOG_ERR,
-			    "Could not accept Library connection: [%d] %s",
-			    errno, strerror(-res));
-		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
+		res = -errno;
+		qb_util_perror(LOG_ERR,
+			       "Could not accept client connection");
+		/* This is an error, but -1 would indicate disconnect
+		 * from the poll loop
+		 */
+		return 0;
 	}
 
 	res = qb_util_fd_nonblock_cloexec_set(new_fd);
 	if (res < 0) {
 		close(new_fd);
-		return 0;	/* This is an error, but -1 would indicate disconnect from poll loop */
+		/* This is an error, but -1 would indicate disconnect
+		 * from the poll loop
+		 */
+		return 0;
 	}
 
 	res = qb_ipcs_uc_recv_and_auth(new_fd, &setup_msg, sizeof(setup_msg),
@@ -813,8 +802,7 @@ static int32_t qb_ipcs_us_connect(struct qb_ipcs_service *s,
 					O_CREAT | O_TRUNC | O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "couldn't create file for mmap: %s",
-			    strerror(-res));
+		qb_util_perror(LOG_ERR, "couldn't create file for mmap");
 		return res;
 	}
 	strcpy(r->request, path);
@@ -827,7 +815,7 @@ static int32_t qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	if (c->request.u.us.shared_data == MAP_FAILED) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "couldn't create mmap for header");
+		qb_util_perror(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
 

@@ -235,9 +235,7 @@ static void _poll_fds_usage_check_(struct qb_poll_source *s)
 
 	if (socks_limit == 0) {
 		if (getrlimit(RLIMIT_NOFILE, &lim) == -1) {
-			char error_str[100];
-			strerror_r(errno, error_str, 100);
-			printf("getrlimit: %s\n", error_str);
+			qb_util_perror(LOG_WARNING, "getrlimit");
 			return;
 		}
 		socks_limit = lim.rlim_cur;
@@ -507,7 +505,7 @@ static int32_t _poll_add_(struct qb_loop *l,
 	ev.data.u64 = (((uint64_t) (pe->check)) << 32) | pe->install_pos;
 	if (epoll_ctl(s->epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "epoll_ctl(add) : %s", strerror(-res));
+		qb_util_perror(LOG_ERR, "epoll_ctl(add)");
 	}
 #endif /* HAVE_EPOLL */
 	*pe_pt = pe;
@@ -589,7 +587,7 @@ int32_t qb_loop_poll_mod(struct qb_loop *l,
 			ev.data.u64 = (((uint64_t) (pe->check)) << 32) | i;
 			if (epoll_ctl(s->epollfd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				res = -errno;
-				qb_util_log(LOG_ERR, "epoll_ctl(mod) : %s", strerror(-res));
+				qb_util_perror(LOG_ERR, "epoll_ctl(mod)");
 			}
 #endif /* HAVE_EPOLL */
 			pe->ufd.events = events;
@@ -622,8 +620,7 @@ int32_t qb_loop_poll_del(struct qb_loop *l, int32_t fd)
 #ifdef HAVE_EPOLL
 		if (epoll_ctl(s->epollfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
 			res = -errno;
-			qb_util_log(LOG_ERR, "epoll_ctl(del) : %s",
-				    strerror(-res));
+			qb_util_perror(LOG_WARNING, "epoll_ctl(del)");
 		}
 #else
 		s->ufds[i].fd = -1;
@@ -647,9 +644,8 @@ static int32_t _qb_timer_add_to_jobs_(struct qb_loop* l, struct qb_poll_entry* p
 	if (pe->ufd.revents == POLLIN) {
 		bytes = read(pe->ufd.fd, &expired, sizeof(expired));
 		if (bytes != sizeof(expired)) {
-			qb_util_log(LOG_WARNING,
-				"couldn't read from timer fd %zd %s",
-				bytes, strerror(errno));
+			qb_util_perror(LOG_WARNING,
+				"couldn't read from timer fd %zd", bytes);
 		}
 		qb_loop_level_item_add(&l->level[pe->p], &pe->item);
 	} else {
@@ -702,8 +698,7 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC|TFD_NONBLOCK);
 	if (fd == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "failed to create timer: %s",
-			    strerror(-res));
+		qb_util_perror(LOG_ERR, "failed to create timer");
 		return res;
 	}
 
@@ -715,8 +710,7 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	res = timerfd_settime(fd, 0, &its, NULL);
 	if (res == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "failed to set time on timer: %s",
-			    strerror(-res));
+		qb_util_perror(LOG_ERR, "failed to set time on timer");
 		goto close_and_return;
 	}
 
@@ -781,8 +775,7 @@ int32_t qb_loop_timer_del(struct qb_loop *l, qb_loop_timer_handle th)
 #ifdef HAVE_EPOLL
 		if (epoll_ctl(s->epollfd, EPOLL_CTL_DEL, pe->ufd.fd, NULL) == -1) {
 			res = -errno;
-			qb_util_log(LOG_ERR, "epoll_ctl(del:%d) : %s",
-				    pe->ufd.fd, strerror(-res));
+			qb_util_perror(LOG_WARNING, "epoll_ctl(del:%d)", pe->ufd.fd);
 		}
 #else
 		s->ufds[pe->install_pos].fd = -1;
@@ -886,9 +879,7 @@ qb_loop_signals_create(struct qb_loop *l)
 		res = pipe(pipe_fds);
 		if (res == -1) {
 			res = -errno;
-			qb_util_log(LOG_ERR,
-				    "Can't light pipe: %s",
-				    strerror(-res));
+			qb_util_perror(LOG_ERR, "Can't light pipe");
 			goto error_exit;
 		}
 		(void)qb_util_fd_nonblock_cloexec_set(pipe_fds[0]);
@@ -902,9 +893,7 @@ qb_loop_signals_create(struct qb_loop *l)
 			pe->type = QB_SIGNAL;
 			pe->add_to_jobs = _qb_signal_add_to_jobs_;
 		} else {
-			qb_util_log(LOG_ERR,
-				    "Can't smoke pipe: %s",
-				    strerror(-res));
+			qb_util_perror(LOG_ERR, "Can't smoke pipe");
 			goto error_exit;
 		}
 	}
@@ -941,7 +930,7 @@ static int32_t _qb_signal_add_to_jobs_(struct qb_loop* l,
 	res = read(pipe_fds[0], &the_signal, sizeof(int32_t));
 	if (res != sizeof(int32_t)) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "failed to read pipe: %s", strerror(errno));
+		qb_util_perror(LOG_ERR, "failed to read pipe");
 		return 0;
 	}
 	pe->ufd.revents = 0;

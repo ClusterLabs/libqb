@@ -116,27 +116,6 @@ int32_t qb_thread_lock_destroy(qb_thread_lock_t * tl)
 	return res;
 }
 
-/*
- * ---------------------------------------------------
- * Logging functions for the library.
- */
-static qb_util_log_fn_t real_log_fn = NULL;
-
-void _qb_util_log(const char *file_name,
-		  int32_t file_line, int32_t severity, const char *format, ...)
-{
-	if (real_log_fn) {
-		va_list ap;
-		char msg[256];
-
-		va_start(ap, format);
-		vsnprintf(msg, 256, format, ap);
-		va_end(ap);
-
-		real_log_fn(file_name, file_line, severity, msg);
-	}
-}
-
 void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 {
 #ifndef S_SPLINT_S
@@ -226,11 +205,6 @@ uint64_t qb_util_nano_from_epoch_get(void)
 }
 #endif
 
-void qb_util_set_log_function(qb_util_log_fn_t fn)
-{
-	real_log_fn = fn;
-}
-
 static int32_t open_mmap_file(char *path, uint32_t file_flags)
 {
 	if (strstr(path, "XXXXXX") != NULL) {
@@ -262,24 +236,20 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 	fd = open_mmap_file(path, file_flags);
 	if (fd < 0 && !is_absolute) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
-			    path, strerror(-res));
+		qb_util_perror(LOG_ERR, "couldn't open file %s", path);
 
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
 		fd = open_mmap_file(path, file_flags);
 		if (fd < 0) {
 			res = -errno;
-			qb_util_log(LOG_ERR, "couldn't open file %s error: %s",
-					path, strerror(-res));
+			qb_util_perror(LOG_ERR, "couldn't open file %s", path);
 			return res;
 		}
 	}
 
 	if (ftruncate(fd, bytes) == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR,
-			    "couldn't truncate file %s error: %s",
-			    path, strerror(-res));
+		qb_util_perror(LOG_ERR, "couldn't truncate file %s", path);
 		goto unlink_exit;
 	}
 
@@ -357,7 +327,6 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
 {
 	int32_t res;
-	char error_str[100];
 	int32_t oldflags = fcntl(fd, F_GETFD, 0);
 
 	if (oldflags < 0) {
@@ -367,20 +336,16 @@ int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
 	res = fcntl(fd, F_SETFD, oldflags);
 	if (res == -1) {
 		res = -errno;
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_CRIT,
-			    "Could not set close-on-exit operation on fd: %s",
-			    error_str);
+		qb_util_perror(LOG_ERR,
+			       "Could not set close-on-exit on fd:%d", fd);
 		return res;
 	}
 
 	res = fcntl(fd, F_SETFL, O_NONBLOCK);
 	if (res == -1) {
 		res = -errno;
-		strerror_r(errno, error_str, 100);
-		qb_util_log(LOG_CRIT,
-			    "Could not set non-blocking operation on fd: %s",
-			    error_str);
+		qb_util_log(LOG_ERR,
+			    "Could not set non-blocking on fd:%d", fd);
 	}
 	return res;
 }

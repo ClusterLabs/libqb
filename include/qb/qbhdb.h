@@ -25,6 +25,12 @@
 #define _GNU_SOURCE
 #endif
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -164,4 +170,9 @@ int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
 uint32_t qb_hdb_base_convert(qb_handle_t handle);
 uint64_t qb_hdb_nocheck_convert(uint32_t handle);
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+}
+#endif
+/* *INDENT-ON* */
 #endif /* QB_HDB_H_DEFINED */

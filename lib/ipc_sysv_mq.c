@@ -66,8 +66,7 @@ retry_creating_the_q:
 	res = msgctl(queue->u.smq.q, IPC_STAT, &info);
 	if (res != 0) {
 		res = -errno;
-		qb_util_log(LOG_ERR, "error getting sysv-mq info : %s",
-			    strerror(errno));
+		qb_util_perror(LOG_ERR, "error getting sysv-mq info");
 		return res;
 	}
 
@@ -83,9 +82,8 @@ retry_creating_the_q:
 	res = msgctl(queue->u.smq.q, IPC_SET, &info);
 	if (res != 0) {
 		res = -errno;
-		qb_util_log(LOG_ERR,
-			    "error modifing the SYSV message queue : %s",
-			    strerror(errno));
+		qb_util_perror(LOG_ERR,
+			       "error modifing the SYSV message queue");
 		return res;
 	}
 

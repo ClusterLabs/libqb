@@ -20,6 +20,12 @@
 #ifndef QB_UTIL_H_DEFINED
 #define QB_UTIL_H_DEFINED
 
+/* *INDENT-OFF* */
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* *INDENT-ON* */
+
 #include <stdint.h>
 #ifndef S_SPLINT_S
 #include <unistd.h>
@@ -31,12 +37,6 @@
  *
  * These are some convience functions used throughout libqb.
  */
-
-/* *INDENT-OFF* */
-#ifdef __cplusplus
-extern "C" {
-#endif
-/* *INDENT-ON* */
 
 /**
  * @typedef qb_thread_lock_type_t

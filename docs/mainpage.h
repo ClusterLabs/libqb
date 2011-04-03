@@ -18,6 +18,7 @@
  * - @subpage qb_hdb_overview
  * - @subpage qb_rb_overview
  * - @subpage qb_loop_overview
+ * - @subpage qb_log_overview
  * - @subpage qb_ipc_overview
  */
 
@@ -49,6 +50,12 @@
  * @page qb_loop_overview Main Loop
  * @copydoc qbloop.h
  * @see qbloop.h
+ */
+
+/**
+ * @page qb_log_overview Logging
+ * @copydoc qblog.h
+ * @see qblog.h
  */
 
 /**
