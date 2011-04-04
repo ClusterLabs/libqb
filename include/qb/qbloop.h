@@ -28,6 +28,7 @@ extern "C" {
 /* *INDENT-ON* */
 
 #include <signal.h>
+#include <stdint.h>
 
 /**
  * @file qbloop.h
