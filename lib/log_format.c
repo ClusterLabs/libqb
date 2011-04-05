@@ -36,7 +36,7 @@ struct syslog_names {
 	int32_t c_val;
 };
 
-struct syslog_names prioritynames[] = {
+static struct syslog_names prioritynames[] = {
 	{"emerg", LOG_EMERG},
 	{"alert", LOG_ALERT},
 	{"crit", LOG_CRIT},
