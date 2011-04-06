@@ -337,7 +337,7 @@ _log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
 		handle = dlopen(info->dlpi_name, RTLD_LAZY);
 		error = dlerror();
 		if (!handle || error) {
-			qb_log(LOG_ERR, 0, "%s", error);
+			qb_log(LOG_ERR, "%s", error);
 			if(handle) {
 				dlclose(handle);
 			}

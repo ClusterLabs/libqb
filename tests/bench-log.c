@@ -91,21 +91,21 @@ int main (void)
 
 	printf ("heating up cache with qb_log functionality\n");
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, 0, "hello");
+		qb_log(LOG_DEBUG, "hello");
 	}
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, 0, "RecordA");
+		qb_log(LOG_DEBUG, "RecordA");
 	}
 	bm_finish ("qb_log 1 arguments:");
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, 0, "%s%s", "RecordA", "RecordB");
+		qb_log(LOG_DEBUG, "%s%s", "RecordA", "RecordB");
 	}
 	bm_finish ("qb_log 2 arguments:");
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
-		qb_log(LOG_DEBUG, 0, "%s%s%s", "RecordA", "RecordB", "RecordC");
+		qb_log(LOG_DEBUG, "%s%s%s", "RecordA", "RecordB", "RecordC");
 	}
 	bm_finish ("qb_log 3 arguments:");
 

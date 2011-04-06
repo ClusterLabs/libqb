@@ -49,7 +49,7 @@ extern "C" {
  * main() {
  *	qb_log_init("simple-log", LOG_DAEMON, LOG_INFO);
  * 	// ...
- *	qb_log(LOG_WARNING, 0, "watch out");
+ *	qb_log(LOG_WARNING, "watch out");
  * 	// ...
  *	qb_log_fini();
  * }
@@ -112,7 +112,7 @@ extern "C" {
  * 	// call this after you fork()
  * 	qb_log_thread_start();
  * 	// ...
- *	qb_log(LOG_WARNING, 0, "watch out");
+ *	qb_log(LOG_WARNING, "watch out");
  * 	// ...
  *	qb_log_fini();
  * }
@@ -146,20 +146,22 @@ extern "C" {
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
  * 	// ...
- *	qb_log(LOG_WARNING, 0, "watch out");
+ *	qb_log(LOG_WARNING, "watch out");
  * 	// ...
  *	qb_log_fini();
  * }
  * @endcode
  *
  * @par Tagging messages.
- * You can tag messages (again a bit field) using the second argument
- * to qb_log(). this can be used to add feature or sub-system information
- * to the logs.
+ * You can tag messages using the second argument to qb_logt() or
+ * by using qb_log_filter_ctl().
+ * This can be used to add feature or sub-system information to the logs.
  *
  * @code
  * const char* my_tags_stringify(uint32_t tags) {
- * 	if (qb_bit_is_set(tags, 3) {
+ * 	if (qb_bit_is_set(tags, QB_LOG_TAG_LIBQB_MSG_BIT) {
+ * 		return "libqb";
+ * 	} else if (tags == 3) {
  * 		return "three";
  * 	} else {
  * 		return "MAIN";
@@ -170,12 +172,13 @@ extern "C" {
  * 	qb_log_tags_stringify_fn_set(my_tags_stringify);
  * 	qb_log_format_set(QB_LOG_STDERR, "[%5g] %p %b");
  * 	// ...
- * 	qb_log(LOG_INFO, (1<<3), "hello");
- * 	qb_log(LOG_INFO, 0, "hello");
+ * 	qb_logt(LOG_INFO, 3, "hello");
+ * 	qb_logt(LOG_INFO, 0, "hello");
  * }
  * @endcode
  * The code above will produce:
  * @code
+ * [libqb] some message
  * [three] info hello
  * [MAIN ] info hello
  * @endcode
@@ -210,7 +213,7 @@ extern struct qb_log_callsite __stop___verbose[];
 
 
 /**
- * Internal function: use qb_log()
+ * Internal function: use qb_log() or qb_logt()
  */
 void qb_log_real_(struct qb_log_callsite *cs, ...);
 
@@ -246,10 +249,11 @@ void qb_log_from_external_source(const char *function,
 
 
 /**
- * This is the main function to generate a log message.
+ * This is the function to generate a log message if you want to
+ * manually add tags.
  *
  * @param priority this takes syslog priorities.
- * @param tags this is a bit field that you can use with
+ * @param tags this is a uint32_t that you can use with
  *             qb_log_tags_stringify_fn_set() to "tag" a log message
  *             with a feature or sub-system then you can use "%g"
  *             in the format specifer to print it out.
@@ -257,15 +261,29 @@ void qb_log_from_external_source(const char *function,
  * @param args usual printf style args
  */
 #ifndef S_SPLINT_S
-#define qb_log(priority, tags, fmt, args...) do {			\
+#define qb_logt(priority, tags, fmt, args...) do {			\
 	static struct qb_log_callsite descriptor			\
 	__attribute__((section("__verbose"), aligned(8))) =		\
 	{ __func__, __FILE__, fmt, priority, __LINE__, 0, tags };	\
 	qb_log_real_(&descriptor, ##args);				\
     } while(0)
 #else
+#define qb_logt
+#endif
+
+/**
+ * This is the main function to generate a log message.
+ *
+ * @param priority this takes syslog priorities.
+ * @param fmt usual printf style format specifiers
+ * @param args usual printf style args
+ */
+#ifndef S_SPLINT_S
+#define qb_log(priority, fmt, args...) qb_logt(priority, 0, fmt, ##args)
+#else
 #define qb_log
 #endif
+
 
 /**
  * This is similar to perror except it goes into the logging system.
@@ -276,9 +294,9 @@ void qb_log_from_external_source(const char *function,
  * @param args usual printf style args
  */
 #ifndef S_SPLINT_S
-#define qb_perror(priority, tags, fmt, args...) do {			\
+#define qb_perror(priority, fmt, args...) do {				\
 	const char *err = strerror(errno);				\
-	qb_log(priority, tags, fmt ": %s (%d)", ##args, err, errno);	\
+	qb_logt(priority, 0, fmt ": %s (%d)", ##args, err, errno);	\
     } while(0)
 #else
 #define qb_perror

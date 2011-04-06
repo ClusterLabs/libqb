@@ -136,7 +136,7 @@ void qb_log_blackbox_print_from_file(const char *bb_filename)
 
 	fd = open(bb_filename, O_CREAT | O_RDWR, 0700);
 	if (fd < 0) {
-		qb_perror(LOG_ERR, 0, "qb_log_blackbox_print_from_file");
+		qb_perror(LOG_ERR, "qb_log_blackbox_print_from_file");
 		return;
 	}
 	instance = qb_rb_create_from_file(fd, 0);

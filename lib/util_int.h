@@ -29,7 +29,7 @@
  * destinguished from external ones.
  */
 #ifndef S_SPLINT_S
-#define qb_util_log(priority, fmt, args...) qb_log(priority, QB_LOG_TAG_LIBQB_MSG, fmt, ##args)
+#define qb_util_log(priority, fmt, args...) qb_logt(priority, QB_LOG_TAG_LIBQB_MSG, fmt, ##args)
 #else
 #define qb_util_log
 #endif
@@ -37,7 +37,7 @@
 #ifndef S_SPLINT_S
 #define qb_util_perror(priority, fmt, args...) do {		\
 	const char *err = strerror(errno);			\
-	qb_log(priority, QB_LOG_TAG_LIBQB_MSG, fmt ": %s (%d)", ##args, err, errno); \
+	qb_logt(priority, QB_LOG_TAG_LIBQB_MSG, fmt ": %s (%d)", ##args, err, errno); \
     } while(0)
 #else
 #define qb_util_perror

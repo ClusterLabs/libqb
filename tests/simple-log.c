@@ -31,22 +31,22 @@
 
 static void func_one(void) {
 	FILE* fd;
-	qb_log(LOG_DEBUG, MY_TAG_TWO, "arf arf?");
-	qb_log(LOG_CRIT, MY_TAG_THREE,  "arrrg!");
-	qb_log(LOG_ERR, MY_TAG_THREE,   "oops, I did it again");
-	qb_log(LOG_INFO, 0,  "are you aware ...");
+	qb_logt(LOG_DEBUG, MY_TAG_TWO, "arf arf?");
+	qb_logt(LOG_CRIT, MY_TAG_THREE,  "arrrg!");
+	qb_logt(LOG_ERR, MY_TAG_THREE,   "oops, I did it again");
+	qb_log(LOG_INFO,  "are you aware ...");
 
 	fd = fopen("/nothing.txt", "r+");
 	if (fd == NULL) {
-		qb_perror(LOG_ERR, 0, "can't open(\"/nothing.txt\")");
+		qb_perror(LOG_ERR, "can't open(\"/nothing.txt\")");
 	}
 }
 
 static void func_two(void) {
-	qb_log(LOG_DEBUG, 0, "arf arf?");
-	qb_log(LOG_CRIT, MY_TAG_ONE,  "arrrg!");
-	qb_log(LOG_ERR, 0,   "oops, I did it again");
-	qb_log(LOG_INFO, MY_TAG_THREE,  "are you aware ...");
+	qb_logt(LOG_DEBUG, 0, "arf arf?");
+	qb_logt(LOG_CRIT, MY_TAG_ONE,  "arrrg!");
+	qb_log(LOG_ERR,   "oops, I did it again");
+	qb_logt(LOG_INFO, MY_TAG_THREE,  "are you aware ...");
 }
 
 static void show_usage(const char *name)
@@ -167,16 +167,16 @@ int32_t main(int32_t argc, char *argv[])
 	if (do_threaded) {
 		qb_log_thread_start();
 	}
-	qb_log(LOG_DEBUG, 0, "hello");
-	qb_log(LOG_INFO, 0, "this is an info");
-	qb_log(LOG_NOTICE, 0, "hello - notice?");
+	qb_log(LOG_DEBUG, "hello");
+	qb_log(LOG_INFO, "this is an info");
+	qb_log(LOG_NOTICE, "hello - notice?");
 	func_one();
 	func_two();
 
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 
-	qb_log(LOG_WARNING, 0, "no syslog");
-	qb_log(LOG_ERR, 0, "no syslog");
+	qb_log(LOG_WARNING, "no syslog");
+	qb_log(LOG_ERR, "no syslog");
 
 #if 0
 	// test blackbox
