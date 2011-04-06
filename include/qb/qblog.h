@@ -324,6 +324,9 @@ enum qb_log_filter_conf {
 	QB_LOG_FILTER_ADD,
 	QB_LOG_FILTER_REMOVE,
 	QB_LOG_FILTER_CLEAR_ALL,
+	QB_LOG_TAG_SET,
+	QB_LOG_TAG_CLEAR,
+	QB_LOG_TAG_CLEAR_ALL,
 };
 
 /**
@@ -381,7 +384,7 @@ int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg);
  *
  * This allows you define which log messages go to which target.
  */
-int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
+int32_t qb_log_filter_ctl(uint32_t value, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,
 			  uint32_t priority);
 
