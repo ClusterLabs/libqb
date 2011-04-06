@@ -230,6 +230,24 @@ void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_cal
 	}
 }
 
+void qb_log_callsites_dump(void)
+{
+	struct callsite_section *sect;
+	struct qb_log_callsite *cs;
+	int32_t l = qb_list_length(&callsite_sections);
+
+	printf("Callsite Database [%d]\n", l);
+	printf("---------------------\n");
+	qb_list_for_each_entry(sect, &callsite_sections, list) {
+		printf(" start %p - stop %p\n", sect->start, sect->stop);
+		printf("filename    lineno targets         tags\n");
+		for (cs = sect->start; cs < sect->stop; cs++) {
+			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
+			       cs->targets, cs->tags);
+		}
+	}
+}
+
 int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type,
 			  const char *text, uint32_t priority)

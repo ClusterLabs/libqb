@@ -336,6 +336,11 @@ void qb_log_fini(void);
 void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop);
 
 /**
+ * Dump the callsite info to stdout.
+ */
+void qb_log_callsites_dump(void);
+
+/**
  * Main logging control function.
  *
  * @param t QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
