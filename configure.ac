@@ -94,6 +94,7 @@ esac
 
 # Checks for libraries.
 AC_CHECK_LIB([rt], [mq_open])
+AC_CHECK_LIB([dl], [dlopen])
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([socket], [socket])
 

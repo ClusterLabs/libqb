@@ -203,6 +203,12 @@ struct qb_log_callsite {
 extern struct qb_log_callsite __start___verbose[];
 extern struct qb_log_callsite __stop___verbose[];
 
+#define QB_LOG_INIT_DATA(name)						\
+    void name(void);							\
+    void name(void) { assert(__start___verbose != __stop___verbose); }	\
+    void __attribute__ ((constructor)) name(void);
+
+
 /**
  * Internal function: use qb_log()
  */

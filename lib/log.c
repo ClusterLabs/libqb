@@ -20,7 +20,9 @@
  */
 #include "os_base.h"
 #include <ctype.h>
+#include <link.h>
 #include <stdarg.h>
+
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
 #include <qb/qblog.h>
@@ -211,13 +213,21 @@ void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_cal
 	if (_start == NULL || _stop == NULL) {
 		return;
 	}
+
+	qb_list_for_each_entry(sect, &callsite_sections, list) {
+		if (sect->start == _start || sect->stop == _stop) {
+			return;
+		}
+	}
+
 	sect = calloc(1, sizeof(struct callsite_section));
 	sect->start = _start;
 	sect->stop = _stop;
 	qb_list_init(&sect->list);
 	qb_list_add(&sect->list, &callsite_sections);
 
-	/* Now apply the filters on these new callsites
+	/*
+	 * Now apply the filters on these new callsites
 	 */
 	qb_list_for_each_entry(t, &active_targets, active_list) {
 		qb_list_for_each_entry(flt, &t->filter_head, list) {
@@ -315,6 +325,46 @@ int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
 	return 0;
 }
 
+static int32_t
+_log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
+{
+	if (strlen(info->dlpi_name) > 0) {
+		void *handle;
+		void *start;
+		void *stop;
+		char *error;
+
+		handle = dlopen(info->dlpi_name, RTLD_LAZY);
+		error = dlerror();
+		if (!handle || error) {
+			qb_log(LOG_ERR, 0, "%s", error);
+			if(handle) {
+				dlclose(handle);
+			}
+			return 0;
+		}
+
+		start = dlsym(handle, "__start___verbose");
+		error = dlerror();
+		if (error) {
+			goto done;
+		}
+
+		stop = dlsym(handle, "__stop___verbose");
+		error = dlerror();
+		if (error) {
+			goto done;
+
+		} else {
+			qb_log_callsites_register(start, stop);
+		}
+done:
+		dlclose(handle);
+	}
+
+	return 0;
+}
+
 void qb_log_init(const char *name, int32_t facility, int32_t priority)
 {
 	int32_t i;
@@ -331,7 +381,9 @@ void qb_log_init(const char *name, int32_t facility, int32_t priority)
 	}
 	conf[QB_LOG_SYSLOG].state = QB_LOG_STATE_ENABLED;
 	qb_list_add(&conf[QB_LOG_SYSLOG].active_list, &active_targets);
+
 	qb_log_callsites_register(__start___verbose, __stop___verbose);
+	dl_iterate_phdr(_log_so_walk_callback, NULL);
 
 	conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
 	conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
