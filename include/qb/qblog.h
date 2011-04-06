@@ -323,6 +323,19 @@ void qb_log_init(const char *name,
 void qb_log_fini(void);
 
 /**
+ * If you are using dynamically loadable modules via dlopen() and
+ * you load them after qb_log_init() then after you load the module
+ * you will need to do the following to get the filters to work
+ * in that module.
+ * @code
+ * 	_start = dlsym (dl_handle, "__start___verbose");
+ *	_stop = dlsym (dl_handle, "__stop___verbose");
+ *	qb_log_callsites_register(_start, _stop);
+ * @endcode
+ */
+void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop);
+
+/**
  * Main logging control function.
  *
  * @param t QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()

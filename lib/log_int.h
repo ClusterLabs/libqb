@@ -62,7 +62,7 @@ struct qb_log_target {
 
 struct qb_log_filter {
 	enum qb_log_filter_type type;
-	const char *text;
+	char *text;
 	int32_t priority;
 	struct qb_list_head list;
 };
