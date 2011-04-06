@@ -43,10 +43,10 @@ struct callsite_section {
 
 static int32_t _log_target_enable(struct qb_log_target *t);
 static void _log_target_disable(struct qb_log_target *t);
-static int32_t _log_filter_apply(struct callsite_section *sect,
-				 uint32_t t, enum qb_log_filter_conf c,
-				 enum qb_log_filter_type type,
-				 const char *text, uint32_t priority);
+static void _log_filter_apply(struct callsite_section *sect,
+			      uint32_t t, enum qb_log_filter_conf c,
+			      enum qb_log_filter_type type,
+			      const char *text, uint32_t priority);
 
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
@@ -345,10 +345,10 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 	return 0;
 }
 
-static int32_t _log_filter_apply(struct callsite_section *sect,
-				 uint32_t t, enum qb_log_filter_conf c,
-				 enum qb_log_filter_type type,
-				 const char *text, uint32_t priority)
+static void _log_filter_apply(struct callsite_section *sect,
+			      uint32_t t, enum qb_log_filter_conf c,
+			      enum qb_log_filter_type type,
+			      const char *text, uint32_t priority)
 {
 	struct qb_log_callsite *cs;
 
@@ -390,7 +390,6 @@ static int32_t _log_filter_apply(struct callsite_section *sect,
 #endif /* _QB_FILTER_DEBUGGING_ */
 		}
 	}
-	return 0;
 }
 
 int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
