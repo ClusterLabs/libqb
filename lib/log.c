@@ -66,15 +66,15 @@ static int32_t _cs_matches_filter_(struct qb_log_callsite *cs,
 		return QB_TRUE;
 	}
 	if (type == QB_LOG_FILTER_FILE) {
-		if (strcmp(text, cs->filename) == 0) {
+		if (strstr(cs->filename, text)) {
 			match = QB_TRUE;
 		}
 	} else if (type == QB_LOG_FILTER_FUNCTION) {
-		if (strcmp(text, cs->function) == 0) {
+		if (strstr(cs->function, text)) {
 			match = QB_TRUE;
 		}
 	} else if (type == QB_LOG_FILTER_FORMAT) {
-		if (strcmp(text, cs->format) == 0) {
+		if (strstr(cs->format, text)) {
 			match = QB_TRUE;
 		}
 	}
