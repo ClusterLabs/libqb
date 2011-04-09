@@ -392,12 +392,16 @@ static void _log_filter_apply(struct callsite_section *sect,
 	}
 }
 
-int32_t qb_log_filter_ctl(uint32_t t, enum qb_log_filter_conf c,
+int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type,
 			  const char *text, uint32_t priority)
 {
 	struct callsite_section *sect;
-	int32_t rc = _log_filter_store(t, c, type, text, priority);
+	int32_t rc;
+	if (t < 0 || t >= 32) {
+		return -EBADFD;
+	}
+	rc = _log_filter_store(t, c, type, text, priority);
 	if (rc < 0) {
 		return rc;
 	}
@@ -572,13 +576,13 @@ static void _log_target_disable(struct qb_log_target *t)
 	qb_list_del(&t->active_list);
 }
 
-int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg)
+int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 {
 	int32_t rc = 0;
 	int32_t need_reload = QB_FALSE;
 
-	if (t > 31) {
-		return -EINVAL;
+	if (t < 0 || t >= 32) {
+		return -EBADFD;
 	}
 	switch (c) {
 	case QB_LOG_CONF_ENABLED:

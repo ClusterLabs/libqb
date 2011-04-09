@@ -377,14 +377,14 @@ void qb_log_callsites_dump(void);
  * @retval -errno on error
  * @retval 0 on success
  */
-int32_t qb_log_ctl(uint32_t t, enum qb_log_conf c, int32_t arg);
+int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg);
 
 /**
  * Filter control
  *
  * This allows you define which log messages go to which target.
  */
-int32_t qb_log_filter_ctl(uint32_t value, enum qb_log_filter_conf c,
+int32_t qb_log_filter_ctl(int32_t value, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,
 			  uint32_t priority);
 
