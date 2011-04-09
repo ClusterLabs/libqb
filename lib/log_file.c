@@ -85,7 +85,6 @@ int32_t qb_log_file_open(const char *filename)
 	t->logger = _file_logger;
 	t->reload = _file_reload;
 	t->close = _file_close;
-	t->state = QB_LOG_STATE_ENABLED;
 	return t->pos;
 }
 
