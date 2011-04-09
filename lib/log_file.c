@@ -34,6 +34,7 @@ static void _file_logger(struct qb_log_target *t,
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
 	fprintf(t->instance, "%s\n", output_buffer);
+	fflush(t->instance);
 }
 
 static void _file_close(struct qb_log_target *t)
