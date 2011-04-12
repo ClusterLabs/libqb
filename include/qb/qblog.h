@@ -69,6 +69,7 @@ extern "C" {
  * logfiles (32 - QB_LOG_BLACKBOX). To do this use the following code.
  * @code
  *	mytarget = qb_log_file_open("/var/log/mylogfile");
+ *	qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);
  * @endcode
  *
  * Once your targets are enabled/opened you can configure them as follows:
@@ -101,7 +102,19 @@ extern "C" {
  * So to make all logs from evil_fnunction() go to stderr do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
- *			  QB_LOG_FILTER_FUNCTION, "evil_fnunction", LOG_DEBUG);
+ *			  QB_LOG_FILTER_FUNCTION, "evil_fnunction", LOG_TRACE);
+ * @endcode
+ *
+ * So to make all logs from totem* (with  a priority <= LOG_INFO) go to stderr do the following:
+ * @code
+ *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+ *			  QB_LOG_FILTER_FILE, "totem", LOG_INFO);
+ * @endcode
+ *
+ * So to make all logs with the substring "ringbuffer" go to stderr do the following:
+ * @code
+ *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+ *			  QB_LOG_FILTER_FORMAT, "ringbuffer", LOG_TRACE);
  * @endcode
  *
  * @par Threaded logging.
@@ -190,6 +203,8 @@ extern "C" {
  * @endcode
  */
 
+#undef LOG_TRACE
+#define LOG_TRACE    (LOG_DEBUG + 1)
 
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
 
@@ -295,7 +310,6 @@ void qb_log_from_external_source(const char *function,
  * This is similar to perror except it goes into the logging system.
  *
  * @param priority this takes syslog priorities.
- * @param tags the tags bit field
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
@@ -387,9 +401,7 @@ void qb_log_callsites_dump(void);
 int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg);
 
 /**
- * Filter control
- *
- * This allows you define which log messages go to which target.
+ * This allows you modify the 'tags' and 'targets' callsite fields at runtime.
  */
 int32_t qb_log_filter_ctl(int32_t value, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,

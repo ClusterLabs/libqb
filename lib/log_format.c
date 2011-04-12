@@ -45,6 +45,7 @@ static struct syslog_names prioritynames[] = {
 	{"notice", LOG_NOTICE},
 	{"info", LOG_INFO},
 	{"debug", LOG_DEBUG},
+	{"trace", LOG_TRACE},
 	{NULL, -1}
 };
 
