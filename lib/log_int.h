@@ -47,6 +47,7 @@ struct qb_log_target {
 	char name[PATH_MAX];
 	struct qb_list_head filter_head;
 	int32_t facility;
+	int32_t priority_bump;
 	int32_t debug;
 	size_t size;
 	char *format;

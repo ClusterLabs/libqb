@@ -27,10 +27,16 @@ static void _syslog_logger(struct qb_log_target *t,
 			   time_t timestamp, const char *msg)
 {
 	char output_buffer[COMBINE_BUFFER_SIZE];
+	int32_t final_priority = cs->priority + t->priority_bump;
 
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
-	syslog(cs->priority, "%s", output_buffer);
+	if (final_priority > LOG_DEBUG) {
+		return;
+	} else if (final_priority < LOG_EMERG) {
+		final_priority = LOG_EMERG;
+	}
+	syslog(final_priority, "%s", output_buffer);
 }
 
 static void _syslog_close(struct qb_log_target *t)

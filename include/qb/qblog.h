@@ -82,6 +82,12 @@ extern "C" {
  *	qb_log_ctl(mytarget, QB_LOG_CONF_THREADED, QB_TRUE);
  * @endcode
  *
+ * To workaround your syslog daemon filtering all messages > LOG_INFO
+ * @code
+ *	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP,
+ *		   LOG_INFO - LOG_DEBUG);
+ * @endcode
+ *
  * @par Filtering messages.
  * To have more power over what log messages go to which target you can apply
  * filters to the targets. What happens is the desired callsites have the
@@ -312,6 +318,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_DEBUG,
 	QB_LOG_CONF_SIZE,
 	QB_LOG_CONF_THREADED,
+	QB_LOG_CONF_PRIORITY_BUMP,
 };
 
 enum qb_log_filter_type {

@@ -598,6 +598,9 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 			need_reload = QB_TRUE;
 		}
 		break;
+	case QB_LOG_CONF_PRIORITY_BUMP:
+		conf[t].priority_bump = arg;
+		break;
 	case QB_LOG_CONF_SIZE:
 		conf[t].size = arg;
 		if (t == QB_LOG_BLACKBOX) {
