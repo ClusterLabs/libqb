@@ -73,6 +73,16 @@ int32_t qb_array_index(qb_array_t* a, int32_t idx, void** element_out);
 int32_t qb_array_grow(qb_array_t* a, size_t max_elements);
 
 /**
+ * Get the number of bins used or the array.
+ */
+size_t qb_array_num_bins_get(qb_array_t* a);
+
+/**
+ * Get the number of elements per bin.
+ */
+size_t qb_array_elems_per_bin_get(qb_array_t* a);
+
+/**
  * Free all the memory used by the array.
  * @param a array instance.
  */

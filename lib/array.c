@@ -84,6 +84,22 @@ int32_t qb_array_index(struct qb_array* a, int32_t idx, void** element_out)
 	return 0;
 }
 
+size_t qb_array_num_bins_get(struct qb_array* a)
+{
+	if (a == NULL) {
+		return -EINVAL;
+	}
+	return a->num_bins;
+}
+
+size_t qb_array_elems_per_bin_get(struct qb_array* a)
+{
+	if (a == NULL) {
+		return -EINVAL;
+	}
+	return MAX_BIN_ELEMENTS;
+}
+
 int32_t qb_array_grow(struct qb_array* a, size_t max_elements)
 {
 	int32_t i;
