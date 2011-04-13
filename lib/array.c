@@ -72,7 +72,7 @@ int32_t qb_array_index(struct qb_array* a, int32_t idx, void** element_out)
 		return -EINVAL;
 	}
 	if (idx >= a->max_elements || idx < 0) {
-		return -EINVAL;
+		return -ERANGE;
 	}
 	b = BIN_NUM_GET(idx);
 	assert(b < a->num_bins);

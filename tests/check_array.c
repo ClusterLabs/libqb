@@ -55,9 +55,9 @@ START_TEST(test_array_limits)
 
 	/* out-of-bounds */
 	res = qb_array_index(a, 10, (void**)&st);
-	ck_assert_int_eq(res, -EINVAL);
+	ck_assert_int_eq(res, -ERANGE);
 	res = qb_array_index(a, -10, (void**)&st);
-	ck_assert_int_eq(res, -EINVAL);
+	ck_assert_int_eq(res, -ERANGE);
 	res = qb_array_index(NULL, 1, (void**)&st);
 	ck_assert_int_eq(res, -EINVAL);
 	res = qb_array_index(a, -10, NULL);
