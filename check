@@ -9,6 +9,7 @@ help_all() {
 	echo "Commands:"
 	echo 
 	echo "  sysv            Check using sys-v semaphores"
+	echo "  nosection       Check without gcc __attribute__(section)"
 	echo "  noepoll         Check using poll (not epoll)"
 	echo "  nogettime       Check without gettime()"
 	echo "  notimerfd       Check without timerfd"
@@ -64,6 +65,11 @@ check() {
 	fi
 }
 
+check_nosection() {
+	# no __attribute__((section))
+	check "ac_cv_link_attribute_section=no"
+}
+
 check_sysv() {
 	# use sys-v semaphores
 	check "CFLAGS=-DDISABLE_POSIX_THREAD_PROCESS_SHARED"
@@ -112,6 +118,7 @@ check_rpm() {
 }
 
 check_all() {
+		check_nosection
 		check_sysv
 		check_noepoll
 		check_nogettime
@@ -125,6 +132,9 @@ check_all() {
 case $command in
 	help)
 	help_all $args
+	;;
+	nosection)
+		check_nosection
 	;;
 	sysv)
 		check_sysv

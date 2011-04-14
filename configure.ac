@@ -357,13 +357,17 @@ AM_CONDITIONAL(USE_TIMERFD, [test "x$ac_cv_func_timerfd_create" = xyes])
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
 	AC_MSG_CHECKING([whether GCC supports __attribute__((section())])
-	AC_TRY_LINK([],
-		    [static int my_var __attribute__((section("__verbose"))) = 5;
-		     if (my_var == 5) return 0;
-		     else return -1;
-		    ],
-		    [gcc_has_attribute_section=yes],
-		    [gcc_has_attribute_section=no])
+	if test "x${ac_cv_link_attribute_section}" = x ; then
+		AC_TRY_LINK([],
+			    [static int my_var __attribute__((section("__verbose"))) = 5;
+			     if (my_var == 5) return 0;
+			     else return -1;
+			     ],
+			     [gcc_has_attribute_section=yes],
+			     [gcc_has_attribute_section=no])
+	else
+		gcc_has_attribute_section=${ac_cv_link_attribute_section}
+	fi
 
 	AC_MSG_RESULT($gcc_has_attribute_section)
 	if test $gcc_has_attribute_section = yes; then
