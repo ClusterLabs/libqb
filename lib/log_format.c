@@ -137,7 +137,16 @@ void qb_log_target_format(struct qb_log_target *t,
 				break;
 
 			case 'f':
+#ifdef BUILDING_IN_PLACE
 				p = cs->filename;
+#else
+				p = strrchr(cs->filename, '/');
+				if (p == NULL) {
+					p = cs->filename;
+				} else {
+					p++; /* move past the "/" */
+				}
+#endif /* BUILDING_IN_PLACE */
 				break;
 
 			case 'l':
