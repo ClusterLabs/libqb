@@ -11,3 +11,4 @@ rbwriter
 loop
 simple-log
 bench-log
+write_logs.c
