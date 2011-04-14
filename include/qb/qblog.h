@@ -32,6 +32,11 @@ extern "C" {
 #include <stdlib.h>
 #include <errno.h>
 #include <syslog.h>
+#include <qb/qbconfig.h>
+
+#ifdef S_SPLINT_S
+#undef QB_HAVE_ATTRIBUTE_SECTION
+#endif /* S_SPLINT_S */
 
 /**
  * @file qblog.h
@@ -224,6 +229,7 @@ struct qb_log_callsite {
 } __attribute__((aligned(8)));
 
 /* will be assigned by ld linker magic */
+#ifdef QB_HAVE_ATTRIBUTE_SECTION
 extern struct qb_log_callsite __start___verbose[];
 extern struct qb_log_callsite __stop___verbose[];
 
@@ -231,7 +237,9 @@ extern struct qb_log_callsite __stop___verbose[];
     void name(void);							\
     void name(void) { assert(__start___verbose != __stop___verbose); }	\
     void __attribute__ ((constructor)) name(void);
-
+#else
+#define QB_LOG_INIT_DATA(name)
+#endif
 
 /**
  * Internal function: use qb_log() or qb_logt()
@@ -281,7 +289,7 @@ void qb_log_from_external_source(const char *function,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
-#ifndef S_SPLINT_S
+#ifdef QB_HAVE_ATTRIBUTE_SECTION
 #define qb_logt(priority, tags, fmt, args...) do {			\
 	static struct qb_log_callsite descriptor			\
 	__attribute__((section("__verbose"), aligned(8))) =		\
@@ -289,8 +297,12 @@ void qb_log_from_external_source(const char *function,
 	qb_log_real_(&descriptor, ##args);				\
     } while(0)
 #else
-#define qb_logt
-#endif
+#define qb_logt(priority, tags, fmt, args...) do { \
+	char _log_buf_[256]; \
+	snprintf(_log_buf_, 256, fmt, ##args); \
+	qb_log_from_external_source( __func__, __FILE__, fmt, priority, __LINE__, tags, _log_buf_); \
+    } while(0)
+#endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
 /**
  * This is the main function to generate a log message.
@@ -299,12 +311,7 @@ void qb_log_from_external_source(const char *function,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
-#ifndef S_SPLINT_S
 #define qb_log(priority, fmt, args...) qb_logt(priority, 0, fmt, ##args)
-#else
-#define qb_log
-#endif
-
 
 /**
  * This is similar to perror except it goes into the logging system.
@@ -321,7 +328,6 @@ void qb_log_from_external_source(const char *function,
 #else
 #define qb_perror
 #endif
-
 #define QB_LOG_SYSLOG 0
 #define QB_LOG_STDERR 1
 #define QB_LOG_BLACKBOX 2

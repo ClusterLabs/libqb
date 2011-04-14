@@ -28,7 +28,7 @@
 #include <qb/qbdefs.h>
 #include <qb/qblog.h>
 
-#define ITERATIONS 10000000
+#define ITERATIONS 50000
 
 static struct timeval tv1, tv2, tv_elapsed;
 
@@ -94,6 +94,9 @@ int main (void)
 		qb_log(LOG_DEBUG, "%s%s%s", "RecordA", "RecordB", "RecordC");
 	}
 	bm_finish ("qb_log 3 arguments:");
+	bm_start();
+	log_dict_words();
+	bm_finish ("qb_log /usr/share/dict/words:");
 
 	/* this will close the ringbuffer
 	 */

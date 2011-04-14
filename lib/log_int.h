@@ -70,13 +70,13 @@ struct qb_log_filter {
 	struct qb_list_head list;
 };
 
-
 struct qb_log_record {
 	struct qb_log_callsite *cs;
 	time_t timestamp;
 	char *buffer;
 	struct qb_list_head list;
 };
+
 
 #define TIME_STRING_SIZE 64
 #define COMBINE_BUFFER_SIZE 512
@@ -101,6 +101,17 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			    time_t current_time,
 			    const char *buffer);
+
+void qb_log_dcs_init(void);
+void qb_log_dcs_fini(void);
+struct qb_log_callsite *qb_log_dcs_get(int32_t *newly_created,
+				       const char *function,
+				       const char *filename,
+				       const char *format,
+				       uint8_t priority,
+				       uint32_t lineno,
+				       uint32_t tags);
+
 
 #endif /* _QB_LOG_INT_H_ */
 

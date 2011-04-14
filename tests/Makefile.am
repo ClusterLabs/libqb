@@ -48,7 +48,7 @@ simple_log_SOURCES = simple-log.c $(top_builddir)/include/qb/qblog.h
 simple_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 simple_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
-bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
+bench_log_SOURCES = bench-log.c write_logs.c $(top_builddir)/include/qb/qblog.h
 bench_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
@@ -57,7 +57,7 @@ EXTRA_DIST = check_resources.sh
 
 TESTS = check_array check_rb check_loop check_ipc check_resources.sh
 
-check_PROGRAMS = check_array check_rb check_loop check_ipc
+check_PROGRAMS = check_array check_rb check_log check_loop check_ipc
 check_SCRIPTS = check_resources.sh
 
 check_array_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
@@ -75,6 +75,10 @@ check_loop_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 check_ipc_SOURCES = check_ipc.c $(top_builddir)/include/qb/qbipcc.h $(top_builddir)/include/qb/qbipcs.h
 check_ipc_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
 check_ipc_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+
+check_log_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
+check_log_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+check_log_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
 endif
 

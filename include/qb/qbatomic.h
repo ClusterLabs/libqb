@@ -33,6 +33,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <qb/qbdefs.h>
+#include <qb/qbconfig.h>
 
 /**
  * @file

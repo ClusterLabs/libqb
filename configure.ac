@@ -10,7 +10,7 @@ AC_INIT([libqb],
 AM_INIT_AUTOMAKE([-Wno-portability])
 
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
-AC_CONFIG_HEADERS([include/config.h])
+AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
 
 LT_PREREQ([2.2.6])
 LT_INIT
@@ -353,6 +353,25 @@ else
 fi
 
 AM_CONDITIONAL(USE_TIMERFD, [test "x$ac_cv_func_timerfd_create" = xyes])
+
+# --- callsite sections ---
+if test "x${GCC}" = xyes; then
+	AC_MSG_CHECKING([whether GCC supports __attribute__((section())])
+	AC_TRY_LINK([],
+		    [static int my_var __attribute__((section("__verbose"))) = 5;
+		     if (my_var == 5) return 0;
+		     else return -1;
+		    ],
+		    [gcc_has_attribute_section=yes],
+		    [gcc_has_attribute_section=no])
+
+	AC_MSG_RESULT($gcc_has_attribute_section)
+	if test $gcc_has_attribute_section = yes; then
+		AC_DEFINE([QB_HAVE_ATTRIBUTE_SECTION], 1,
+			  [Enabling code using __attribute__((section))])
+		PACKAGE_FEATURES="$PACKAGE_FEATURES attribute-section"
+	fi
+fi
 
 # --- ansi ---
 if test "x${enable_ansi}" = xyes && \

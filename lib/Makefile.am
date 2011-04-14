@@ -41,7 +41,8 @@ libqb_la_LDFLAGS	= -version-info 4:1:4
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  loop.c loop_poll.c loop_job.c \
 			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c \
-			  log.c log_thread.c log_blackbox.c log_file.c log_syslog.c log_format.c
+			  log.c log_thread.c log_blackbox.c log_file.c log_syslog.c \
+			  log_format.c log_dcs.c
 libqb_la_SOURCES	= $(source_to_lint)
 if USE_TIMERFD
 else
