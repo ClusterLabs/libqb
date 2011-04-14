@@ -25,7 +25,7 @@
 #include <check.h>
 
 #include <qb/qbdefs.h>
-#include <qb/qbutil.h>
+#include <qb/qblog.h>
 #include <qb/qbarray.h>
 
 struct test_my_st {
@@ -145,12 +145,6 @@ static Suite *array_suite(void)
 	return s;
 }
 
-static void libqb_log_fn(const char *file_name,
-			 int32_t file_line, int32_t severity, const char *msg)
-{
-	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
-}
-
 int32_t main(void)
 {
 	int32_t number_failed;
@@ -158,7 +152,11 @@ int32_t main(void)
 	Suite *s = array_suite();
 	SRunner *sr = srunner_create(s);
 
-	qb_util_set_log_function(libqb_log_fn);
+	qb_log_init("check", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);

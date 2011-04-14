@@ -542,7 +542,7 @@ int32_t qb_loop_poll_add(struct qb_loop *l,
 	pe->add_to_jobs = _qb_poll_add_to_jobs_;
 
 	if (new_size > size) {
-		qb_util_log(LOG_DEBUG,
+		qb_util_log(LOG_TRACE,
 			    "grown poll array to %d for FD %d",
 			    new_size, fd);
 	}
@@ -721,7 +721,7 @@ int32_t qb_loop_timer_add(struct qb_loop *l,
 	}
 	new_size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
 	if (new_size > size) {
-		qb_util_log(LOG_DEBUG, "grown poll array to %d for timer %d",
+		qb_util_log(LOG_TRACE, "grown poll array to %d for timer %d",
 			    new_size, fd);
 	}
 	pe->timer_dispatch_fn = timer_fn;

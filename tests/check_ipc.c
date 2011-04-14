@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <syslog.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
@@ -32,7 +31,7 @@
 #include <check.h>
 
 #include <qb/qbdefs.h>
-#include <qb/qbutil.h>
+#include <qb/qblog.h>
 #include <qb/qbipcc.h>
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
@@ -96,7 +95,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		res = qb_ipcs_response_send(c, &response,
 				sizeof(response));
 		if (res < 0) {
-			perror("qb_ipcs_response_send");
+			qb_perror(LOG_INFO, "qb_ipcs_response_send");
 		}
 		if (turn_on_fc) {
 			qb_ipcs_request_rate_limit(s1, QB_IPCS_RATE_OFF);
@@ -108,20 +107,13 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		res = qb_ipcs_event_send(c, &response,
 				sizeof(response));
 		if (res < 0) {
-			perror("qb_ipcs_event_send");
+			qb_perror(LOG_INFO, "qb_ipcs_event_send");
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
 		qb_ipcs_destroy(s1);
 		exit(0);
 	}
 	return 0;
-}
-
-static void ipc_log_fn(const char *file_name,
-		       int32_t file_line, int32_t severity, const char *msg)
-{
-	if (severity < LOG_INFO)
-		fprintf(stderr, "%s:%d [%d] %s\n", file_name, file_line, severity, msg);
 }
 
 static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
@@ -225,7 +217,7 @@ repeat_send:
 				fc_enabled = QB_TRUE;
 			}
 			errno = -res;
-			perror("qb_ipcc_send");
+			qb_perror(LOG_INFO, "qb_ipcc_send");
 			return res;
 		}
 	}
@@ -378,11 +370,11 @@ static void test_ipc_dispatch(void)
 		if (res == -EAGAIN) {
 			goto repeat_send;
 		} else if (res == -EINVAL || res == -EINTR) {
-			perror("qb_ipcc_send");
+			qb_perror(LOG_INFO, "qb_ipcc_send");
 			return;
 		} else {
 			errno = -res;
-			perror("qb_ipcc_send");
+			qb_perror(LOG_INFO, "qb_ipcc_send");
 			goto repeat_send;
 		}
 	}
@@ -393,7 +385,7 @@ static void test_ipc_dispatch(void)
 			goto repeat_event_recv;
 		} else {
 			errno = -res;
-			perror("qb_ipcc_event_recv");
+			qb_perror(LOG_INFO, "qb_ipcc_event_recv");
 			goto repeat_send;
 		}
 	}
@@ -570,7 +562,11 @@ int32_t main(void)
 	Suite *s = ipc_suite();
 	SRunner *sr = srunner_create(s);
 
-	qb_util_set_log_function(ipc_log_fn);
+	qb_log_init("check", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);

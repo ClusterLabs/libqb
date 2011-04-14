@@ -27,6 +27,7 @@
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 #include <qb/qbloop.h>
+#include <qb/qblog.h>
 
 static int32_t job_1_run_count = 0;
 static int32_t job_2_run_count = 0;
@@ -333,7 +334,7 @@ static void empty_func_tmo(void*data)
 static void stop_func_tmo(void*data)
 {
 	qb_loop_t *l = (qb_loop_t *)data;
-	printf("%s(%d)\n", __func__, expire_leak_counter);
+	qb_log(LOG_DEBUG, "expire_leak_counter:%d",  expire_leak_counter);
 	qb_loop_stop(l);
 }
 
@@ -345,7 +346,7 @@ static void next_func_tmo(void*data)
 	uint64_t max_tmo = 0;
 	qb_loop_timer_handle th;
 
-	printf("%s(%d)\n", __func__, expire_leak_counter);
+	qb_log(LOG_DEBUG, "expire_leak_counter:%d",  expire_leak_counter);
 	for (i = 0; i < 300; i++) {
 		tmo = ((1 + i) * QB_TIME_NS_IN_MSEC) + 500000;
 		qb_loop_timer_add(l, QB_LOOP_LOW, tmo, NULL, empty_func_tmo, &th);
@@ -420,19 +421,17 @@ static Suite *loop_timer_suite(void)
 	return s;
 }
 
-static void libqb_log_fn(const char *file_name,
-			 int32_t file_line, int32_t severity, const char *msg)
-{
-	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
-}
-
 int32_t main(void)
 {
 	int32_t number_failed;
 	SRunner *sr = srunner_create(loop_job_suite());
 	srunner_add_suite (sr, loop_timer_suite());
 
-	qb_util_set_log_function(libqb_log_fn);
+	qb_log_init("check", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);
