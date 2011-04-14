@@ -18,17 +18,14 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <config.h>
+#include "os_base.h"
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <sys/time.h>
-#include <time.h>
 #include <qb/qbdefs.h>
 #include <qb/qblog.h>
 
 #define ITERATIONS 50000
+
+extern void log_dict_words(void);
 
 static struct timeval tv1, tv2, tv_elapsed;
 
@@ -94,9 +91,11 @@ int main (void)
 		qb_log(LOG_DEBUG, "%s%s%s", "RecordA", "RecordB", "RecordC");
 	}
 	bm_finish ("qb_log 3 arguments:");
+#ifdef HAVE_DICT_WORDS
 	bm_start();
 	log_dict_words();
 	bm_finish ("qb_log /usr/share/dict/words:");
+#endif /* HAVE_DICT_WORDS */
 
 	/* this will close the ringbuffer
 	 */

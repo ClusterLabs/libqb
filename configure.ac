@@ -399,6 +399,12 @@ CFLAGS="$ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS \
 CPPFLAGS="$ENV_CPPFLAGS $ANSI_CPPFLAGS"
 LDFLAGS="$ENV_LDFLAGS $COVERAGE_LDFLAGS"
 
+if test -f /usr/share/dict/words ; then
+	HAVE_DICT_WORDS=yes
+	AC_DEFINE([HAVE_DICT_WORDS], 1, "Have /usr/share/dict/words")
+fi
+AM_CONDITIONAL([HAVE_DICT_WORDS], [test "x$HAVE_DICT_WORDS" = xyes])
+
 # substitute what we need:
 AC_SUBST([SOCKETDIR])
 AC_SUBST([LINT_FLAGS])

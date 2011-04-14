@@ -17,6 +17,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 #
+MAINTAINERCLEANFILES = Makefiles.in
+if HAVE_DICT_WORDS
+MAINTAINERCLEANFILES += write_logs.c
+endif
 
 noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop simple-log bench-log
 
@@ -48,9 +52,18 @@ simple_log_SOURCES = simple-log.c $(top_builddir)/include/qb/qblog.h
 simple_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 simple_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
-bench_log_SOURCES = bench-log.c write_logs.c $(top_builddir)/include/qb/qblog.h
+bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
+if HAVE_DICT_WORDS
+bench_log_SOURCES += write_logs.c
+endif
 bench_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
+
+if HAVE_DICT_WORDS
+write_logs.c:
+	$(srcdir)/make-log-test > $(builddir)/write_logs.c
+endif
+
 
 if HAVE_CHECK
 EXTRA_DIST = check_resources.sh
@@ -82,3 +95,5 @@ check_log_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
 endif
 
+clean-generic:
+	rm -f write_logs.c

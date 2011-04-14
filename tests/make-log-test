@@ -5,6 +5,7 @@ count=0
 total=50000
 echo "#include <stdio.h>"
 echo "#include <qb/qblog.h>"
+echo "extern void log_dict_words(void);"
 echo "void log_dict_words(void) {"
 
 while read  w
