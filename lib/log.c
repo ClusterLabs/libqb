@@ -50,6 +50,10 @@ static void _log_filter_apply(struct callsite_section *sect,
 			      uint32_t t, enum qb_log_filter_conf c,
 			      enum qb_log_filter_type type,
 			      const char *text, uint32_t priority);
+static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
+				    uint32_t t, enum qb_log_filter_conf c,
+				    enum qb_log_filter_type type,
+				    const char *text, uint32_t priority);
 
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
@@ -135,8 +139,10 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			     time_t timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
+	struct qb_list_head *pos;
 
-	qb_list_for_each_entry(t, &active_targets, active_list) {
+	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
+		t = qb_list_entry(pos, struct qb_log_target, active_list);
 		if (t->threaded) {
 			continue;
 		}
@@ -158,35 +164,31 @@ void qb_log_from_external_source(const char *function,
 	struct qb_log_filter *flt;
 	struct qb_log_callsite *cs;
 	int32_t new_dcs = QB_FALSE;
+	struct qb_list_head *t_item;
+	struct qb_list_head *f_item;
 
 	cs = qb_log_dcs_get(&new_dcs, function, filename,
 			    format, priority, lineno, tags);
 	assert(cs != NULL);
 
 	if (new_dcs) {
-		qb_list_for_each_entry(t, &active_targets, active_list) {
-			qb_list_for_each_entry(flt, &t->filter_head, list) {
-				if (_cs_matches_filter_(cs,
-							flt->type,
-							flt->text,
-							flt->priority)) {
-					qb_bit_set(cs->targets, t->pos);
-					break;
-				}
+		for (t_item = active_targets.next; t_item != &active_targets; t_item = t_item->next) {
+			t = qb_list_entry(t_item, struct qb_log_target, active_list);
+			for (f_item = t->filter_head.next; f_item != &t->filter_head; f_item = f_item->next) {
+				flt = qb_list_entry(f_item, struct qb_log_filter, list);
+				_log_filter_apply_to_cs(cs, t->pos, flt->conf, flt->type,
+							flt->text, flt->priority);
 			}
 		}
-		if (tags != 0) {
-			qb_list_for_each_entry(flt, &tags_head, list) {
-				if (_cs_matches_filter_(cs,
-							flt->type,
-							flt->text,
-							flt->priority)) {
-					cs->tags = tags;
-					break;
-				}
+		if (tags == 0) {
+			for (f_item = tags_head.next; f_item != &tags_head; f_item = f_item->next) {
+				flt = qb_list_entry(f_item, struct qb_log_filter, list);
+				_log_filter_apply_to_cs(cs, flt->new_value, flt->conf, flt->type,
+							flt->text, flt->priority);
 			}
+		} else {
+			cs->tags = tags;
 		}
-
 	}
 	_log_real_msg(cs, msg);
 }
@@ -361,42 +363,51 @@ static void _log_filter_apply(struct callsite_section *sect,
 		if (cs->lineno == 0) {
 			break;
 		}
+		_log_filter_apply_to_cs(cs, t, c, type, text, priority);
+	}
+}
 
-		if (c == QB_LOG_FILTER_CLEAR_ALL) {
+/* #define _QB_FILTER_DEBUGGING_ 1 */
+static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
+				    uint32_t t, enum qb_log_filter_conf c,
+				    enum qb_log_filter_type type,
+				    const char *text, uint32_t priority)
+{
+
+	if (c == QB_LOG_FILTER_CLEAR_ALL) {
+		qb_bit_clear(cs->targets, t);
+		return;
+	} else if (c == QB_LOG_TAG_CLEAR_ALL) {
+		cs->tags = 0;
+		return;
+	}
+
+	if (_cs_matches_filter_(cs, type, text, priority)) {
+#ifdef _QB_FILTER_DEBUGGING_
+		uint32_t old_targets = cs->targets;
+		uint32_t old_tags = cs->tags;
+#endif /* _QB_FILTER_DEBUGGING_ */
+		if (c == QB_LOG_FILTER_ADD) {
+			qb_bit_set(cs->targets, t);
+		} else if (c == QB_LOG_FILTER_REMOVE) {
 			qb_bit_clear(cs->targets, t);
-			continue;
-		} else if (c == QB_LOG_TAG_CLEAR_ALL) {
+		} else if (c == QB_LOG_TAG_SET) {
+			cs->tags = t;
+		} else if (c == QB_LOG_TAG_CLEAR) {
 			cs->tags = 0;
-			continue;
 		}
-
-		if (_cs_matches_filter_(cs, type, text, priority)) {
 #ifdef _QB_FILTER_DEBUGGING_
-			uint32_t old_targets = cs->targets;
-			uint32_t old_tags = cs->tags;
-#endif /* _QB_FILTER_DEBUGGING_ */
-			if (c == QB_LOG_FILTER_ADD) {
-				qb_bit_set(cs->targets, t);
-			} else if (c == QB_LOG_FILTER_REMOVE) {
-				qb_bit_clear(cs->targets, t);
-			} else if (c == QB_LOG_TAG_SET) {
-				cs->tags = t;
-			} else if (c == QB_LOG_TAG_CLEAR) {
-				cs->tags = 0;
-			}
-#ifdef _QB_FILTER_DEBUGGING_
-			if (old_targets != cs->targets) {
-				printf("targets: %s:%u value(%d) %d -> %d\n",
-				       cs->filename, cs->lineno, t,
-				       old_targets, cs->targets);
-			}
-			if (old_tags != cs->tags) {
-				printf("tags: %s:%u value(%d) %d -> %d\n",
-				       cs->filename, cs->lineno, t,
-				       old_tags, cs->tags);
-			}
-#endif /* _QB_FILTER_DEBUGGING_ */
+		if (old_targets != cs->targets) {
+			printf("targets: %s:%u value(%d) %d -> %d\n",
+			       cs->filename, cs->lineno, t,
+			       old_targets, cs->targets);
 		}
+		if (old_tags != cs->tags) {
+			printf("tags: %s:%u value(%d) %d -> %d\n",
+			       cs->filename, cs->lineno, t,
+			       old_tags, cs->tags);
+		}
+#endif /* _QB_FILTER_DEBUGGING_ */
 	}
 }
 
