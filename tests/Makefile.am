@@ -55,7 +55,7 @@ bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 if HAVE_CHECK
 EXTRA_DIST = check_resources.sh
 
-TESTS = check_array check_rb check_loop check_ipc check_resources.sh
+TESTS = check_array check_rb check_log check_loop check_ipc check_resources.sh
 
 check_PROGRAMS = check_array check_rb check_log check_loop check_ipc
 check_SCRIPTS = check_resources.sh

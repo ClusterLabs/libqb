@@ -1,5 +1,6 @@
 check_ipc
 check_loop
+check_log
 check_array
 check_rb
 bmc

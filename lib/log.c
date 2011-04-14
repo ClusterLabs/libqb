@@ -32,6 +32,7 @@
 
 static struct qb_log_target conf[32];
 static int32_t in_logger = QB_FALSE;
+static int32_t logger_inited = QB_FALSE;
 
 static QB_LIST_DECLARE(active_targets);
 static QB_LIST_DECLARE(tags_head);
@@ -91,6 +92,7 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	int32_t found_threaded;
 	struct qb_log_target *t;
 	struct timeval tv;
+	struct qb_list_head *pos;
 
 	if (in_logger) {
 		return;
@@ -110,7 +112,9 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	 * 2 foreach non-threaded target call it's logger function
 	 */
 	found_threaded = QB_FALSE;
-	qb_list_for_each_entry(t, &active_targets, active_list) {
+
+	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
+		t = qb_list_entry(pos, struct qb_log_target, active_list);
 		if (t->threaded) {
 			if (!found_threaded && qb_bit_is_set(cs->targets, t->pos)) {
 				found_threaded = QB_TRUE;
@@ -402,8 +406,21 @@ int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 {
 	struct callsite_section *sect;
 	int32_t rc;
+
+	if (!logger_inited) {
+		return -EINVAL;
+	}
 	if (t < 0 || t >= 32) {
+		return -EBADF;
+	}
+	if (conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADFD;
+	}
+	if (text == NULL ||
+	    priority > LOG_TRACE ||
+	    type > QB_LOG_FILTER_FORMAT ||
+	    c > QB_LOG_TAG_CLEAR_ALL) {
+		return -EINVAL;
 	}
 	rc = _log_filter_store(t, c, type, text, priority);
 	if (rc < 0) {
@@ -486,6 +503,7 @@ void qb_log_init(const char *name, int32_t facility, int32_t priority)
 	strncpy(conf[QB_LOG_SYSLOG].name, name, PATH_MAX);
 	snprintf(conf[QB_LOG_BLACKBOX].name, PATH_MAX, "%s-blackbox", name);
 
+	logger_inited = QB_TRUE;
 	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 				QB_LOG_FILTER_FILE, "*", priority);
 
@@ -502,6 +520,7 @@ void qb_log_fini(void)
 	struct qb_list_head *next;
 	struct qb_list_head *next2;
 
+	logger_inited = QB_FALSE;
 	qb_log_thread_stop();
 
 	qb_list_for_each_safe(iter, next, &active_targets) {
@@ -594,7 +613,13 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 	int32_t rc = 0;
 	int32_t need_reload = QB_FALSE;
 
+	if (!logger_inited) {
+		return -EINVAL;
+	}
 	if (t < 0 || t >= 32) {
+		return -EBADF;
+	}
+	if (conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADFD;
 	}
 	switch (c) {
@@ -615,9 +640,14 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		conf[t].priority_bump = arg;
 		break;
 	case QB_LOG_CONF_SIZE:
-		conf[t].size = arg;
 		if (t == QB_LOG_BLACKBOX) {
+			if (arg <= 0) {
+				return -EINVAL;
+			}
+			conf[t].size = arg;
 			need_reload = QB_TRUE;
+		} else {
+			return -ENOSYS;
 		}
 		break;
 	case QB_LOG_CONF_THREADED:
@@ -643,3 +673,4 @@ void qb_log_format_set(int32_t t, const char *format)
 	conf[t].format = strdup(format ? format : "[%p] %b");
 	assert(conf[t].format != NULL);
 }
+
