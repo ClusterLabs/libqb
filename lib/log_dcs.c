@@ -80,9 +80,9 @@ _log_dcs_new_cs(const char *function,
 		rc = qb_array_index(callsite_arr, callsite_arr_next, (void**)&cs);
 		assert(rc == 0);
 		assert(cs != NULL);
-		callsite_arr_next++;
 		_log_register_callsites();
 	}
+	callsite_arr_next++;
 
 	cs->function = function;
 	cs->filename = filename;
