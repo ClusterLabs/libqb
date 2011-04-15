@@ -562,6 +562,7 @@ struct qb_log_target *qb_log_target_alloc(void)
 	int32_t i;
 	for (i = 0; i < 32; i++) {
 		if (conf[i].state == QB_LOG_STATE_UNUSED) {
+			conf[i].state = QB_LOG_STATE_DISABLED;
 			return &conf[i];
 		}
 	}
