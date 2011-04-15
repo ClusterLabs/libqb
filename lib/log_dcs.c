@@ -104,7 +104,7 @@ qb_log_dcs_get(int32_t *newly_created,
 	       uint32_t tags)
 {
 	int32_t rc;
-	struct qb_log_callsite *cs;
+	struct qb_log_callsite *cs = NULL;
 	struct callsite_list *csl_head;
 	struct callsite_list *csl_next;
 	struct callsite_list *csl;

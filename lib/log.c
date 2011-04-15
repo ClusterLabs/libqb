@@ -23,6 +23,8 @@
 #include <link.h>
 #include <stdarg.h>
 
+#include <dlfcn.h>
+
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
 #include <qb/qblog.h>
@@ -421,11 +423,8 @@ int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	if (!logger_inited) {
 		return -EINVAL;
 	}
-	if (t < 0 || t >= 32) {
+	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
-	}
-	if (conf[t].state == QB_LOG_STATE_UNUSED) {
-		return -EBADFD;
 	}
 	if (text == NULL ||
 	    priority > LOG_TRACE ||
@@ -452,7 +451,7 @@ _log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
 		void *handle;
 		void *start;
 		void *stop;
-		char *error;
+		const char *error;
 
 		handle = dlopen(info->dlpi_name, RTLD_LAZY);
 		error = dlerror();
@@ -627,11 +626,8 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 	if (!logger_inited) {
 		return -EINVAL;
 	}
-	if (t < 0 || t >= 32) {
+	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
-	}
-	if (conf[t].state == QB_LOG_STATE_UNUSED) {
-		return -EBADFD;
 	}
 	switch (c) {
 	case QB_LOG_CONF_ENABLED:

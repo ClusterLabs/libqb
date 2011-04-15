@@ -6,20 +6,15 @@ AC_PREREQ([2.61])
 AC_INIT([libqb], 
 	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
 	[quarterback-devel@fedorahosted.org])
-
-AM_INIT_AUTOMAKE([-Wno-portability])
-
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
-
+AM_INIT_AUTOMAKE([-Wno-portability])
 LT_PREREQ([2.2.6])
 LT_INIT
 
 AC_CONFIG_MACRO_DIR([m4])
-
 AC_CANONICAL_HOST
 AC_PROG_LIBTOOL
-
 AC_LANG([C])
 
 dnl Fix default variables - "prefix" variable if not specified
@@ -54,12 +49,12 @@ if ! ${MAKE-make} --version /cannot/make/this >/dev/null 2>&1; then
 	AC_MSG_ERROR([you don't seem to have GNU make; it is required])
 fi
 
-AC_PROG_CC
-AM_PROG_CC_C_O
 AC_PROG_CXX
 AC_PROG_AWK
-AC_PROG_LN_S
+AC_PROG_CC
+AC_PROG_CPP
 AC_PROG_INSTALL
+AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
 AC_CHECK_PROGS([DOXYGEN], [doxygen])
@@ -132,16 +127,18 @@ AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
+AC_TYPE_UINT8_T
 
 # Checks for library functions.
 AC_FUNC_CHOWN
+AC_FUNC_ERROR_AT_LINE
 AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_REALLOC
-AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday memset munmap \
-		socket strchr strerror strstr epoll_create epoll_create1 \
+AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime_r memset munmap \
+		socket strchr strdup strerror strrchr strstr \
+		epoll_create epoll_create1 \
 		pthread_spin_lock timerfd_create])
 
 ## local defines

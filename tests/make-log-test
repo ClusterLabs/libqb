@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 line=
 count=0

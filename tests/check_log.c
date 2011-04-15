@@ -48,10 +48,10 @@ START_TEST(test_log_stupid_inputs)
 	/* non-opened log file */
 	rc = qb_log_filter_ctl(21, QB_LOG_FILTER_ADD,
 			       QB_LOG_FILTER_FILE, "bla", LOG_TRACE);
-	ck_assert_int_eq(rc, -EBADFD);
+	ck_assert_int_eq(rc, -EBADF);
 
 	rc = qb_log_ctl(21, QB_LOG_CONF_PRIORITY_BUMP, -1);
-	ck_assert_int_eq(rc, -EBADFD);
+	ck_assert_int_eq(rc, -EBADF);
 
 	/* target < 0 or >= 32 */
 	rc = qb_log_filter_ctl(41, QB_LOG_FILTER_ADD,
