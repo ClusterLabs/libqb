@@ -65,7 +65,7 @@ struct qb_log_filter {
 	enum qb_log_filter_conf conf;
 	enum qb_log_filter_type type;
 	char *text;
-	int32_t priority;
+	uint8_t priority;
 	uint32_t new_value;
 	struct qb_list_head list;
 };

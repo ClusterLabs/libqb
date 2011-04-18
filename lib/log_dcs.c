@@ -119,7 +119,7 @@ qb_log_dcs_get(int32_t *newly_created,
 	}
 	if (csl_head->cs == NULL) {
 		csl_head->cs = _log_dcs_new_cs(function, filename, format,
-				     priority, lineno, tags);
+					       priority, lineno, tags);
 		cs = csl_head->cs;
 		qb_list_init(&csl_head->list);
 		*newly_created = QB_TRUE;

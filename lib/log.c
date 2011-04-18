@@ -51,11 +51,11 @@ static void _log_target_disable(struct qb_log_target *t);
 static void _log_filter_apply(struct callsite_section *sect,
 			      uint32_t t, enum qb_log_filter_conf c,
 			      enum qb_log_filter_type type,
-			      const char *text, uint32_t priority);
+			      const char *text, uint8_t priority);
 static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 				    uint32_t t, enum qb_log_filter_conf c,
 				    enum qb_log_filter_type type,
-				    const char *text, uint32_t priority);
+				    const char *text, uint8_t priority);
 
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
@@ -67,7 +67,7 @@ void qb_util_set_log_function(qb_util_log_fn_t fn)
 static int32_t _cs_matches_filter_(struct qb_log_callsite *cs,
 				   enum qb_log_filter_type type,
 				   const char * text,
-				   uint32_t priority)
+				   uint8_t priority)
 {
 	int32_t match = QB_FALSE;
 
@@ -272,7 +272,7 @@ void qb_log_callsites_dump(void)
 
 static int32_t _log_filter_exists(struct qb_list_head *list_head,
 				  enum qb_log_filter_type type,
-				  const char *text, uint32_t priority,
+				  const char *text, uint8_t priority,
 				  uint32_t new_value)
 {
 	struct qb_log_filter *flt;
@@ -290,7 +290,7 @@ static int32_t _log_filter_exists(struct qb_list_head *list_head,
 
 static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 				 enum qb_log_filter_type type,
-				 const char *text, uint32_t priority)
+				 const char *text, uint8_t priority)
 {
 	struct qb_log_filter *flt;
 	struct qb_list_head *iter;
@@ -357,7 +357,7 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 static void _log_filter_apply(struct callsite_section *sect,
 			      uint32_t t, enum qb_log_filter_conf c,
 			      enum qb_log_filter_type type,
-			      const char *text, uint32_t priority)
+			      const char *text, uint8_t priority)
 {
 	struct qb_log_callsite *cs;
 
@@ -373,7 +373,7 @@ static void _log_filter_apply(struct callsite_section *sect,
 static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 				    uint32_t t, enum qb_log_filter_conf c,
 				    enum qb_log_filter_type type,
-				    const char *text, uint32_t priority)
+				    const char *text, uint8_t priority)
 {
 
 	if (c == QB_LOG_FILTER_CLEAR_ALL) {
@@ -415,7 +415,7 @@ static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 
 int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type,
-			  const char *text, uint32_t priority)
+			  const char *text, uint8_t priority)
 {
 	struct callsite_section *sect;
 	int32_t rc;
@@ -484,7 +484,7 @@ done:
 }
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
-void qb_log_init(const char *name, int32_t facility, int32_t priority)
+void qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t i;
 

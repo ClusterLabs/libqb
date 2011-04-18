@@ -365,7 +365,7 @@ enum qb_log_filter_conf {
  */
 void qb_log_init(const char *name,
 		 int32_t facility,
-		 int32_t priority);
+		 uint8_t priority);
 
 /**
  * Logging system finalization function.
@@ -411,7 +411,7 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg);
  */
 int32_t qb_log_filter_ctl(int32_t value, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,
-			  uint32_t priority);
+			  uint8_t priority);
 
 /**
  * Set the callback to map the 'tags' bit map to a string.
