@@ -96,4 +96,4 @@ check_log_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 endif
 
 clean-generic:
-	rm -f write_logs.c
+	rm -f write_logs.c threads.log

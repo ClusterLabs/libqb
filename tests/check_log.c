@@ -22,6 +22,7 @@
  */
 
 #include "os_base.h"
+#include <pthread.h>
 #include <check.h>
 
 #include <qb/qbdefs.h>
@@ -102,6 +103,16 @@ void syslog(int priority, const char *format, ...)
 	num_msgs++;
 }
 
+static void log_it_please(void)
+{
+	qb_log(LOG_TRACE, "A:%d B:%d C:%d", 1, 2, 3);
+	qb_log(LOG_DEBUG, "A:%d B:%d C:%d", 1, 2, 3);
+	qb_log(LOG_INFO, "A:%d B:%d C:%d", 1, 2, 3);
+	qb_log(LOG_NOTICE, "A:%d B:%d C:%d", 1, 2, 3);
+	qb_log(LOG_WARNING, "A:%d B:%d C:%d", 1, 2, 3);
+	qb_log(LOG_ERR, "A:%d B:%d C:%d", 1, 2, 3);
+}
+
 START_TEST(test_log_basic)
 {
 	qb_log_init("test", LOG_USER, LOG_EMERG);
@@ -116,6 +127,9 @@ START_TEST(test_log_basic)
 	test_priority = 0;
 	num_msgs = 0;
 
+	/*
+	 * test filtering by format
+	 */
 	qb_log(LOG_INFO, "Hello Angus, how are you?");
 	qb_log(LOG_WARNING, "Hello Steven, how are you?");
 	qb_log(LOG_ERR, "Hello Andrew, how are you?");
@@ -124,6 +138,30 @@ START_TEST(test_log_basic)
 	ck_assert_int_eq(test_priority, LOG_ERR);
 	ck_assert_int_eq(num_msgs, 1);
 	ck_assert_str_eq(test_buf, "Hello Angus, how are you?");
+
+	/*
+	 * test filtering by function
+	 */
+	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
+
+	num_msgs = 0;
+	qb_log(LOG_ERR, "try if you: log_it_please()");
+	log_it_please();
+	ck_assert_int_eq(num_msgs, 2);
+
+	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_REMOVE,
+			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
+	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FUNCTION, __func__, LOG_DEBUG);
+
+	num_msgs = 0;
+	log_it_please();
+	ck_assert_int_eq(num_msgs, 0);
+	qb_log(LOG_DEBUG, "try if you: log_it_please()");
+	ck_assert_int_eq(num_msgs, 1);
 }
 END_TEST
 
@@ -226,15 +264,109 @@ START_TEST(test_log_bump)
 }
 END_TEST
 
-/*
- * logfile
- * blackbox
- */
+#define ITERATIONS 100000
+static void *thr_send_logs_2(void *ctx)
+{
+	int32_t i;
+	printf("%s\n", __func__);
+
+	for (i = 0; i < ITERATIONS; i++) {
+		qb_log(LOG_INFO, "bla bla");
+		qb_log(LOG_INFO, "blue blue");
+		qb_log(LOG_INFO, "bra bra");
+		qb_log(LOG_INFO, "bro bro");
+		qb_log(LOG_INFO, "brown brown");
+		qb_log(LOG_INFO, "booo booo");
+		qb_log(LOG_INFO, "bogus bogus");
+		qb_log(LOG_INFO, "bungu bungu");
+	}
+	return (NULL);
+}
+
+static void *thr_send_logs_1(void *ctx)
+{
+	int32_t i;
+
+	printf("%s\n", __func__);
+	for (i = 0; i < ITERATIONS; i++) {
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "foo soup");
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "fungus soup");
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "fruity soup");
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "free soup");
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "frot soup");
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "fresh soup");
+		qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+					    __LINE__, 0, "fattening soup");
+
+	}
+	return (NULL);
+}
+
+#define THREADS 4
+START_TEST(test_log_threads)
+{
+	pthread_t threads[THREADS];
+	pthread_attr_t thread_attr[THREADS];
+	int32_t i;
+	int32_t rc;
+	int32_t lf;
+	void *retval;
+
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	lf = qb_log_file_open("threads.log");
+	rc = qb_log_filter_ctl(lf, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FILE,
+					   __FILE__, LOG_DEBUG);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(lf, "[%p] [%l] %b");
+	rc = qb_log_ctl(lf, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	ck_assert_int_eq(rc, 0);
+
+	for (i = 0; i < THREADS/2; i++) {
+		pthread_attr_init(&thread_attr[i]);
+
+		pthread_attr_setdetachstate(&thread_attr[i],
+					    PTHREAD_CREATE_JOINABLE);
+		pthread_create(&threads[i], &thread_attr[i],
+			       thr_send_logs_1, NULL);
+	}
+	for (i = THREADS/2; i < THREADS; i++) {
+		pthread_attr_init(&thread_attr[i]);
+
+		pthread_attr_setdetachstate(&thread_attr[i],
+					    PTHREAD_CREATE_JOINABLE);
+		pthread_create(&threads[i], &thread_attr[i],
+			       thr_send_logs_2, NULL);
+	}
+	for (i = 0; i < THREADS; i++) {
+		pthread_join(threads[i], &retval);
+	}
+
+}
+END_TEST
+
+START_TEST(test_log_long_msg)
+{
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_format_set(QB_LOG_SYSLOG, "%b");
+
+	qb_log(LOG_ERR, "QMF Agent Initialized: broker=localhost:49000 interval=5 storeFile=.cloudpolicyengine-data-cpe name=cloudpolicyengine.org:cpe:04eabb39-89cf-47dd-9d14-7e77d864be07 QMF Agent Initialized: broker=localhost:49000 interval=5 storeFile=.cloudpolicyengine-data-cpe name=cloudpolicyengine.org:cpe:04eabb39-89cf-47dd-9d14-7e77d864be07 QMF Agent Initialized: broker=localhost:49000 interval=5 storeFile=.cloudpolicyengine-data-cpe name=cloudpolicyengine.org:cpe:04eabb39-89cf-47dd-9d14-7e77d864be07");
+}
+END_TEST
 
 static Suite *log_suite(void)
 {
 	TCase *tc;
-	Suite *s = suite_create("qb_log");
+	Suite *s = suite_create("logging");
 
 	tc = tcase_create("limits");
 	tcase_add_test(tc, test_log_stupid_inputs);
@@ -254,6 +386,15 @@ static Suite *log_suite(void)
 
 	tc = tcase_create("bump");
 	tcase_add_test(tc, test_log_bump);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("threads");
+	tcase_add_test(tc, test_log_threads);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("long_msg");
+	tcase_add_test(tc, test_log_long_msg);
 	suite_add_tcase(s, tc);
 
 	return s;
