@@ -158,7 +158,7 @@ qb_log_dcs_get(int32_t *newly_created,
 void qb_log_dcs_init(void)
 {
 	lookup_arr =  qb_array_create(256, sizeof(struct callsite_list));
-	callsite_arr =  qb_array_create(256, sizeof(struct callsite_list));
+	callsite_arr =  qb_array_create(256, sizeof(struct qb_log_callsite));
 
 	callsite_elems_per_bin = qb_array_elems_per_bin_get(callsite_arr);
 	_log_register_callsites();
