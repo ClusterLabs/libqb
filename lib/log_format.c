@@ -169,7 +169,11 @@ void qb_log_target_format(struct qb_log_target *t,
 				break;
 
 			case 'p':
-				p = prioritynames[cs->priority].c_name;
+				if (cs->priority > LOG_TRACE) {
+					p = prioritynames[LOG_TRACE].c_name;
+				} else {
+					p = prioritynames[cs->priority].c_name;
+				}
 				break;
 
 			default:
