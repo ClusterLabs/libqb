@@ -24,7 +24,6 @@
 #include <stdarg.h>
 
 #include <qb/qbdefs.h>
-#include <qb/qblist.h>
 #include <qb/qblog.h>
 #include <qb/qbutil.h>
 #include <qb/qbarray.h>
@@ -35,10 +34,12 @@ static qb_array_t *callsite_arr = NULL;
 static uint32_t callsite_arr_next = 0;
 static uint32_t callsite_num_bins = 0;
 static uint32_t callsite_elems_per_bin = 0;
+static qb_thread_lock_t* arr_next_lock = NULL;
+
 
 struct callsite_list {
 	struct qb_log_callsite *cs;
-	struct qb_list_head list;
+	struct callsite_list *next;
 };
 
 
@@ -73,14 +74,15 @@ _log_dcs_new_cs(const char *function,
 {
 	struct qb_log_callsite *cs;
 	int32_t rc;
-       
+	int32_t call_register = QB_FALSE;
+
 	if (qb_array_index(callsite_arr, callsite_arr_next, (void**)&cs) < 0) {
 		rc = qb_array_grow(callsite_arr, callsite_arr_next + 255);
 		assert(rc == 0);
 		rc = qb_array_index(callsite_arr, callsite_arr_next, (void**)&cs);
 		assert(rc == 0);
 		assert(cs != NULL);
-		_log_register_callsites();
+		call_register = QB_TRUE;
 	}
 	callsite_arr_next++;
 
@@ -90,6 +92,10 @@ _log_dcs_new_cs(const char *function,
 	cs->priority = priority;
 	cs->lineno = lineno;
 	cs->tags = tags;
+
+	if (call_register) {
+		_log_register_callsites();
+	}
 
 	return cs;
 }
@@ -106,11 +112,20 @@ qb_log_dcs_get(int32_t *newly_created,
 	int32_t rc;
 	struct qb_log_callsite *cs = NULL;
 	struct callsite_list *csl_head;
-	struct callsite_list *csl_next;
+	struct callsite_list *csl_last;
 	struct callsite_list *csl;
-	struct qb_list_head *iter = NULL;
 
+	/*
+	 * try the fastest access first (no locking needed)
+	 */
 	rc = qb_array_index(lookup_arr, lineno, (void**)&csl_head);
+	if (rc == 0 && csl_head->cs && strcmp(filename, csl_head->cs->filename) == 0) {
+		return csl_head->cs;
+	}
+	/*
+	 * so we will either have to create it or go through a list, so lock it.
+	 */
+	(void)qb_thread_lock(arr_next_lock);
 	if (rc < 0) {
 		rc = qb_array_grow(lookup_arr, lineno + 255);
 		assert(rc == 0);
@@ -121,36 +136,31 @@ qb_log_dcs_get(int32_t *newly_created,
 		csl_head->cs = _log_dcs_new_cs(function, filename, format,
 					       priority, lineno, tags);
 		cs = csl_head->cs;
-		qb_list_init(&csl_head->list);
+		csl_head->next = NULL;
 		*newly_created = QB_TRUE;
 	} else {
-		csl_next = csl_head;
-		do {
-			csl = csl_next;
+		for (csl = csl_head; csl; csl = csl->next) {
+			assert(csl->cs->lineno == lineno);
 			if (strcmp(filename, csl->cs->filename) == 0) {
 				cs = csl->cs;
 				break;
 			}
-			if (iter == NULL) {
-				iter = csl_head->list.next;
-			} else {
-				iter = iter->next;
-			}
-			csl_next = qb_list_entry(iter, struct callsite_list, list);
-		} while (iter != &csl_head->list);
+			csl_last = csl;
+		}
+
 		if (cs == NULL) {
-			/*
-			 * create new list entry
-			 */
-			csl_next = calloc(1, sizeof(struct callsite_list));
-			csl_next->cs = _log_dcs_new_cs(function, filename, format,
-						       priority, lineno, tags);
-			cs = csl_next->cs;
-			qb_list_init(&csl_next->list);
-			qb_list_add(&csl_next->list, &csl_head->list);
+			csl = calloc(1, sizeof(struct callsite_list));
+			csl->cs = _log_dcs_new_cs(function, filename, format,
+						  priority, lineno, tags);
+			csl->next = NULL;
+			csl_last->next = csl;
+			cs = csl->cs;
 			*newly_created = QB_TRUE;
 		}
 	}
+	(void)qb_thread_unlock(arr_next_lock);
+
+
 	return cs;
 }
 
@@ -159,6 +169,8 @@ void qb_log_dcs_init(void)
 {
 	lookup_arr =  qb_array_create(256, sizeof(struct callsite_list));
 	callsite_arr =  qb_array_create(256, sizeof(struct qb_log_callsite));
+
+	arr_next_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 
 	callsite_elems_per_bin = qb_array_elems_per_bin_get(callsite_arr);
 	_log_register_callsites();
