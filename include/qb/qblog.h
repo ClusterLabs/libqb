@@ -30,6 +30,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <syslog.h>
 #include <qb/qbconfig.h>
