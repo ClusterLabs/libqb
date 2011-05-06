@@ -205,11 +205,6 @@ int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c,
 static void qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
 	struct qb_ipc_response_header msg;
-	int32_t peer_alive = QB_TRUE;
-
-	if (c->setup.u.us.sock == -1) {
-		peer_alive = QB_FALSE;
-	}
 
 	msg.id = QB_IPC_MSG_DISCONNECT;
 	msg.size = sizeof(msg);

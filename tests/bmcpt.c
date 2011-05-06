@@ -63,24 +63,14 @@ static void bm_start(struct bm_ctx *ctx)
 
 static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 {
-	float ops_per_sec;
-	float mbs_per_sec;
-
 	gettimeofday(&ctx->tv2, NULL);
 	timersub(&ctx->tv2, &ctx->tv1, &ctx->tv_elapsed);
 
-	ops_per_sec =
-	    ((float)ctx->counter) / (((float)ctx->tv_elapsed.tv_sec) +
-				     (((float)ctx->tv_elapsed.tv_usec) /
-				      1000000.0));
-
-	mbs_per_sec =
+	ctx->mbs =
 	    ((((float)ctx->counter) * size) /
 	     (((float)ctx->tv_elapsed.tv_sec) +
 	      (((float)ctx->tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 *
 								  1024.0);
-
-	ctx->mbs = ops_per_sec;
 }
 
 static void bmc_connect(struct bm_ctx *ctx)

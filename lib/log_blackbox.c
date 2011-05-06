@@ -151,8 +151,7 @@ void qb_log_blackbox_print_from_file(const char *bb_filename)
 		uint32_t *fn_size;
 		char *function;
 		time_t *timestamp;
-		uint32_t *log_size;
-		char *logmsg;
+		/*uint32_t *log_size;*/
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;
@@ -175,11 +174,10 @@ void qb_log_blackbox_print_from_file(const char *bb_filename)
 				       localtime(timestamp));
 
 			/* message size & content */
-			log_size = (uint32_t *) ptr;
+			/* log_size = (uint32_t *) ptr; */
 			ptr += sizeof(uint32_t);
-			logmsg = ptr;
 			printf("%s %s():%d %s\n", time_buf, function, *lineno,
-			       logmsg);
+			       ptr);
 		}
 	} while (bytes_read > 0);
 }
