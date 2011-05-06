@@ -29,8 +29,11 @@
 #define MY_TAG_TWO   (1 << 1)
 #define MY_TAG_THREE (1 << 2)
 
-static void func_one(void) {
+static void func_one(void)
+{
 	FILE* fd;
+
+	qb_enter();
 	qb_logt(LOG_DEBUG, MY_TAG_TWO, "arf arf?");
 	qb_logt(LOG_CRIT, MY_TAG_THREE,  "arrrg!");
 	qb_logt(LOG_ERR, MY_TAG_THREE,   "oops, I did it again");
@@ -40,13 +43,17 @@ static void func_one(void) {
 	if (fd == NULL) {
 		qb_perror(LOG_ERR, "can't open(\"/nothing.txt\")");
 	}
+	qb_leave();
 }
 
-static void func_two(void) {
+static void func_two(void)
+{
+	qb_enter();
 	qb_logt(LOG_DEBUG, 0, "arf arf?");
 	qb_logt(LOG_CRIT, MY_TAG_ONE,  "arrrg!");
 	qb_log(LOG_ERR,   "oops, I did it again");
 	qb_logt(LOG_INFO, MY_TAG_THREE,  "are you aware ...");
+	qb_leave();
 }
 
 static void show_usage(const char *name)
@@ -143,8 +150,6 @@ int32_t main(int32_t argc, char *argv[])
 	qb_log_tags_stringify_fn_set(my_tags_stringify);
 
 	if (do_stderr) {
-		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-				  QB_LOG_FILTER_FUNCTION, "func_one", LOG_DEBUG);
 		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 				  QB_LOG_FILTER_FILE, __FILE__, priority);
 		qb_log_format_set(QB_LOG_STDERR, "%4g: %f:%l [%p] %b");

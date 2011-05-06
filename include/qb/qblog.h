@@ -247,8 +247,6 @@ extern struct qb_log_callsite __stop___verbose[];
  */
 void qb_log_real_(struct qb_log_callsite *cs, ...);
 
-#define QB_LOG_TAG_EXTERNAL_BIT 30
-#define QB_LOG_TAG_EXTERNAL (1 << QB_LOG_TAG_EXTERNAL_BIT)
 #define QB_LOG_TAG_LIBQB_MSG_BIT 31
 #define QB_LOG_TAG_LIBQB_MSG (1 << QB_LOG_TAG_LIBQB_MSG_BIT)
 
@@ -329,6 +327,10 @@ void qb_log_from_external_source(const char *function,
 #else
 #define qb_perror
 #endif
+
+#define qb_enter() qb_log(LOG_TRACE, "entering %s()", __func__)
+#define qb_leave() qb_log(LOG_TRACE, "leaving %s()", __func__)
+
 #define QB_LOG_SYSLOG 0
 #define QB_LOG_STDERR 1
 #define QB_LOG_BLACKBOX 2
