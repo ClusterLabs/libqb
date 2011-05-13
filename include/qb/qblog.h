@@ -328,8 +328,8 @@ void qb_log_from_external_source(const char *function,
 #define qb_perror
 #endif
 
-#define qb_enter() qb_log(LOG_TRACE, "entering %s()", __func__)
-#define qb_leave() qb_log(LOG_TRACE, "leaving %s()", __func__)
+#define qb_enter() qb_log(LOG_TRACE, "ENTERING %s()", __func__)
+#define qb_leave() qb_log(LOG_TRACE, "LEAVING %s()", __func__)
 
 #define QB_LOG_SYSLOG 0
 #define QB_LOG_STDERR 1
