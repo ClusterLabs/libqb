@@ -191,5 +191,9 @@ void qb_log_target_format(struct qb_log_target *t,
 		}
 	}
 
-	output_buffer[output_buffer_idx] = '\0';
+	if (output_buffer[output_buffer_idx-1] == '\n') {
+		output_buffer[output_buffer_idx-1] = '\0';
+	} else {
+		output_buffer[output_buffer_idx] = '\0';
+	}
 }
