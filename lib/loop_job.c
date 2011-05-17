@@ -87,6 +87,9 @@ int32_t qb_loop_job_add(struct qb_loop *l,
 		return -EINVAL;
 	}
 	job = malloc(sizeof(struct qb_loop_job));
+	if (job == NULL) {
+		return -ENOMEM;
+	}
 
 	job->dispatch_fn = dispatch_fn;
 	job->item.user_data = data;

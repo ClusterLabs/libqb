@@ -41,6 +41,10 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 	struct qb_thread_lock_s *tl = malloc(sizeof(struct qb_thread_lock_s));
 	int32_t res;
 
+	if (tl == NULL) {
+		return NULL;
+	}
+
 #ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (type == QB_THREAD_LOCK_SHORT) {
 		tl->type = QB_THREAD_LOCK_SHORT;

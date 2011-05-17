@@ -166,6 +166,9 @@ static ssize_t qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
 		total_size += iov[i].iov_len;
 	}
 	data = malloc(total_size);
+	if (data == NULL) {
+		return -ENOMEM;
+	}
 	pt = data;
 
 	for (i = 0; i < iov_len; i++) {

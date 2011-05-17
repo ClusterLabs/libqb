@@ -73,6 +73,9 @@ struct qb_loop * qb_loop_create(void)
 	struct qb_loop *l = malloc(sizeof(struct qb_loop));
 	int32_t p;
 
+	if (l == NULL) {
+		return NULL;
+	}
 	for (p = QB_LOOP_LOW; p <= QB_LOOP_HIGH; p++) {
 		l->level[p].priority = p;
 		l->level[p].to_process = 4;
