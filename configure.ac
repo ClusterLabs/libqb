@@ -3,12 +3,12 @@
 
 AC_PREREQ([2.61])
 
-AC_INIT([libqb], 
+AC_INIT([libqb],
 	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
 	[quarterback-devel@fedorahosted.org])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
-AM_INIT_AUTOMAKE([-Wno-portability])
+AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
 LT_PREREQ([2.2.6])
 LT_INIT
 
