@@ -84,6 +84,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 			    size_t shared_user_data_size)
 {
 	struct qb_ringbuffer_s *rb = malloc(sizeof(struct qb_ringbuffer_s));
+	/* FIXME: handle NULL return */
 	size_t real_size = QB_ROUNDUP(size, sysconf(_SC_PAGESIZE));
 	char path[PATH_MAX];
 	int32_t fd_hdr;

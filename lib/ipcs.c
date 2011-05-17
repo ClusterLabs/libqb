@@ -39,6 +39,7 @@ qb_ipcs_service_t* qb_ipcs_create(const char *name,
 	struct qb_ipcs_service *s;
 
 	s = calloc(1, sizeof(struct qb_ipcs_service));
+	/* FIXME: handle NULL return */
 
 	s->pid = getpid();
 	s->type = type;
@@ -371,6 +372,7 @@ int32_t qb_ipcs_service_id_get(struct qb_ipcs_connection *c)
 struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 {
 	struct qb_ipcs_connection *c = calloc(1, sizeof(struct qb_ipcs_connection));
+	/* FIXME: handle NULL return */
 
 	c->refcount = 1;
 	c->service = s;

@@ -546,6 +546,7 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 
 	qb_list_add(&c->list, &s->connections);
 	c->receive_buf = malloc(c->request.max_msg_size);
+	/* FIXME: c->receive_buf may be NULL, then dereferenced */
 
 	if (s->needs_sock_for_poll) {
 		qb_ipcs_connection_ref(c);

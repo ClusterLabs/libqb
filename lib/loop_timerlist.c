@@ -91,6 +91,7 @@ struct qb_loop_source*
 qb_loop_timer_create(struct qb_loop *l)
 {
 	struct qb_timer_source * my_src = malloc(sizeof(struct qb_timer_source));
+	/* FIXME: handle NULL return */
 	my_src->s.l = l;
 	my_src->s.dispatch_and_take_back = timer_dispatch;
 	my_src->s.poll = expire_the_timers;

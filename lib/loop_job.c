@@ -61,6 +61,7 @@ struct qb_loop_source *
 qb_loop_jobs_create(struct qb_loop *l)
 {
 	struct qb_loop_source *s = malloc(sizeof(struct qb_loop_source));
+	/* FIXME: handle NULL return */
 	s->l = l;
 	s->dispatch_and_take_back = job_dispatch;
 	s->poll = get_more_jobs;

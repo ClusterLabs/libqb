@@ -229,6 +229,7 @@ void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_cal
 	}
 
 	sect = calloc(1, sizeof(struct callsite_section));
+	/* FIXME: handle NULL return */
 	sect->start = _start;
 	sect->stop = _stop;
 	qb_list_init(&sect->list);
@@ -321,10 +322,12 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 			return -EEXIST;
 		}
 		flt = calloc(1, sizeof(struct qb_log_filter));
+		/* FIXME: handle NULL return */
 		qb_list_init(&flt->list);
 		flt->conf = c;
 		flt->type = type;
 		flt->text = strdup(text);
+		/* FIXME: handle NULL return */
 		flt->priority = priority;
 		flt->new_value = t;
 		qb_list_add_tail(&flt->list, list_head);
