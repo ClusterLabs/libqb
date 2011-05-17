@@ -212,24 +212,26 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 	_log_real_msg(cs, buf);
 }
 
-void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop)
+int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop)
 {
 	struct callsite_section *sect;
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
 
 	if (_start == NULL || _stop == NULL) {
-		return;
+		return -EINVAL;
 	}
 
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
 		if (sect->start == _start || sect->stop == _stop) {
-			return;
+			return -EEXIST;
 		}
 	}
 
 	sect = calloc(1, sizeof(struct callsite_section));
-	/* FIXME: handle NULL return */
+	if (sect == NULL) {
+		return -ENOMEM;
+	}
 	sect->start = _start;
 	sect->stop = _stop;
 	qb_list_init(&sect->list);
@@ -248,6 +250,7 @@ void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_cal
 		_log_filter_apply(sect, flt->new_value, flt->conf,
 				  flt->type, flt->text, flt->priority);
 	}
+	return 0;
 }
 
 void qb_log_callsites_dump(void)
@@ -322,12 +325,17 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 			return -EEXIST;
 		}
 		flt = calloc(1, sizeof(struct qb_log_filter));
-		/* FIXME: handle NULL return */
+		if (flt == NULL) {
+			return -ENOMEM;
+		}
 		qb_list_init(&flt->list);
 		flt->conf = c;
 		flt->type = type;
 		flt->text = strdup(text);
-		/* FIXME: handle NULL return */
+		if (flt->text == NULL) {
+			free(flt);
+			return -ENOMEM;
+		}
 		flt->priority = priority;
 		flt->new_value = t;
 		qb_list_add_tail(&flt->list, list_head);

@@ -83,8 +83,7 @@ static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer);
 qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 			    size_t shared_user_data_size)
 {
-	struct qb_ringbuffer_s *rb = malloc(sizeof(struct qb_ringbuffer_s));
-	/* FIXME: handle NULL return */
+	struct qb_ringbuffer_s *rb;
 	size_t real_size = QB_ROUNDUP(size, sysconf(_SC_PAGESIZE));
 	char path[PATH_MAX];
 	int32_t fd_hdr;
@@ -99,6 +98,12 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	if (flags & QB_RB_FLAG_CREATE) {
 		file_flags |= O_CREAT | O_TRUNC;
 	}
+
+	rb = calloc(1, sizeof(struct qb_ringbuffer_s));
+	if (rb == NULL) {
+		return NULL;
+	}
+
 	/*
 	 * Create a shared_hdr memory segment for the header.
 	 */

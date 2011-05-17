@@ -48,7 +48,9 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	c->request.max_msg_size = response.max_msg_size;
 	c->event.max_msg_size = response.max_msg_size;
 	c->receive_buf = malloc(response.max_msg_size);
-	/* FIXME: handle NULL return */
+	if (c->receive_buf == NULL) {
+		goto disconnect_and_cleanup;
+	}
 
 	switch (c->type) {
 	case QB_IPC_SHM:
@@ -74,6 +76,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 
  disconnect_and_cleanup:
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
+	free(c->receive_buf);
 	free(c);
 	errno = -res;
 	return NULL;

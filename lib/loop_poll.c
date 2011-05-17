@@ -381,7 +381,9 @@ struct qb_loop_source*
 qb_loop_poll_create(struct qb_loop *l)
 {
 	struct qb_poll_source *s = malloc(sizeof(struct qb_poll_source));
-	/* FIXME: handle NULL return */
+	if (s == NULL) {
+		return NULL;
+	}
 	s->s.l = l;
 	s->s.dispatch_and_take_back = _poll_dispatch_and_take_back_;
 	s->s.poll = _poll_and_add_to_jobs_;

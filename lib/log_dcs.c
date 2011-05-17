@@ -58,10 +58,12 @@ static void _log_register_callsites(void)
 				    (void**)&start);
 		if (rc == 0) {
 			stop = &start[callsite_elems_per_bin];
-			qb_log_callsites_register(start, stop);
+			if (qb_log_callsites_register(start, stop) != 0) {
+				break;
+			}
 		}
+		callsite_num_bins++;
 	}
-	callsite_num_bins = num_bins;
 }
 
 static struct qb_log_callsite *

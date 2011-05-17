@@ -515,6 +515,15 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	}
 
 	c = qb_ipcs_connection_alloc(s);
+	if (c == NULL) {
+		return -ENOMEM;
+	}
+
+	c->receive_buf = malloc(req->max_msg_size);
+	if (c->receive_buf == NULL) {
+		free(c);
+		return -ENOMEM;
+	}
 	c->setup.u.us.sock = sock;
 	c->request.max_msg_size = req->max_msg_size;
 	c->response.max_msg_size = req->max_msg_size;
@@ -545,8 +554,6 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	c->state = QB_IPCS_CONNECTION_ACTIVE;
 
 	qb_list_add(&c->list, &s->connections);
-	c->receive_buf = malloc(c->request.max_msg_size);
-	/* FIXME: c->receive_buf may be NULL, then dereferenced */
 
 	if (s->needs_sock_for_poll) {
 		qb_ipcs_connection_ref(c);

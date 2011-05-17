@@ -390,7 +390,7 @@ void qb_log_fini(void);
  *	qb_log_callsites_register(_start, _stop);
  * @endcode
  */
-void qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop);
+int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop);
 
 /**
  * Dump the callsite info to stdout.
