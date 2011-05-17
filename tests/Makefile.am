@@ -70,6 +70,9 @@ EXTRA_DIST = check_resources.sh
 
 TESTS = check_array check_rb check_log check_loop check_ipc check_resources.sh
 
+check_resources.sh: check_array.log check_rb.log check_log.log check_loop.log \
+		check_ipc.log
+
 check_PROGRAMS = check_array check_rb check_log check_loop check_ipc
 check_SCRIPTS = check_resources.sh
 
