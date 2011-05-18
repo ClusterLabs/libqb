@@ -49,6 +49,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	c->event.max_msg_size = response.max_msg_size;
 	c->receive_buf = malloc(response.max_msg_size);
 	if (c->receive_buf == NULL) {
+		res = -ENOMEM;
 		goto disconnect_and_cleanup;
 	}
 
