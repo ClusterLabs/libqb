@@ -66,37 +66,36 @@ endif
 
 
 if HAVE_CHECK
-EXTRA_DIST = check_resources.sh
+EXTRA_DIST = resources.test
 
-TESTS = check_array check_rb check_log check_loop check_ipc check_resources.sh
+TESTS = array.test rb.test log.test loop.test ipc.test resources.test
 
-check_resources.sh: check_array.log check_rb.log check_log.log check_loop.log \
-		check_ipc.log
+resources.log: array.log rb.log log.log loop.log ipc.log
 
-check_PROGRAMS = check_array check_rb check_log check_loop check_ipc
-check_SCRIPTS = check_resources.sh
+check_PROGRAMS = array.test rb.test log.test loop.test ipc.test
+check_SCRIPTS = resources.test
 
-check_array_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
-check_array_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-check_array_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+array_test_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
+array_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+array_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
-check_rb_SOURCES = check_rb.c $(top_builddir)/include/qb/qbrb.h
-check_rb_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-check_rb_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+rb_test_SOURCES = check_rb.c $(top_builddir)/include/qb/qbrb.h
+rb_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+rb_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
-check_loop_SOURCES = check_loop.c $(top_builddir)/include/qb/qbloop.h
-check_loop_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-check_loop_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+loop_test_SOURCES = check_loop.c $(top_builddir)/include/qb/qbloop.h
+loop_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+loop_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
-check_ipc_SOURCES = check_ipc.c $(top_builddir)/include/qb/qbipcc.h $(top_builddir)/include/qb/qbipcs.h
-check_ipc_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-check_ipc_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+ipc_test_SOURCES = check_ipc.c $(top_builddir)/include/qb/qbipcc.h $(top_builddir)/include/qb/qbipcs.h
+ipc_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+ipc_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
-check_log_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
-check_log_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-check_log_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+log_test_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
+log_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+log_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 
 endif
 
 clean-generic:
-	rm -f write_logs.c threads.log
+	rm -f write_logs.c *.log
