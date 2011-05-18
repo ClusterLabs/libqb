@@ -1,17 +1,6 @@
-Last Updated: 
-
-Generic Items
--------------
-* doxygen-ize the include and lib directories.
-* use doxygen to generate the man pages
-* write unit test cases
+Last Updated: 18-May-2011
 
 IPC
 ---
-* flow control
 * client or server to specify the message size
-* 1 or per session request queues/ringbuffers
 * glib integration
-* bmcpt fails - fix
-* should we hide the message header?
-* we probably need a qb_ipc_msg_alloc()
