@@ -22,7 +22,7 @@
 #include <ctype.h>
 #include <link.h>
 #include <stdarg.h>
-
+#include <pthread.h>
 #include <dlfcn.h>
 
 #include <qb/qbdefs.h>
@@ -35,6 +35,7 @@
 static struct qb_log_target conf[32];
 static int32_t in_logger = QB_FALSE;
 static int32_t logger_inited = QB_FALSE;
+static pthread_rwlock_t _listlock;
 
 static QB_LIST_DECLARE(active_targets);
 static QB_LIST_DECLARE(tags_head);
@@ -119,6 +120,7 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	 */
 	found_threaded = QB_FALSE;
 
+	pthread_rwlock_rdlock(&_listlock);
 	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
 		t = qb_list_entry(pos, struct qb_log_target, active_list);
 		if (t->threaded) {
@@ -131,6 +133,8 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 			}
 		}
 	}
+	pthread_rwlock_unlock(&_listlock);
+
 	if (found_threaded) {
 		qb_log_thread_log_post(cs, tv.tv_sec, msg);
 	}
@@ -143,6 +147,7 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 	struct qb_log_target *t;
 	struct qb_list_head *pos;
 
+	pthread_rwlock_rdlock(&_listlock);
 	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
 		t = qb_list_entry(pos, struct qb_log_target, active_list);
 		if (t->threaded) {
@@ -152,6 +157,7 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			t->logger(t, cs, timestamp, buffer);
 		}
 	}
+	pthread_rwlock_unlock(&_listlock);
 }
 
 void qb_log_from_external_source(const char *function,
@@ -174,6 +180,7 @@ void qb_log_from_external_source(const char *function,
 	assert(cs != NULL);
 
 	if (new_dcs) {
+		pthread_rwlock_rdlock(&_listlock);
 		for (t_item = active_targets.next; t_item != &active_targets; t_item = t_item->next) {
 			t = qb_list_entry(t_item, struct qb_log_target, active_list);
 			for (f_item = t->filter_head.next; f_item != &t->filter_head; f_item = f_item->next) {
@@ -191,6 +198,7 @@ void qb_log_from_external_source(const char *function,
 		} else {
 			cs->tags = tags;
 		}
+		pthread_rwlock_unlock(&_listlock);
 	}
 	_log_real_msg(cs, msg);
 }
@@ -222,11 +230,14 @@ int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_
 		return -EINVAL;
 	}
 
+	pthread_rwlock_rdlock(&_listlock);
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
 		if (sect->start == _start || sect->stop == _stop) {
+			pthread_rwlock_unlock(&_listlock);
 			return -EEXIST;
 		}
 	}
+	pthread_rwlock_unlock(&_listlock);
 
 	sect = calloc(1, sizeof(struct callsite_section));
 	if (sect == NULL) {
@@ -235,6 +246,8 @@ int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_
 	sect->start = _start;
 	sect->stop = _stop;
 	qb_list_init(&sect->list);
+
+	pthread_rwlock_wrlock(&_listlock);
 	qb_list_add(&sect->list, &callsite_sections);
 
 	/*
@@ -250,6 +263,8 @@ int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_
 		_log_filter_apply(sect, flt->new_value, flt->conf,
 				  flt->type, flt->text, flt->priority);
 	}
+	pthread_rwlock_unlock(&_listlock);
+
 	return 0;
 }
 
@@ -257,8 +272,10 @@ void qb_log_callsites_dump(void)
 {
 	struct callsite_section *sect;
 	struct qb_log_callsite *cs;
-	int32_t l = qb_list_length(&callsite_sections);
+	int32_t l;
 
+	pthread_rwlock_rdlock(&_listlock);
+	l = qb_list_length(&callsite_sections);
 	printf("Callsite Database [%d]\n", l);
 	printf("---------------------\n");
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
@@ -272,6 +289,7 @@ void qb_log_callsites_dump(void)
 			       cs->targets, cs->tags);
 		}
 	}
+	pthread_rwlock_unlock(&_listlock);
 }
 
 static int32_t _log_filter_exists(struct qb_list_head *list_head,
@@ -443,14 +461,17 @@ int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	    c > QB_LOG_TAG_CLEAR_ALL) {
 		return -EINVAL;
 	}
+	pthread_rwlock_wrlock(&_listlock);
 	rc = _log_filter_store(t, c, type, text, priority);
 	if (rc < 0) {
+		pthread_rwlock_unlock(&_listlock);
 		return rc;
 	}
 
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
 		_log_filter_apply(sect, t, c, type, text, priority);
 	}
+	pthread_rwlock_unlock(&_listlock);
 	return 0;
 }
 
@@ -500,6 +521,8 @@ void qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	int32_t i;
 
 	qb_log_dcs_init();
+	i = pthread_rwlock_init(&_listlock, NULL);
+	assert(i == 0);
 
 	for (i = 0; i < 32; i++) {
 		conf[i].pos = i;
@@ -541,8 +564,12 @@ void qb_log_fini(void)
 	struct qb_list_head *next;
 	struct qb_list_head *next2;
 
+	if (!logger_inited) {
+		return;
+	}
 	logger_inited = QB_FALSE;
 	qb_log_thread_stop();
+	pthread_rwlock_destroy(&_listlock);
 
 	qb_list_for_each_safe(iter, next, &active_targets) {
 		t = qb_list_entry(iter, struct qb_log_target, active_list);
@@ -610,8 +637,11 @@ static int32_t _log_target_enable(struct qb_log_target *t)
 		rc = qb_log_blackbox_open(t);
 	}
 	if (rc == 0) {
+		pthread_rwlock_wrlock(&_listlock);
 		t->state = QB_LOG_STATE_ENABLED;
+		qb_list_init(&t->active_list);
 		qb_list_add(&t->active_list, &active_targets);
+		pthread_rwlock_unlock(&_listlock);
 	}
 	return rc;
 }
@@ -621,6 +651,7 @@ static void _log_target_disable(struct qb_log_target *t)
 	if (t->state != QB_LOG_STATE_ENABLED) {
 		return;
 	}
+	pthread_rwlock_wrlock(&_listlock);
 	t->state = QB_LOG_STATE_DISABLED;
 	qb_list_del(&t->active_list);
 	if (t->close) {
@@ -628,6 +659,7 @@ static void _log_target_disable(struct qb_log_target *t)
 		t->close(t);
 		in_logger = QB_FALSE;
 	}
+	pthread_rwlock_unlock(&_listlock);
 }
 
 int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
