@@ -296,40 +296,54 @@ unlink_exit:
 
 int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 {
-	void *addr_orig;
+	void *addr_orig = NULL;
 	void *addr;
+	void *addr_next;
 	int32_t res;
 
 	addr_orig = mmap(NULL, bytes << 1, PROT_NONE,
 			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
-		return (-errno);
+		return -errno;
 	}
 
 	addr = mmap(addr_orig, bytes, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_SHARED, fd, 0);
 
 	if (addr != addr_orig) {
-		return (-errno);
+		res = -errno;
+		goto cleanup_fail;
 	}
 #ifdef QB_BSD
 	madvise(addr_orig, bytes, MADV_NOSYNC);
 #endif
-
-	addr = mmap(((char *)addr_orig) + bytes,
+	addr_next = ((char *)addr_orig) + bytes;
+	addr = mmap(addr_next,
 		    bytes, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_SHARED, fd, 0);
+	if (addr != addr_next) {
+		res = -errno;
+		goto cleanup_fail;
+	}
 #ifdef QB_BSD
 	madvise(((char *)addr_orig) + bytes, bytes, MADV_NOSYNC);
 #endif
 
 	res = close(fd);
 	if (res) {
-		return (-errno);
+		goto cleanup_fail;
 	}
 	*buf = addr_orig;
-	return (0);
+	return 0;
+
+ cleanup_fail:
+
+	if (addr_orig) {
+		munmap(addr_orig, bytes << 1);
+	}
+	close(fd);
+	return res;
 }
 
 int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
