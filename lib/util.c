@@ -260,6 +260,10 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 
 	if (file_flags & O_CREAT) {
 		long page_size = sysconf(_SC_PAGESIZE);
+		if (page_size < 0) {
+			res = -errno;
+			goto unlink_exit;
+		}
 		buffer = calloc(1, page_size);
 		if (buffer == NULL) {
 			res = -ENOMEM;
