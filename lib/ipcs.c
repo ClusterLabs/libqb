@@ -97,12 +97,9 @@ int32_t qb_ipcs_run(struct qb_ipcs_service* s)
 	}
 	res = qb_ipcs_us_publish(s);
 	if (res < 0) {
+		(void)qb_ipcs_us_withdraw(s);
 		qb_ipcs_unref(s);
 		return res;
-	}
-
-	if (res < 0) {
-		(void)qb_ipcs_us_withdraw(s);
 	}
 
 	return res;
