@@ -510,18 +510,16 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	int32_t res = auth_result;
 	struct qb_ipc_connection_response response;
 
-	if (res != 0) {
-		goto send_response;
-	}
-
 	c = qb_ipcs_connection_alloc(s);
 	if (c == NULL) {
+		qb_ipcc_us_sock_close(sock);
 		return -ENOMEM;
 	}
 
 	c->receive_buf = malloc(req->max_msg_size);
 	if (c->receive_buf == NULL) {
 		free(c);
+		qb_ipcc_us_sock_close(sock);
 		return -ENOMEM;
 	}
 	c->setup.u.us.sock = sock;
@@ -533,7 +531,7 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 	c->egid = ugp->gid;
 	c->stats.client_pid = ugp->pid;
 
-	if (c->service->serv_fns.connection_accept) {
+	if (auth_result == 0 && c->service->serv_fns.connection_accept) {
 		res = c->service->serv_fns.connection_accept(c,
 							     c->euid,
 							     c->egid);
@@ -551,8 +549,10 @@ static int32_t handle_new_connection(struct qb_ipcs_service *s,
 			goto send_response;
 		}
 	}
+	/*
+	 * The connection is good, add it to the active connection list
+	 */
 	c->state = QB_IPCS_CONNECTION_ACTIVE;
-
 	qb_list_add(&c->list, &s->connections);
 
 	if (s->needs_sock_for_poll) {
@@ -596,15 +596,13 @@ send_response:
 		if (s->serv_fns.connection_created) {
 			s->serv_fns.connection_created(c);
 		}
-	} else if (res == -EACCES) {
-		qb_util_log(LOG_ERR, "Invalid IPC credentials.");
 	} else {
-		qb_util_perror(LOG_ERR, "Error in connection setup");
-	}
-	if (res != 0 && c) {
+		if (res == -EACCES) {
+			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
+		} else {
+			qb_util_perror(LOG_ERR, "Error in connection setup");
+		}
 		qb_ipcs_disconnect(c);
-	} else if (res != 0) {
-		qb_ipcc_us_sock_close(sock);
 	}
 	return res;
 }
@@ -776,8 +774,8 @@ retry_accept:
 				       &ugp);
 
 	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
-		res = handle_new_connection(s, res, new_fd, &setup_msg, sizeof(setup_msg),
-				       &ugp);
+		res = handle_new_connection(s, res, new_fd, &setup_msg,
+					    sizeof(setup_msg), &ugp);
 	} else if (setup_msg.hdr.id == QB_IPC_MSG_NEW_EVENT_SOCK) {
 		if (res == 0) {
 			handle_connection_new_sock(s, new_fd, &setup_msg);
