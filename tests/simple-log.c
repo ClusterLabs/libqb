@@ -42,6 +42,8 @@ static void func_one(void)
 	fd = fopen("/nothing.txt", "r+");
 	if (fd == NULL) {
 		qb_perror(LOG_ERR, "can't open(\"/nothing.txt\")");
+	} else {
+		fclose(fd);
 	}
 	qb_leave();
 }
