@@ -114,7 +114,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	if (fd_hdr < 0) {
 		error = fd_hdr;
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
-		return NULL;
+		goto cleanup_hdr;
 	}
 
 	rb->shared_hdr = mmap(0,
@@ -197,8 +197,10 @@ cleanup_data:
 	}
 
 cleanup_hdr:
-	close(fd_hdr);
-	if (flags & QB_RB_FLAG_CREATE) {
+	if (fd_hdr >= 0) {
+		close(fd_hdr);
+	}
+	if (rb && (flags & QB_RB_FLAG_CREATE)) {
 		unlink(rb->shared_hdr->hdr_path);
 		(void)rb->sem_destroy_fn(rb);
 	}
