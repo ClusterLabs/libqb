@@ -162,6 +162,9 @@ int32_t main(void)
 	float total_mbs;
 	void *retval;
 
+	for (i = 0; i < THREADS; i++) {
+		bm_ctx[i].mbs = 0;
+	}
 	signal(SIGALRM, sigalrm_handler);
 	for (j = 0; j < 500; j++) {
 		alarm_notice = 0;
