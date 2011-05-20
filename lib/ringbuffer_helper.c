@@ -60,6 +60,51 @@ sem_wait_again:
 	return res;
 }
 
+static int32_t my_posix_sem_post(qb_ringbuffer_t * rb)
+{
+	if (sem_post(&rb->shared_hdr->posix_sem) < 0) {
+		return -errno;
+	} else {
+		return 0;
+	}
+}
+
+static ssize_t my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
+{
+	int val;
+	if (sem_getvalue(&rb->shared_hdr->posix_sem, &val) < 0) {
+		return -errno;
+	} else {
+		return val;
+	}
+}
+
+static int32_t my_posix_sem_destroy(qb_ringbuffer_t * rb)
+{
+	if (sem_destroy(&rb->shared_hdr->posix_sem) == -1) {
+		return -errno;
+	} else {
+		return 0;
+	}
+}
+
+static int32_t my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
+{
+	int32_t pshared = 0;
+	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
+		if ((flags & QB_RB_FLAG_CREATE) == 0) {
+			return 0;
+		}
+		pshared = 1;
+	}
+	if (sem_init(&rb->shared_hdr->posix_sem, pshared, 0) == -1) {
+		return -errno;
+	} else {
+		return 0;
+	}
+}
+
+#ifndef HAVE_POSIX_SHARED_SEMAPHORE
 static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct sembuf sops[1];
@@ -95,10 +140,11 @@ static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 
 semop_again:
 #ifdef QB_FREEBSD_GE_8
-	if (semop(rb->sem_id, sops, 1) == -1) {
+	if (semop(rb->sem_id, sops, 1) == -1)
 #else
-	if (semtimedop(rb->sem_id, sops, 1, ts_pt) == -1) {
+	if (semtimedop(rb->sem_id, sops, 1, ts_pt) == -1)
 #endif
+	{
 		if (errno == EINTR) {
 			goto semop_again;
 		} else if (errno == EAGAIN) {
@@ -112,25 +158,6 @@ semop_again:
 		return res;
 	}
 	return 0;
-}
-
-static int32_t my_posix_sem_post(qb_ringbuffer_t * rb)
-{
-	if (sem_post(&rb->shared_hdr->posix_sem) < 0) {
-		return -errno;
-	} else {
-		return 0;
-	}
-}
-
-static ssize_t my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
-{
-	int val;
-	if (sem_getvalue(&rb->shared_hdr->posix_sem, &val) < 0) {
-		return -errno;
-	} else {
-		return val;
-	}
 }
 
 static int32_t my_sysv_sem_post(qb_ringbuffer_t * rb)
@@ -168,35 +195,9 @@ static ssize_t my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
 	return res;
 }
 
-static int32_t my_posix_sem_destroy(qb_ringbuffer_t * rb)
-{
-	if (sem_destroy(&rb->shared_hdr->posix_sem) == -1) {
-		return -errno;
-	} else {
-		return 0;
-	}
-}
-
 static int32_t my_sysv_sem_destroy(qb_ringbuffer_t * rb)
 {
 	if (semctl(rb->sem_id, 0, IPC_RMID, 0) == -1) {
-		return -errno;
-	} else {
-		return 0;
-	}
-}
-
-
-static int32_t my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
-{
-	int32_t pshared = 0;
-	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
-		if ((flags & QB_RB_FLAG_CREATE) == 0) {
-			return 0;
-		}
-		pshared = 1;
-	}
-	if (sem_init(&rb->shared_hdr->posix_sem, pshared, 0) == -1) {
 		return -errno;
 	} else {
 		return 0;
@@ -240,20 +241,20 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 
 	return res;
 }
+#endif /* NOT HAVE_POSIX_SHARED_SEMAPHORE */
 
 int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 {
-	int32_t can_use_shared_posix = QB_FALSE;
-#ifdef HAVE_POSIX_SHARED_SEMAPHORE
-	can_use_shared_posix = QB_TRUE;
-#endif /* HAVE_POSIX_SHARED_SEMAPHORE */
-	if (!can_use_shared_posix && (rb->flags & QB_RB_FLAG_SHARED_PROCESS)) {
+#ifndef HAVE_POSIX_SHARED_SEMAPHORE
+	if (rb->flags & QB_RB_FLAG_SHARED_PROCESS) {
 		rb->sem_timedwait_fn = my_sysv_sem_timedwait;
 		rb->sem_post_fn = my_sysv_sem_post;
 		rb->sem_getvalue_fn = my_sysv_getvalue_fn;
 		rb->sem_destroy_fn = my_sysv_sem_destroy;
 		return my_sysv_sem_create(rb, flags);
-	} else {
+	} else
+#endif /* NOT HAVE_POSIX_SHARED_SEMAPHORE */
+	{
 		rb->sem_timedwait_fn = my_posix_sem_timedwait;
 		rb->sem_post_fn = my_posix_sem_post;
 		rb->sem_getvalue_fn = my_posix_getvalue_fn;
