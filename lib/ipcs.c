@@ -426,15 +426,16 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 	qb_util_log(LOG_DEBUG, "%s() state:%d", __func__, c->state);
 
 	if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		c->state = QB_IPCS_CONNECTION_DOWN;
+		c->service->stats.active_connections--;
+		c->service->stats.closed_connections++;
+
 		if (c->service->needs_sock_for_poll &&
 		    c->setup.u.us.sock > 0) {
 			qb_ipcc_us_sock_close(c->setup.u.us.sock);
 			c->setup.u.us.sock = -1;
 			qb_ipcs_connection_unref(c);
 		}
-		c->state = QB_IPCS_CONNECTION_DOWN;
-		c->service->stats.active_connections--;
-		c->service->stats.closed_connections++;
 	}
 	if (c->state == QB_IPCS_CONNECTION_DOWN) {
 		res = 0;
