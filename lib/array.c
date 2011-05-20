@@ -38,7 +38,7 @@ struct qb_array {
 qb_array_t* qb_array_create(size_t max_elements, size_t element_size)
 {
 	int32_t i;
-	struct qb_array *a = calloc(1, sizeof(struct qb_array));
+	struct qb_array *a = NULL;
 
 	if (max_elements > (MAX_BIN_ELEMENTS*MAX_BINS)) {
 		errno = -EINVAL;
@@ -46,6 +46,10 @@ qb_array_t* qb_array_create(size_t max_elements, size_t element_size)
 	}
 	if (element_size < 1) {
 		errno = -EINVAL;
+		return NULL;
+	}
+	a = calloc(1, sizeof(struct qb_array));
+	if (a == NULL) {
 		return NULL;
 	}
 	a->element_size = element_size;
