@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright (C) 2010-2011 Red Hat, Inc.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
  *
@@ -518,21 +518,20 @@ static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer)
 
 ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 {
-	ssize_t result = 0;
+	ssize_t result;
 	ssize_t written_size = 0;
 
 	print_header(rb);
 
 	result = write(fd, &rb->shared_hdr->size, sizeof(uint32_t));
-	if ((result < 0) || (result != sizeof(uint32_t))) {
+	if (result != sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
 
 	result = write(fd, rb->shared_data,
 		       rb->shared_hdr->size * sizeof(uint32_t));
-	if ((result < 0)
-	    || (result != rb->shared_hdr->size * sizeof(uint32_t))) {
+	if (result != rb->shared_hdr->size * sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
@@ -541,12 +540,12 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 	 * store the read & write pointers
 	 */
 	result = write(fd, (void *)&rb->shared_hdr->write_pt, sizeof(uint32_t));
-	if ((result < 0) || (result != sizeof(uint32_t))) {
+	if (result != sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
 	result = write(fd, (void *)&rb->shared_hdr->read_pt, sizeof(uint32_t));
-	if ((result < 0) || (result != sizeof(uint32_t))) {
+	if (result != sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
