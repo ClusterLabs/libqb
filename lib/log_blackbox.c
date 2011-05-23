@@ -23,8 +23,10 @@
 #include <qb/qbrb.h>
 #include "log_int.h"
 
-static void _blackbox_reload(struct qb_log_target *t)
+static void _blackbox_reload(int32_t target)
 {
+	struct qb_log_target *t = qb_log_target_get(target);
+
 	if (t->instance == NULL) {
 		return;
 	}
@@ -39,7 +41,7 @@ static void _blackbox_reload(struct qb_log_target *t)
  * <u32> buffer lenght
  * <string> buffer
  */
-static void _blackbox_logger(struct qb_log_target *t,
+static void _blackbox_logger(int32_t target,
 			     struct qb_log_callsite *cs,
 			     time_t timestamp, const char *buffer)
 {
@@ -47,6 +49,7 @@ static void _blackbox_logger(struct qb_log_target *t,
 	size_t fn_size;
 	size_t buf_size;
 	char *chunk;
+	struct qb_log_target *t = qb_log_target_get(target);
 
 	if (t->instance == NULL) {
 		return;
@@ -81,8 +84,10 @@ static void _blackbox_logger(struct qb_log_target *t,
 	(void)qb_rb_chunk_commit(t->instance, size);
 }
 
-static void _blackbox_close(struct qb_log_target *t)
+static void _blackbox_close(int32_t target)
 {
+	struct qb_log_target *t = qb_log_target_get(target);
+
 	if (t->instance) {
 		qb_rb_close(t->instance);
 		t->instance = NULL;

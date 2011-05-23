@@ -212,6 +212,8 @@ extern "C" {
 #undef LOG_TRACE
 #define LOG_TRACE    (LOG_DEBUG + 1)
 
+#define QB_LOG_MAX_LEN 512
+
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
 
 /**
@@ -297,8 +299,8 @@ void qb_log_from_external_source(const char *function,
     } while(0)
 #else
 #define qb_logt(priority, tags, fmt, args...) do { \
-	char _log_buf_[256]; \
-	snprintf(_log_buf_, 256, fmt, ##args); \
+	char _log_buf_[QB_LOG_MAX_LEN]; \
+	snprintf(_log_buf_, QB_LOG_MAX_LEN, fmt, ##args); \
 	qb_log_from_external_source( __func__, __FILE__, fmt, priority, __LINE__, tags, _log_buf_); \
     } while(0)
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
@@ -358,6 +360,14 @@ enum qb_log_filter_conf {
 	QB_LOG_TAG_CLEAR,
 	QB_LOG_TAG_CLEAR_ALL,
 };
+
+typedef void (*qb_log_logger_fn)(int32_t t,
+				 struct qb_log_callsite *cs,
+				 time_t timestamp,
+				 const char *msg);
+
+typedef void (*qb_log_close_fn)(int32_t t);
+typedef void (*qb_log_reload_fn)(int32_t t);
 
 /**
  * Init the logging system.
@@ -464,6 +474,44 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename);
  */
 void qb_log_blackbox_print_from_file(const char* filename);
 
+/**
+ * Open a custom log target.
+ *
+ * @retval -errno on error
+ * @retval 3 to 31 (to be passed into other qb_log_* functions)
+ */
+int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
+			   qb_log_close_fn close_fn,
+			   qb_log_reload_fn reload_fn,
+			   void *user_data);
+
+/**
+ * Close a custom log target and release is resources.
+ */
+void qb_log_custom_close(int32_t t);
+
+/**
+ * Retrieve the user data set by either qb_log_custom_open or
+ * qb_log_target_user_data_set.
+ */
+void *qb_log_target_user_data_get(int32_t t);
+
+/**
+ * Associate user data with this log target
+ * @note only use this with custom targets
+ */
+int32_t qb_log_target_user_data_set(int32_t t, void *user_data);
+
+/**
+ * format the callsite and timestamp info according to the format
+ * set using qb_log_format_set()
+ * It is intended to be used from your custom logger function.
+ */
+void qb_log_target_format(int32_t target,
+			  struct qb_log_callsite *cs,
+			  time_t timestamp,
+			  const char* formatted_message,
+			  char *output_buffer);
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

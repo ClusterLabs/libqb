@@ -22,14 +22,15 @@
 #include <syslog.h>
 #include "log_int.h"
 
-static void _syslog_logger(struct qb_log_target *t,
+static void _syslog_logger(int32_t target,
 			   struct qb_log_callsite *cs,
 			   time_t timestamp, const char *msg)
 {
-	char output_buffer[COMBINE_BUFFER_SIZE];
+	char output_buffer[QB_LOG_MAX_LEN];
+	struct qb_log_target *t = qb_log_target_get(target);
 	int32_t final_priority = cs->priority + t->priority_bump;
 
-	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
+	qb_log_target_format(target, cs, timestamp, msg, output_buffer);
 
 	if (final_priority > LOG_DEBUG) {
 		return;
@@ -39,13 +40,14 @@ static void _syslog_logger(struct qb_log_target *t,
 	syslog(final_priority, "%s", output_buffer);
 }
 
-static void _syslog_close(struct qb_log_target *t)
+static void _syslog_close(int32_t target)
 {
 	closelog();
 }
 
-static void _syslog_reload(struct qb_log_target *t)
+static void _syslog_reload(int32_t target)
 {
+	struct qb_log_target *t = qb_log_target_get(target);
 	closelog();
 	openlog(t->name, LOG_PID, t->facility);
 }

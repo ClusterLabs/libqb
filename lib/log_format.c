@@ -93,7 +93,7 @@ static int _strcpy_cutoff(char *dest, const char *src, size_t cutoff,
  *
  * any number between % and character specify field length to pad or chop
  */
-void qb_log_target_format(struct qb_log_target *t,
+void qb_log_target_format(int32_t target,
 			  struct qb_log_callsite *cs,
 			  time_t current_time,
 			  const char *formatted_message, char *output_buffer)
@@ -106,6 +106,7 @@ void qb_log_target_format(struct qb_log_target *t,
 	size_t cutoff;
 	uint32_t len;
 	int c;
+	struct qb_log_target *t = qb_log_target_get(target);
 
 	while ((c = t->format[format_buffer_idx])) {
 		cutoff = 0;
@@ -182,11 +183,11 @@ void qb_log_target_format(struct qb_log_target *t,
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
 					     p, cutoff,
-					     (COMBINE_BUFFER_SIZE - output_buffer_idx));
+					     (QB_LOG_MAX_LEN - output_buffer_idx));
 			output_buffer_idx += len;
 			format_buffer_idx += 1;
 		}
-		if (output_buffer_idx >= COMBINE_BUFFER_SIZE - 1) {
+		if (output_buffer_idx >= QB_LOG_MAX_LEN - 1) {
 			break;
 		}
 	}

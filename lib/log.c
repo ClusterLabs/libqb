@@ -129,7 +129,7 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 			}
 		} else {
 			if (qb_bit_is_set(cs->targets, t->pos) && t->logger) {
-				t->logger(t, cs, tv.tv_sec, msg);
+				t->logger(t->pos, cs, tv.tv_sec, msg);
 			}
 		}
 	}
@@ -154,7 +154,7 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			continue;
 		}
 		if (qb_bit_is_set(cs->targets, t->pos)) {
-			t->logger(t, cs, timestamp, buffer);
+			t->logger(t->pos, cs, timestamp, buffer);
 		}
 	}
 	pthread_rwlock_unlock(&_listlock);
@@ -206,11 +206,11 @@ void qb_log_from_external_source(const char *function,
 void qb_log_real_(struct qb_log_callsite *cs, ...)
 {
 	va_list ap;
-	char buf[COMBINE_BUFFER_SIZE];
+	char buf[QB_LOG_MAX_LEN];
 	size_t len;
 
 	va_start(ap, cs);
-	len = vsnprintf(buf, COMBINE_BUFFER_SIZE, cs->format, ap);
+	len = vsnprintf(buf, sizeof(buf), cs->format, ap);
 	va_end(ap);
 
 	if (buf[len - 1] == '\n') {
@@ -622,6 +622,74 @@ struct qb_log_target *qb_log_target_get(int32_t pos)
 	return &conf[pos];
 }
 
+void *qb_log_target_user_data_get(int32_t t)
+{
+	if (!logger_inited) {
+		errno = -EINVAL;
+		return NULL;
+	}
+	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+		errno = -EBADF;
+		return NULL;
+	}
+
+	return conf[t].instance;
+}
+
+int32_t qb_log_target_user_data_set(int32_t t, void *user_data)
+{
+	if (!logger_inited) {
+		return -EINVAL;
+	}
+	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+		return -EBADF;
+	}
+
+	conf[t].instance = user_data;
+	return 0;
+}
+
+int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
+			   qb_log_close_fn close_fn,
+			   qb_log_reload_fn reload_fn,
+			   void *user_data)
+{
+	struct qb_log_target *t;
+
+	t = qb_log_target_alloc();
+	if (t == NULL) {
+		return -errno;
+	}
+
+	t->instance = user_data;
+	snprintf(t->name, PATH_MAX, "custom-%d", t->pos);
+
+	t->logger = log_fn;
+	t->reload = reload_fn;
+	t->close = close_fn;
+
+	return t->pos;
+}
+
+void qb_log_custom_close(int32_t t)
+{
+	struct qb_log_target *target;
+
+	if (!logger_inited) {
+		return;
+	}
+	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+		return;
+	}
+
+	target = qb_log_target_get(t);
+
+	if (target->close) {
+		target->close(t);
+	}
+	qb_log_target_free(target);
+}
+
 static int32_t _log_target_enable(struct qb_log_target *t)
 {
 	int32_t rc = 0;
@@ -656,7 +724,7 @@ static void _log_target_disable(struct qb_log_target *t)
 	qb_list_del(&t->active_list);
 	if (t->close) {
 		in_logger = QB_TRUE;
-		t->close(t);
+		t->close(t->pos);
 		in_logger = QB_FALSE;
 	}
 	pthread_rwlock_unlock(&_listlock);
@@ -709,7 +777,7 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		rc = -EINVAL;
 	}
 	if (rc == 0 && need_reload && conf[t].reload) {
-		conf[t].reload(&conf[t]);
+		conf[t].reload(t);
 	}
 	return rc;
 }

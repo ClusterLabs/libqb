@@ -33,14 +33,6 @@ enum qb_log_state {
 
 struct qb_log_target;
 
-typedef void (*qb_log_logger_fn)(struct qb_log_target *t,
-				 struct qb_log_callsite *cs,
-				 time_t timestamp,
-				 const char *msg);
-
-typedef void (*qb_log_close_fn)(struct qb_log_target *t);
-typedef void (*qb_log_reload_fn)(struct qb_log_target *t);
-
 struct qb_log_target {
 	uint32_t pos;
 	enum qb_log_state state;
@@ -79,16 +71,10 @@ struct qb_log_record {
 
 
 #define TIME_STRING_SIZE 64
-#define COMBINE_BUFFER_SIZE 512
 
 struct qb_log_target * qb_log_target_alloc(void);
 void qb_log_target_free(struct qb_log_target *t);
 struct qb_log_target * qb_log_target_get(int32_t pos);
-void qb_log_target_format(struct qb_log_target *t,
-			  struct qb_log_callsite *cs,
-			  time_t timestamp,
-			  const char* formatted_message,
-			  char *output_buffer);
 
 int32_t qb_log_syslog_open(struct qb_log_target *t);
 int32_t qb_log_stderr_open(struct qb_log_target *t);

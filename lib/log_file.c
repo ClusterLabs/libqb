@@ -21,32 +21,37 @@
 #include "os_base.h"
 #include "log_int.h"
 
-static void _file_logger(struct qb_log_target *t,
+static void _file_logger(int32_t t,
 			 struct qb_log_callsite *cs,
 			 time_t timestamp, const char *msg)
 {
-	char output_buffer[COMBINE_BUFFER_SIZE];
+	char output_buffer[QB_LOG_MAX_LEN];
+	FILE *f = qb_log_target_user_data_get(t);
 
-	if (t->instance == NULL) {
+	if (f == NULL) {
 		return;
 	}
 
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
-	fprintf(t->instance, "%s\n", output_buffer);
-	fflush(t->instance);
+	fprintf(f, "%s\n", output_buffer);
+	fflush(f);
 }
 
-static void _file_close(struct qb_log_target *t)
+static void _file_close(int32_t t)
 {
-	if (t->instance) {
-		fclose(t->instance);
-		t->instance = NULL;
+	FILE *f = qb_log_target_user_data_get(t);
+
+	if (f) {
+		fclose(f);
+		(void)qb_log_target_user_data_set(t, NULL);
 	}
 }
 
-static void _file_reload(struct qb_log_target *t)
+static void _file_reload(int32_t target)
 {
+	struct qb_log_target *t = qb_log_target_get(target);
+
 	if (t->instance) {
 		fclose(t->instance);
 	}
@@ -91,7 +96,5 @@ int32_t qb_log_file_open(const char *filename)
 
 void qb_log_file_close(int32_t t)
 {
-	struct qb_log_target *target = qb_log_target_get(t);
-	target->close(target);
-	qb_log_target_free(target);
+	qb_log_custom_close(t);
 }

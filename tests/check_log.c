@@ -84,22 +84,20 @@ START_TEST(test_log_stupid_inputs)
 }
 END_TEST
 
-#define TEST_BUF_SIZE 1024
-static char test_buf[TEST_BUF_SIZE];
+static char test_buf[QB_LOG_MAX_LEN];
 static int32_t test_priority;
 static int32_t num_msgs;
 
 /*
  * to test that we get what we expect.
  */
-void syslog(int priority, const char *format, ...)
+static void
+_test_logger(int32_t t,
+	     struct qb_log_callsite *cs,
+	     time_t timestamp, const char *msg)
 {
-	va_list ap;
-
-	va_start(ap, format);
-	vsnprintf(test_buf, TEST_BUF_SIZE, format, ap);
-	va_end(ap);
-	test_priority = priority;
+	qb_log_target_format(t, cs, timestamp, msg, test_buf);
+	test_priority = cs->priority;
 	num_msgs++;
 }
 
@@ -117,13 +115,19 @@ static void log_it_please(void)
 
 START_TEST(test_log_basic)
 {
+	int32_t t;
+	int32_t rc;
+
 	qb_log_init("test", LOG_USER, LOG_EMERG);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_CLEAR_ALL,
-			  QB_LOG_FILTER_FILE, "*", LOG_EMERG);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FORMAT, "Angus", LOG_WARNING);
-	qb_log_format_set(QB_LOG_SYSLOG, "%b");
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(t, "%b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
 
 	memset(test_buf, 0, sizeof(test_buf));
 	test_priority = 0;
@@ -144,9 +148,9 @@ START_TEST(test_log_basic)
 	/*
 	 * test filtering by function
 	 */
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_CLEAR_ALL,
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
 			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
 
 	num_msgs = 0;
@@ -154,9 +158,9 @@ START_TEST(test_log_basic)
 	log_it_please();
 	ck_assert_int_eq(num_msgs, 2);
 
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_REMOVE,
+	qb_log_filter_ctl(t, QB_LOG_FILTER_REMOVE,
 			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FUNCTION, __func__, LOG_DEBUG);
 
 	num_msgs = 0;
@@ -180,10 +184,17 @@ static const char *_test_tags_stringify(uint32_t tags)
 
 START_TEST(test_log_format)
 {
+	int32_t t;
+
 	qb_log_init("test", LOG_USER, LOG_DEBUG);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
-	qb_log_format_set(QB_LOG_SYSLOG, "%p %f %b");
+	qb_log_format_set(t, "%p %f %b");
 
 	qb_log(LOG_DEBUG, "Angus");
 	ck_assert_str_eq(test_buf, "debug check_log.c Angus");
@@ -203,7 +214,7 @@ START_TEST(test_log_format)
 	ck_assert_str_eq(test_buf, "emerg check_log.c Angus");
 
 	qb_log_tags_stringify_fn_set(_test_tags_stringify);
-	qb_log_format_set(QB_LOG_SYSLOG, "%g %b");
+	qb_log_format_set(t, "%g %b");
 
 	qb_logt(LOG_INFO, 0, "Angus");
 	ck_assert_str_eq(test_buf, "ANY Angus");
@@ -218,51 +229,29 @@ END_TEST
 
 START_TEST(test_log_enable)
 {
-	qb_log_init("test", LOG_USER, LOG_DEBUG);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
-	qb_log_format_set(QB_LOG_SYSLOG, "%b");
+	int32_t t;
 
-	/* enabled by default */
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_format_set(t, "%b");
+
 	qb_log(LOG_DEBUG, "Hello");
 	ck_assert_str_eq(test_buf, "Hello");
 
 	num_msgs = 0;
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_FALSE);
 	qb_log(LOG_DEBUG, "Goodbye");
 	ck_assert_int_eq(num_msgs, 0);
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
+	qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
 	qb_log(LOG_DEBUG, "Hello again");
 	ck_assert_int_eq(num_msgs, 1);
 	ck_assert_str_eq(test_buf, "Hello again");
-}
-END_TEST
-
-START_TEST(test_log_bump)
-{
-	qb_log_init("test", LOG_USER, LOG_DEBUG);
-	qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
-	qb_log_format_set(QB_LOG_SYSLOG, "%b");
-
-	qb_log(LOG_DEBUG, "Hello");
-	ck_assert_int_eq(test_priority, LOG_DEBUG);
-	qb_log(LOG_INFO, "Hello");
-	ck_assert_int_eq(test_priority, LOG_INFO);
-	qb_log(LOG_CRIT, "Hello");
-	ck_assert_int_eq(test_priority, LOG_CRIT);
-
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP, -1);
-	qb_log(LOG_DEBUG, "Hello");
-	ck_assert_int_eq(test_priority, LOG_INFO);
-
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP, -2);
-	qb_log(LOG_DEBUG, "Hello");
-	ck_assert_int_eq(test_priority, LOG_NOTICE);
-
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP, 0);
-	qb_log(LOG_DEBUG, "Hello");
-	ck_assert_int_eq(test_priority, LOG_DEBUG);
 }
 END_TEST
 
@@ -384,10 +373,6 @@ static Suite *log_suite(void)
 
 	tc = tcase_create("enable");
 	tcase_add_test(tc, test_log_enable);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("bump");
-	tcase_add_test(tc, test_log_bump);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("threads");
