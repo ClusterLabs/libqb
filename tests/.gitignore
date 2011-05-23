@@ -1,10 +1,10 @@
 *.test
+bench-log
 bmc
 bmcpt
 bms
+loop
 rbreader
 rbwriter
-loop
 simple-log
-bench-log
 write_logs.c

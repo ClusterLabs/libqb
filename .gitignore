@@ -33,3 +33,4 @@ lib/run_splint.sh
 .version
 .tarball-version
 libqb.spec
+include/qb/stamp-h2
