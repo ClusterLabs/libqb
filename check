@@ -8,6 +8,7 @@ help_all() {
 	echo 
 	echo "Commands:"
 	echo 
+	echo "  ansi            Check using ansi compiler option"
 	echo "  sysv            Check using sys-v semaphores"
 	echo "  nosection       Check without gcc __attribute__(section)"
 	echo "  noepoll         Check using poll (not epoll)"
@@ -65,6 +66,10 @@ check() {
 	fi
 }
 
+check_ansi() {
+	check "--enable-ansi"
+}
+
 check_nosection() {
 	# no __attribute__((section))
 	check "ac_cv_link_attribute_section=no"
@@ -118,6 +123,7 @@ check_rpm() {
 }
 
 check_all() {
+		check_ansi
 		check_nosection
 		check_sysv
 		check_noepoll
@@ -132,6 +138,9 @@ check_all() {
 case $command in
 	help)
 	help_all $args
+	;;
+	ansi)
+		check_ansi
 	;;
 	nosection)
 		check_nosection
