@@ -30,4 +30,5 @@ do
 	fi
 done < /usr/share/dict/words
 
+echo "}"
 
