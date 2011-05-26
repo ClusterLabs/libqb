@@ -59,7 +59,7 @@ struct qb_list_head {
  * Points next and prev pointers to head.
  * @param head pointer to the list head
  */
-static void inline qb_list_init(struct qb_list_head *head)
+static inline void qb_list_init(struct qb_list_head *head)
 {
 	head->next = head;
 	head->prev = head;
@@ -71,7 +71,7 @@ static void inline qb_list_init(struct qb_list_head *head)
  * @param element the new element to insert.
  * @param head pointer to the list head
  */
-static void inline qb_list_add(struct qb_list_head *element,
+static inline void qb_list_add(struct qb_list_head *element,
 			       struct qb_list_head *head)
 {
 	head->next->prev = element;
@@ -87,7 +87,7 @@ static void inline qb_list_add(struct qb_list_head *element,
  * @param head pointer to the list head
  * @see qb_list_add()
  */
-static void inline qb_list_add_tail(struct qb_list_head *element,
+static inline void qb_list_add_tail(struct qb_list_head *element,
 				    struct qb_list_head *head)
 {
 	head->prev->next = element;
@@ -101,7 +101,7 @@ static void inline qb_list_add_tail(struct qb_list_head *element,
  *
  * @param _remove the list item to remove
  */
-static void inline qb_list_del(struct qb_list_head *_remove)
+static inline void qb_list_del(struct qb_list_head *_remove)
 {
 	_remove->next->prev = _remove->prev;
 	_remove->prev->next = _remove->next;
