@@ -61,7 +61,8 @@ bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 if HAVE_DICT_WORDS
 write_logs.c:
-	$(srcdir)/make-log-test > $(builddir)/write_logs.c
+	$(srcdir)/make-log-test > $(builddir)/write_logs-tmp.c
+	mv $(builddir)/write_logs-tmp.c $(builddir)/write_logs.c
 endif
 
 
