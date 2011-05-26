@@ -221,7 +221,6 @@ static int32_t my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t ev
 static int32_t my_g_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
-	//return qb_loop_poll_mod(bms_loop, p, fd, evts, data, fn);
 	return 0;
 }
 
@@ -280,7 +279,7 @@ int32_t main(int32_t argc, char *argv[])
 	};
 #ifdef HAVE_GLIB
 	struct qb_ipcs_poll_handlers glib_ph = {
-		.job_add = NULL, // FIXME
+		.job_add = NULL, /* FIXME */
 		.dispatch_add = my_g_dispatch_add,
 		.dispatch_mod = my_g_dispatch_mod,
 		.dispatch_del = my_g_dispatch_del,

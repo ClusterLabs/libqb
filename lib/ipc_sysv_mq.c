@@ -227,10 +227,7 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_request_header hdr;
 
-	qb_util_log(LOG_DEBUG, "%s()", __func__);
-	//if (c->needs_sock_for_poll) {
-	//	return;
-	//}
+	qb_util_log(LOG_TRACE, "%s()", __func__);
 
 	hdr.id = QB_IPC_MSG_DISCONNECT;
 	hdr.size = sizeof(hdr);

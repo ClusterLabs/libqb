@@ -108,7 +108,9 @@ int main(int argc, char * argv[])
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_2_4);
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_2);
 	qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_3_7);
-//	qb_loop_timer_add(l, QB_LOOP_HIGH, 40*QB_TIME_NS_IN_MSEC, NULL, more_jobs, &th);
+/*
+ * 	qb_loop_timer_add(l, QB_LOOP_HIGH, 40*QB_TIME_NS_IN_MSEC, NULL, more_jobs, &th);
+ */
 	qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_2_8);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_6);
 

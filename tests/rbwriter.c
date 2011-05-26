@@ -110,7 +110,6 @@ static void bmc_send_nozc(size_t size)
 repeat_send:
 	res = qb_rb_chunk_write(rb, buffer, size);
 	if (res < size) {
-		//usleep(1);
 		goto repeat_send;
 	}
 }

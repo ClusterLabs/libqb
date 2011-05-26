@@ -87,7 +87,6 @@ struct qb_loop * qb_loop_create(void)
 	}
 
 	l->stop_requested = QB_FALSE;
-	// install sources
 	l->timer_source = qb_loop_timer_create(l);
 	l->job_source = qb_loop_jobs_create(l);
 	l->fd_source = qb_loop_poll_create(l);
@@ -141,7 +140,6 @@ void qb_loop_run(struct qb_loop *l)
 			}
 		}
 		todo += l->fd_source->poll(l->fd_source, ms_timeout);
-//		qb_poll_print(l);
 
 		for (p = QB_LOOP_HIGH; p >= p_stop; p--) {
 			todo -= qb_loop_run_level(&l->level[p]);

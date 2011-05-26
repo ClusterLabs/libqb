@@ -22,7 +22,9 @@
 #include <qb/qbdefs.h>
 #include <qb/qbatomic.h>
 
-//#define CRAZY_DEBUG_PRINTFS 1
+/*
+ * #define CRAZY_DEBUG_PRINTFS 1
+ */
 #ifdef CRAZY_DEBUG_PRINTFS
 #define DEBUG_PRINTF(format, args...)	\
 do {				\
@@ -58,7 +60,9 @@ do {							\
  * move the write pointer to the next 32 byte boundry
  * write_pt goes in 4 bytes (sizeof(uint32_t))
  */
-//#define USE_CACHE_LINE_ALIGNMENT 1
+/*
+ * #define USE_CACHE_LINE_ALIGNMENT 1
+ */
 #ifdef USE_CACHE_LINE_ALIGNMENT
 #define idx_cache_line_step(idx)	\
 do {					\
@@ -252,7 +256,9 @@ ssize_t qb_rb_space_free(qb_ringbuffer_t * rb)
 	size_t space_free = 0;
 
 	write_size = rb->shared_hdr->write_pt;
-	// TODO idx_cache_line_step (write_size);
+	/*
+	 * TODO idx_cache_line_step (write_size);
+	 */
 	read_size = rb->shared_hdr->read_pt;
 
 	if (write_size > read_size) {
