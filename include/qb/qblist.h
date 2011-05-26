@@ -28,6 +28,7 @@ extern "C" {
 /* *INDENT-ON* */
 
 #include <stdint.h>
+#include <qb/qbdefs.h>
 
 /**
  * @file qblist.h
