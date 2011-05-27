@@ -197,6 +197,32 @@ static inline void qb_list_splice(struct qb_list_head *list,
 	     pos = qb_list_entry(pos->member.prev, typeof(*pos), member))
 
 /**
+ * Iterate over list of given type safe against removal of list entry
+ * @param pos:		the type * to use as a loop cursor.
+ * @param n:		another type * to use as temporary storage
+ * @param head:		the head for your list.
+ * @param member:	the name of the list_struct within the struct.
+ */
+#define qb_list_for_each_entry_safe(pos, n, head, member)			\
+	for (pos = qb_list_entry((head)->next, typeof(*pos), member),		\
+		n = qb_list_entry(pos->member.next, typeof(*pos), member);	\
+	     &pos->member != (head); 						\
+	     pos = n, n = qb_list_entry(n->member.next, typeof(*n), member))
+
+/**
+ * Iterate backwards over list safe against removal
+ * @param pos:		the type * to use as a loop cursor.
+ * @param n:		another type * to use as temporary storage
+ * @param head:		the head for your list.
+ * @param member:	the name of the list_struct within the struct.
+ */
+#define qb_list_for_each_entry_safe_reverse(pos, n, head, member)		\
+	for (pos = qb_list_entry((head)->prev, typeof(*pos), member),		\
+		n = qb_list_entry(pos->member.prev, typeof(*pos), member);	\
+	     &pos->member != (head); 						\
+	     pos = n, n = qb_list_entry(n->member.prev, typeof(*n), member))
+
+/**
  * Count the number of items in the list.
  * @param head:	the head for your list.
  * @return length of the list.
