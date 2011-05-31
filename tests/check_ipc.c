@@ -453,6 +453,8 @@ START_TEST(test_ipc_disp_us)
 }
 END_TEST
 
+#ifdef IPC_HANDLES_FAILED_SERVER
+
 static void test_ipc_server_fail(void)
 {
 	struct qb_ipc_request_header req_header;
@@ -527,6 +529,7 @@ START_TEST(test_ipc_server_fail_shm)
 	test_ipc_server_fail();
 }
 END_TEST
+#endif /* IPC_HANDLES_FAILED_SERVER */
 
 static Suite *ipc_suite(void)
 {
@@ -534,6 +537,7 @@ static Suite *ipc_suite(void)
 	uid_t uid;
 	Suite *s = suite_create("ipc");
 
+#ifdef IPC_HANDLES_FAILED_SERVER
 	tc = tcase_create("ipc_server_fail_shm");
 	tcase_add_test(tc, test_ipc_server_fail_shm);
 	tcase_set_timeout(tc, 6);
@@ -543,6 +547,7 @@ static Suite *ipc_suite(void)
 	tcase_add_test(tc, test_ipc_server_fail_soc);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
+#endif /* IPC_HANDLES_FAILED_SERVER */
 
 	tc = tcase_create("ipc_txrx_shm_block");
 	tcase_add_test(tc, test_ipc_txrx_shm_block);
