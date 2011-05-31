@@ -107,26 +107,24 @@ int32_t qb_ipcs_run(struct qb_ipcs_service* s)
 
 static int32_t _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 {
+	qb_ipcs_dispatch_mod_fn disp_mod = c->service->poll_fns.dispatch_mod;
+
 	if (c->service->type == QB_IPC_POSIX_MQ
 	    && !c->service->needs_sock_for_poll) {
-		return c->service->poll_fns.dispatch_mod(c->service->
-							 poll_priority,
-							 (int32_t) c->request.u.
-							 pmq.q, c->poll_events,
-							 c,
-							 qb_ipcs_dispatch_service_request);
+		return disp_mod(c->service->poll_priority,
+				(int32_t) c->request.u.pmq.q,
+			        c->poll_events, c,
+				qb_ipcs_dispatch_service_request);
 	} else if (c->service->type == QB_IPC_SOCKET) {
-		return c->service->poll_fns.dispatch_mod(c->service->
-							 poll_priority,
-							 c->event.u.us.sock,
-							 c->poll_events, c,
-							 qb_ipcs_dispatch_connection_request);
+		return disp_mod(c->service->poll_priority,
+				c->event.u.us.sock,
+				c->poll_events, c,
+				qb_ipcs_dispatch_connection_request);
 	} else {
-		return c->service->poll_fns.dispatch_mod(c->service->
-							 poll_priority,
-							 c->setup.u.us.sock,
-							 c->poll_events, c,
-							 qb_ipcs_dispatch_connection_request);
+		return disp_mod(c->service->poll_priority,
+				c->setup.u.us.sock,
+				c->poll_events, c,
+				qb_ipcs_dispatch_connection_request);
 	}
 	return -EINVAL;
 }
@@ -160,12 +158,9 @@ void qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 		qb_ipcs_connection_ref(c);
 
 		qb_ipcs_flowcontrol_set(c, (rl == QB_IPCS_RATE_OFF));
-		if (old_p == s->poll_priority) {
-			qb_ipcs_connection_unref(c);
-			continue;
+		if (old_p != s->poll_priority) {
+			(void)_modify_dispatch_descriptor_(c);
 		}
-
-		(void)_modify_dispatch_descriptor_(c);
 		qb_ipcs_connection_unref(c);
 	}
 }
@@ -451,7 +446,7 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		if (res == 0) {
 			qb_ipcs_connection_unref(c);
 		} else {
-			/* ok, so they want the connection_closedd()
+			/* ok, so they want the connection_closed
 			 * function re-run */
 			rerun_job = (qb_loop_job_dispatch_fn)qb_ipcs_disconnect;
 			res = c->service->poll_fns.job_add(QB_LOOP_LOW, c,

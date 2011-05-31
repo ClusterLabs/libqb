@@ -221,15 +221,19 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 	if (rb == NULL) {
 		return;
 	}
-	qb_util_log(LOG_DEBUG,
-		    "Destroying ringbuffer: %s",
-		    rb->shared_hdr->hdr_path);
 
 	(void)qb_atomic_int_dec_and_test(&rb->shared_hdr->ref_count);
 	if (rb->flags & QB_RB_FLAG_CREATE) {
 		(void)rb->sem_destroy_fn(rb);
 		unlink(rb->shared_hdr->data_path);
 		unlink(rb->shared_hdr->hdr_path);
+		qb_util_log(LOG_DEBUG,
+			    "Free'ing ringbuffer: %s",
+			    rb->shared_hdr->hdr_path);
+	} else {
+		qb_util_log(LOG_DEBUG,
+			    "Closing ringbuffer: %s",
+			    rb->shared_hdr->hdr_path);
 	}
 	munmap(rb->shared_data, (rb->shared_hdr->size * sizeof(uint32_t)) << 1);
 	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
