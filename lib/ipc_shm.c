@@ -23,6 +23,7 @@
 #include "ipc_int.h"
 #include "util_int.h"
 #include <qb/qbdefs.h>
+#include <qb/qbatomic.h>
 #include <qb/qbloop.h>
 #include <qb/qbrb.h>
 
@@ -117,7 +118,8 @@ static void qb_ipc_shm_fc_set(struct qb_ipc_one_way *one_way,
 {
 	int32_t *fc;
 	fc = qb_rb_shared_user_data_get(one_way->u.shm.rb);
-	*fc = fc_enable;
+	qb_util_log(LOG_TRACE, "setting fc to %d", fc_enable);
+	qb_atomic_int_set(fc, fc_enable);
 }
 
 static int32_t qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
@@ -129,7 +131,7 @@ static int32_t qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
 		return -ENOTCONN;
 	}
 	fc = qb_rb_shared_user_data_get(one_way->u.shm.rb);
-	return *fc;
+	return qb_atomic_int_get(fc);
 }
 
 static ssize_t qb_ipc_shm_q_len_get(struct qb_ipc_one_way *one_way)

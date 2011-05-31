@@ -845,6 +845,7 @@ static void qb_ipc_us_fc_set(struct qb_ipc_one_way *one_way,
 {
 	struct ipc_us_control *ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 
+	qb_util_log(LOG_TRACE, "setting fc to %d", fc_enable);
 	qb_atomic_int_set(&ctl->flow_control, fc_enable);
 }
 
