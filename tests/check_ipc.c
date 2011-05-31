@@ -75,9 +75,8 @@ static int32_t fc_enabled = 89;
 
 static int32_t exit_handler(int32_t rsignal, void *data)
 {
+	qb_log(LOG_DEBUG, "caught signal %d", rsignal);
 	qb_ipcs_destroy(s1);
-	qb_loop_stop(my_loop);
-	exit(0);
 	return -1;
 }
 
@@ -92,10 +91,12 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		response.size = sizeof(struct qb_ipc_response_header);
 		response.id = IPC_MSG_RES_TX_RX;
 		response.error = 0;
-		res = qb_ipcs_response_send(c, &response,
-				sizeof(response));
+		res = qb_ipcs_response_send(c, &response, response.size);
 		if (res < 0) {
 			qb_perror(LOG_INFO, "qb_ipcs_response_send");
+		} else if (res != response.size) {
+			qb_log(LOG_DEBUG, "qb_ipcs_response_send %d != %d",
+			       res, response.size);
 		}
 		if (turn_on_fc) {
 			qb_ipcs_request_rate_limit(s1, QB_IPCS_RATE_OFF);
@@ -140,6 +141,12 @@ static int32_t my_dispatch_del(int32_t fd)
 	return qb_loop_poll_del(my_loop, fd);
 }
 
+static void s1_connection_destroyed(qb_ipcs_connection_t *c)
+{
+	qb_enter();
+	qb_loop_stop(my_loop);
+}
+
 static void run_ipc_server(void)
 {
 	int32_t res;
@@ -149,7 +156,7 @@ static void run_ipc_server(void)
 		.connection_accept = NULL,
 		.connection_created = NULL,
 		.msg_process = s1_msg_process_fn,
-		.connection_destroyed = NULL,
+		.connection_destroyed = s1_connection_destroyed,
 		.connection_closed = NULL,
 	};
 
@@ -196,6 +203,8 @@ static int32_t run_function_in_new_process(void (*run_ipc_server_fn)(void))
 
 static int32_t stop_process(pid_t pid)
 {
+	/* wait a bit for the server to shutdown by it's self */
+	usleep(100000);
 	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);
 	return 0;
@@ -229,14 +238,22 @@ repeat_send:
 			return res;
 		}
 	}
+	try_times = 0;
  repeat_recv:
 	res = qb_ipcc_recv(conn, &res_header,
 			sizeof(struct qb_ipc_response_header), ms_timeout);
+	try_times++;
 	if (res == -EINTR) {
 		return -1;
 	}
 	if (res == -EAGAIN || res == -ETIMEDOUT) {
-		goto repeat_recv;
+		if (try_times < 10) {
+			goto repeat_recv;
+		} else {
+			fc_enabled = QB_TRUE;
+			qb_perror(LOG_DEBUG, "qb_ipcc_recv");
+			return res;
+		}
 	}
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 	ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
