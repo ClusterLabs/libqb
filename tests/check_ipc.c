@@ -302,6 +302,7 @@ static void test_ipc_txrx(void)
 
 START_TEST(test_ipc_txrx_shm_tmo)
 {
+	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	recv_timeout = 1000;
@@ -311,6 +312,7 @@ END_TEST
 
 START_TEST(test_ipc_txrx_shm_block)
 {
+	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	recv_timeout = -1;
@@ -320,6 +322,7 @@ END_TEST
 
 START_TEST(test_ipc_txrx_us_block)
 {
+	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	recv_timeout = -1;
@@ -329,6 +332,7 @@ END_TEST
 
 START_TEST(test_ipc_txrx_us_tmo)
 {
+	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	recv_timeout = 1000;
@@ -340,6 +344,7 @@ START_TEST(test_ipc_fc_shm)
 {
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
+	recv_timeout = 500;
 	ipc_name = __func__;
 	test_ipc_txrx();
 }
@@ -349,6 +354,7 @@ START_TEST(test_ipc_fc_us)
 {
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SOCKET;
+	recv_timeout = 500;
 	ipc_name = __func__;
 	test_ipc_txrx();
 }
@@ -356,6 +362,7 @@ END_TEST
 
 START_TEST(test_ipc_txrx_pmq)
 {
+	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_POSIX_MQ;
 	ipc_name = __func__;
 	test_ipc_txrx();
@@ -364,6 +371,7 @@ END_TEST
 
 START_TEST(test_ipc_txrx_smq)
 {
+	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SYSV_MQ;
 	ipc_name = __func__;
 	test_ipc_txrx();
