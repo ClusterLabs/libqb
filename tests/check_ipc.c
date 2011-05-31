@@ -36,7 +36,7 @@
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
 
-#define IPC_NAME "ipc_test"
+static const char *ipc_name = "ipc_test";
 #define MAX_MSG_SIZE (8192*16)
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
@@ -159,7 +159,7 @@ static void run_ipc_server(void)
 
 	my_loop = qb_loop_create();
 
-	s1 = qb_ipcs_create(IPC_NAME, 4, ipc_type, &sh);
+	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
 	fail_if(s1 == 0);
 
 	qb_ipcs_poll_handlers_set(s1, &ph);
@@ -249,7 +249,7 @@ static void test_ipc_txrx(void)
 	sleep(1);
 
 	do {
-		conn = qb_ipcc_connect(IPC_NAME, MAX_MSG_SIZE);
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
@@ -278,6 +278,7 @@ static void test_ipc_txrx(void)
 START_TEST(test_ipc_txrx_shm_tmo)
 {
 	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
 	recv_timeout = 1000;
 	test_ipc_txrx();
 }
@@ -286,6 +287,7 @@ END_TEST
 START_TEST(test_ipc_txrx_shm_block)
 {
 	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
 	recv_timeout = -1;
 	test_ipc_txrx();
 }
@@ -294,6 +296,7 @@ END_TEST
 START_TEST(test_ipc_txrx_us_block)
 {
 	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
 	recv_timeout = -1;
 	test_ipc_txrx();
 }
@@ -302,6 +305,7 @@ END_TEST
 START_TEST(test_ipc_txrx_us_tmo)
 {
 	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
 	recv_timeout = 1000;
 	test_ipc_txrx();
 }
@@ -311,6 +315,7 @@ START_TEST(test_ipc_fc_shm)
 {
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
 	test_ipc_txrx();
 }
 END_TEST
@@ -319,6 +324,7 @@ START_TEST(test_ipc_fc_us)
 {
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
 	test_ipc_txrx();
 }
 END_TEST
@@ -326,6 +332,7 @@ END_TEST
 START_TEST(test_ipc_txrx_pmq)
 {
 	ipc_type = QB_IPC_POSIX_MQ;
+	ipc_name = __func__;
 	test_ipc_txrx();
 }
 END_TEST
@@ -333,6 +340,7 @@ END_TEST
 START_TEST(test_ipc_txrx_smq)
 {
 	ipc_type = QB_IPC_SYSV_MQ;
+	ipc_name = __func__;
 	test_ipc_txrx();
 }
 END_TEST
@@ -351,7 +359,7 @@ static void test_ipc_dispatch(void)
 	sleep(1);
 
 	do {
-		conn = qb_ipcc_connect(IPC_NAME, MAX_MSG_SIZE);
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
@@ -399,6 +407,7 @@ static void test_ipc_dispatch(void)
 START_TEST(test_ipc_disp_shm)
 {
 	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
 	test_ipc_dispatch();
 }
 END_TEST
@@ -406,6 +415,7 @@ END_TEST
 START_TEST(test_ipc_disp_us)
 {
 	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
 	test_ipc_dispatch();
 }
 END_TEST
@@ -425,7 +435,7 @@ static void test_ipc_server_fail(void)
 	sleep(1);
 
 	do {
-		conn = qb_ipcc_connect(IPC_NAME, MAX_MSG_SIZE);
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
@@ -472,6 +482,7 @@ static void test_ipc_server_fail(void)
 START_TEST(test_ipc_server_fail_soc)
 {
 	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
 	test_ipc_server_fail();
 }
 END_TEST
@@ -479,6 +490,7 @@ END_TEST
 START_TEST(test_ipc_server_fail_shm)
 {
 	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
 	test_ipc_server_fail();
 }
 END_TEST
