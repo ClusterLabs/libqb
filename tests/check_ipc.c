@@ -116,6 +116,13 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 	return 0;
 }
 
+static int32_t my_job_add(enum qb_loop_priority p,
+			  void *data,
+			  qb_loop_job_dispatch_fn fn)
+{
+	return qb_loop_job_add(my_loop, p, data, fn);
+}
+
 static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
@@ -147,6 +154,7 @@ static void run_ipc_server(void)
 	};
 
 	struct qb_ipcs_poll_handlers ph = {
+		.job_add = my_job_add,
 		.dispatch_add = my_dispatch_add,
 		.dispatch_mod = my_dispatch_mod,
 		.dispatch_del = my_dispatch_del,
