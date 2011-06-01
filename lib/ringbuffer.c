@@ -84,11 +84,11 @@ do {							\
 
 static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer);
 
-qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
-			    size_t shared_user_data_size)
+static qb_ringbuffer_t *
+_qb_rb_open(const char *name, size_t real_size, uint32_t flags,
+	    size_t shared_user_data_size)
 {
 	struct qb_ringbuffer_s *rb;
-	size_t real_size = QB_ROUNDUP(size, sysconf(_SC_PAGESIZE));
 	char path[PATH_MAX];
 	int32_t fd_hdr;
 	int32_t fd_data;
@@ -96,6 +96,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	size_t shared_size = sizeof(struct qb_ringbuffer_shared_s);
 	char filename[PATH_MAX];
 	int32_t error = 0;
+	void *shm_addr;
 
 	shared_size += shared_user_data_size;
 
@@ -170,12 +171,9 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 		goto cleanup_hdr;
 	}
 
-	qb_util_log(LOG_DEBUG,
-		    "shm size:%zd; real_size:%zd; rb->size:%d", size,
-		    real_size, rb->shared_hdr->size);
-
 	error = qb_util_circular_mmap(fd_data,
-				  (void **)&rb->shared_data, real_size);
+				  &shm_addr, real_size);
+	rb->shared_data = shm_addr;
 	if (error != 0) {
 		qb_util_log(LOG_ERR, "couldn't create circular mmap on %s",
 			    rb->shared_hdr->data_path);
@@ -214,6 +212,52 @@ cleanup_hdr:
 	free(rb);
 	errno = -error;
 	return NULL;
+}
+
+static size_t _rb_min_size = 0;
+#define PAGE_SIZES_NUM 9
+static size_t _page_sizes[PAGE_SIZES_NUM] = {
+	0,
+	16   * 1024,
+	64   * 1024,
+	256  * 1024,
+	512  * 1024,
+	1024 * 1024,
+	4   * 1024 * 1024,
+	64  * 1024 * 1024,
+	256 * 1024 * 1024,
+};
+
+qb_ringbuffer_t *
+qb_rb_open(const char *name, size_t size, uint32_t flags,
+			    size_t shared_user_data_size)
+{
+	int i;
+	qb_ringbuffer_t * rb;
+
+	if (_rb_min_size > 0) {
+		return _qb_rb_open(name, QB_ROUNDUP(size, _rb_min_size),
+				   flags, shared_user_data_size);
+	}
+	/*
+	 * On the first call to qb_rb_open() we try using a number of
+	 * page sizes. This because the system might have CONFIG_HUGETLB_PAGE_SIZE
+	 * defined in their kernel. So even though sysconf() returns 2K or 4K
+	 * the mmap() will require alignment on these boundaries.
+	 */
+	_page_sizes[0] = sysconf(_SC_PAGESIZE);
+	for (i = 0; i < PAGE_SIZES_NUM; i++) {
+		rb = _qb_rb_open(name, QB_ROUNDUP(size, _page_sizes[i]),
+				 flags, shared_user_data_size);
+
+		if (rb != NULL) {
+			_rb_min_size = _page_sizes[i];
+			return rb;
+		} else if (!(rb == NULL && errno == EINVAL)) {
+			return rb;
+		}
+	}
+	return rb;
 }
 
 void qb_rb_close(qb_ringbuffer_t * rb)
