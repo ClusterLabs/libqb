@@ -18,9 +18,8 @@
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 #
 MAINTAINERCLEANFILES = Makefiles.in
-if HAVE_DICT_WORDS
-MAINTAINERCLEANFILES += write_logs.c
-endif
+EXTRA_DIST =
+CLEANFILES =
 
 noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop simple-log bench-log
 
@@ -52,22 +51,25 @@ simple_log_SOURCES = simple-log.c $(top_builddir)/include/qb/qblog.h
 simple_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 simple_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
-bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
-if HAVE_DICT_WORDS
-bench_log_SOURCES += write_logs.c
-endif
-bench_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 if HAVE_DICT_WORDS
-write_logs.c:
+EXTRA_DIST += make-log-test
+CLEANFILES += write_logs.c
+
+nodist_bench_log_SOURCES = write_logs.c
+
+bench_log: write_logs.c
+$(builddir)/write_logs.c: make-log-test
 	$(srcdir)/make-log-test > $(builddir)/write_logs-tmp.c
 	mv $(builddir)/write_logs-tmp.c $(builddir)/write_logs.c
 endif
 
+bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
+bench_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
-EXTRA_DIST = resources.test
+EXTRA_DIST += resources.test
 
 TESTS = array.test rb.test log.test loop.test ipc.test resources.test
 
@@ -99,4 +101,4 @@ log_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 endif
 
 clean-generic:
-	rm -f write_logs.c *.log
+	rm -f *.log
