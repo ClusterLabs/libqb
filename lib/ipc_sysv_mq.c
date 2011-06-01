@@ -83,7 +83,7 @@ retry_creating_the_q:
 	if (res != 0) {
 		res = -errno;
 		qb_util_perror(LOG_ERR,
-			       "error modifing the SYSV message queue");
+			       "error modifying the SYSV message queue");
 		return res;
 	}
 
@@ -106,7 +106,7 @@ static int32_t sysv_split_and_send(int32_t q, const void *msg_ptr,
 		to_send_now = QB_MIN(msg_len - sent, MY_DATA_SIZE);
 		to_send_next = msg_len - (sent + to_send_now);
 		/* receiver used the ID to check to see if there
-		 * is more to recieve for this message.
+		 * is more to receive for this message.
 		 */
 		if (last_chunk) {
 			buf.id = to_send_next + 1;

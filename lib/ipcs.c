@@ -180,7 +180,7 @@ void qb_ipcs_unref(struct qb_ipcs_service *s)
 	assert(s->ref_count > 0);
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
-		qb_util_log(LOG_DEBUG, "%s() - destorying", __func__);
+		qb_util_log(LOG_DEBUG, "%s() - destroying", __func__);
 		for (pos = s->connections.next, n = pos->next;
 		     pos != &s->connections; pos = n, n = pos->next) {
 			c = qb_list_entry(pos, struct qb_ipcs_connection, list);
@@ -446,7 +446,7 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		if (res == 0) {
 			qb_ipcs_connection_unref(c);
 		} else {
-			/* ok, so they want the connection_closed
+			/* OK, so they want the connection_closed
 			 * function re-run */
 			rerun_job = (qb_loop_job_dispatch_fn)qb_ipcs_disconnect;
 			res = c->service->poll_fns.job_add(QB_LOOP_LOW, c,
@@ -503,7 +503,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 		res = -ESHUTDOWN;
 	} else {
 		res = c->service->serv_fns.msg_process(c, hdr, hdr->size);
-		/* 0 == good, negitive == backoff */
+		/* 0 == good, negative == backoff */
 		if (res < 0) {
 			res = -ENOBUFS;
 		} else {

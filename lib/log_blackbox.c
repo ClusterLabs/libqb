@@ -38,7 +38,7 @@ static void _blackbox_reload(int32_t target)
 /* <u32> file lineno
  * <u32> function name length
  * <string> function name
- * <u32> buffer lenght
+ * <u32> buffer length
  * <string> buffer
  */
 static void _blackbox_logger(int32_t target,

@@ -57,7 +57,7 @@ do {							\
 } while (0)
 
 /*
- * move the write pointer to the next 32 byte boundry
+ * move the write pointer to the next 32 byte boundary
  * write_pt goes in 4 bytes (sizeof(uint32_t))
  */
 /*
@@ -151,7 +151,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 	}
 
 	/* Create the shared_data memory segment for the actual ringbuffer.
-	 * They have to be seperate.
+	 * They have to be separate.
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
 		snprintf(filename, PATH_MAX, "%s-data", name);
@@ -336,7 +336,7 @@ void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 	idx_step(write_pt);
 
 	/*
-	 * return a pointer to the begining of the chunk data
+	 * return a pointer to the beginning of the chunk data
 	 */
 	return (void *)&rb->shared_data[write_pt];
 
@@ -562,7 +562,7 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 	}
 	written_size += result;
 
-	qb_util_log(LOG_DEBUG, " writting total of: %zd\n", written_size);
+	qb_util_log(LOG_DEBUG, " writing total of: %zd\n", written_size);
 
 	return written_size;
 }

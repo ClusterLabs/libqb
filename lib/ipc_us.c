@@ -471,7 +471,7 @@ int32_t qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	}
 
 	/*
-	 * Allow eveyrone to write to the socket since the IPC layer handles
+	 * Allow everyone to write to the socket since the IPC layer handles
 	 * security automatically
 	 */
 #if !defined(QB_LINUX)
