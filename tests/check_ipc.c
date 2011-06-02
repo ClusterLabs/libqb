@@ -95,7 +95,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		if (res < 0) {
 			qb_perror(LOG_INFO, "qb_ipcs_response_send");
 		} else if (res != response.size) {
-			qb_log(LOG_DEBUG, "qb_ipcs_response_send %d != %d",
+			qb_log(LOG_DEBUG, "qb_ipcs_response_send %zd != %d",
 			       res, response.size);
 		}
 		if (turn_on_fc) {
