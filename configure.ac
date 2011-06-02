@@ -9,6 +9,7 @@ AC_INIT([libqb],
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
 AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
+AM_SILENT_RULES([yes])
 LT_PREREQ([2.2.6])
 LT_INIT
 

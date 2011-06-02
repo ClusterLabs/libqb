@@ -39,7 +39,7 @@ MAINTAINERCLEANFILES	= Makefile.in aclocal.m4 configure depcomp \
 
 ACLOCAL_AMFLAGS		= -I m4
 
-dist_doc_DATA		= COPYING INSTALL README TODO 
+dist_doc_DATA		= COPYING INSTALL README TODO
 
 SUBDIRS			= include lib docs tests
 
@@ -47,18 +47,18 @@ doxygen:
 	$(MAKE) -C docs doxygen
 
 dist-clean-local:
-	rm -f autoconf automake autoheader
+	$(AM_V_GEN)rm -f autoconf automake autoheader
 
 maintainer-clean-local:
-	rm -rf m4
+	$(AM_V_GEN)rm -rf m4
 
 clean-generic:
-	rm -rf $(SPEC) $(TARFILE) 
+	$(AM_V_GEN)rm -rf $(SPEC) $(TARFILE)
 
 ## make rpm/srpm section.
 
 $(SPEC): $(SPEC).in
-	rm -f $@-t $@
+	$(AM_V_GEN)rm -f $@-t $@
 	LC_ALL=C date="$(shell date "+%a %b %d %Y")" && \
 	if [ -f .tarball-version ]; then \
 		gitver="$(shell cat .tarball-version)" && \
@@ -94,8 +94,8 @@ $(SPEC): $(SPEC).in
 		$< > $@-t; \
 	fi; \
 	if [ -z "$$dirty" ]; then sed -i -e "s#%glo.*dirty.*##g" $@-t; fi
-	chmod a-w $@-t
-	mv $@-t $@
+	$(AM_V_GEN)chmod a-w $@-t
+	$(AM_V_GEN)mv $@-t $@
 
 $(TARFILE):
 	$(MAKE) dist

@@ -61,7 +61,7 @@ nodist_bench_log_SOURCES = write_logs.c
 bench_log: write_logs.c
 $(builddir)/write_logs.c: make-log-test
 	$(srcdir)/make-log-test > $(builddir)/write_logs-tmp.c
-	mv $(builddir)/write_logs-tmp.c $(builddir)/write_logs.c
+	$(AM_V_GEN)mv $(builddir)/write_logs-tmp.c $(builddir)/write_logs.c
 endif
 
 bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
@@ -101,4 +101,4 @@ log_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
 endif
 
 clean-generic:
-	rm -f *.log
+	$(AM_V_GEN)rm -f *.log

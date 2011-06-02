@@ -26,7 +26,7 @@ noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h log_i
 #
 # Here are a set of rules to help you update your library version information:
 # Start with version information of ‘0:0:0’ for each libtool library.
-# Update the version information only immediately before a public release of your software. 
+# Update the version information only immediately before a public release of your software.
 # More frequent updates are unnecessary, and only guarantee that the current interface number gets larger faster.
 # If the library source code has changed at all since the last update, then increment revision (‘c:r:a’ becomes ‘c:r+1:a’).
 # If any interfaces have been added, removed, or changed since the last update, increment current, and set revision to 0.
@@ -48,7 +48,7 @@ if USE_TIMERFD
 else
 libqb_la_SOURCES+=loop_timerlist.c
 endif
-if HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS		  
+if HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS
 libqb_la_SOURCES+=atomic_gcc.c
 else
 libqb_la_SOURCES+=atomic_lock.c
@@ -66,13 +66,13 @@ ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 
 run_splint.sh: $(top_srcdir)/configure.ac
 	echo "$(SPLINT) $(ALL_LINT_FLAGS) $(addprefix $(top_srcdir)/lib/, $(source_to_lint))" > $@
-	chmod +x $@
+	$(AM_V_GEN)chmod +x $@
 
 dist-clean-local:
-	rm -f run_splint.sh
+	$(AM_V_GEN)rm -f run_splint.sh
 
 clean-generic:
-	rm -f run_splint.sh
+	$(AM_V_GEN)rm -f run_splint.sh
 endif
 
 
