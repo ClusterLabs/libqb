@@ -152,91 +152,50 @@ if test $ac_cv_func_epoll_create = yes; then
 	PACKAGE_FEATURES="$PACKAGE_FEATURES epoll"
 fi
 
-# Check for atomic support
-gcc_has_builtin_atomic_operations=no
-if test x"$GCC" = xyes; then
-	AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
-	AC_TRY_LINK([],
-		    [int i;
-		     __sync_synchronize ();
-		     __sync_bool_compare_and_swap (&i, 0, 1);
-		     __sync_fetch_and_add (&i, 1);
-		     ],
-		     [gcc_has_builtin_atomic_operations=yes],
-		     [gcc_has_builtin_atomic_operations=no])
+nongcc_memory_barrier_needed=no
+arch_force_shmlba=no
+case $host_cpu in
+	sparc*)
+		AC_MSG_RESULT([sparcv9])
+		AC_DEFINE_UNQUOTED([QB_ARCH_SPARCV9], [1], [sparcv9])
+		nongcc_memory_barrier_needed=yes
+		arch_force_shmlba=yes
+		;;
+	alpha*)
+		AC_MSG_RESULT([alpha])
+		AC_DEFINE_UNQUOTED([QB_ARCH_ALPHA], [1], [alpha])
+		nongcc_memory_barrier_needed=yes
+		;;
+	powerpc*)
+		AC_MSG_RESULT([powerpc])
+		AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
+		nongcc_memory_barrier_needed=yes
+		arch_force_shmlba=yes
+		;;
+	ia64)
+		AC_MSG_RESULT([ia64])
+		AC_DEFINE_UNQUOTED([QB_ARCH_IA64], [1], [ia64])
+		nongcc_memory_barrier_needed=yes
+		;;
+	arm*)
+		AC_MSG_RESULT([ia64])
+		AC_DEFINE_UNQUOTED([QB_ARCH_ARM], [1], [arm])
+		arch_force_shmlba=yes
+		;;
+	mips*)
+		AC_MSG_RESULT([ia64])
+		AC_DEFINE_UNQUOTED([QB_ARCH_MIPS], [1], [mips])
+		arch_force_shmlba=yes
+		;;
+	*)
+		AC_MSG_RESULT([none])
+		;;
+esac
 
-	AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
-	if test $gcc_has_builtin_atomic_operations = yes; then
-		memory_barrier_needed=yes
-                PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
-	else
-		case $host_cpu in
-			sparc*)
-			AC_MSG_RESULT([sparcv9])
-			AC_DEFINE_UNQUOTED([QB_ARCH_SPARCV9], [1], [sparcv9])
-			memory_barrier_needed=yes
-			;;
-			alpha*)
-			AC_MSG_RESULT([alpha])
-			AC_DEFINE_UNQUOTED([QB_ARCH_ALPHA], [1], [alpha])
-			memory_barrier_needed=yes
-			;;
-			powerpc*)
-			AC_MSG_RESULT([powerpc])
-			AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
-			memory_barrier_needed=yes
-			;;
-			ia64)
-			AC_MSG_RESULT([ia64])
-			AC_DEFINE_UNQUOTED([QB_ARCH_IA64], [1], [ia64])
-			memory_barrier_needed=yes
-			;;
-			*)
-			AC_MSG_RESULT([none])
-			memory_barrier_needed=no
-			;;
-		esac
-		AC_MSG_WARN([-----------------------------])
-		AC_MSG_WARN([You have gcc but not __sync_bool_compare_and_swap])
-		AC_MSG_WARN([try CFLAGS="-march=<your arch> -mtune=native" ./configure])
-		AC_MSG_WARN([-----------------------------])
-	fi
+if test $arch_force_shmlba = yes; then
+	AC_DEFINE_UNQUOTED([QB_FORCE_SHM_ALIGN], [1],
+			   [shared and fixed mmap must align on 16k])
 fi
-
-if test x"$memory_barrier_needed" != xno; then
-	AC_DEFINE_UNQUOTED(QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED, 1,
-			   [need atomic memory barrier])
-	fi
-
-AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
-	       [test $gcc_has_builtin_atomic_operations = yes])
-
-
-LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
-	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
-	-warnposix +matchanyintegral"
-
-# local options
-AC_ARG_ENABLE([ansi],
-	[  --enable-ansi           : force to build with ANSI standards. ],
-	[ default="no" ])
-
-AC_ARG_ENABLE([fatal-warnings],
-	[  --enable-fatal-warnings : enable fatal warnings. ],
-	[ default="no" ])
-
-AC_ARG_ENABLE([debug],
-	[  --enable-debug          : enable debug build. ],
-	[ default="no" ])
-
-AC_ARG_ENABLE([coverage],
-	[  --enable-coverage       : coverage analysis of the codebase. ],
-	[ default="no" ])
-
-AC_ARG_WITH([socket-dir],
-	[  --with-socket-dir=DIR   : socket dir. ],
-	[ SOCKETDIR="$withval" ],
-	[ SOCKETDIR="$localstatedir/run" ])
 
 # OS detection
 # THIS SECTION MUST DIE!
@@ -286,6 +245,69 @@ case "$host_os" in
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;
 esac
+
+# Check for atomic support
+gcc_has_builtin_atomic_operations=no
+if test x"$GCC" = xyes; then
+	AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
+	AC_TRY_LINK([],
+		    [int i;
+		     __sync_synchronize ();
+		     __sync_bool_compare_and_swap (&i, 0, 1);
+		     __sync_fetch_and_add (&i, 1);
+		     ],
+		     [gcc_has_builtin_atomic_operations=yes],
+		     [gcc_has_builtin_atomic_operations=no])
+
+	AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
+	if test $gcc_has_builtin_atomic_operations = yes; then
+		memory_barrier_needed=yes
+                PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
+	else
+		if test $nongcc_memory_barrier_needed = yes; then
+			memory_barrier_needed=yes
+		fi
+		AC_MSG_WARN([-----------------------------])
+		AC_MSG_WARN([You have gcc but not __sync_bool_compare_and_swap])
+		AC_MSG_WARN([try CFLAGS="-march=<your arch> -mtune=native" ./configure])
+		AC_MSG_WARN([-----------------------------])
+	fi
+fi
+
+if test x"$memory_barrier_needed" != xno; then
+	AC_DEFINE_UNQUOTED(QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED, 1,
+			   [need atomic memory barrier])
+	fi
+
+AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
+	       [test $gcc_has_builtin_atomic_operations = yes])
+
+
+LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
+	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
+	-warnposix +matchanyintegral"
+
+# local options
+AC_ARG_ENABLE([ansi],
+	[  --enable-ansi           : force to build with ANSI standards. ],
+	[ default="no" ])
+
+AC_ARG_ENABLE([fatal-warnings],
+	[  --enable-fatal-warnings : enable fatal warnings. ],
+	[ default="no" ])
+
+AC_ARG_ENABLE([debug],
+	[  --enable-debug          : enable debug build. ],
+	[ default="no" ])
+
+AC_ARG_ENABLE([coverage],
+	[  --enable-coverage       : coverage analysis of the codebase. ],
+	[ default="no" ])
+
+AC_ARG_WITH([socket-dir],
+	[  --with-socket-dir=DIR   : socket dir. ],
+	[ SOCKETDIR="$withval" ],
+	[ SOCKETDIR="$localstatedir/run" ])
 
 AC_SUBST(CP)
 # *FLAGS handling goes here

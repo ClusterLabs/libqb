@@ -300,9 +300,22 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 	void *addr;
 	void *addr_next;
 	int32_t res;
+	int flags = MAP_ANONYMOUS;
 
-	addr_orig = mmap(NULL, bytes << 1, PROT_NONE,
-			 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+#ifdef QB_FORCE_SHM_ALIGN
+/* On a number of arches any fixed and shared mmap() mapping address
+ * must be aligned to 16k. If the first mmap() below is not shared then
+ * the first mmap() will succeed because these restrictions do not apply to
+ * private mappings. The second mmap() wants a shared memory mapping but
+ * the address returned by the first one is only page-aligned and not
+ * aligned to 16k.
+ */
+	flags |= MAP_SHARED;
+#else
+	flags |= MAP_PRIVATE;
+#endif /* QB_FORCE_SHM_ALIGN */
+
+	addr_orig = mmap(NULL, bytes << 1, PROT_NONE, flags, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
 		return -errno;

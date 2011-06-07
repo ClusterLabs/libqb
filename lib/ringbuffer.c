@@ -84,20 +84,27 @@ do {							\
 
 static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer);
 
-qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
+qb_ringbuffer_t *
+qb_rb_open(const char *name, size_t size, uint32_t flags,
 			    size_t shared_user_data_size)
 {
 	struct qb_ringbuffer_s *rb;
-	size_t real_size = QB_ROUNDUP(size, sysconf(_SC_PAGESIZE));
+	size_t real_size;
+	size_t shared_size;
 	char path[PATH_MAX];
 	int32_t fd_hdr;
 	int32_t fd_data;
 	uint32_t file_flags = O_RDWR;
-	size_t shared_size = sizeof(struct qb_ringbuffer_shared_s);
 	char filename[PATH_MAX];
 	int32_t error = 0;
+	void *shm_addr;
+	long page_size = sysconf(_SC_PAGESIZE);
 
-	shared_size += shared_user_data_size;
+#ifdef QB_FORCE_SHM_ALIGN
+	page_size = QB_MAX(page_size, 16*1024);
+#endif /* QB_FORCE_SHM_ALIGN */
+	real_size = QB_ROUNDUP(size, page_size);
+	shared_size = sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
 
 	if (flags & QB_RB_FLAG_CREATE) {
 		file_flags |= O_CREAT | O_TRUNC;
@@ -175,7 +182,8 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 		    real_size, rb->shared_hdr->size);
 
 	error = qb_util_circular_mmap(fd_data,
-				  (void **)&rb->shared_data, real_size);
+				      &shm_addr, real_size);
+	rb->shared_data = shm_addr;
 	if (error != 0) {
 		qb_util_log(LOG_ERR, "couldn't create circular mmap on %s",
 			    rb->shared_hdr->data_path);
