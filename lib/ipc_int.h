@@ -106,7 +106,7 @@ struct qb_ipcc_connection {
 	struct qb_ipc_one_way response;
 	struct qb_ipc_one_way event;
 	struct qb_ipcc_funcs funcs;
-	char *receive_buf;
+	struct qb_ipc_request_header *receive_buf;
 };
 
 int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
@@ -175,7 +175,7 @@ struct qb_ipcs_connection {
 	struct qb_ipc_one_way event;
 	struct qb_ipcs_service *service;
 	struct qb_list_head list;
-	char *receive_buf;
+	struct qb_ipc_request_header *receive_buf;
 	void *context;
 	int32_t fc_enabled;
 	int32_t poll_events;

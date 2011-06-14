@@ -482,7 +482,7 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 		size = c->service->funcs.peek(&c->request, (void**)&hdr,
 					      ms_timeout);
 	} else {
-		hdr = (struct qb_ipc_request_header *)c->receive_buf;
+		hdr = c->receive_buf;
 		size = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size,
 					      ms_timeout);
 	}
