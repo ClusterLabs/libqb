@@ -234,9 +234,9 @@ static int32_t qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 
 	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
-	snprintf(r->request, NAME_MAX, "qb-%s-request-%d-%d", s->name, c->pid, c->setup.u.us.sock);
-	snprintf(r->response, NAME_MAX, "qb-%s-response-%d-%d", s->name, c->pid, c->setup.u.us.sock);
-	snprintf(r->event, NAME_MAX, "qb-%s-event-%d-%d", s->name, c->pid, c->setup.u.us.sock);
+	snprintf(r->request, NAME_MAX, "%s-request-%d-%d", s->name, c->pid, c->setup.u.us.sock);
+	snprintf(r->response, NAME_MAX, "%s-response-%d-%d", s->name, c->pid, c->setup.u.us.sock);
+	snprintf(r->event, NAME_MAX, "%s-event-%d-%d", s->name, c->pid, c->setup.u.us.sock);
 
 	c->request.u.shm.rb = qb_rb_open(r->request,
 					 c->request.max_msg_size,
