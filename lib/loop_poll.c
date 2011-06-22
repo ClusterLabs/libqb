@@ -805,7 +805,7 @@ uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle t
 	s = (struct qb_poll_source *)l->fd_source;
 	res = _poll_entry_from_handle_(s, th, &pe);
 	if (res != 0) {
-		return res;
+		return 0;
 	}
 
 	if (timerfd_gettime(pe->ufd.fd, &its) == -1) {

@@ -246,11 +246,11 @@ uint64_t qb_loop_timer_expire_time_get(struct qb_loop *l, qb_loop_timer_handle t
 
 	res = _timer_from_handle_(s, th, &t);
 	if (res != 0) {
-		return res;
+		return 0;
 	}
 
 	if (t->state != QB_POLL_ENTRY_ACTIVE) {
-		return -EBADF;
+		return 0;
 	}
 
 	return timerlist_expire_time (&s->timerlist, t->timerlist_handle);
