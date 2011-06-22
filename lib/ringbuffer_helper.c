@@ -21,7 +21,8 @@
 #include "ringbuffer_int.h"
 #include <qb/qbdefs.h>
 
-static int32_t my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
+static int32_t
+my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct timespec ts_timeout;
 	int32_t res;
@@ -52,15 +53,15 @@ sem_wait_again:
 			break;
 		default:
 			res = -errno;
-			qb_util_perror(LOG_ERR,
-				       "error waiting for semaphore");
+			qb_util_perror(LOG_ERR, "error waiting for semaphore");
 			break;
 		}
 	}
 	return res;
 }
 
-static int32_t my_posix_sem_post(qb_ringbuffer_t * rb)
+static int32_t
+my_posix_sem_post(qb_ringbuffer_t * rb)
 {
 	if (sem_post(&rb->shared_hdr->posix_sem) < 0) {
 		return -errno;
@@ -69,7 +70,8 @@ static int32_t my_posix_sem_post(qb_ringbuffer_t * rb)
 	}
 }
 
-static ssize_t my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
+static ssize_t
+my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
 {
 	int val;
 	if (sem_getvalue(&rb->shared_hdr->posix_sem, &val) < 0) {
@@ -79,7 +81,8 @@ static ssize_t my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
 	}
 }
 
-static int32_t my_posix_sem_destroy(qb_ringbuffer_t * rb)
+static int32_t
+my_posix_sem_destroy(qb_ringbuffer_t * rb)
 {
 	if (sem_destroy(&rb->shared_hdr->posix_sem) == -1) {
 		return -errno;
@@ -88,7 +91,8 @@ static int32_t my_posix_sem_destroy(qb_ringbuffer_t * rb)
 	}
 }
 
-static int32_t my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
+static int32_t
+my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
 {
 	int32_t pshared = 0;
 	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
@@ -105,7 +109,8 @@ static int32_t my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
 }
 
 #ifndef HAVE_POSIX_SHARED_SEMAPHORE
-static int32_t my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
+static int32_t
+my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	struct sembuf sops[1];
 	int32_t res = 0;
@@ -152,15 +157,15 @@ semop_again:
 			res = -ETIMEDOUT;
 		} else {
 			res = -errno;
-			qb_util_perror(LOG_ERR,
-				       "error waiting for semaphore");
+			qb_util_perror(LOG_ERR, "error waiting for semaphore");
 		}
 		return res;
 	}
 	return 0;
 }
 
-static int32_t my_sysv_sem_post(qb_ringbuffer_t * rb)
+static int32_t
+my_sysv_sem_post(qb_ringbuffer_t * rb)
 {
 	struct sembuf sops[1];
 
@@ -186,7 +191,8 @@ semop_again:
 	return 0;
 }
 
-static ssize_t my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
+static ssize_t
+my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
 {
 	ssize_t res = semctl(rb->sem_id, 0, GETVAL, 0);
 	if (res == -1) {
@@ -195,7 +201,8 @@ static ssize_t my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
 	return res;
 }
 
-static int32_t my_sysv_sem_destroy(qb_ringbuffer_t * rb)
+static int32_t
+my_sysv_sem_destroy(qb_ringbuffer_t * rb)
 {
 	if (semctl(rb->sem_id, 0, IPC_RMID, 0) == -1) {
 		return -errno;
@@ -204,7 +211,8 @@ static int32_t my_sysv_sem_destroy(qb_ringbuffer_t * rb)
 	}
 }
 
-static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
+static int32_t
+my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 {
 	union semun options;
 	int32_t res;
@@ -243,7 +251,8 @@ static int32_t my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 }
 #endif /* NOT HAVE_POSIX_SHARED_SEMAPHORE */
 
-int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
+int32_t
+qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 {
 #ifndef HAVE_POSIX_SHARED_SEMAPHORE
 	if (rb->flags & QB_RB_FLAG_SHARED_PROCESS) {
@@ -262,4 +271,3 @@ int32_t qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 		return my_posix_sem_create(rb, flags);
 	}
 }
-

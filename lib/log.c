@@ -42,8 +42,8 @@ static QB_LIST_DECLARE(tags_head);
 static QB_LIST_DECLARE(callsite_sections);
 
 struct callsite_section {
-	struct qb_log_callsite * start;
-	struct qb_log_callsite * stop;
+	struct qb_log_callsite *start;
+	struct qb_log_callsite *stop;
 	struct qb_list_head list;
 };
 
@@ -60,15 +60,16 @@ static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
-void qb_util_set_log_function(qb_util_log_fn_t fn)
+void
+qb_util_set_log_function(qb_util_log_fn_t fn)
 {
 	old_internal_log_fn = fn;
 }
 
-static int32_t _cs_matches_filter_(struct qb_log_callsite *cs,
-				   enum qb_log_filter_type type,
-				   const char * text,
-				   uint8_t priority)
+static int32_t
+_cs_matches_filter_(struct qb_log_callsite *cs,
+		    enum qb_log_filter_type type,
+		    const char *text, uint8_t priority)
 {
 	int32_t match = QB_FALSE;
 
@@ -94,7 +95,8 @@ static int32_t _cs_matches_filter_(struct qb_log_callsite *cs,
 	return match;
 }
 
-static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
+static void
+_log_real_msg(struct qb_log_callsite *cs, const char *msg)
 {
 	int32_t found_threaded;
 	struct qb_log_target *t;
@@ -110,7 +112,8 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 
 	if (old_internal_log_fn) {
 		if (qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
-			old_internal_log_fn(cs->filename, cs->lineno, cs->priority, msg);
+			old_internal_log_fn(cs->filename, cs->lineno,
+					    cs->priority, msg);
 		}
 	}
 
@@ -124,7 +127,8 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
 		t = qb_list_entry(pos, struct qb_log_target, active_list);
 		if (t->threaded) {
-			if (!found_threaded && qb_bit_is_set(cs->targets, t->pos)) {
+			if (!found_threaded
+			    && qb_bit_is_set(cs->targets, t->pos)) {
 				found_threaded = QB_TRUE;
 			}
 		} else {
@@ -141,8 +145,9 @@ static void _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	in_logger = QB_FALSE;
 }
 
-void qb_log_thread_log_write(struct qb_log_callsite *cs,
-			     time_t timestamp, const char *buffer)
+void
+qb_log_thread_log_write(struct qb_log_callsite *cs,
+			time_t timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
 	struct qb_list_head *pos;
@@ -160,13 +165,12 @@ void qb_log_thread_log_write(struct qb_log_callsite *cs,
 	pthread_rwlock_unlock(&_listlock);
 }
 
-void qb_log_from_external_source(const char *function,
-				 const char *filename,
-				 const char *format,
-				 uint8_t priority,
-				 uint32_t lineno,
-				 uint32_t tags,
-				 const char *msg)
+void
+qb_log_from_external_source(const char *function,
+			    const char *filename,
+			    const char *format,
+			    uint8_t priority,
+			    uint32_t lineno, uint32_t tags, const char *msg)
 {
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
@@ -203,7 +207,8 @@ void qb_log_from_external_source(const char *function,
 	_log_real_msg(cs, msg);
 }
 
-void qb_log_real_(struct qb_log_callsite *cs, ...)
+void
+qb_log_real_(struct qb_log_callsite *cs, ...)
 {
 	va_list ap;
 	char buf[QB_LOG_MAX_LEN];
@@ -220,7 +225,9 @@ void qb_log_real_(struct qb_log_callsite *cs, ...)
 	_log_real_msg(cs, buf);
 }
 
-int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_callsite *_stop)
+int32_t
+qb_log_callsites_register(struct qb_log_callsite *_start,
+			  struct qb_log_callsite *_stop)
 {
 	struct callsite_section *sect;
 	struct qb_log_target *t;
@@ -268,7 +275,8 @@ int32_t qb_log_callsites_register(struct qb_log_callsite *_start, struct qb_log_
 	return 0;
 }
 
-void qb_log_callsites_dump(void)
+void
+qb_log_callsites_dump(void)
 {
 	struct callsite_section *sect;
 	struct qb_log_callsite *cs;
@@ -292,10 +300,10 @@ void qb_log_callsites_dump(void)
 	pthread_rwlock_unlock(&_listlock);
 }
 
-static int32_t _log_filter_exists(struct qb_list_head *list_head,
-				  enum qb_log_filter_type type,
-				  const char *text, uint8_t priority,
-				  uint32_t new_value)
+static int32_t
+_log_filter_exists(struct qb_list_head *list_head,
+		   enum qb_log_filter_type type,
+		   const char *text, uint8_t priority, uint32_t new_value)
 {
 	struct qb_log_filter *flt;
 
@@ -310,9 +318,10 @@ static int32_t _log_filter_exists(struct qb_list_head *list_head,
 	return QB_FALSE;
 }
 
-static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
-				 enum qb_log_filter_type type,
-				 const char *text, uint8_t priority)
+static int32_t
+_log_filter_store(uint32_t t, enum qb_log_filter_conf c,
+		  enum qb_log_filter_type type,
+		  const char *text, uint8_t priority)
 {
 	struct qb_log_filter *flt;
 	struct qb_list_head *iter;
@@ -357,8 +366,7 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 		flt->priority = priority;
 		flt->new_value = t;
 		qb_list_add_tail(&flt->list, list_head);
-	} else if (c == QB_LOG_FILTER_REMOVE ||
-		   c == QB_LOG_TAG_CLEAR) {
+	} else if (c == QB_LOG_FILTER_REMOVE || c == QB_LOG_TAG_CLEAR) {
 		qb_list_for_each_safe(iter, next, list_head) {
 			flt = qb_list_entry(iter, struct qb_log_filter, list);
 			if (flt->type == type &&
@@ -371,8 +379,7 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 			}
 		}
 
-	} else if (c == QB_LOG_FILTER_CLEAR_ALL ||
-		   c == QB_LOG_TAG_CLEAR_ALL) {
+	} else if (c == QB_LOG_FILTER_CLEAR_ALL || c == QB_LOG_TAG_CLEAR_ALL) {
 		qb_list_for_each_safe(iter, next, list_head) {
 			flt = qb_list_entry(iter, struct qb_log_filter, list);
 			qb_list_del(iter);
@@ -383,10 +390,11 @@ static int32_t _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 	return 0;
 }
 
-static void _log_filter_apply(struct callsite_section *sect,
-			      uint32_t t, enum qb_log_filter_conf c,
-			      enum qb_log_filter_type type,
-			      const char *text, uint8_t priority)
+static void
+_log_filter_apply(struct callsite_section *sect,
+		  uint32_t t, enum qb_log_filter_conf c,
+		  enum qb_log_filter_type type,
+		  const char *text, uint8_t priority)
 {
 	struct qb_log_callsite *cs;
 
@@ -399,10 +407,11 @@ static void _log_filter_apply(struct callsite_section *sect,
 }
 
 /* #define _QB_FILTER_DEBUGGING_ 1 */
-static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
-				    uint32_t t, enum qb_log_filter_conf c,
-				    enum qb_log_filter_type type,
-				    const char *text, uint8_t priority)
+static void
+_log_filter_apply_to_cs(struct qb_log_callsite *cs,
+			uint32_t t, enum qb_log_filter_conf c,
+			enum qb_log_filter_type type,
+			const char *text, uint8_t priority)
 {
 
 	if (c == QB_LOG_FILTER_CLEAR_ALL) {
@@ -435,16 +444,16 @@ static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 		}
 		if (old_tags != cs->tags) {
 			printf("tags: %s:%u value(%d) %d -> %d\n",
-			       cs->filename, cs->lineno, t,
-			       old_tags, cs->tags);
+			       cs->filename, cs->lineno, t, old_tags, cs->tags);
 		}
 #endif /* _QB_FILTER_DEBUGGING_ */
 	}
 }
 
-int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
-			  enum qb_log_filter_type type,
-			  const char *text, uint8_t priority)
+int32_t
+qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
+		  enum qb_log_filter_type type,
+		  const char *text, uint8_t priority)
 {
 	struct callsite_section *sect;
 	int32_t rc;
@@ -457,8 +466,7 @@ int32_t qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	}
 	if (text == NULL ||
 	    priority > LOG_TRACE ||
-	    type > QB_LOG_FILTER_FORMAT ||
-	    c > QB_LOG_TAG_CLEAR_ALL) {
+	    type > QB_LOG_FILTER_FORMAT || c > QB_LOG_TAG_CLEAR_ALL) {
 		return -EINVAL;
 	}
 	pthread_rwlock_wrlock(&_listlock);
@@ -489,7 +497,7 @@ _log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
 		error = dlerror();
 		if (!handle || error) {
 			qb_log(LOG_ERR, "%s", error);
-			if(handle) {
+			if (handle) {
 				dlclose(handle);
 			}
 			return 0;
@@ -516,7 +524,8 @@ done:
 }
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
-void qb_log_init(const char *name, int32_t facility, uint8_t priority)
+void
+qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t i;
 
@@ -554,7 +563,8 @@ void qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
 }
 
-void qb_log_fini(void)
+void
+qb_log_fini(void)
 {
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
@@ -595,7 +605,8 @@ void qb_log_fini(void)
 	}
 }
 
-struct qb_log_target *qb_log_target_alloc(void)
+struct qb_log_target *
+qb_log_target_alloc(void)
 {
 	int32_t i;
 	for (i = 0; i < 32; i++) {
@@ -607,7 +618,8 @@ struct qb_log_target *qb_log_target_alloc(void)
 	return NULL;
 }
 
-void qb_log_target_free(struct qb_log_target *t)
+void
+qb_log_target_free(struct qb_log_target *t)
 {
 	(void)qb_log_filter_ctl(t->pos, QB_LOG_FILTER_CLEAR_ALL,
 				QB_LOG_FILTER_FILE, NULL, 0);
@@ -617,12 +629,14 @@ void qb_log_target_free(struct qb_log_target *t)
 	qb_log_format_set(t->pos, NULL);
 }
 
-struct qb_log_target *qb_log_target_get(int32_t pos)
+struct qb_log_target *
+qb_log_target_get(int32_t pos)
 {
 	return &conf[pos];
 }
 
-void *qb_log_target_user_data_get(int32_t t)
+void *
+qb_log_target_user_data_get(int32_t t)
 {
 	if (!logger_inited) {
 		errno = -EINVAL;
@@ -636,7 +650,8 @@ void *qb_log_target_user_data_get(int32_t t)
 	return conf[t].instance;
 }
 
-int32_t qb_log_target_user_data_set(int32_t t, void *user_data)
+int32_t
+qb_log_target_user_data_set(int32_t t, void *user_data)
 {
 	if (!logger_inited) {
 		return -EINVAL;
@@ -649,10 +664,10 @@ int32_t qb_log_target_user_data_set(int32_t t, void *user_data)
 	return 0;
 }
 
-int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
-			   qb_log_close_fn close_fn,
-			   qb_log_reload_fn reload_fn,
-			   void *user_data)
+int32_t
+qb_log_custom_open(qb_log_logger_fn log_fn,
+		   qb_log_close_fn close_fn,
+		   qb_log_reload_fn reload_fn, void *user_data)
 {
 	struct qb_log_target *t;
 
@@ -671,7 +686,8 @@ int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
 	return t->pos;
 }
 
-void qb_log_custom_close(int32_t t)
+void
+qb_log_custom_close(int32_t t)
 {
 	struct qb_log_target *target;
 
@@ -690,7 +706,8 @@ void qb_log_custom_close(int32_t t)
 	qb_log_target_free(target);
 }
 
-static int32_t _log_target_enable(struct qb_log_target *t)
+static int32_t
+_log_target_enable(struct qb_log_target *t)
 {
 	int32_t rc = 0;
 
@@ -714,7 +731,8 @@ static int32_t _log_target_enable(struct qb_log_target *t)
 	return rc;
 }
 
-static void _log_target_disable(struct qb_log_target *t)
+static void
+_log_target_disable(struct qb_log_target *t)
 {
 	if (t->state != QB_LOG_STATE_ENABLED) {
 		return;
@@ -730,7 +748,8 @@ static void _log_target_disable(struct qb_log_target *t)
 	pthread_rwlock_unlock(&_listlock);
 }
 
-int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
+int32_t
+qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 {
 	int32_t rc = 0;
 	int32_t need_reload = QB_FALSE;
@@ -782,7 +801,8 @@ int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 	return rc;
 }
 
-void qb_log_format_set(int32_t t, const char *format)
+void
+qb_log_format_set(int32_t t, const char *format)
 {
 	if (conf[t].format) {
 		free(conf[t].format);
@@ -792,4 +812,3 @@ void qb_log_format_set(int32_t t, const char *format)
 	conf[t].format = strdup(format ? format : "[%p] %b");
 	assert(conf[t].format != NULL);
 }
-

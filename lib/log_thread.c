@@ -57,7 +57,8 @@ static int logt_after_log_ops_yield = 10;
 static pthread_t logt_thread_id = 0;
 
 static void *qb_logt_worker_thread(void *data) __attribute__ ((noreturn));
-static void *qb_logt_worker_thread(void *data)
+static void *
+qb_logt_worker_thread(void *data)
 {
 	struct qb_log_record *rec;
 	int dropped = 0;
@@ -110,9 +111,10 @@ retry_sem_wait:
 	}
 }
 
-static int logt_thread_priority_set(int policy,
-				    const struct sched_param *param,
-				    unsigned int after_log_ops_yield)
+static int
+logt_thread_priority_set(int policy,
+			 const struct sched_param *param,
+			 unsigned int after_log_ops_yield)
 {
 	int res = 0;
 	if (param == NULL) {
@@ -135,7 +137,8 @@ static int logt_thread_priority_set(int policy,
 	return res;
 }
 
-static void wthread_create(void)
+static void
+wthread_create(void)
 {
 	int res;
 
@@ -168,14 +171,16 @@ static void wthread_create(void)
 	}
 }
 
-void qb_log_thread_start(void)
+void
+qb_log_thread_start(void)
 {
 	wthread_create();
 	logt_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 }
 
-void qb_log_thread_log_post(struct qb_log_callsite *cs,
-			    time_t timestamp, const char *buffer)
+void
+qb_log_thread_log_post(struct qb_log_callsite *cs,
+		       time_t timestamp, const char *buffer)
 {
 	struct qb_log_record *rec;
 	size_t buf_size;
@@ -221,7 +226,8 @@ free_record:
 	free(rec);
 }
 
-void qb_log_thread_stop(void)
+void
+qb_log_thread_stop(void)
 {
 	int res;
 	int value;
@@ -241,13 +247,16 @@ void qb_log_thread_stop(void)
 			}
 			sem_wait(&logt_print_finished);
 
-			rec = qb_list_entry(logt_print_finished_records.next, struct qb_log_record, list);
+			rec = qb_list_entry(logt_print_finished_records.next,
+					    struct qb_log_record, list);
 			qb_list_del(&rec->list);
-			logt_memory_used = logt_memory_used - strlen(rec->buffer) -
-			    sizeof(struct qb_log_record) - 1;
+			logt_memory_used = logt_memory_used -
+					   strlen(rec->buffer) -
+					   sizeof(struct qb_log_record) - 1;
 			(void)qb_thread_unlock(logt_wthread_lock);
 
-			qb_log_thread_log_write(rec->cs, rec->timestamp, rec->buffer);
+			qb_log_thread_log_write(rec->cs, rec->timestamp,
+						rec->buffer);
 			free(rec->buffer);
 			free(rec);
 		}

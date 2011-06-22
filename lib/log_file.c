@@ -21,9 +21,9 @@
 #include "os_base.h"
 #include "log_int.h"
 
-static void _file_logger(int32_t t,
-			 struct qb_log_callsite *cs,
-			 time_t timestamp, const char *msg)
+static void
+_file_logger(int32_t t,
+	     struct qb_log_callsite *cs, time_t timestamp, const char *msg)
 {
 	char output_buffer[QB_LOG_MAX_LEN];
 	FILE *f = qb_log_target_user_data_get(t);
@@ -38,7 +38,8 @@ static void _file_logger(int32_t t,
 	fflush(f);
 }
 
-static void _file_close(int32_t t)
+static void
+_file_close(int32_t t)
 {
 	FILE *f = qb_log_target_user_data_get(t);
 
@@ -48,7 +49,8 @@ static void _file_close(int32_t t)
 	}
 }
 
-static void _file_reload(int32_t target)
+static void
+_file_reload(int32_t target)
 {
 	struct qb_log_target *t = qb_log_target_get(target);
 
@@ -58,7 +60,8 @@ static void _file_reload(int32_t target)
 	t->instance = fopen(t->name, "a+");
 }
 
-int32_t qb_log_stderr_open(struct qb_log_target *t)
+int32_t
+qb_log_stderr_open(struct qb_log_target *t)
 {
 	t->logger = _file_logger;
 	t->reload = NULL;
@@ -68,7 +71,8 @@ int32_t qb_log_stderr_open(struct qb_log_target *t)
 	return 0;
 }
 
-int32_t qb_log_file_open(const char *filename)
+int32_t
+qb_log_file_open(const char *filename)
 {
 	struct qb_log_target *t;
 	FILE *fp;
@@ -94,7 +98,8 @@ int32_t qb_log_file_open(const char *filename)
 	return t->pos;
 }
 
-void qb_log_file_close(int32_t t)
+void
+qb_log_file_close(int32_t t)
 {
 	qb_log_custom_close(t);
 }

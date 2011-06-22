@@ -26,19 +26,20 @@
 #include "loop_int.h"
 #include "util_int.h"
 
-static int32_t qb_loop_run_level(struct qb_loop_level *level)
+static int32_t
+qb_loop_run_level(struct qb_loop_level *level)
 {
 	struct qb_loop_item *job;
 	struct qb_list_head *iter;
 	int32_t processed = 0;
 
- Ill_have_another:
+Ill_have_another:
 
 	iter = level->job_head.next;
 	if (iter != &level->job_head) {
 		job = qb_list_entry(iter, struct qb_loop_item, list);
-		qb_list_del (&job->list);
-		qb_list_init (&job->list);
+		qb_list_del(&job->list);
+		qb_list_init(&job->list);
 		job->source->dispatch_and_take_back(job, level->priority);
 		level->todo--;
 		processed++;
@@ -52,23 +53,24 @@ static int32_t qb_loop_run_level(struct qb_loop_level *level)
 	return processed;
 }
 
-void qb_loop_level_item_add(struct qb_loop_level *level,
-			    struct qb_loop_item *job)
+void
+qb_loop_level_item_add(struct qb_loop_level *level, struct qb_loop_item *job)
 {
 	qb_list_init(&job->list);
 	qb_list_add_tail(&job->list, &level->job_head);
 	level->todo++;
 }
 
-void qb_loop_level_item_del(struct qb_loop_level *level,
-			    struct qb_loop_item *job)
+void
+qb_loop_level_item_del(struct qb_loop_level *level, struct qb_loop_item *job)
 {
 	qb_list_del(&job->list);
 	qb_list_init(&job->list);
 	level->todo--;
 }
 
-struct qb_loop * qb_loop_create(void)
+struct qb_loop *
+qb_loop_create(void)
 {
 	struct qb_loop *l = malloc(sizeof(struct qb_loop));
 	int32_t p;
@@ -95,7 +97,8 @@ struct qb_loop * qb_loop_create(void)
 	return l;
 }
 
-void qb_loop_destroy(struct qb_loop * l)
+void
+qb_loop_destroy(struct qb_loop *l)
 {
 	qb_loop_timer_destroy(l);
 	qb_loop_jobs_destroy(l);
@@ -104,12 +107,14 @@ void qb_loop_destroy(struct qb_loop * l)
 	free(l);
 }
 
-void qb_loop_stop(struct qb_loop *l)
+void
+qb_loop_stop(struct qb_loop *l)
 {
 	l->stop_requested = QB_TRUE;
 }
 
-void qb_loop_run(struct qb_loop *l)
+void
+qb_loop_run(struct qb_loop *l)
 {
 	int32_t p;
 	int32_t p_stop = QB_LOOP_LOW;
@@ -149,4 +154,3 @@ void qb_loop_run(struct qb_loop *l)
 		}
 	} while (!l->stop_requested);
 }
-

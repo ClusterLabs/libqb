@@ -54,13 +54,14 @@ static const char log_month_name[][4] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
+void
+qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
 {
 	_user_tags_stringify_fn = fn;
 }
 
-static int _strcpy_cutoff(char *dest, const char *src, size_t cutoff,
-			  size_t buf_len)
+static int
+_strcpy_cutoff(char *dest, const char *src, size_t cutoff, size_t buf_len)
 {
 	size_t len = strlen(src);
 	if (buf_len <= 1) {
@@ -93,10 +94,11 @@ static int _strcpy_cutoff(char *dest, const char *src, size_t cutoff,
  *
  * any number between % and character specify field length to pad or chop
  */
-void qb_log_target_format(int32_t target,
-			  struct qb_log_callsite *cs,
-			  time_t current_time,
-			  const char *formatted_message, char *output_buffer)
+void
+qb_log_target_format(int32_t target,
+		     struct qb_log_callsite *cs,
+		     time_t current_time,
+		     const char *formatted_message, char *output_buffer)
 {
 	char char_time[128];
 	struct tm tm_res;
@@ -183,7 +185,8 @@ void qb_log_target_format(int32_t target,
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
 					     p, cutoff,
-					     (QB_LOG_MAX_LEN - output_buffer_idx));
+					     (QB_LOG_MAX_LEN -
+					      output_buffer_idx));
 			output_buffer_idx += len;
 			format_buffer_idx += 1;
 		}
@@ -192,8 +195,8 @@ void qb_log_target_format(int32_t target,
 		}
 	}
 
-	if (output_buffer[output_buffer_idx-1] == '\n') {
-		output_buffer[output_buffer_idx-1] = '\0';
+	if (output_buffer[output_buffer_idx - 1] == '\n') {
+		output_buffer[output_buffer_idx - 1] = '\0';
 	} else {
 		output_buffer[output_buffer_idx] = '\0';
 	}

@@ -25,54 +25,63 @@
 #include "config.h"
 #include <qb/qbatomic.h>
 
-void qb_atomic_init(void)
+void
+qb_atomic_init(void)
 {
 }
 
-int32_t qb_atomic_int_exchange_and_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
-				       int32_t val)
+int32_t
+qb_atomic_int_exchange_and_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+			       int32_t val)
 {
 	return __sync_fetch_and_add(atomic, val);
 }
 
-void qb_atomic_int_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t val)
+void
+qb_atomic_int_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t val)
 {
 	__sync_fetch_and_add(atomic, val);
 }
 
-int32_t qb_atomic_int_compare_and_exchange(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
-					   int32_t oldval, int32_t newval)
+int32_t
+qb_atomic_int_compare_and_exchange(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+				   int32_t oldval, int32_t newval)
 {
 	return __sync_bool_compare_and_swap(atomic, oldval, newval);
 }
 
-int32_t qb_atomic_pointer_compare_and_exchange(volatile void* QB_GNUC_MAY_ALIAS * atomic,
-					       void* oldval, void* newval)
+int32_t
+qb_atomic_pointer_compare_and_exchange(volatile void *QB_GNUC_MAY_ALIAS *
+				       atomic, void *oldval, void *newval)
 {
 	return __sync_bool_compare_and_swap(atomic, oldval, newval);
 }
 
-int32_t (qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
+int32_t
+(qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
 {
 	__sync_synchronize();
 	return *atomic;
 }
 
-void (qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
-			  int32_t newval)
+void
+(qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+		     int32_t newval)
 {
 	*atomic = newval;
 	__sync_synchronize();
 }
 
-void* (qb_atomic_pointer_get) (volatile void* QB_GNUC_MAY_ALIAS * atomic)
+void *
+(qb_atomic_pointer_get) (volatile void *QB_GNUC_MAY_ALIAS * atomic)
 {
 	__sync_synchronize();
-	return (void*)*atomic;
+	return (void *)*atomic;
 }
 
-void (qb_atomic_pointer_set) (volatile void* QB_GNUC_MAY_ALIAS * atomic,
-			      void* newval)
+void
+(qb_atomic_pointer_set) (volatile void *QB_GNUC_MAY_ALIAS * atomic,
+			      void *newval)
 {
 	*atomic = newval;
 	__sync_synchronize();

@@ -34,19 +34,18 @@ static qb_array_t *callsite_arr = NULL;
 static uint32_t callsite_arr_next = 0;
 static uint32_t callsite_num_bins = 0;
 static uint32_t callsite_elems_per_bin = 0;
-static qb_thread_lock_t* arr_next_lock = NULL;
-
+static qb_thread_lock_t *arr_next_lock = NULL;
 
 struct callsite_list {
 	struct qb_log_callsite *cs;
 	struct callsite_list *next;
 };
 
-
-static void _log_register_callsites(void)
+static void
+_log_register_callsites(void)
 {
-	struct qb_log_callsite* start;
-	struct qb_log_callsite* stop;
+	struct qb_log_callsite *start;
+	struct qb_log_callsite *stop;
 	int32_t b;
 	int32_t rc;
 	uint32_t num_bins = qb_array_num_bins_get(callsite_arr);
@@ -55,7 +54,7 @@ static void _log_register_callsites(void)
 		/* get the first element in the bin */
 		rc = qb_array_index(callsite_arr,
 				    b * callsite_elems_per_bin,
-				    (void**)&start);
+				    (void **)&start);
 		if (rc == 0) {
 			stop = &start[callsite_elems_per_bin];
 			if (qb_log_callsites_register(start, stop) != 0) {
@@ -70,18 +69,17 @@ static struct qb_log_callsite *
 _log_dcs_new_cs(const char *function,
 		const char *filename,
 		const char *format,
-		uint8_t priority,
-		uint32_t lineno,
-		uint32_t tags)
+		uint8_t priority, uint32_t lineno, uint32_t tags)
 {
 	struct qb_log_callsite *cs;
 	int32_t rc;
 	int32_t call_register = QB_FALSE;
 
-	if (qb_array_index(callsite_arr, callsite_arr_next, (void**)&cs) < 0) {
+	if (qb_array_index(callsite_arr, callsite_arr_next, (void **)&cs) < 0) {
 		rc = qb_array_grow(callsite_arr, callsite_arr_next + 255);
 		assert(rc == 0);
-		rc = qb_array_index(callsite_arr, callsite_arr_next, (void**)&cs);
+		rc = qb_array_index(callsite_arr, callsite_arr_next,
+				    (void **)&cs);
 		assert(rc == 0);
 		assert(cs != NULL);
 		call_register = QB_TRUE;
@@ -103,13 +101,11 @@ _log_dcs_new_cs(const char *function,
 }
 
 struct qb_log_callsite *
-qb_log_dcs_get(int32_t *newly_created,
+qb_log_dcs_get(int32_t * newly_created,
 	       const char *function,
 	       const char *filename,
 	       const char *format,
-	       uint8_t priority,
-	       uint32_t lineno,
-	       uint32_t tags)
+	       uint8_t priority, uint32_t lineno, uint32_t tags)
 {
 	int32_t rc;
 	struct qb_log_callsite *cs = NULL;
@@ -120,8 +116,9 @@ qb_log_dcs_get(int32_t *newly_created,
 	/*
 	 * try the fastest access first (no locking needed)
 	 */
-	rc = qb_array_index(lookup_arr, lineno, (void**)&csl_head);
-	if (rc == 0 && csl_head->cs && strcmp(filename, csl_head->cs->filename) == 0) {
+	rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
+	if (rc == 0 && csl_head->cs
+	    && strcmp(filename, csl_head->cs->filename) == 0) {
 		return csl_head->cs;
 	}
 	/*
@@ -131,7 +128,7 @@ qb_log_dcs_get(int32_t *newly_created,
 	if (rc < 0) {
 		rc = qb_array_grow(lookup_arr, lineno + 255);
 		assert(rc == 0);
-		rc = qb_array_index(lookup_arr, lineno, (void**)&csl_head);
+		rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
 		assert(rc == 0);
 	}
 	if (csl_head->cs == NULL) {
@@ -162,15 +159,14 @@ qb_log_dcs_get(int32_t *newly_created,
 	}
 	(void)qb_thread_unlock(arr_next_lock);
 
-
 	return cs;
 }
 
-
-void qb_log_dcs_init(void)
+void
+qb_log_dcs_init(void)
 {
-	lookup_arr =  qb_array_create(256, sizeof(struct callsite_list));
-	callsite_arr =  qb_array_create(256, sizeof(struct qb_log_callsite));
+	lookup_arr = qb_array_create(256, sizeof(struct callsite_list));
+	callsite_arr = qb_array_create(256, sizeof(struct qb_log_callsite));
 
 	arr_next_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 
@@ -178,7 +174,7 @@ void qb_log_dcs_init(void)
 	_log_register_callsites();
 }
 
-void qb_log_dcs_fini(void)
+void
+qb_log_dcs_fini(void)
 {
 }
-

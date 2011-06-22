@@ -31,10 +31,10 @@ static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
 
 static QB_LIST_DECLARE(qb_ipc_services);
 
-qb_ipcs_service_t* qb_ipcs_create(const char *name,
-				  int32_t service_id,
-				  enum qb_ipc_type type,
-				  struct qb_ipcs_service_handlers *handlers)
+qb_ipcs_service_t *
+qb_ipcs_create(const char *name,
+	       int32_t service_id,
+	       enum qb_ipc_type type, struct qb_ipcs_service_handlers *handlers)
 {
 	struct qb_ipcs_service *s;
 
@@ -65,8 +65,9 @@ qb_ipcs_service_t* qb_ipcs_create(const char *name,
 	return s;
 }
 
-void qb_ipcs_poll_handlers_set(struct qb_ipcs_service* s,
-			       struct qb_ipcs_poll_handlers *handlers)
+void
+qb_ipcs_poll_handlers_set(struct qb_ipcs_service *s,
+			  struct qb_ipcs_poll_handlers *handlers)
 {
 	s->poll_fns.job_add = handlers->job_add;
 	s->poll_fns.dispatch_add = handlers->dispatch_add;
@@ -74,7 +75,8 @@ void qb_ipcs_poll_handlers_set(struct qb_ipcs_service* s,
 	s->poll_fns.dispatch_del = handlers->dispatch_del;
 }
 
-int32_t qb_ipcs_run(struct qb_ipcs_service* s)
+int32_t
+qb_ipcs_run(struct qb_ipcs_service *s)
 {
 	int32_t res;
 
@@ -105,7 +107,8 @@ int32_t qb_ipcs_run(struct qb_ipcs_service* s)
 	return res;
 }
 
-static int32_t _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
+static int32_t
+_modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 {
 	qb_ipcs_dispatch_mod_fn disp_mod = c->service->poll_fns.dispatch_mod;
 
@@ -113,7 +116,7 @@ static int32_t _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 	    && !c->service->needs_sock_for_poll) {
 		return disp_mod(c->service->poll_priority,
 				(int32_t) c->request.u.pmq.q,
-			        c->poll_events, c,
+				c->poll_events, c,
 				qb_ipcs_dispatch_service_request);
 	} else if (c->service->type == QB_IPC_SOCKET) {
 		return disp_mod(c->service->poll_priority,
@@ -129,8 +132,9 @@ static int32_t _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 	return -EINVAL;
 }
 
-void qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
-				enum qb_ipcs_rate_limit rl)
+void
+qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
+			   enum qb_ipcs_rate_limit rl)
 {
 	struct qb_ipcs_connection *c;
 	enum qb_loop_priority old_p = s->poll_priority;
@@ -165,12 +169,14 @@ void qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 	}
 }
 
-void qb_ipcs_ref(struct qb_ipcs_service *s)
+void
+qb_ipcs_ref(struct qb_ipcs_service *s)
 {
 	qb_atomic_int_inc(&s->ref_count);
 }
 
-void qb_ipcs_unref(struct qb_ipcs_service *s)
+void
+qb_ipcs_unref(struct qb_ipcs_service *s)
 {
 	int32_t free_it;
 	struct qb_ipcs_connection *c = NULL;
@@ -194,7 +200,8 @@ void qb_ipcs_unref(struct qb_ipcs_service *s)
 	}
 }
 
-void qb_ipcs_destroy(struct qb_ipcs_service* s)
+void
+qb_ipcs_destroy(struct qb_ipcs_service *s)
 {
 	qb_ipcs_unref(s);
 }
@@ -203,8 +210,9 @@ void qb_ipcs_destroy(struct qb_ipcs_service* s)
  * connection API
  */
 
-ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
-			      size_t size)
+ssize_t
+qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
+		      size_t size)
 {
 	ssize_t res;
 
@@ -220,7 +228,9 @@ ssize_t qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 	return res;
 }
 
-ssize_t qb_ipcs_response_sendv(struct qb_ipcs_connection *c, const struct iovec * iov, size_t iov_len)
+ssize_t
+qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
+		       size_t iov_len)
 {
 	ssize_t res;
 
@@ -236,7 +246,8 @@ ssize_t qb_ipcs_response_sendv(struct qb_ipcs_connection *c, const struct iovec 
 	return res;
 }
 
-static int32_t send_event_notification(int32_t fd, int32_t revents, void *data)
+static int32_t
+send_event_notification(int32_t fd, int32_t revents, void *data)
 {
 	ssize_t res = 0;
 	struct qb_ipcs_connection *c = data;
@@ -252,13 +263,13 @@ static int32_t send_event_notification(int32_t fd, int32_t revents, void *data)
 	} else {
 		c->outstanding_notifiers = 0;
 		c->poll_events = POLLIN | POLLPRI | POLLNVAL,
-		(void)_modify_dispatch_descriptor_(c);
+		    (void)_modify_dispatch_descriptor_(c);
 	}
 	return 0;
 }
 
-ssize_t qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data,
-			   size_t size)
+ssize_t
+qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 {
 	ssize_t res;
 	ssize_t res2 = 0;
@@ -283,7 +294,7 @@ ssize_t qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data,
 			 */
 			c->outstanding_notifiers++;
 			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL,
-			(void)_modify_dispatch_descriptor_(c);
+			    (void)_modify_dispatch_descriptor_(c);
 		}
 	}
 
@@ -294,8 +305,9 @@ deref_and_return:
 	return res;
 }
 
-ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
-			    const struct iovec * iov, size_t iov_len)
+ssize_t
+qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
+		    const struct iovec * iov, size_t iov_len)
 {
 	ssize_t res;
 	ssize_t res2;
@@ -320,7 +332,7 @@ ssize_t qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 			 */
 			c->outstanding_notifiers++;
 			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL,
-			(void)_modify_dispatch_descriptor_(c);
+			    (void)_modify_dispatch_descriptor_(c);
 		}
 	}
 
@@ -331,7 +343,8 @@ deref_and_return:
 	return res;
 }
 
-qb_ipcs_connection_t *qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
+qb_ipcs_connection_t *
+qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
 {
 	struct qb_ipcs_connection *c;
 	struct qb_list_head *iter;
@@ -347,8 +360,9 @@ qb_ipcs_connection_t *qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
 	return c;
 }
 
-qb_ipcs_connection_t * qb_ipcs_connection_next_get(struct qb_ipcs_service* s,
-						   struct qb_ipcs_connection *current)
+qb_ipcs_connection_t *
+qb_ipcs_connection_next_get(struct qb_ipcs_service * s,
+			    struct qb_ipcs_connection * current)
 {
 	struct qb_ipcs_connection *c;
 	struct qb_list_head *iter;
@@ -364,14 +378,17 @@ qb_ipcs_connection_t * qb_ipcs_connection_next_get(struct qb_ipcs_service* s,
 	return c;
 }
 
-int32_t qb_ipcs_service_id_get(struct qb_ipcs_connection *c)
+int32_t
+qb_ipcs_service_id_get(struct qb_ipcs_connection * c)
 {
 	return c->service->service_id;
 }
 
-struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
+struct qb_ipcs_connection *
+qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 {
-	struct qb_ipcs_connection *c = calloc(1, sizeof(struct qb_ipcs_connection));
+	struct qb_ipcs_connection *c =
+	    calloc(1, sizeof(struct qb_ipcs_connection));
 
 	if (c == NULL) {
 		return NULL;
@@ -391,18 +408,21 @@ struct qb_ipcs_connection *qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	return c;
 }
 
-void qb_ipcs_connection_ref(struct qb_ipcs_connection *c)
+void
+qb_ipcs_connection_ref(struct qb_ipcs_connection *c)
 {
 	qb_atomic_int_inc(&c->refcount);
 }
 
-void qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
+void
+qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 {
 	int32_t free_it;
 
 	if (c->refcount < 1) {
 		qb_util_log(LOG_ERR, "%s() ref:%d state:%d fd:%d",
-			    __func__, c->refcount, c->state, c->setup.u.us.sock);
+			    __func__, c->refcount, c->state,
+			    c->setup.u.us.sock);
 		assert(0);
 	}
 	free_it = qb_atomic_int_dec_and_test(&c->refcount);
@@ -419,7 +439,8 @@ void qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 	}
 }
 
-void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
+void
+qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 {
 	int32_t res = 0;
 	qb_loop_job_dispatch_fn rerun_job;
@@ -431,8 +452,7 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		c->service->stats.active_connections--;
 		c->service->stats.closed_connections++;
 
-		if (c->service->needs_sock_for_poll &&
-		    c->setup.u.us.sock > 0) {
+		if (c->service->needs_sock_for_poll && c->setup.u.us.sock > 0) {
 			qb_ipcc_us_sock_close(c->setup.u.us.sock);
 			c->setup.u.us.sock = -1;
 			qb_ipcs_connection_unref(c);
@@ -448,8 +468,10 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		} else {
 			/* OK, so they want the connection_closed
 			 * function re-run */
-			rerun_job = (qb_loop_job_dispatch_fn)qb_ipcs_disconnect;
-			res = c->service->poll_fns.job_add(QB_LOOP_LOW, c,
+			rerun_job =
+			    (qb_loop_job_dispatch_fn) qb_ipcs_disconnect;
+			res = c->service->poll_fns.job_add(QB_LOOP_LOW,
+							   c,
 							   rerun_job);
 			if (res != 0) {
 				/* last ditch attempt to cleanup */
@@ -459,7 +481,8 @@ void qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 	}
 }
 
-static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_enable)
+static void
+qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_enable)
 {
 	if (c->fc_enabled != fc_enable) {
 		c->service->funcs.fc_set(&c->request, fc_enable);
@@ -469,8 +492,8 @@ static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_ena
 	}
 }
 
-static int32_t _process_request_(struct qb_ipcs_connection *c,
-				 int32_t ms_timeout)
+static int32_t
+_process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 {
 	int32_t res = 0;
 	ssize_t size;
@@ -479,16 +502,19 @@ static int32_t _process_request_(struct qb_ipcs_connection *c,
 	qb_ipcs_connection_ref(c);
 
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
-		size = c->service->funcs.peek(&c->request, (void**)&hdr,
+		size = c->service->funcs.peek(&c->request, (void **)&hdr,
 					      ms_timeout);
 	} else {
 		hdr = c->receive_buf;
-		size = c->service->funcs.recv(&c->request, hdr, c->request.max_msg_size,
+		size = c->service->funcs.recv(&c->request,
+					      hdr,
+					      c->request.max_msg_size,
 					      ms_timeout);
 	}
 	if (size < 0) {
 		if (size != -EAGAIN && size != -ETIMEDOUT) {
-			qb_util_perror(LOG_ERR, "recv from client connection failed");
+			qb_util_perror(LOG_ERR,
+				       "recv from client connection failed");
 		} else {
 			c->stats.recv_retries++;
 		}
@@ -523,8 +549,8 @@ cleanup:
 #define IPC_REQUEST_TIMEOUT 10
 #define MAX_RECV_MSGS 50
 
-int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
-					 void *data)
+int32_t
+qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data)
 {
 	int32_t res = _process_request_((struct qb_ipcs_connection *)data,
 					IPC_REQUEST_TIMEOUT);
@@ -534,7 +560,8 @@ int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents,
 	return res;
 }
 
-static ssize_t _request_q_len_get(struct qb_ipcs_connection *c)
+static ssize_t
+_request_q_len_get(struct qb_ipcs_connection *c)
 {
 	ssize_t q_len;
 	if (c->service->funcs.q_len_get) {
@@ -554,8 +581,8 @@ static ssize_t _request_q_len_get(struct qb_ipcs_connection *c)
 	return q_len;
 }
 
-int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
-					    void *data)
+int32_t
+qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
 	char bytes[MAX_RECV_MSGS];
@@ -612,19 +639,22 @@ int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents,
 	return res;
 }
 
-void qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
+void
+qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
 {
 	c->context = context;
 }
 
-void *qb_ipcs_context_get(struct qb_ipcs_connection *c)
+void *
+qb_ipcs_context_get(struct qb_ipcs_connection *c)
 {
 	return c->context;
 }
 
-int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
-				     struct qb_ipcs_connection_stats* stats,
-				     int32_t clear_after_read)
+int32_t
+qb_ipcs_connection_stats_get(qb_ipcs_connection_t * c,
+			     struct qb_ipcs_connection_stats * stats,
+			     int32_t clear_after_read)
 {
 	memcpy(stats, &c->stats, sizeof(struct qb_ipcs_connection_stats));
 	if (clear_after_read) {
@@ -634,9 +664,9 @@ int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
 	return 0;
 }
 
-int32_t qb_ipcs_stats_get(struct qb_ipcs_service* s,
-			  struct qb_ipcs_stats* stats,
-			  int32_t clear_after_read)
+int32_t
+qb_ipcs_stats_get(struct qb_ipcs_service * s,
+		  struct qb_ipcs_stats * stats, int32_t clear_after_read)
 {
 	memcpy(stats, &s->stats, sizeof(struct qb_ipcs_stats));
 	if (clear_after_read) {
@@ -644,4 +674,3 @@ int32_t qb_ipcs_stats_get(struct qb_ipcs_service* s,
 	}
 	return 0;
 }
-

@@ -22,9 +22,9 @@
 #include <syslog.h>
 #include "log_int.h"
 
-static void _syslog_logger(int32_t target,
-			   struct qb_log_callsite *cs,
-			   time_t timestamp, const char *msg)
+static void
+_syslog_logger(int32_t target,
+	       struct qb_log_callsite *cs, time_t timestamp, const char *msg)
 {
 	char output_buffer[QB_LOG_MAX_LEN];
 	struct qb_log_target *t = qb_log_target_get(target);
@@ -40,19 +40,22 @@ static void _syslog_logger(int32_t target,
 	syslog(final_priority, "%s", output_buffer);
 }
 
-static void _syslog_close(int32_t target)
+static void
+_syslog_close(int32_t target)
 {
 	closelog();
 }
 
-static void _syslog_reload(int32_t target)
+static void
+_syslog_reload(int32_t target)
 {
 	struct qb_log_target *t = qb_log_target_get(target);
 	closelog();
 	openlog(t->name, LOG_PID, t->facility);
 }
 
-int32_t qb_log_syslog_open(struct qb_log_target *t)
+int32_t
+qb_log_syslog_open(struct qb_log_target *t)
 {
 	t->logger = _syslog_logger;
 	t->reload = _syslog_reload;

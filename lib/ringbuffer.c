@@ -86,7 +86,7 @@ static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer);
 
 qb_ringbuffer_t *
 qb_rb_open(const char *name, size_t size, uint32_t flags,
-			    size_t shared_user_data_size)
+	   size_t shared_user_data_size)
 {
 	struct qb_ringbuffer_s *rb;
 	size_t real_size;
@@ -101,10 +101,11 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	long page_size = sysconf(_SC_PAGESIZE);
 
 #ifdef QB_FORCE_SHM_ALIGN
-	page_size = QB_MAX(page_size, 16*1024);
+	page_size = QB_MAX(page_size, 16 * 1024);
 #endif /* QB_FORCE_SHM_ALIGN */
 	real_size = QB_ROUNDUP(size, page_size);
-	shared_size = sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
+	shared_size =
+	    sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
 
 	if (flags & QB_RB_FLAG_CREATE) {
 		file_flags |= O_CREAT | O_TRUNC;
@@ -120,8 +121,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	 */
 	snprintf(filename, PATH_MAX, "qb-%s-header", name);
 	fd_hdr = qb_util_mmap_file_open(path, filename,
-					shared_size,
-					file_flags);
+					shared_size, file_flags);
 	if (fd_hdr < 0) {
 		error = fd_hdr;
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
@@ -181,8 +181,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		    "shm size:%zd; real_size:%zd; rb->size:%d", size,
 		    real_size, rb->shared_hdr->size);
 
-	error = qb_util_circular_mmap(fd_data,
-				      &shm_addr, real_size);
+	error = qb_util_circular_mmap(fd_data, &shm_addr, real_size);
 	rb->shared_data = shm_addr;
 	if (error != 0) {
 		qb_util_log(LOG_ERR, "couldn't create circular mmap on %s",
@@ -224,7 +223,8 @@ cleanup_hdr:
 	return NULL;
 }
 
-void qb_rb_close(qb_ringbuffer_t * rb)
+void
+qb_rb_close(qb_ringbuffer_t * rb)
 {
 	if (rb == NULL) {
 		return;
@@ -240,30 +240,33 @@ void qb_rb_close(qb_ringbuffer_t * rb)
 			    rb->shared_hdr->hdr_path);
 	} else {
 		qb_util_log(LOG_DEBUG,
-			    "Closing ringbuffer: %s",
-			    rb->shared_hdr->hdr_path);
+			    "Closing ringbuffer: %s", rb->shared_hdr->hdr_path);
 	}
 	munmap(rb->shared_data, (rb->shared_hdr->size * sizeof(uint32_t)) << 1);
 	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
 	free(rb);
 }
 
-char *qb_rb_name_get(qb_ringbuffer_t * rb)
+char *
+qb_rb_name_get(qb_ringbuffer_t * rb)
 {
 	return rb->shared_hdr->hdr_path;
 }
 
-void *qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
+void *
+qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
 {
 	return rb->shared_hdr->user_data;
 }
 
-int32_t qb_rb_refcount_get(qb_ringbuffer_t * rb)
+int32_t
+qb_rb_refcount_get(qb_ringbuffer_t * rb)
 {
 	return qb_atomic_int_get(&rb->shared_hdr->ref_count);
 }
 
-ssize_t qb_rb_space_free(qb_ringbuffer_t * rb)
+ssize_t
+qb_rb_space_free(qb_ringbuffer_t * rb)
 {
 	uint32_t write_size;
 	uint32_t read_size;
@@ -288,7 +291,8 @@ ssize_t qb_rb_space_free(qb_ringbuffer_t * rb)
 	return (space_free * sizeof(uint32_t));
 }
 
-ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
+ssize_t
+qb_rb_space_used(qb_ringbuffer_t * rb)
 {
 	uint32_t write_size;
 	uint32_t read_size;
@@ -309,12 +313,14 @@ ssize_t qb_rb_space_used(qb_ringbuffer_t * rb)
 	return (space_used * sizeof(uint32_t));
 }
 
-ssize_t qb_rb_chunks_used(struct qb_ringbuffer_s * rb)
+ssize_t
+qb_rb_chunks_used(struct qb_ringbuffer_s *rb)
 {
 	return rb->sem_getvalue_fn(rb);
 }
 
-void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
+void *
+qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t write_pt;
 
@@ -327,8 +333,7 @@ void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 			qb_rb_chunk_reclaim(rb);
 		}
 	} else {
-		if (qb_rb_space_free(rb) <
-		    (len + QB_RB_CHUNK_HEADER_SIZE + 4)) {
+		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_HEADER_SIZE + 4)) {
 			errno = EAGAIN;
 			return NULL;
 		}
@@ -350,7 +355,8 @@ void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 
 }
 
-static uint32_t qb_rb_chunk_step(qb_ringbuffer_t * rb, uint32_t pointer)
+static uint32_t
+qb_rb_chunk_step(qb_ringbuffer_t * rb, uint32_t pointer)
 {
 	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
 	/*
@@ -372,7 +378,8 @@ static uint32_t qb_rb_chunk_step(qb_ringbuffer_t * rb, uint32_t pointer)
 	return pointer;
 }
 
-int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
+int32_t
+qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t old_write_pt = rb->shared_hdr->write_pt;
 
@@ -397,7 +404,8 @@ int32_t qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
 	return rb->sem_post_fn(rb);
 }
 
-ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
+ssize_t
+qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 {
 	char *dest = qb_rb_chunk_alloc(rb, len);
 	int32_t res = 0;
@@ -416,7 +424,8 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 	return len;
 }
 
-void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
+void
+qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 {
 	uint32_t old_read_pt = rb->shared_hdr->read_pt;
 
@@ -439,7 +448,8 @@ void qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 		     rb->shared_hdr->write_pt);
 }
 
-ssize_t qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
+ssize_t
+qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
@@ -505,7 +515,8 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 	return chunk_size;
 }
 
-static void print_header(qb_ringbuffer_t * rb)
+static void
+print_header(qb_ringbuffer_t * rb)
 {
 	printf("Ringbuffer: \n");
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
@@ -522,7 +533,8 @@ static void print_header(qb_ringbuffer_t * rb)
 #endif /* S_SPLINT_S */
 }
 
-static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer)
+static void
+qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer)
 {
 	uint32_t chunk_size;
 	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, pointer);
@@ -536,7 +548,8 @@ static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer)
 	}
 }
 
-ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
+ssize_t
+qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 {
 	ssize_t result;
 	ssize_t written_size = 0;
@@ -575,7 +588,8 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 	return written_size;
 }
 
-qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
+qb_ringbuffer_t *
+qb_rb_create_from_file(int32_t fd, uint32_t flags)
 {
 	ssize_t n_read;
 	size_t n_required;
@@ -635,13 +649,14 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags)
 
 	return rb;
 
- cleanup_fail:
+cleanup_fail:
 	free(rb->shared_hdr);
 	free(rb);
 	return NULL;
 }
 
-int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group)
+int32_t
+qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group)
 {
 	int32_t res = chown(rb->shared_hdr->data_path, owner, group);
 	if (res < 0) {
@@ -653,4 +668,3 @@ int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group)
 	}
 	return 0;
 }
-

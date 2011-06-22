@@ -23,7 +23,8 @@
 #include <qb/qbrb.h>
 #include "log_int.h"
 
-static void _blackbox_reload(int32_t target)
+static void
+_blackbox_reload(int32_t target)
 {
 	struct qb_log_target *t = qb_log_target_get(target);
 
@@ -41,9 +42,10 @@ static void _blackbox_reload(int32_t target)
  * <u32> buffer length
  * <string> buffer
  */
-static void _blackbox_logger(int32_t target,
-			     struct qb_log_callsite *cs,
-			     time_t timestamp, const char *buffer)
+static void
+_blackbox_logger(int32_t target,
+		 struct qb_log_callsite *cs,
+		 time_t timestamp, const char *buffer)
 {
 	size_t size = sizeof(uint32_t);
 	size_t fn_size;
@@ -84,7 +86,8 @@ static void _blackbox_logger(int32_t target,
 	(void)qb_rb_chunk_commit(t->instance, size);
 }
 
-static void _blackbox_close(int32_t target)
+static void
+_blackbox_close(int32_t target)
 {
 	struct qb_log_target *t = qb_log_target_get(target);
 
@@ -94,7 +97,8 @@ static void _blackbox_close(int32_t target)
 	}
 }
 
-int32_t qb_log_blackbox_open(struct qb_log_target *t)
+int32_t
+qb_log_blackbox_open(struct qb_log_target *t)
 {
 	if (t->size < 1024) {
 		return -EINVAL;
@@ -111,7 +115,8 @@ int32_t qb_log_blackbox_open(struct qb_log_target *t)
 	return 0;
 }
 
-ssize_t qb_log_blackbox_write_to_file(const char *filename)
+ssize_t
+qb_log_blackbox_write_to_file(const char *filename)
 {
 	ssize_t written_size = 0;
 	struct qb_log_target *t;
@@ -131,7 +136,8 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename)
 	return written_size;
 }
 
-void qb_log_blackbox_print_from_file(const char *bb_filename)
+void
+qb_log_blackbox_print_from_file(const char *bb_filename)
 {
 	qb_ringbuffer_t *instance;
 	ssize_t bytes_read;
@@ -156,7 +162,7 @@ void qb_log_blackbox_print_from_file(const char *bb_filename)
 		uint32_t *fn_size;
 		uint8_t *function;
 		time_t *timestamp;
-		/*uint32_t *log_size;*/
+		/* uint32_t *log_size; */
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;

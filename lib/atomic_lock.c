@@ -45,7 +45,8 @@
 /* We have to use the slow, but safe locking method */
 static qb_thread_lock_t *qb_atomic_mutex = NULL;
 
-void qb_atomic_init(void)
+void
+qb_atomic_init(void)
 {
 	if (qb_atomic_mutex == NULL) {
 		qb_atomic_mutex = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
@@ -54,7 +55,8 @@ void qb_atomic_init(void)
 }
 
 int32_t
-qb_atomic_int_exchange_and_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t val)
+qb_atomic_int_exchange_and_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+			       int32_t val)
 {
 	int32_t result;
 
@@ -66,15 +68,17 @@ qb_atomic_int_exchange_and_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int3
 	return result;
 }
 
-void qb_atomic_int_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t val)
+void
+qb_atomic_int_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t val)
 {
 	qb_thread_lock(qb_atomic_mutex);
 	*atomic += val;
 	qb_thread_unlock(qb_atomic_mutex);
 }
 
-int32_t qb_atomic_int_compare_and_exchange(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
-					   int32_t oldval, int32_t newval)
+int32_t
+qb_atomic_int_compare_and_exchange(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+				   int32_t oldval, int32_t newval)
 {
 	int32_t result;
 
@@ -90,8 +94,9 @@ int32_t qb_atomic_int_compare_and_exchange(volatile int32_t QB_GNUC_MAY_ALIAS * 
 	return result;
 }
 
-int32_t qb_atomic_pointer_compare_and_exchange(volatile void* QB_GNUC_MAY_ALIAS *
-					       atomic, void* oldval, void* newval)
+int32_t
+qb_atomic_pointer_compare_and_exchange(volatile void *QB_GNUC_MAY_ALIAS *
+				       atomic, void *oldval, void *newval)
 {
 	int32_t result;
 
@@ -119,16 +124,19 @@ int32_t(qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic) {
 	return result;
 }
 
-void (qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t newval)
+void
+(qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+			  int32_t newval)
 {
 	qb_thread_lock(qb_atomic_mutex);
 	*atomic = newval;
 	qb_thread_unlock(qb_atomic_mutex);
 }
 
-void* (qb_atomic_pointer_get) (volatile void* QB_GNUC_MAY_ALIAS * atomic)
+void *
+(qb_atomic_pointer_get) (volatile void *QB_GNUC_MAY_ALIAS * atomic)
 {
-	void* result;
+	void *result;
 
 	qb_thread_lock(qb_atomic_mutex);
 	result = *atomic;
@@ -137,34 +145,40 @@ void* (qb_atomic_pointer_get) (volatile void* QB_GNUC_MAY_ALIAS * atomic)
 	return result;
 }
 
-void (qb_atomic_pointer_set) (volatile void* QB_GNUC_MAY_ALIAS * atomic,
-			 void* newval)
+void
+(qb_atomic_pointer_set) (volatile void *QB_GNUC_MAY_ALIAS * atomic,
+			      void *newval)
 {
 	qb_thread_lock(qb_atomic_mutex);
 	*atomic = newval;
 	qb_thread_unlock(qb_atomic_mutex);
 }
 
-int32_t (qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
+int32_t
+(qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
 {
 	QB_ATOMIC_MEMORY_BARRIER;
 	return *atomic;
 }
 
-void (qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t newval)
+void
+(qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+			  int32_t newval)
 {
 	*atomic = newval;
 	QB_ATOMIC_MEMORY_BARRIER;
 }
 
-void* (qb_atomic_pointer_get) (volatile void* QB_GNUC_MAY_ALIAS * atomic)
+void *
+(qb_atomic_pointer_get) (volatile void *QB_GNUC_MAY_ALIAS * atomic)
 {
 	QB_ATOMIC_MEMORY_BARRIER;
 	return *atomic;
 }
 
-void (qb_atomic_pointer_set) (volatile void* QB_GNUC_MAY_ALIAS * atomic,
-			      void* newval)
+void
+(qb_atomic_pointer_set) (volatile void *QB_GNUC_MAY_ALIAS * atomic,
+			      void *newval)
 {
 	*atomic = newval;
 	QB_ATOMIC_MEMORY_BARRIER;
@@ -173,24 +187,27 @@ void (qb_atomic_pointer_set) (volatile void* QB_GNUC_MAY_ALIAS * atomic,
 #endif /* QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED */
 #ifndef QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED
 
-int32_t (qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
+int32_t
+(qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
 {
 	return qb_atomic_int_get(atomic);
 }
 
-void (qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+void
+(qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
 			  int32_t newval)
 {
 	qb_atomic_int_set(atomic, newval);
 }
 
-void* (qb_atomic_pointer_get) (volatile void* QB_GNUC_MAY_ALIAS * atomic)
-{
+void *
+(qb_atomic_pointer_get) (volatile void *QB_GNUC_MAY_ALIAS * atomic) {
 	return qb_atomic_pointer_get(atomic);
 }
 
-void (qb_atomic_pointer_set) (volatile void* QB_GNUC_MAY_ALIAS * atomic,
-			      void* newval)
+void
+(qb_atomic_pointer_set) (volatile void *QB_GNUC_MAY_ALIAS * atomic,
+			      void *newval)
 {
 	qb_atomic_pointer_set(atomic, newval);
 }

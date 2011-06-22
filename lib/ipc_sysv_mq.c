@@ -42,8 +42,9 @@ struct my_msgbuf {
  * utility functions
  * --------------------------------------------------------
  */
-static int32_t sysv_mq_unnamed_create(struct qb_ipcs_connection *c,
-				      struct qb_ipc_one_way *queue)
+static int32_t
+sysv_mq_unnamed_create(struct qb_ipcs_connection *c,
+		       struct qb_ipc_one_way *queue)
 {
 	struct msqid_ds info;
 	int32_t res = 0;
@@ -51,8 +52,8 @@ static int32_t sysv_mq_unnamed_create(struct qb_ipcs_connection *c,
 retry_creating_the_q:
 	queue->u.smq.key = random();
 	queue->u.smq.q =
-		msgget(queue->u.smq.key,
-		       IPC_CREAT | IPC_EXCL | IPC_NOWAIT | S_IWUSR | S_IRUSR);
+	    msgget(queue->u.smq.key,
+		   IPC_CREAT | IPC_EXCL | IPC_NOWAIT | S_IWUSR | S_IRUSR);
 	if (queue->u.smq.q == -1 && errno == EEXIST) {
 		goto retry_creating_the_q;
 	} else if (queue->u.smq.q == -1) {
@@ -90,9 +91,9 @@ retry_creating_the_q:
 	return 0;
 }
 
-
-static int32_t sysv_split_and_send(int32_t q, const void *msg_ptr,
-				   size_t msg_len, int32_t last_chunk)
+static int32_t
+sysv_split_and_send(int32_t q, const void *msg_ptr,
+		    size_t msg_len, int32_t last_chunk)
 {
 	int32_t res;
 	int32_t sent = 0;
@@ -139,14 +140,16 @@ return_status:
  * client functions
  * --------------------------------------------------------
  */
-static ssize_t qb_ipc_smq_send(struct qb_ipc_one_way *one_way,
-			       const void *msg_ptr, size_t msg_len)
+static ssize_t
+qb_ipc_smq_send(struct qb_ipc_one_way *one_way,
+		const void *msg_ptr, size_t msg_len)
 {
 	return sysv_split_and_send(one_way->u.smq.q, msg_ptr, msg_len, QB_TRUE);
 }
 
-static ssize_t qb_ipc_smq_sendv(struct qb_ipc_one_way *one_way,
-				const struct iovec *iov, size_t iov_len)
+static ssize_t
+qb_ipc_smq_sendv(struct qb_ipc_one_way *one_way,
+		 const struct iovec *iov, size_t iov_len)
 {
 	int32_t res;
 	int32_t sent = 0;
@@ -155,21 +158,25 @@ static ssize_t qb_ipc_smq_sendv(struct qb_ipc_one_way *one_way,
 
 	for (i = 0; i < iov_len; i++) {
 		if (iov[i].iov_len <= MY_DATA_SIZE) {
-			if (i == iov_len-1) {
+			if (i == iov_len - 1) {
 				buf.id = 1;
 			} else {
 				buf.id = i + iov[i].iov_len;
 			}
 			memcpy(buf.data, iov[i].iov_base, iov[i].iov_len);
-			res = msgsnd(one_way->u.smq.q, &buf, iov[i].iov_len, IPC_NOWAIT);
+			res = msgsnd(one_way->u.smq.q,
+				     &buf, iov[i].iov_len,
+				     IPC_NOWAIT);
 			if (res == 0) {
 				res = iov[i].iov_len;
 			} else {
 				res = -errno;
 			}
 		} else {
-			res = sysv_split_and_send(one_way->u.smq.q, iov[i].iov_base,
-						  iov[i].iov_len, (i == iov_len-1));
+			res = sysv_split_and_send(one_way->u.smq.q,
+						  iov[i].iov_base,
+						  iov[i].iov_len,
+						  (i == iov_len - 1));
 		}
 		if (res > 0) {
 			sent += res;
@@ -180,10 +187,9 @@ static ssize_t qb_ipc_smq_sendv(struct qb_ipc_one_way *one_way,
 	return sent;
 }
 
-static ssize_t qb_ipc_smq_recv(struct qb_ipc_one_way *one_way,
-			       void *msg_ptr,
-			       size_t msg_len,
-			       int32_t ms_timeout)
+static ssize_t
+qb_ipc_smq_recv(struct qb_ipc_one_way *one_way,
+		void *msg_ptr, size_t msg_len, int32_t ms_timeout)
 {
 	ssize_t res;
 	ssize_t received = 0;
@@ -193,7 +199,8 @@ static ssize_t qb_ipc_smq_recv(struct qb_ipc_one_way *one_way,
 
 	do {
 try_again:
-		res = msgrcv(one_way->u.smq.q, &buf, MY_DATA_SIZE, 0, IPC_NOWAIT);
+		res = msgrcv(one_way->u.smq.q, &buf,
+			     MY_DATA_SIZE, 0, IPC_NOWAIT);
 
 		if (res == -1 && errno == ENOMSG) {
 			goto try_again;
@@ -213,7 +220,7 @@ return_status:
 #endif
 	if (res == -1 && errno == ENOMSG) {
 		/* just to be consistent with other IPC types.
-		*/
+		 */
 		return -EAGAIN;
 	}
 	if (res == -1) {
@@ -223,7 +230,8 @@ return_status:
 	return received;
 }
 
-static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
+static void
+qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_request_header hdr;
 
@@ -232,16 +240,16 @@ static void qb_ipcc_smq_disconnect(struct qb_ipcc_connection *c)
 	hdr.id = QB_IPC_MSG_DISCONNECT;
 	hdr.size = sizeof(hdr);
 	(void)sysv_split_and_send(c->request.u.smq.q,
-				  (const char *)&hdr, hdr.size,
-				  QB_TRUE);
+				  (const char *)&hdr, hdr.size, QB_TRUE);
 
 	msgctl(c->event.u.smq.q, IPC_RMID, NULL);
 	msgctl(c->response.u.smq.q, IPC_RMID, NULL);
 	msgctl(c->request.u.smq.q, IPC_RMID, NULL);
 }
 
-int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection *c,
-			    struct qb_ipc_connection_response *response)
+int32_t
+qb_ipcc_smq_connect(struct qb_ipcc_connection *c,
+		    struct qb_ipc_connection_response *response)
 {
 	int32_t res = 0;
 
@@ -289,7 +297,8 @@ cleanup:
  * service functions
  * --------------------------------------------------------
  */
-static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
+static void
+qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 {
 	struct qb_ipc_response_header msg;
 
@@ -306,9 +315,10 @@ static void qb_ipcs_smq_disconnect(struct qb_ipcs_connection *c)
 	}
 }
 
-static int32_t qb_ipcs_smq_connect(struct qb_ipcs_service *s,
-				   struct qb_ipcs_connection *c,
-				   struct qb_ipc_connection_response *r)
+static int32_t
+qb_ipcs_smq_connect(struct qb_ipcs_service *s,
+		    struct qb_ipcs_connection *c,
+		    struct qb_ipc_connection_response *r)
 {
 	int32_t res = 0;
 
@@ -346,7 +356,8 @@ cleanup:
 	return res;
 }
 
-static ssize_t qb_ipc_smq_q_len_get(struct qb_ipc_one_way *one_way)
+static ssize_t
+qb_ipc_smq_q_len_get(struct qb_ipc_one_way *one_way)
 {
 	struct msqid_ds info;
 	int32_t res = msgctl(one_way->u.smq.q, IPC_STAT, &info);
@@ -356,7 +367,8 @@ static ssize_t qb_ipc_smq_q_len_get(struct qb_ipc_one_way *one_way)
 	return -errno;
 }
 
-void qb_ipcs_smq_init(struct qb_ipcs_service *s)
+void
+qb_ipcs_smq_init(struct qb_ipcs_service *s)
 {
 	s->funcs.connect = qb_ipcs_smq_connect;
 	s->funcs.disconnect = qb_ipcs_smq_disconnect;

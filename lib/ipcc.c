@@ -26,7 +26,8 @@
 #include <qb/qbdefs.h>
 #include <qb/qbipcc.h>
 
-qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
+qb_ipcc_connection_t *
+qb_ipcc_connect(const char *name, size_t max_msg_size)
 {
 	int32_t res;
 	qb_ipcc_connection_t *c = NULL;
@@ -75,7 +76,7 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	}
 	return c;
 
- disconnect_and_cleanup:
+disconnect_and_cleanup:
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	free(c->receive_buf);
 	free(c);
@@ -83,8 +84,8 @@ qb_ipcc_connection_t *qb_ipcc_connect(const char *name, size_t max_msg_size)
 	return NULL;
 }
 
-ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
-		     size_t msg_len)
+ssize_t
+qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 {
 	ssize_t res;
 	ssize_t res2;
@@ -120,8 +121,9 @@ ssize_t qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr,
 	return res;
 }
 
-ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
-		      size_t iov_len)
+ssize_t
+qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
+	      size_t iov_len)
 {
 	int32_t total_size = 0;
 	int32_t i;
@@ -163,8 +165,9 @@ ssize_t qb_ipcc_sendv(struct qb_ipcc_connection* c, const struct iovec* iov,
 	return res;
 }
 
-ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
-		     size_t msg_len, int32_t ms_timeout)
+ssize_t
+qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
+	     size_t msg_len, int32_t ms_timeout)
 {
 	int32_t res = 0;
 	int32_t res2 = 0;
@@ -181,10 +184,10 @@ ssize_t qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	return res;
 }
 
-ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
-			   const struct iovec *iov, uint32_t iov_len,
-			   void *res_msg, size_t res_len,
-			   int32_t ms_timeout)
+ssize_t
+qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
+		   const struct iovec * iov, uint32_t iov_len,
+		   void *res_msg, size_t res_len, int32_t ms_timeout)
 {
 	ssize_t res = 0;
 
@@ -209,7 +212,8 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
 	return qb_ipcc_recv(c, res_msg, res_len, ms_timeout);
 }
 
-int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
+int32_t
+qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 {
 	if (c->type == QB_IPC_SOCKET) {
 		*fd = c->event.u.us.sock;
@@ -219,8 +223,9 @@ int32_t qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 	return 0;
 }
 
-ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
-			   size_t msg_len, int32_t ms_timeout)
+ssize_t
+qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
+		   size_t msg_len, int32_t ms_timeout)
 {
 	char one_byte = 1;
 	int32_t res;
@@ -252,7 +257,8 @@ ssize_t qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	return size;
 }
 
-void qb_ipcc_disconnect(struct qb_ipcc_connection *c)
+void
+qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 

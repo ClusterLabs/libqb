@@ -36,7 +36,8 @@ struct qb_thread_lock_s {
 	pthread_mutex_t mutex;
 };
 
-qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
+qb_thread_lock_t *
+qb_thread_lock_create(qb_thread_lock_type_t type)
 {
 	struct qb_thread_lock_s *tl = malloc(sizeof(struct qb_thread_lock_s));
 	int32_t res;
@@ -44,7 +45,6 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 	if (tl == NULL) {
 		return NULL;
 	}
-
 #ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
 	if (type == QB_THREAD_LOCK_SHORT) {
 		tl->type = QB_THREAD_LOCK_SHORT;
@@ -63,7 +63,8 @@ qb_thread_lock_t *qb_thread_lock_create(qb_thread_lock_type_t type)
 	}
 }
 
-int32_t qb_thread_lock(qb_thread_lock_t * tl)
+int32_t
+qb_thread_lock(qb_thread_lock_t * tl)
 {
 	int32_t res;
 #ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
@@ -77,7 +78,8 @@ int32_t qb_thread_lock(qb_thread_lock_t * tl)
 	return res;
 }
 
-int32_t qb_thread_unlock(qb_thread_lock_t * tl)
+int32_t
+qb_thread_unlock(qb_thread_lock_t * tl)
 {
 	int32_t res;
 #ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
@@ -91,7 +93,8 @@ int32_t qb_thread_unlock(qb_thread_lock_t * tl)
 	return res;
 }
 
-int32_t qb_thread_trylock(qb_thread_lock_t * tl)
+int32_t
+qb_thread_trylock(qb_thread_lock_t * tl)
 {
 	int32_t res;
 #ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
@@ -105,7 +108,8 @@ int32_t qb_thread_trylock(qb_thread_lock_t * tl)
 	return res;
 }
 
-int32_t qb_thread_lock_destroy(qb_thread_lock_t * tl)
+int32_t
+qb_thread_lock_destroy(qb_thread_lock_t * tl)
 {
 	int32_t res;
 #ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
@@ -120,7 +124,8 @@ int32_t qb_thread_lock_destroy(qb_thread_lock_t * tl)
 	return res;
 }
 
-void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
+void
+qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 {
 #ifndef S_SPLINT_S
 	ts->tv_sec = ms / 1000;
@@ -133,7 +138,8 @@ void qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 }
 
 #ifdef HAVE_MONOTONIC_CLOCK
-uint64_t qb_util_nano_current_get(void)
+uint64_t
+qb_util_nano_current_get(void)
 {
 	uint64_t nano_monotonic;
 	struct timespec ts;
@@ -141,10 +147,12 @@ uint64_t qb_util_nano_current_get(void)
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
 	nano_monotonic =
-	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
+	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
 }
-uint64_t qb_util_nano_from_epoch_get(void)
+
+uint64_t
+qb_util_nano_from_epoch_get(void)
 {
 	uint64_t nano_monotonic;
 	struct timespec ts;
@@ -152,11 +160,12 @@ uint64_t qb_util_nano_from_epoch_get(void)
 	clock_gettime(CLOCK_REALTIME, &ts);
 
 	nano_monotonic =
-	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t)ts.tv_nsec;
+	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
 }
 
-uint64_t qb_util_nano_monotonic_hz(void)
+uint64_t
+qb_util_nano_monotonic_hz(void)
 {
 	uint64_t nano_monotonic_hz;
 	struct timespec ts;
@@ -164,28 +173,31 @@ uint64_t qb_util_nano_monotonic_hz(void)
 	clock_getres(CLOCK_MONOTONIC, &ts);
 
 	nano_monotonic_hz =
-	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) +
-				   ts.tv_nsec);
+	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) + ts.tv_nsec);
 
 	return (nano_monotonic_hz);
 }
 
-void qb_util_timespec_from_epoch_get(struct timespec *ts)
+void
+qb_util_timespec_from_epoch_get(struct timespec *ts)
 {
 	clock_gettime(CLOCK_REALTIME, ts);
 }
 #else
-uint64_t qb_util_nano_current_get(void)
+uint64_t
+qb_util_nano_current_get(void)
 {
 	return qb_util_nano_from_epoch_get();
 }
 
-uint64_t qb_util_nano_monotonic_hz(void)
+uint64_t
+qb_util_nano_monotonic_hz(void)
 {
 	return HZ;
 }
 
-void qb_util_timespec_from_epoch_get(struct timespec *ts)
+void
+qb_util_timespec_from_epoch_get(struct timespec *ts)
 {
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
@@ -196,7 +208,8 @@ void qb_util_timespec_from_epoch_get(struct timespec *ts)
 #endif /* S_SPLINT_S */
 }
 
-uint64_t qb_util_nano_from_epoch_get(void)
+uint64_t
+qb_util_nano_from_epoch_get(void)
 {
 	uint64_t nano_from_epoch;
 	struct timeval time_from_epoch;
@@ -209,7 +222,8 @@ uint64_t qb_util_nano_from_epoch_get(void)
 }
 #endif
 
-static int32_t open_mmap_file(char *path, uint32_t file_flags)
+static int32_t
+open_mmap_file(char *path, uint32_t file_flags)
 {
 	if (strstr(path, "XXXXXX") != NULL) {
 		return mkstemp(path);
@@ -222,8 +236,9 @@ static int32_t open_mmap_file(char *path, uint32_t file_flags)
  * ---------------------------------------------------
  * shared memory functions.
  */
-int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
-			       uint32_t file_flags)
+int32_t
+qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
+		       uint32_t file_flags)
 {
 	int32_t fd;
 	int32_t i;
@@ -257,7 +272,6 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 		goto unlink_exit;
 	}
 
-
 	if (file_flags & O_CREAT) {
 		long page_size = sysconf(_SC_PAGESIZE);
 		if (page_size < 0) {
@@ -271,30 +285,31 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 		}
 		for (i = 0; i < (bytes / page_size); i++) {
 retry_write:
-			written = write (fd, buffer, page_size);
+			written = write(fd, buffer, page_size);
 			if (written == -1 && errno == EINTR) {
 				goto retry_write;
 			}
 			if (written != page_size) {
 				res = -ENOSPC;
-				free (buffer);
+				free(buffer);
 				goto unlink_exit;
 			}
 		}
-		free (buffer);
+		free(buffer);
 	}
 
 	return fd;
 
 unlink_exit:
-	unlink (path);
+	unlink(path);
 	if (fd > 0) {
-		close (fd);
+		close(fd);
 	}
 	return res;
 }
 
-int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
+int32_t
+qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 {
 	void *addr_orig = NULL;
 	void *addr;
@@ -350,7 +365,7 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 	*buf = addr_orig;
 	return 0;
 
- cleanup_fail:
+cleanup_fail:
 
 	if (addr_orig) {
 		munmap(addr_orig, bytes << 1);
@@ -359,7 +374,8 @@ int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes)
 	return res;
 }
 
-int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
+int32_t
+qb_util_fd_nonblock_cloexec_set(int32_t fd)
 {
 	int32_t res;
 	int32_t oldflags = fcntl(fd, F_GETFD, 0);
@@ -379,10 +395,7 @@ int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd)
 	res = fcntl(fd, F_SETFL, O_NONBLOCK);
 	if (res == -1) {
 		res = -errno;
-		qb_util_log(LOG_ERR,
-			    "Could not set non-blocking on fd:%d", fd);
+		qb_util_log(LOG_ERR, "Could not set non-blocking on fd:%d", fd);
 	}
 	return res;
 }
-
-

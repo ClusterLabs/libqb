@@ -41,7 +41,8 @@ static size_t q_space_used = 0;
  * utility functions
  * --------------------------------------------------------
  */
-static int32_t posix_mq_increase_limits(size_t max_msg_size, int32_t q_len)
+static int32_t
+posix_mq_increase_limits(size_t max_msg_size, int32_t q_len)
 {
 	int32_t res = 0;
 #ifdef QB_RLIMIT_CHANGE_NEEDED
@@ -74,8 +75,8 @@ static int32_t posix_mq_increase_limits(size_t max_msg_size, int32_t q_len)
 	return res;
 }
 
-static int32_t posix_mq_open(struct qb_ipc_one_way *one_way,
-			     const char *name, size_t q_len)
+static int32_t
+posix_mq_open(struct qb_ipc_one_way *one_way, const char *name, size_t q_len)
 {
 	int32_t res = posix_mq_increase_limits(one_way->max_msg_size, q_len);
 	if (res != 0) {
@@ -92,9 +93,9 @@ static int32_t posix_mq_open(struct qb_ipc_one_way *one_way,
 	return 0;
 }
 
-static int32_t posix_mq_create(struct qb_ipcs_connection *c,
-			       struct qb_ipc_one_way *one_way,
-			       const char *name, size_t q_len)
+static int32_t
+posix_mq_create(struct qb_ipcs_connection *c,
+		struct qb_ipc_one_way *one_way, const char *name, size_t q_len)
 {
 	struct mq_attr attr;
 	mqd_t q = 0;
@@ -142,8 +143,9 @@ try_smaller:
 	return res;
 }
 
-static ssize_t qb_ipc_pmq_send(struct qb_ipc_one_way *one_way,
-			       const void *msg_ptr, size_t msg_len)
+static ssize_t
+qb_ipc_pmq_send(struct qb_ipc_one_way *one_way,
+		const void *msg_ptr, size_t msg_len)
 {
 	int32_t res = mq_send(one_way->u.pmq.q, msg_ptr, msg_len, 1);
 	if (res != 0) {
@@ -152,9 +154,9 @@ static ssize_t qb_ipc_pmq_send(struct qb_ipc_one_way *one_way,
 	return msg_len;
 }
 
-static ssize_t qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
-				const struct iovec* iov,
-				size_t iov_len)
+static ssize_t
+qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
+		 const struct iovec *iov, size_t iov_len)
 {
 	int32_t total_size = 0;
 	int32_t i;
@@ -184,10 +186,9 @@ static ssize_t qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
 	return total_size;
 }
 
-static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
-			       void *msg_ptr,
-			       size_t msg_len,
-			       int32_t ms_timeout)
+static ssize_t
+qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
+		void *msg_ptr, size_t msg_len, int32_t ms_timeout)
 {
 	uint32_t msg_prio;
 	struct timespec ts_timeout;
@@ -198,18 +199,16 @@ static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
 		qb_timespec_add_ms(&ts_timeout, ms_timeout);
 	}
 
- mq_receive_again:
+mq_receive_again:
 	if (ms_timeout >= 0) {
 		res = mq_timedreceive(one_way->u.pmq.q,
 				      (char *)msg_ptr,
 				      one_way->max_msg_size,
-				      &msg_prio,
-				      &ts_timeout);
+				      &msg_prio, &ts_timeout);
 	} else {
 		res = mq_receive(one_way->u.pmq.q,
 				 (char *)msg_ptr,
-				 one_way->max_msg_size,
-				 &msg_prio);
+				 one_way->max_msg_size, &msg_prio);
 	}
 	if (res == -1) {
 		switch (errno) {
@@ -238,7 +237,8 @@ static ssize_t qb_ipc_pmq_recv(struct qb_ipc_one_way *one_way,
  * --------------------------------------------------------
  */
 
-static void qb_ipcc_pmq_disconnect(struct qb_ipcc_connection *c)
+static void
+qb_ipcc_pmq_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_request_header hdr;
 
@@ -260,8 +260,9 @@ static void qb_ipcc_pmq_disconnect(struct qb_ipcc_connection *c)
 	mq_unlink(c->response.u.pmq.name);
 }
 
-int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c,
-			    struct qb_ipc_connection_response *response)
+int32_t
+qb_ipcc_pmq_connect(struct qb_ipcc_connection *c,
+		    struct qb_ipc_connection_response *response)
 {
 	int32_t res = 0;
 
@@ -280,8 +281,7 @@ int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c,
 		return -EINVAL;
 	}
 
-	res = posix_mq_open(&c->request, response->request,
-			    QB_REQUEST_Q_LEN);
+	res = posix_mq_open(&c->request, response->request, QB_REQUEST_Q_LEN);
 	if (res != 0) {
 		perror("mq_open:REQUEST");
 		return res;
@@ -314,7 +314,8 @@ cleanup_request:
  * --------------------------------------------------------
  */
 
-static void qb_ipcs_pmq_disconnect(struct qb_ipcs_connection *c)
+static void
+qb_ipcs_pmq_disconnect(struct qb_ipcs_connection *c)
 {
 	struct qb_ipc_response_header msg;
 
@@ -333,9 +334,10 @@ static void qb_ipcs_pmq_disconnect(struct qb_ipcs_connection *c)
 	mq_unlink(c->response.u.pmq.name);
 }
 
-static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
-				   struct qb_ipcs_connection *c,
-				   struct qb_ipc_connection_response *r)
+static int32_t
+qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
+		    struct qb_ipcs_connection *c,
+		    struct qb_ipc_connection_response *r)
 {
 	int32_t res = 0;
 
@@ -359,9 +361,11 @@ static int32_t qb_ipcs_pmq_connect(struct qb_ipcs_service *s,
 	}
 
 	if (!s->needs_sock_for_poll) {
-		res = s->poll_fns.dispatch_add(s->poll_priority, (int32_t)c->request.u.pmq.q,
-					       POLLIN | POLLPRI | POLLNVAL,
-					       c, qb_ipcs_dispatch_service_request);
+		res =
+		    s->poll_fns.dispatch_add(s->poll_priority,
+					     (int32_t) c->request.u.pmq.q,
+					     POLLIN | POLLPRI | POLLNVAL, c,
+					     qb_ipcs_dispatch_service_request);
 	}
 
 	r->hdr.error = 0;
@@ -380,7 +384,8 @@ cleanup:
 	return res;
 }
 
-static ssize_t qb_ipc_pmq_q_len_get(struct qb_ipc_one_way *one_way)
+static ssize_t
+qb_ipc_pmq_q_len_get(struct qb_ipc_one_way *one_way)
 {
 	struct mq_attr info;
 	int32_t res = mq_getattr(one_way->u.pmq.q, &info);
@@ -390,7 +395,8 @@ static ssize_t qb_ipc_pmq_q_len_get(struct qb_ipc_one_way *one_way)
 	return -errno;
 }
 
-void qb_ipcs_pmq_init(struct qb_ipcs_service * s)
+void
+qb_ipcs_pmq_init(struct qb_ipcs_service *s)
 {
 	s->funcs.connect = qb_ipcs_pmq_connect;
 	s->funcs.disconnect = qb_ipcs_pmq_disconnect;

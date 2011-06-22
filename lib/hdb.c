@@ -29,7 +29,8 @@ enum QB_HDB_HANDLE_STATE {
 	QB_HDB_HANDLE_STATE_ACTIVE
 };
 
-static void qb_hdb_create_first_run(struct qb_hdb *hdb)
+static void
+qb_hdb_create_first_run(struct qb_hdb *hdb)
 {
 	if (hdb->first_run == 1) {
 		hdb->first_run = 0;
@@ -38,21 +39,24 @@ static void qb_hdb_create_first_run(struct qb_hdb *hdb)
 	}
 }
 
-void qb_hdb_create(struct qb_hdb *hdb)
+void
+qb_hdb_create(struct qb_hdb *hdb)
 {
 	memset(hdb, 0, sizeof(struct qb_hdb));
 	hdb->first_run = 1;
 	qb_hdb_create_first_run(hdb);
 }
 
-void qb_hdb_destroy(struct qb_hdb *hdb)
+void
+qb_hdb_destroy(struct qb_hdb *hdb)
 {
 	qb_array_free(hdb->handles);
 	memset(hdb, 0, sizeof(struct qb_hdb));
 }
 
-int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
-			     qb_handle_t * handle_id_out)
+int32_t
+qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
+		     qb_handle_t * handle_id_out)
 {
 	int32_t handle;
 	int32_t res = 0;
@@ -80,11 +84,12 @@ int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 		if (res != 0) {
 			return res;
 		}
-		res = qb_array_index(hdb->handles, handle_count, (void**)&entry);
+		res = qb_array_index(hdb->handles, handle_count,
+				     (void **)&entry);
 		if (res != 0) {
 			return res;
 		}
-		qb_atomic_int_inc((int32_t*)&hdb->handle_count);
+		qb_atomic_int_inc((int32_t *)&hdb->handle_count);
 	}
 
 	instance = malloc(instance_size);
@@ -117,8 +122,8 @@ int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 	return res;
 }
 
-int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
-			  void **instance)
+int32_t
+qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in, void **instance)
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
@@ -133,7 +138,7 @@ int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
 		return (-EBADF);
 	}
 
-	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
 	    entry->state != QB_HDB_HANDLE_STATE_ACTIVE) {
 		return (-EBADF);
 	}
@@ -148,13 +153,15 @@ int32_t qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in,
 	return (0);
 }
 
-int32_t qb_hdb_handle_get_always(struct qb_hdb * hdb, qb_handle_t handle_in,
-				 void **instance)
+int32_t
+qb_hdb_handle_get_always(struct qb_hdb * hdb, qb_handle_t handle_in,
+			 void **instance)
 {
 	return qb_hdb_handle_get(hdb, handle_in, instance);
 }
 
-int32_t qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
+int32_t
+qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
@@ -168,7 +175,7 @@ int32_t qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 		return (-EBADF);
 	}
 
-	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
 	    (check != 0xffffffff && check != entry->check)) {
 		return (-EBADF);
 	}
@@ -183,7 +190,8 @@ int32_t qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 	return (0);
 }
 
-int32_t qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
+int32_t
+qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
@@ -198,7 +206,7 @@ int32_t qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 		return (-EBADF);
 	}
 
-	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
 	    (check != 0xffffffff && check != entry->check)) {
 		return (-EBADF);
 	}
@@ -208,7 +216,8 @@ int32_t qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 	return (res);
 }
 
-int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
+int32_t
+qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
 	uint32_t handle = handle_in & 0xffffffff;
@@ -223,7 +232,7 @@ int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 		return (-EBADF);
 	}
 
-	if (qb_array_index(hdb->handles, handle, (void**)&entry) != 0 ||
+	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
 	    (check != 0xffffffff && check != entry->check)) {
 		return (-EBADF);
 	}
@@ -233,13 +242,14 @@ int32_t qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 	return (refcount);
 }
 
-void qb_hdb_iterator_reset(struct qb_hdb *hdb)
+void
+qb_hdb_iterator_reset(struct qb_hdb *hdb)
 {
 	hdb->iterator = 0;
 }
 
-int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
-			     qb_handle_t * handle)
+int32_t
+qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance, qb_handle_t * handle)
 {
 	int32_t res = -1;
 	uint64_t checker;
@@ -248,7 +258,9 @@ int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
 
 	handle_count = qb_atomic_int_get(&hdb->handle_count);
 	while (hdb->iterator < handle_count) {
-		res = qb_array_index(hdb->handles, hdb->iterator, (void**)&entry);
+		res = qb_array_index(hdb->handles,
+				     hdb->iterator,
+				     (void **)&entry);
 		if (res != 0) {
 			break;
 		}
@@ -264,12 +276,14 @@ int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
 	return (res);
 }
 
-uint32_t qb_hdb_base_convert(qb_handle_t handle)
+uint32_t
+qb_hdb_base_convert(qb_handle_t handle)
 {
 	return (handle & 0xffffffff);
 }
 
-uint64_t qb_hdb_nocheck_convert(uint32_t handle)
+uint64_t
+qb_hdb_nocheck_convert(uint32_t handle)
 {
 	uint64_t retvalue = 0xffffffffULL << 32 | handle;
 

@@ -4,7 +4,12 @@
 # we use the same formatting. No point re-inventing that
 # wheel.
 #
-PARAM="-npro -kr -i8 -ts8 -sob -l80 -ss -ncs -cp1"
+# Differences to kernel style:
+# --dont-break-procedure-type -> --break-procedure-type
+#
+PARAM="-npro -nbad -bap -nbc -bbo -hnl -br -brs -c33 -cd33 -ncdb -ce -ci4
+-cli0 -d0 -di1 -nfc1 -i8 -ip0 -l80 -lp -npcs -nprs -psl -sai
+-saf -saw -ncs -nsc -sob -nfca -cp1 -ss -ts8"
 RES=`indent --version`
 V1=`echo $RES | cut -d' ' -f3 | cut -d'.' -f1`
 V2=`echo $RES | cut -d' ' -f3 | cut -d'.' -f2`
