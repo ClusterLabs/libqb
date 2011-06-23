@@ -59,7 +59,7 @@ developing applications that use %{name}.
 
 %files devel
 %defattr(-,root,root,-)
-%doc COPYING README
+%doc COPYING README.markdown
 %{_includedir}/qb/
 %{_libdir}/libqb.so
 %{_libdir}/pkgconfig/libqb.pc

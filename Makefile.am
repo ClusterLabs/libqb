@@ -39,7 +39,7 @@ MAINTAINERCLEANFILES	= Makefile.in aclocal.m4 configure depcomp \
 
 ACLOCAL_AMFLAGS		= -I m4
 
-dist_doc_DATA		= COPYING INSTALL README TODO
+dist_doc_DATA		= COPYING INSTALL README.markdown TODO
 
 SUBDIRS			= include lib docs tests
 
