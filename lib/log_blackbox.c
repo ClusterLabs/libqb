@@ -167,6 +167,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;
 		if (bytes_read > 0) {
+			struct tm *tm;
 			/* lineno */
 			lineno = (uint32_t *) ptr;
 			ptr += sizeof(uint32_t);
@@ -181,9 +182,15 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 			/* timestamp size & content */
 			timestamp = (time_t *) ptr;
 			ptr += sizeof(time_t);
-			(void)strftime(time_buf, sizeof(time_buf), "%b %d %T",
-				       localtime(timestamp));
-
+			tm = localtime(timestamp);
+			if (tm) {
+				(void)strftime(time_buf,
+					       sizeof(time_buf), "%b %d %T",
+					       tm);
+			} else {
+				snprintf(time_buf, sizeof(time_buf), "%ld",
+					 (long int) timestamp);
+			}
 			/* message size & content */
 			/* log_size = (uint32_t *) ptr; */
 			ptr += sizeof(uint32_t);
