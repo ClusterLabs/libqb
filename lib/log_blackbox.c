@@ -141,7 +141,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 {
 	qb_ringbuffer_t *instance;
 	ssize_t bytes_read;
-	uint8_t chunk[512];
+	char chunk[512];
 	int fd;
 	char time_buf[64];
 
@@ -157,10 +157,10 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 	}
 
 	do {
-		uint8_t *ptr;
+		char *ptr;
 		uint32_t *lineno;
 		uint32_t *fn_size;
-		uint8_t *function;
+		char *function;
 		time_t *timestamp;
 		/* uint32_t *log_size; */
 
