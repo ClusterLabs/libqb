@@ -377,7 +377,7 @@ static Suite *log_suite(void)
 
 	tc = tcase_create("threads");
 	tcase_add_test(tc, test_log_threads);
-	tcase_set_timeout(tc, 30);
+	tcase_set_timeout(tc, 360);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("long_msg");
