@@ -158,10 +158,10 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 
 	do {
 		char *ptr;
-		uint32_t *lineno;
-		uint32_t *fn_size;
+		uint32_t lineno;
+		uint32_t fn_size;
 		char *function;
-		time_t *timestamp;
+		time_t timestamp;
 		/* uint32_t *log_size; */
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
@@ -169,20 +169,20 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		if (bytes_read > 0) {
 			struct tm *tm;
 			/* lineno */
-			lineno = (uint32_t *) ptr;
+			memcpy(&lineno, ptr, sizeof(uint32_t));
 			ptr += sizeof(uint32_t);
 
 			/* function size & name */
-			fn_size = (uint32_t *) ptr;
+			memcpy(&fn_size, ptr, sizeof(uint32_t));
 			ptr += sizeof(uint32_t);
 
 			function = ptr;
-			ptr += *fn_size;
+			ptr += fn_size;
 
 			/* timestamp size & content */
-			timestamp = (time_t *) ptr;
+			memcpy(&timestamp, ptr, sizeof(uint32_t));
 			ptr += sizeof(time_t);
-			tm = localtime(timestamp);
+			tm = localtime(&timestamp);
 			if (tm) {
 				(void)strftime(time_buf,
 					       sizeof(time_buf), "%b %d %T",
@@ -194,8 +194,8 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 			/* message size & content */
 			/* log_size = (uint32_t *) ptr; */
 			ptr += sizeof(uint32_t);
-			printf("%s %s():%d %s\n", time_buf, function, *lineno,
-			       ptr);
+			printf("%s %s():%d %s\n",
+			       time_buf, function, lineno, ptr);
 		}
 	} while (bytes_read > 0);
 }
