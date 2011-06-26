@@ -154,10 +154,11 @@ fi
 
 nongcc_memory_barrier_needed=no
 arch_force_shmlba=no
+AC_MSG_CHECKING([for architecture in ${host_cpu}])
 case $host_cpu in
 	sparc*)
-		AC_MSG_RESULT([sparcv9])
-		AC_DEFINE_UNQUOTED([QB_ARCH_SPARCV9], [1], [sparcv9])
+		AC_MSG_RESULT([sparc])
+		AC_DEFINE_UNQUOTED([QB_ARCH_SPARC], [1], [sparc])
 		nongcc_memory_barrier_needed=yes
 		arch_force_shmlba=yes
 		;;
@@ -188,7 +189,7 @@ case $host_cpu in
 		arch_force_shmlba=yes
 		;;
 	*)
-		AC_MSG_RESULT([none])
+		AC_MSG_RESULT([${host_cpu}])
 		;;
 esac
 
@@ -200,10 +201,12 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
+AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
+		AC_MSG_RESULT([Linux])
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
@@ -217,6 +220,7 @@ case "$host_os" in
 				   [Number of chars in a file name])
 		AC_DEFINE_UNQUOTED([DISABLE_POSIX_THREAD_PROCESS_SHARED], [1],
 				   [Disable _POSIX_THREAD_PROCESS_SHARED])
+		AC_MSG_RESULT([Dawin])
 	;;
 	*bsd*)
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
@@ -231,6 +235,7 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 		esac
+		AC_MSG_RESULT([BSB])
 	;;
 	*solaris*)
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
@@ -240,6 +245,7 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([_SEM_SEMUN_UNDEFINED], [1],
 				   [The semun structure is undefined])
 		CP=rsync
+		AC_MSG_RESULT([Solaris])
 	;;
 	*)
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
