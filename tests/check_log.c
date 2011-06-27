@@ -106,6 +106,9 @@ static void log_it_please(void)
 	qb_enter();
 	qb_log(LOG_TRACE, "A:%d B:%d C:%d", 1, 2, 3);
 	qb_log(LOG_DEBUG, "A:%d B:%d C:%d", 1, 2, 3);
+	errno = EEXIST;
+	qb_perror(LOG_WARNING, "bogus error");
+	errno = 0;
 	qb_log(LOG_INFO, "A:%d B:%d C:%d", 1, 2, 3);
 	qb_log(LOG_NOTICE, "A:%d B:%d C:%d", 1, 2, 3);
 	qb_log(LOG_WARNING, "A:%d B:%d C:%d", 1, 2, 3);
@@ -156,7 +159,7 @@ START_TEST(test_log_basic)
 	num_msgs = 0;
 	qb_log(LOG_ERR, "try if you: log_it_please()");
 	log_it_please();
-	ck_assert_int_eq(num_msgs, 2);
+	ck_assert_int_eq(num_msgs, 3);
 
 	qb_log_filter_ctl(t, QB_LOG_FILTER_REMOVE,
 			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);

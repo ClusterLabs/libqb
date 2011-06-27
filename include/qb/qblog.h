@@ -213,6 +213,7 @@ extern "C" {
 #define LOG_TRACE    (LOG_DEBUG + 1)
 
 #define QB_LOG_MAX_LEN 512
+#define QB_LOG_STRERROR_MAX_LEN 128
 
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
 
@@ -322,10 +323,22 @@ void qb_log_from_external_source(const char *function,
  * @param args usual printf style args
  */
 #ifndef S_SPLINT_S
+#ifdef _GNU_SOURCE
+/* The GNU version of strerror_r returns a (char*) that *must* be used */
 #define qb_perror(priority, fmt, args...) do {				\
-	const char *err = strerror(errno);				\
-	qb_logt(priority, 0, fmt ": %s (%d)", ##args, err, errno);	\
+	char _perr_buf_[QB_LOG_STRERROR_MAX_LEN];			\
+	const char *_perr_str_ = strerror_r(errno, _perr_buf_, sizeof(_perr_buf_));	\
+	qb_logt(priority, 0, fmt ": %s (%d)", ##args, _perr_str_, errno);		\
     } while(0)
+#else
+/* The XSI-compliant strerror_r() return 0 or -1 (in case the buffer is full) */
+#define qb_perror(priority, fmt, args...) do {				\
+	char _perr_buf_[QB_LOG_STRERROR_MAX_LEN];			\
+	if (strerror_r(errno, _perr_buf_, sizeof(_perr_buf_)) == 0) {		\
+		qb_logt(priority, 0, fmt ": %s (%d)", ##args, _perr_buf_, errno); \
+	} else { qb_logt(priority, 0, fmt ": (%d)", ##args, errno); } \
+    } while(0)
+#endif
 #else
 #define qb_perror
 #endif
