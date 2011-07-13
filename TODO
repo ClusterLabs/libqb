@@ -1,6 +1,0 @@
-Last Updated: 18-May-2011
-
-IPC
----
-* client or server to specify the message size
-* glib integration
