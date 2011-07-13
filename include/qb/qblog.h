@@ -33,6 +33,7 @@ extern "C" {
 #include <stdio.h>
 #include <errno.h>
 #include <syslog.h>
+#include <string.h>
 #include <qb/qbconfig.h>
 
 #ifdef S_SPLINT_S
