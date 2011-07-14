@@ -399,3 +399,21 @@ qb_util_fd_nonblock_cloexec_set(int32_t fd)
 	}
 	return res;
 }
+
+char *
+qb_strerror_r(int errnum, char *buf, size_t buflen)
+{
+#ifdef QB_LINUX
+	return strerror_r(errnum, buf, buflen);
+#else
+	char * out_buf;
+
+	if (strerror_r(err_num, buffer, sizeof_buffer) == 0 ) {
+		out_ptr = buffer;
+	} else {
+		out_ptr = "";
+	}
+	return out_buf;
+#endif /* QB_LINUX */
+}
+

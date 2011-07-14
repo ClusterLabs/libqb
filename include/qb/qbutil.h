@@ -120,6 +120,11 @@ uint64_t qb_util_nano_from_epoch_get(void);
  */
 void qb_util_timespec_from_epoch_get(struct timespec *ts);
 
+/**
+ * strerror_r replacement.
+ */
+char *qb_strerror_r(int errnum, char *buf, size_t buflen);
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

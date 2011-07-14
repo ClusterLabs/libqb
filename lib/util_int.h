@@ -36,8 +36,9 @@
 
 #ifndef S_SPLINT_S
 #define qb_util_perror(priority, fmt, args...) do {		\
-	const char *err = strerror(errno);			\
-	qb_logt(priority, QB_LOG_TAG_LIBQB_MSG, fmt ": %s (%d)", ##args, err, errno); \
+	char _perr_buf_[QB_LOG_STRERROR_MAX_LEN];			\
+	const char *_perr_str_ = qb_strerror_r(errno, _perr_buf_, sizeof(_perr_buf_));	\
+	qb_logt(priority, QB_LOG_TAG_LIBQB_MSG, fmt ": %s (%d)", ##args, _perr_str_, errno); \
     } while(0)
 #else
 #define qb_util_perror
