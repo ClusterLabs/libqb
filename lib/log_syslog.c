@@ -30,11 +30,13 @@ _syslog_logger(int32_t target,
 	struct qb_log_target *t = qb_log_target_get(target);
 	int32_t final_priority = cs->priority + t->priority_bump;
 
-	qb_log_target_format(target, cs, timestamp, msg, output_buffer);
-
 	if (final_priority > LOG_DEBUG) {
 		return;
-	} else if (final_priority < LOG_EMERG) {
+	}
+
+	qb_log_target_format(target, cs, timestamp, msg, output_buffer);
+
+	if (final_priority < LOG_EMERG) {
 		final_priority = LOG_EMERG;
 	}
 	syslog(final_priority, "%s", output_buffer);
