@@ -55,6 +55,7 @@ simple_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
 if HAVE_DICT_WORDS
 EXTRA_DIST += make-log-test
 CLEANFILES += write_logs.c
+MAINTAINERCLEANFILES += write_logs.c
 
 nodist_bench_log_SOURCES = write_logs.c
 
@@ -62,6 +63,10 @@ bench_log: write_logs.c
 $(builddir)/write_logs.c: make-log-test
 	$(srcdir)/make-log-test > $(builddir)/write_logs-tmp.c
 	$(AM_V_GEN)mv $(builddir)/write_logs-tmp.c $(builddir)/write_logs.c
+
+distclean-compile:
+	rm -rf write_logs.c
+
 endif
 
 bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
