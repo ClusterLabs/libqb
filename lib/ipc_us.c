@@ -641,11 +641,9 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	struct iovec iov_recv;
 
 #ifdef QB_LINUX
-	struct cmsghdr *cmsg;
 	char cmsg_cred[CMSG_SPACE(sizeof(struct ucred))];
 	int off = 0;
 	int on = 1;
-	struct ucred *cred;
 #endif
 	msg_recv.msg_flags = 0;
 	msg_recv.msg_iov = &iov_recv;
@@ -718,16 +716,19 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	/*
 	 * Usually Linux systems
 	 */
-	cmsg = CMSG_FIRSTHDR(&msg_recv);
-	assert(cmsg != NULL);
-	cred = (struct ucred *)CMSG_DATA(cmsg);
-	if (cred) {
-		res = 0;
-		ugp->pid = cred->pid;
-		ugp->uid = cred->uid;
-		ugp->gid = cred->gid;
-	} else {
-		res = -EBADMSG;
+	{
+		struct ucred *cred;
+		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg_recv);
+		assert(cmsg != NULL);
+		cred = (struct ucred *)CMSG_DATA(cmsg);
+		if (cred) {
+			res = 0;
+			ugp->pid = cred->pid;
+			ugp->uid = cred->uid;
+			ugp->gid = cred->gid;
+		} else {
+			res = -EBADMSG;
+		}
 	}
 #else /* no credentials */
 	ugp->pid = 0;
