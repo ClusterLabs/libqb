@@ -464,6 +464,14 @@ int32_t qb_log_file_open(const char *filename);
 void qb_log_file_close(int32_t t);
 
 /**
+ * When using threaded logging set the pthread policy and priority.
+ *
+ * @retval -errno on error
+ * @retval 0 success
+ */
+int32_t qb_log_thread_priority_set(int32_t policy, int32_t priority);
+
+/**
  * Start the logging pthread.
  */
 void qb_log_thread_start(void);

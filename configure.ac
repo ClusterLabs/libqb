@@ -140,7 +140,8 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime_r memset munmap \
 		socket strchr strdup strerror strrchr strstr \
 		epoll_create epoll_create1 \
-		pthread_spin_lock timerfd_create])
+		pthread_spin_lock timerfd_create pthread_setschedparam \
+		sched_get_priority_max sched_setscheduler])
 
 ## local defines
 PACKAGE_FEATURES=""

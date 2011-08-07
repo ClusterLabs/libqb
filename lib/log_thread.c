@@ -46,11 +46,13 @@ static sem_t logt_thread_start;
 
 static sem_t logt_print_finished;
 
-static int logt_sched_param_queued = 0;
+static int logt_sched_param_queued = QB_FALSE;
 
 static int logt_sched_policy;
 
+#if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 static struct sched_param logt_sched_param;
+#endif /* HAVE_PTHREAD_SETSCHEDPARAM && HAVE_SCHED_GET_PRIORITY_MAX */
 
 static int logt_after_log_ops_yield = 10;
 
@@ -111,27 +113,33 @@ retry_sem_wait:
 	}
 }
 
-static int
-logt_thread_priority_set(int policy,
-			 const struct sched_param *param,
-			 unsigned int after_log_ops_yield)
+int32_t
+qb_log_thread_priority_set(int32_t policy, int32_t priority)
 {
 	int res = 0;
-	if (param == NULL) {
-		return 0;
-	}
+
 #if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
-	if (wthread_active == 0) {
-		logsys_sched_policy = policy;
-		memcpy(&logsys_sched_param, param, sizeof(struct sched_param));
-		logsys_sched_param_queued = 1;
+
+	logt_sched_policy = policy;
+
+	if (policy == SCHED_OTHER ||
+	    policy == SCHED_IDLE ||
+	    policy == SCHED_BATCH) {
+		logt_sched_param.sched_priority = 0;
 	} else {
-		res = pthread_setschedparam(logsys_thread_id, policy, param);
+		logt_sched_param.sched_priority = priority;
+	}
+	if (wthread_active == 0) {
+		logt_sched_param_queued = QB_TRUE;
+	} else {
+		res = pthread_setschedparam(logt_thread_id, policy,
+					    &logt_sched_param);
 	}
 #endif
-
-	if (after_log_ops_yield > 0) {
-		logt_after_log_ops_yield = after_log_ops_yield;
+	if (policy == SCHED_OTHER) {
+		logt_after_log_ops_yield = 1;
+	} else {
+		logt_after_log_ops_yield = 10;
 	}
 
 	return res;
@@ -156,15 +164,14 @@ wthread_create(void)
 	sem_wait(&logt_thread_start);
 
 	if (res == 0) {
-		if (logt_sched_param_queued == 1) {
+		if (logt_sched_param_queued) {
 			/*
-			 * TODO: propagate qb_logt_thread_priority_set errors back to
+			 * TODO: propagate qb_log_thread_priority_set errors back to
 			 * the caller
 			 */
-			res = logt_thread_priority_set(logt_sched_policy,
-						       &logt_sched_param,
-						       logt_after_log_ops_yield);
-			logt_sched_param_queued = 0;
+			res = qb_log_thread_priority_set(logt_sched_policy,
+							 logt_sched_param.sched_priority);
+			logt_sched_param_queued = QB_FALSE;
 		}
 	} else {
 		wthread_active = 0;
