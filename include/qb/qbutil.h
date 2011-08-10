@@ -125,6 +125,43 @@ void qb_util_timespec_from_epoch_get(struct timespec *ts);
  */
 char *qb_strerror_r(int errnum, char *buf, size_t buflen);
 
+
+typedef struct qb_util_stopwatch qb_util_stopwatch_t;
+
+/**
+ * Create a Stop Watch (to time operations)
+ */
+qb_util_stopwatch_t * qb_util_stopwatch_create(void);
+
+/**
+ * Free the stop watch
+ */
+void qb_util_stopwatch_free(qb_util_stopwatch_t *sw);
+
+/**
+ * Start the stop watch
+ */
+void qb_util_stopwatch_start(qb_util_stopwatch_t *sw);
+
+/**
+ * Stop the stop watch
+ */
+void qb_util_stopwatch_stop(qb_util_stopwatch_t *sw);
+
+/**
+ * Get the elapsed time in micro seconds.
+ *
+ * (it must have been started and stopped).
+ */
+uint64_t qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t *sw);
+
+/**
+ * Get the elapsed time in seconds.
+ *
+ * (it must have been started and stopped).
+ */
+float qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t *sw);
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

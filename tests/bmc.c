@@ -32,42 +32,18 @@ int32_t events = QB_FALSE;
 int32_t verbose = 0;
 static qb_ipcc_connection_t *conn;
 #define MAX_MSG_SIZE (8192*128)
-
-static struct timeval tv1, tv2, tv_elapsed;
-
-#ifndef QB_BSD
-#define timersub(a, b, result)					\
-do {								\
-	(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
-	(result)->tv_usec = (a)->tv_usec - (b)->tv_usec;	\
-	if ((result)->tv_usec < 0) {				\
-		--(result)->tv_sec;				\
-		(result)->tv_usec += 1000000;			\
-	}							\
-} while (0)
-#endif
-
-static void bm_start(void)
-{
-	gettimeofday(&tv1, NULL);
-}
+static qb_util_stopwatch_t *sw;
 
 static void bm_finish(const char *operation, int32_t size)
 {
 	float ops_per_sec;
 	float mbs_per_sec;
+	float elapsed;
 
-	gettimeofday(&tv2, NULL);
-	timersub(&tv2, &tv1, &tv_elapsed);
-
-	ops_per_sec =
-	    ((float)ITERATIONS) / (((float)tv_elapsed.tv_sec) +
-				   (((float)tv_elapsed.tv_usec) / 1000000.0));
-
-	mbs_per_sec =
-	    ((((float)ITERATIONS) * size) /
-	     (((float)tv_elapsed.tv_sec) +
-	      (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 * 1024.0);
+	qb_util_stopwatch_stop(sw);
+	elapsed = qb_util_stopwatch_sec_elapsed_get(sw);
+	ops_per_sec = ((float)ITERATIONS) / elapsed;
+	mbs_per_sec = ((((float)ITERATIONS) * size) / elapsed) / (1024.0 * 1024.0);
 
 	printf("write size, %d, OPs/sec, %9.3f, ", size, ops_per_sec);
 	printf("MB/sec, %9.3f\n", mbs_per_sec);
@@ -198,11 +174,12 @@ int32_t main(int32_t argc, char *argv[])
 		exit(1);
 	}
 
+	sw =  qb_util_stopwatch_create();
 	size = QB_MAX(sizeof(struct qb_ipc_request_header), 64);
 	for (j = 0; j < 20; j++) {
 		if (size >= MAX_MSG_SIZE)
 			break;
-		bm_start();
+		qb_util_stopwatch_start(sw);
 		for (i = 0; i < ITERATIONS; i++) {
 			if (bmc_send_nozc(size) == -1) {
 				break;

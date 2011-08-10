@@ -222,6 +222,58 @@ qb_util_nano_from_epoch_get(void)
 }
 #endif
 
+struct qb_util_stopwatch {
+	uint64_t started;
+	uint64_t stopped;
+};
+
+qb_util_stopwatch_t*
+qb_util_stopwatch_create(void)
+{
+	struct qb_util_stopwatch *sw;
+	sw = (struct qb_util_stopwatch *)calloc(1, sizeof(struct qb_util_stopwatch));
+	return sw;
+}
+
+void
+qb_util_stopwatch_free(qb_util_stopwatch_t *sw)
+{
+	free(sw);
+}
+
+void
+qb_util_stopwatch_start(qb_util_stopwatch_t *sw)
+{
+	sw->started = qb_util_nano_current_get();
+	sw->stopped = 0;
+}
+
+void
+qb_util_stopwatch_stop(qb_util_stopwatch_t *sw)
+{
+	sw->stopped = qb_util_nano_current_get();
+}
+
+uint64_t
+qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t *sw)
+{
+	if (sw->stopped == 0 || sw->started == 0) {
+		return 0;
+	}
+	return ((sw->stopped - sw->started) / QB_TIME_NS_IN_USEC);
+}
+
+float
+qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t *sw)
+{
+	uint64_t e6;
+	if (sw->stopped == 0 || sw->started == 0) {
+		return 0;
+	}
+	e6 = qb_util_stopwatch_us_elapsed_get(sw);
+	return ((float)e6 / (float)QB_TIME_US_IN_SEC);
+}
+
 static int32_t
 open_mmap_file(char *path, uint32_t file_flags)
 {

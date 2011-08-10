@@ -21,48 +21,34 @@
 #include "os_base.h"
 
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 #include <qb/qblog.h>
 
 #define ITERATIONS 50000
+static qb_util_stopwatch_t *sw;
 
 extern void log_dict_words(void);
 
-static struct timeval tv1, tv2, tv_elapsed;
-
-#ifndef timersub
-#define timersub(a, b, result)					\
-do {								\
-	(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
-	(result)->tv_usec = (a)->tv_usec - (b)->tv_usec;	\
-	if ((result)->tv_usec < 0) {				\
-		--(result)->tv_sec;				\
-		(result)->tv_usec += 1000000;			\
-	}							\
-} while (0)
-#endif
-
-static void bm_start (void)
+static void
+bm_finish (const char *operation)
 {
-        gettimeofday (&tv1, NULL);
-}
-static void bm_finish (const char *operation)
-{
-        gettimeofday (&tv2, NULL);
-        timersub (&tv2, &tv1, &tv_elapsed);
+	qb_util_stopwatch_stop(sw);
 
 	if (strlen (operation) > 22) {
-        	printf ("%s\t\t", operation);
+		printf ("%s\t\t", operation);
 	} else {
-        	printf ("%s\t\t\t", operation);
+		printf ("%s\t\t\t", operation);
 	}
-        printf ("%9.3f operations/sec\n",
-                ((float)ITERATIONS) /  (tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
+	printf("%9.3f operations/sec\n",
+	       ((float)ITERATIONS) /  qb_util_stopwatch_sec_elapsed_get(sw));
 }
 
-int main (void)
+int
+main(void)
 {
 	int i;
 
+	sw =  qb_util_stopwatch_create();
 	qb_log_init("simple-log", LOG_USER, LOG_INFO);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, QB_TRUE);
 
@@ -76,28 +62,28 @@ int main (void)
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "hello");
 	}
-	bm_start();
+	qb_util_stopwatch_start(sw);
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "RecordA");
 	}
 	bm_finish ("qb_log 1 arguments:");
-	bm_start();
+	qb_util_stopwatch_start(sw);
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "%s%s", "RecordA", "RecordB");
 	}
 	bm_finish ("qb_log 2 args(str):");
-	bm_start();
+	qb_util_stopwatch_start(sw);
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "%s%s%s", "RecordA", "RecordB", "RecordC");
 	}
 	bm_finish ("qb_log 3 args(str):");
-	bm_start();
+	qb_util_stopwatch_start(sw);
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "%i %u %p", -534, 4508, &i);
 	}
 	bm_finish ("qb_log 3 args(int):");
 #ifdef HAVE_DICT_WORDS
-	bm_start();
+	qb_util_stopwatch_start(sw);
 	log_dict_words();
 	bm_finish ("qb_log /usr/share/dict/words:");
 #endif /* HAVE_DICT_WORDS */
