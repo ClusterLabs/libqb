@@ -85,12 +85,17 @@ int main (void)
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "%s%s", "RecordA", "RecordB");
 	}
-	bm_finish ("qb_log 2 arguments:");
+	bm_finish ("qb_log 2 args(str):");
 	bm_start();
 	for (i = 0; i < ITERATIONS; i++) {
 		qb_log(LOG_DEBUG, "%s%s%s", "RecordA", "RecordB", "RecordC");
 	}
-	bm_finish ("qb_log 3 arguments:");
+	bm_finish ("qb_log 3 args(str):");
+	bm_start();
+	for (i = 0; i < ITERATIONS; i++) {
+		qb_log(LOG_DEBUG, "%i %u %p", -534, 4508, &i);
+	}
+	bm_finish ("qb_log 3 args(int):");
 #ifdef HAVE_DICT_WORDS
 	bm_start();
 	log_dict_words();
