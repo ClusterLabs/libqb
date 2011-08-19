@@ -49,8 +49,6 @@ struct qb_log_target {
 	qb_log_reload_fn reload;
 	qb_log_close_fn close;
 	qb_log_logger_fn logger;
-
-	struct qb_list_head active_list;
 };
 
 struct qb_log_filter {

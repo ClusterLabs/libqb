@@ -33,11 +33,12 @@
 #include "log_int.h"
 
 static struct qb_log_target conf[32];
+static uint32_t conf_used_max = 0;
+static uint32_t conf_active_max = 0;
 static int32_t in_logger = QB_FALSE;
 static int32_t logger_inited = QB_FALSE;
 static pthread_rwlock_t _listlock;
 
-static QB_LIST_DECLARE(active_targets);
 static QB_LIST_DECLARE(tags_head);
 static QB_LIST_DECLARE(callsite_sections);
 
@@ -101,7 +102,7 @@ _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	int32_t found_threaded;
 	struct qb_log_target *t;
 	struct timeval tv;
-	struct qb_list_head *pos;
+	int32_t pos;
 
 	if (in_logger) {
 		return;
@@ -123,9 +124,11 @@ _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 	 */
 	found_threaded = QB_FALSE;
 
-	pthread_rwlock_rdlock(&_listlock);
-	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
-		t = qb_list_entry(pos, struct qb_log_target, active_list);
+	for (pos = 0; pos <= conf_active_max; pos++) {
+		t = &conf[pos];
+		if (t->state != QB_LOG_STATE_ENABLED) {
+			continue;
+		}
 		if (t->threaded) {
 			if (!found_threaded
 			    && qb_bit_is_set(cs->targets, t->pos)) {
@@ -137,7 +140,6 @@ _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 			}
 		}
 	}
-	pthread_rwlock_unlock(&_listlock);
 
 	if (found_threaded) {
 		qb_log_thread_log_post(cs, tv.tv_sec, msg);
@@ -150,11 +152,13 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 			time_t timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
-	struct qb_list_head *pos;
+	int32_t pos;
 
-	pthread_rwlock_rdlock(&_listlock);
-	for (pos = active_targets.next; pos != &active_targets; pos = pos->next) {
-		t = qb_list_entry(pos, struct qb_log_target, active_list);
+	for (pos = 0; pos <= conf_active_max; pos++) {
+		t = &conf[pos];
+		if (t->state != QB_LOG_STATE_ENABLED) {
+			continue;
+		}
 		if (t->threaded) {
 			continue;
 		}
@@ -162,7 +166,6 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 			t->logger(t->pos, cs, timestamp, buffer);
 		}
 	}
-	pthread_rwlock_unlock(&_listlock);
 }
 
 void
@@ -176,8 +179,8 @@ qb_log_from_external_source(const char *function,
 	struct qb_log_filter *flt;
 	struct qb_log_callsite *cs;
 	int32_t new_dcs = QB_FALSE;
-	struct qb_list_head *t_item;
 	struct qb_list_head *f_item;
+	int32_t pos;
 
 	cs = qb_log_dcs_get(&new_dcs, function, filename,
 			    format, priority, lineno, tags);
@@ -185,8 +188,11 @@ qb_log_from_external_source(const char *function,
 
 	if (new_dcs) {
 		pthread_rwlock_rdlock(&_listlock);
-		for (t_item = active_targets.next; t_item != &active_targets; t_item = t_item->next) {
-			t = qb_list_entry(t_item, struct qb_log_target, active_list);
+		for (pos = 0; pos <= conf_active_max; pos++) {
+			t = &conf[pos];
+			if (t->state != QB_LOG_STATE_ENABLED) {
+				continue;
+			}
 			for (f_item = t->filter_head.next; f_item != &t->filter_head; f_item = f_item->next) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, t->pos, flt->conf, flt->type,
@@ -232,6 +238,7 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	struct callsite_section *sect;
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
+	int32_t pos;
 
 	if (_start == NULL || _stop == NULL) {
 		return -EINVAL;
@@ -260,7 +267,11 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	/*
 	 * Now apply the filters on these new callsites
 	 */
-	qb_list_for_each_entry(t, &active_targets, active_list) {
+	for (pos = 0; pos <= conf_active_max; pos++) {
+		t = &conf[pos];
+		if (t->state != QB_LOG_STATE_ENABLED) {
+			continue;
+		}
 		qb_list_for_each_entry(flt, &t->filter_head, list) {
 			_log_filter_apply(sect, t->pos, flt->conf,
 					  flt->type, flt->text, flt->priority);
@@ -524,12 +535,32 @@ done:
 }
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
+static void
+_log_target_state_set(struct qb_log_target *t, enum qb_log_state s)
+{
+	int32_t i;
+	int32_t a_set = QB_FALSE;
+	int32_t u_set = QB_FALSE;
+
+	t->state = s;
+
+	for (i = 31; i >= 0; i--) {
+		if (!a_set && conf[i].state == QB_LOG_STATE_ENABLED) {
+			a_set = QB_TRUE;
+			conf_active_max = i;
+		}
+		if (!u_set && conf[i].state != QB_LOG_STATE_UNUSED) {
+			u_set = QB_TRUE;
+			conf_used_max = i;
+		}
+	}
+}
+
 void
 qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t i;
 
-	qb_log_dcs_init();
 	i = pthread_rwlock_init(&_listlock, NULL);
 	assert(i == 0);
 
@@ -540,12 +571,10 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		conf[i].name[0] = '\0';
 		conf[i].facility = facility;
 		qb_list_init(&conf[i].filter_head);
-		qb_list_init(&conf[i].active_list);
 		qb_log_format_set(i, NULL);
 	}
-	conf[QB_LOG_SYSLOG].state = QB_LOG_STATE_ENABLED;
-	qb_list_add(&conf[QB_LOG_SYSLOG].active_list, &active_targets);
 
+	qb_log_dcs_init();
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 	qb_log_callsites_register(__start___verbose, __stop___verbose);
 	dl_iterate_phdr(_log_so_walk_callback, NULL);
@@ -561,6 +590,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 				QB_LOG_FILTER_FILE, "*", priority);
 
 	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
+	_log_target_state_set(&conf[QB_LOG_SYSLOG], QB_LOG_STATE_ENABLED);
 }
 
 void
@@ -573,6 +603,7 @@ qb_log_fini(void)
 	struct qb_list_head *iter2;
 	struct qb_list_head *next;
 	struct qb_list_head *next2;
+	int32_t pos;
 
 	if (!logger_inited) {
 		return;
@@ -581,8 +612,11 @@ qb_log_fini(void)
 	qb_log_thread_stop();
 	pthread_rwlock_destroy(&_listlock);
 
-	qb_list_for_each_safe(iter, next, &active_targets) {
-		t = qb_list_entry(iter, struct qb_log_target, active_list);
+	for (pos = 0; pos <= conf_active_max; pos++) {
+		t = &conf[pos];
+		if (t->state != QB_LOG_STATE_ENABLED) {
+			continue;
+		}
 		_log_target_disable(t);
 		qb_list_for_each_safe(iter2, next2, &t->filter_head) {
 			flt = qb_list_entry(iter2, struct qb_log_filter, list);
@@ -611,7 +645,7 @@ qb_log_target_alloc(void)
 	int32_t i;
 	for (i = 0; i < 32; i++) {
 		if (conf[i].state == QB_LOG_STATE_UNUSED) {
-			conf[i].state = QB_LOG_STATE_DISABLED;
+			_log_target_state_set(&conf[i], QB_LOG_STATE_DISABLED);
 			return &conf[i];
 		}
 	}
@@ -624,9 +658,9 @@ qb_log_target_free(struct qb_log_target *t)
 	(void)qb_log_filter_ctl(t->pos, QB_LOG_FILTER_CLEAR_ALL,
 				QB_LOG_FILTER_FILE, NULL, 0);
 	t->debug = QB_FALSE;
-	t->state = QB_LOG_STATE_UNUSED;
 	t->name[0] = '\0';
 	qb_log_format_set(t->pos, NULL);
+	_log_target_state_set(t, QB_LOG_STATE_UNUSED);
 }
 
 struct qb_log_target *
@@ -722,11 +756,7 @@ _log_target_enable(struct qb_log_target *t)
 		rc = qb_log_blackbox_open(t);
 	}
 	if (rc == 0) {
-		pthread_rwlock_wrlock(&_listlock);
-		t->state = QB_LOG_STATE_ENABLED;
-		qb_list_init(&t->active_list);
-		qb_list_add(&t->active_list, &active_targets);
-		pthread_rwlock_unlock(&_listlock);
+		_log_target_state_set(t, QB_LOG_STATE_ENABLED);
 	}
 	return rc;
 }
@@ -737,15 +767,12 @@ _log_target_disable(struct qb_log_target *t)
 	if (t->state != QB_LOG_STATE_ENABLED) {
 		return;
 	}
-	pthread_rwlock_wrlock(&_listlock);
-	t->state = QB_LOG_STATE_DISABLED;
-	qb_list_del(&t->active_list);
+	_log_target_state_set(t, QB_LOG_STATE_DISABLED);
 	if (t->close) {
 		in_logger = QB_TRUE;
 		t->close(t->pos);
 		in_logger = QB_FALSE;
 	}
-	pthread_rwlock_unlock(&_listlock);
 }
 
 int32_t
