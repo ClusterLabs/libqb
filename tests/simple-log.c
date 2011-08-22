@@ -192,6 +192,8 @@ int32_t main(int32_t argc, char *argv[])
 	logfile[5] = 'a';
 #endif
 	if (do_blackbox) {
+		qb_log_blackbox_write_to_file("simple-log.fdata");
+		qb_log_blackbox_print_from_file("simple-log.fdata");
 		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
 	}
 	qb_log_fini();

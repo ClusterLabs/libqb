@@ -201,3 +201,336 @@ qb_log_target_format(int32_t target,
 		output_buffer[output_buffer_idx] = '\0';
 	}
 }
+
+size_t
+qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap)
+{
+	char *format;
+	char *p;
+	uint32_t location = 0;
+	int type_long = 0;
+	int type_longlong = 0;
+
+	p = stpcpy(serialize, fmt);
+	location = p - serialize + 1;
+
+	format = (char *)fmt;
+	for (;;) {
+		type_long = 0;
+		type_longlong = 0;
+		p = strchrnul ((const char *)format, '%');
+		if (*p == '\0') {
+			break;
+		}
+		format = p + 1;
+reprocess:
+		switch (format[0]) {
+		case '#': /* alternate form conversion, ignore */
+		case '-': /* left adjust, ignore */
+		case ' ': /* a space, ignore */
+		case '+': /* a sign should be used, ignore */
+		case '\'': /* group in thousands, ignore */
+		case 'I': /* glibc-ism locale alternative, ignore */
+		case '.': /* precision, ignore */
+		case '0': /* field width, ignore */
+		case '1': /* field width, ignore */
+		case '2': /* field width, ignore */
+		case '3': /* field width, ignore */
+		case '4': /* field width, ignore */
+		case '5': /* field width, ignore */
+		case '6': /* field width, ignore */
+		case '7': /* field width, ignore */
+		case '8': /* field width, ignore */
+		case '9': /* field width, ignore */
+			format++;
+			goto reprocess;
+
+		case '*': /* variable field width, save */ {
+			int arg_int = va_arg(ap, int);
+			memcpy(&serialize[location], &arg_int, sizeof (int));
+			location += sizeof(int);
+			format++;
+			goto reprocess;
+		}
+		case 'l':
+			format++;
+			type_long = 1;
+			if (*format == 'l') {
+				type_long = 0;
+				type_longlong = 1;
+			}
+			goto reprocess;
+		case 'd': /* int argument */
+		case 'i': /* int argument */
+		case 'o': /* unsigned int argument */
+		case 'u':
+		case 'x':
+		case 'X':
+			if (type_long) {
+				long int arg_int;
+
+				arg_int = va_arg(ap, long int);
+				memcpy (&serialize[location], &arg_int, sizeof (long int));
+				location += sizeof(long int);
+				format++;
+				break;
+			} else
+			if (type_longlong) {
+				long long int arg_int;
+
+				arg_int = va_arg(ap, long long int);
+				memcpy (&serialize[location], &arg_int, sizeof (long long int));
+				location += sizeof(long long int);
+				format++;
+				break;
+			} else {
+				int arg_int;
+
+				arg_int = va_arg(ap, int);
+				memcpy (&serialize[location], &arg_int, sizeof (int));
+				location += sizeof(int);
+				format++;
+				break;
+			}
+		case 'e':
+		case 'E':
+		case 'f':
+		case 'F':
+		case 'g':
+		case 'G':
+		case 'a':
+		case 'A':
+			{
+			double arg_double;
+
+			arg_double = va_arg(ap, double);
+			memcpy (&serialize[location], &arg_double, sizeof (double));
+			location += sizeof(double);
+			format++;
+			break;
+			}
+		case 'c':
+			{
+			int arg_int;
+			unsigned char arg_char;
+
+			arg_int = va_arg(ap, unsigned int);
+			arg_char = (unsigned char)arg_int;
+			memcpy (&serialize[location], &arg_char, sizeof (unsigned char));
+			location += sizeof(unsigned char);
+			break;
+			}
+		case 's':
+			{
+			char *arg_string;
+			arg_string = va_arg(ap, char *);
+			p = stpcpy(&serialize[location], arg_string);
+			location += p - &serialize[location] + 1;
+			break;
+			}
+		case 'p':
+			{
+			void *arg_pointer;
+			arg_pointer = va_arg(ap, void *);
+			memcpy (&serialize[location], &arg_pointer, sizeof (void *));
+			location += sizeof (arg_pointer);
+			break;
+			}
+		case '%':
+			serialize[location++] = '%';
+			break;
+
+		}
+	}
+	return (location);
+}
+
+#define MINI_FORMAT_STR_LEN 20
+
+size_t
+qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
+{
+	char *p;
+	char *format;
+	char fmt[MINI_FORMAT_STR_LEN];
+	int fmt_pos;
+
+	uint32_t location = 0;
+	uint32_t data_pos = strlen(buf) + 1;
+	int type_long = 0;
+	int type_longlong = 0;
+	int len;
+
+	format = (char *)buf;
+	for (;;) {
+		type_long = 0;
+		type_longlong = 0;
+		p = strchrnul((const char *)format, '%');
+		if (*p == '\0') {
+			p = stpcpy(&string[location], format);
+			location += p - &string[location] + 1;
+			break;
+		}
+		// copy from current to the next %
+		len = p - format;
+		strncpy(&string[location], format, len);
+		location += len;
+		format = p;
+
+		// start building up the format for snprintf
+		fmt_pos = 0;
+		fmt[fmt_pos++] = *format;
+		format++;
+reprocess:
+		switch (format[0]) {
+		case '#': /* alternate form conversion, ignore */
+		case '-': /* left adjust, ignore */
+		case ' ': /* a space, ignore */
+		case '+': /* a sign should be used, ignore */
+		case '\'': /* group in thousands, ignore */
+		case 'I': /* glibc-ism locale alternative, ignore */
+		case '.': /* precision, ignore */
+		case '0': /* field width, ignore */
+		case '1': /* field width, ignore */
+		case '2': /* field width, ignore */
+		case '3': /* field width, ignore */
+		case '4': /* field width, ignore */
+		case '5': /* field width, ignore */
+		case '6': /* field width, ignore */
+		case '7': /* field width, ignore */
+		case '8': /* field width, ignore */
+		case '9': /* field width, ignore */
+			fmt[fmt_pos++] = *format;
+			format++;
+			goto reprocess;
+
+		case '*': {
+			int *arg_int = (int *)&buf[data_pos];
+			data_pos += sizeof(int);
+			fmt_pos += snprintf(&fmt[fmt_pos],
+					   MINI_FORMAT_STR_LEN - fmt_pos,
+					   "%d", *arg_int);
+			format++;
+			goto reprocess;
+		}
+		case 'l':
+			fmt[fmt_pos++] = *format;
+			format++;
+			type_long = 1;
+			if (*format == 'l') {
+				type_long = 0;
+				type_longlong = 1;
+			}
+			goto reprocess;
+		case 'd': /* int argument */
+		case 'i': /* int argument */
+		case 'o': /* unsigned int argument */
+		case 'u':
+		case 'x':
+		case 'X':
+			if (type_long) {
+				long int *arg_int;
+
+				fmt[fmt_pos++] = *format;
+				fmt[fmt_pos++] = '\0';
+				arg_int = (long int *)&buf[data_pos];
+				location += snprintf(&string[location],
+						     str_len - location,
+						     fmt, *arg_int);
+				data_pos += sizeof(long int);
+				format++;
+				break;
+			} else
+			if (type_longlong) {
+				long long int *arg_int;
+
+				fmt[fmt_pos++] = *format;
+				fmt[fmt_pos++] = '\0';
+				arg_int = (long long int *)&buf[data_pos];
+				location += snprintf(&string[location],
+						     str_len - location,
+						     fmt, *arg_int);
+				data_pos += sizeof(long long int);
+				format++;
+				break;
+			} else {
+				int *arg_int;
+
+				fmt[fmt_pos++] = *format;
+				fmt[fmt_pos++] = '\0';
+				arg_int = (int *)&buf[data_pos];
+				location += snprintf(&string[location],
+						     str_len - location,
+						     fmt, *arg_int);
+				data_pos += sizeof(int);
+				format++;
+				break;
+			}
+		case 'e':
+		case 'E':
+		case 'f':
+		case 'F':
+		case 'g':
+		case 'G':
+		case 'a':
+		case 'A':
+			{
+			double *arg_double;
+
+			fmt[fmt_pos++] = *format;
+			fmt[fmt_pos++] = '\0';
+			arg_double = (double *)&buf[data_pos];
+			location += snprintf(&string[location],
+					     str_len - location,
+					     fmt, *arg_double);
+			data_pos += sizeof(double);
+			format++;
+			break;
+			}
+		case 'c':
+			{
+			unsigned char *arg_char;
+
+			fmt[fmt_pos++] = *format;
+			fmt[fmt_pos++] = '\0';
+			arg_char = (unsigned char*)&buf[data_pos];
+			location += snprintf(&string[location],
+					     str_len - location,
+					     fmt, *arg_char);
+			data_pos += sizeof(unsigned char);
+			format++;
+			break;
+			}
+		case 's':
+			{
+			fmt[fmt_pos++] = *format;
+			fmt[fmt_pos++] = '\0';
+			len = snprintf(&string[location],
+				       str_len - location,
+				       fmt, &buf[data_pos]);
+			location += len;
+			data_pos += len + 1;
+			format++;
+			break;
+			}
+		case 'p':
+			{
+			fmt[fmt_pos++] = *format;
+			fmt[fmt_pos++] = '\0';
+			location = snprintf(&string[location],
+					    str_len - location,
+					    fmt, &buf[data_pos]);
+			data_pos += sizeof(void*);
+			format++;
+			break;
+			}
+		case '%':
+			string[location++] = '%';
+			format++;
+			break;
+
+		}
+	}
+	return location;
+}
+

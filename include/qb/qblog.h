@@ -251,6 +251,7 @@ extern struct qb_log_callsite __stop___verbose[];
  * Internal function: use qb_log() or qb_logt()
  */
 void qb_log_real_(struct qb_log_callsite *cs, ...);
+void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
 
 #define QB_LOG_TAG_LIBQB_MSG_BIT 31
 #define QB_LOG_TAG_LIBQB_MSG (1 << QB_LOG_TAG_LIBQB_MSG_BIT)
@@ -270,7 +271,6 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
  * @param lineno file line number
  * @param tags This MUST have QB_LOG_EXTERNAL_TAG or'ed in
  *             so that it gets free'ed.
- * @param msg the log message text
  */
 void qb_log_from_external_source(const char *function,
 				 const char *filename,
@@ -278,8 +278,15 @@ void qb_log_from_external_source(const char *function,
 				 uint8_t priority,
 				 uint32_t lineno,
 				 uint32_t tags,
-				 const char *msg);
+				 ...);
 
+void qb_log_from_external_source_va(const char *function,
+				 const char *filename,
+				 const char *format,
+				 uint8_t priority,
+				 uint32_t lineno,
+				 uint32_t tags,
+				 va_list ap);
 
 /**
  * This is the function to generate a log message if you want to
@@ -301,10 +308,11 @@ void qb_log_from_external_source(const char *function,
 	qb_log_real_(&descriptor, ##args);				\
     } while(0)
 #else
-#define qb_logt(priority, tags, fmt, args...) do { \
-	char _log_buf_[QB_LOG_MAX_LEN]; \
-	snprintf(_log_buf_, QB_LOG_MAX_LEN, fmt, ##args); \
-	qb_log_from_external_source( __func__, __FILE__, fmt, priority, __LINE__, tags, _log_buf_); \
+#define qb_logt(priority, tags, fmt, args...) do { 			\
+	char _log_buf_[QB_LOG_MAX_LEN]; 				\
+	snprintf(_log_buf_, QB_LOG_MAX_LEN, fmt, ##args); 		\
+	qb_log_from_external_source(__func__, __FILE__, fmt, priority, 	\
+				    __LINE__, tags, _log_buf_); 	\
     } while(0)
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
@@ -369,6 +377,10 @@ typedef void (*qb_log_logger_fn)(int32_t t,
 				 struct qb_log_callsite *cs,
 				 time_t timestamp,
 				 const char *msg);
+typedef void (*qb_log_vlogger_fn)(int32_t t,
+				 struct qb_log_callsite *cs,
+				 time_t timestamp,
+				 va_list ap);
 
 typedef void (*qb_log_close_fn)(int32_t t);
 typedef void (*qb_log_reload_fn)(int32_t t);

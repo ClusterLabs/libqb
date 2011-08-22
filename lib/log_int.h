@@ -49,6 +49,7 @@ struct qb_log_target {
 	qb_log_reload_fn reload;
 	qb_log_close_fn close;
 	qb_log_logger_fn logger;
+	qb_log_vlogger_fn vlogger;
 };
 
 struct qb_log_filter {
@@ -96,6 +97,8 @@ struct qb_log_callsite *qb_log_dcs_get(int32_t *newly_created,
 				       uint32_t lineno,
 				       uint32_t tags);
 
+size_t qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap);
+size_t qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf);
 
 #endif /* _QB_LOG_INT_H_ */
 

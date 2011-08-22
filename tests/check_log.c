@@ -29,6 +29,63 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
+extern size_t qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap);
+extern size_t qb_vsnprintf_deserialize(char *string, size_t strlen, const char *buf);
+
+
+static void
+format_this(char *out, const char *fmt, ...)
+{
+	char buf[QB_LOG_MAX_LEN];
+	va_list ap;
+
+	va_start(ap, fmt);
+	qb_vsprintf_serialize(buf, fmt, ap);
+	qb_vsnprintf_deserialize(out, QB_LOG_MAX_LEN, buf);
+	va_end(ap);
+}
+
+
+START_TEST(test_va_serialize)
+{
+	char buf[QB_LOG_MAX_LEN];
+	format_this(buf, "one line");
+	ck_assert_str_eq(buf, "one line");
+
+	format_this(buf, "s1:%s, s2:%s", "Yes", "Never");
+	ck_assert_str_eq(buf, "s1:Yes, s2:Never");
+
+	format_this(buf, "s1:%s, s2:%s", "Yes", "Never");
+	ck_assert_str_eq(buf, "s1:Yes, s2:Never");
+
+	format_this(buf, "d1:%d, d2:%5i, d3:%04i", 23, 37, 84);
+	ck_assert_str_eq(buf, "d1:23, d2:   37, d3:0084");
+
+	format_this(buf, "f1:%.5f, f2:%.2f", 23.34109, 23.34109);
+	ck_assert_str_eq(buf, "f1:23.34109, f2:23.34");
+
+	format_this(buf, ":%s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":Hello, world!:");
+	format_this(buf, ":%15s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":  Hello, world!:");
+	format_this(buf, ":%.10s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":Hello, wor:");
+	format_this(buf, ":%-10s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":Hello, world!:");
+	format_this(buf, ":%-15s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":Hello, world!  :");
+	format_this(buf, ":%.15s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":Hello, world!:");
+	format_this(buf, ":%15.10s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":     Hello, wor:");
+	format_this(buf, ":%-15.10s:", "Hello, world!");
+	ck_assert_str_eq(buf, ":Hello, wor     :");
+
+	format_this(buf, ":%*d:", 8, 96);
+	ck_assert_str_eq(buf, ":      96:");
+}
+END_TEST
+
 START_TEST(test_log_stupid_inputs)
 {
 	int32_t rc;
@@ -361,6 +418,10 @@ static Suite *log_suite(void)
 {
 	TCase *tc;
 	Suite *s = suite_create("logging");
+
+	tc = tcase_create("va_serialize");
+	tcase_add_test(tc, test_va_serialize);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("limits");
 	tcase_add_test(tc, test_log_stupid_inputs);

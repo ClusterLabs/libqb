@@ -43,13 +43,13 @@ _blackbox_reload(int32_t target)
  * <string> buffer
  */
 static void
-_blackbox_logger(int32_t target,
+_blackbox_vlogger(int32_t target,
 		 struct qb_log_callsite *cs,
-		 time_t timestamp, const char *buffer)
+		 time_t timestamp, va_list ap)
 {
-	size_t size = sizeof(uint32_t);
+	size_t max_size;
+	size_t actual_size;
 	size_t fn_size;
-	size_t buf_size;
 	char *chunk;
 	struct qb_log_target *t = qb_log_target_get(target);
 
@@ -58,11 +58,11 @@ _blackbox_logger(int32_t target,
 	}
 
 	fn_size = strlen(cs->function) + 1;
-	buf_size = strlen(buffer) + 1;
 
-	size += 2 * sizeof(uint32_t) + fn_size + buf_size + sizeof(time_t);
+	actual_size = 2 * sizeof(uint32_t) + fn_size + sizeof(time_t);
+	max_size = actual_size + QB_LOG_MAX_LEN;
 
-	chunk = qb_rb_chunk_alloc(t->instance, size);
+	chunk = qb_rb_chunk_alloc(t->instance, max_size);
 
 	/* line number */
 	memcpy(chunk, &cs->lineno, sizeof(uint32_t));
@@ -79,11 +79,9 @@ _blackbox_logger(int32_t target,
 	chunk += sizeof(time_t);
 
 	/* log message */
-	memcpy(chunk, &buf_size, sizeof(uint32_t));
-	chunk += sizeof(uint32_t);
-	memcpy(chunk, buffer, buf_size);
+	actual_size += qb_vsprintf_serialize(chunk, cs->format, ap);
 
-	(void)qb_rb_chunk_commit(t->instance, size);
+	(void)qb_rb_chunk_commit(t->instance, actual_size);
 }
 
 static void
@@ -109,7 +107,9 @@ qb_log_blackbox_open(struct qb_log_target *t)
 	if (t->instance == NULL) {
 		return -errno;
 	}
-	t->logger = _blackbox_logger;
+
+	t->logger = NULL;
+	t->vlogger = _blackbox_vlogger;
 	t->reload = _blackbox_reload;
 	t->close = _blackbox_close;
 	return 0;
@@ -161,8 +161,9 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		uint32_t lineno;
 		uint32_t fn_size;
 		char *function;
+		uint32_t len;
 		time_t timestamp;
-		/* uint32_t *log_size; */
+		char message[QB_LOG_MAX_LEN];
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;
@@ -191,11 +192,15 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 				snprintf(time_buf, sizeof(time_buf), "%ld",
 					 (long int) timestamp);
 			}
-			/* message size & content */
-			/* log_size = (uint32_t *) ptr; */
-			ptr += sizeof(uint32_t);
+			/* message content */
+			len = qb_vsnprintf_deserialize(message, QB_LOG_MAX_LEN, ptr);
+			len--;
+			while (message[len] == '\n' || message[len] == '\0') {
+				message[len] = '\0';
+				len--;
+			}
 			printf("%s %s():%d %s\n",
-			       time_buf, function, lineno, ptr);
+			       time_buf, function, lineno, message);
 		}
 	} while (bytes_read > 0);
 }

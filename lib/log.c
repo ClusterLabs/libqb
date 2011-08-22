@@ -24,6 +24,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <dlfcn.h>
+#include <stdarg.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
@@ -96,27 +97,39 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 	return match;
 }
 
-static void
-_log_real_msg(struct qb_log_callsite *cs, const char *msg)
+void
+qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 {
 	int32_t found_threaded;
 	struct qb_log_target *t;
 	struct timeval tv;
 	int32_t pos;
+	int len;
+	int32_t formatted = QB_FALSE;
+	char buf[QB_LOG_MAX_LEN];
+	char *str = buf;
+	va_list ap_copy;
 
 	if (in_logger) {
 		return;
 	}
 	in_logger = QB_TRUE;
 
-	gettimeofday(&tv, NULL);
-
 	if (old_internal_log_fn) {
 		if (qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
+			if (!formatted) {
+				va_copy(ap_copy, ap);
+				len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+				va_end(ap_copy);
+				if (str[len - 1] == '\n') str[len - 1] = '\0';
+				formatted = QB_TRUE;
+			}
 			old_internal_log_fn(cs->filename, cs->lineno,
-					    cs->priority, msg);
+					    cs->priority, str);
 		}
 	}
+
+	gettimeofday(&tv, NULL);
 
 	/*
 	 * 1 if we can find a threaded target that needs this log then post it
@@ -133,18 +146,48 @@ _log_real_msg(struct qb_log_callsite *cs, const char *msg)
 			if (!found_threaded
 			    && qb_bit_is_set(cs->targets, t->pos)) {
 				found_threaded = QB_TRUE;
+				if (!formatted) {
+					va_copy(ap_copy, ap);
+					len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+					va_end(ap_copy);
+					if (str[len - 1] == '\n') str[len - 1] = '\0';
+					formatted = QB_TRUE;
+				}
 			}
 		} else {
-			if (qb_bit_is_set(cs->targets, t->pos) && t->logger) {
-				t->logger(t->pos, cs, tv.tv_sec, msg);
+			if (qb_bit_is_set(cs->targets, t->pos)) {
+				if (t->vlogger) {
+					va_copy(ap_copy, ap);
+					t->vlogger(t->pos, cs, tv.tv_sec, ap_copy);
+					va_end(ap_copy);
+				} else if (t->logger) {
+					if (!formatted) {
+						va_copy(ap_copy, ap);
+						len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+						va_end(ap_copy);
+						if (str[len - 1] == '\n') str[len - 1] = '\0';
+						formatted = QB_TRUE;
+					}
+					t->logger(t->pos, cs, tv.tv_sec, str);
+				}
 			}
 		}
 	}
 
 	if (found_threaded) {
-		qb_log_thread_log_post(cs, tv.tv_sec, msg);
+		qb_log_thread_log_post(cs, tv.tv_sec, str);
 	}
 	in_logger = QB_FALSE;
+}
+
+void
+qb_log_real_(struct qb_log_callsite *cs, ...)
+{
+	va_list ap;
+
+	va_start(ap, cs);
+	qb_log_real_va_(cs, ap);
+	va_end(ap);
 }
 
 void
@@ -168,12 +211,12 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 	}
 }
 
-void
-qb_log_from_external_source(const char *function,
+void qb_log_from_external_source_va(const char *function,
 			    const char *filename,
 			    const char *format,
 			    uint8_t priority,
-			    uint32_t lineno, uint32_t tags, const char *msg)
+			    uint32_t lineno, uint32_t tags,
+			    va_list ap)
 {
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
@@ -210,25 +253,22 @@ qb_log_from_external_source(const char *function,
 		}
 		pthread_rwlock_unlock(&_listlock);
 	}
-	_log_real_msg(cs, msg);
+	qb_log_real_va_(cs, ap);
 }
 
 void
-qb_log_real_(struct qb_log_callsite *cs, ...)
+qb_log_from_external_source(const char *function,
+			    const char *filename,
+			    const char *format,
+			    uint8_t priority,
+			    uint32_t lineno, uint32_t tags, ...)
 {
 	va_list ap;
-	char buf[QB_LOG_MAX_LEN];
-	size_t len;
 
-	va_start(ap, cs);
-	len = vsnprintf(buf, sizeof(buf), cs->format, ap);
+	va_start(ap, tags);
+	qb_log_from_external_source_va(function, filename, format, priority,
+		lineno, tags, ap);
 	va_end(ap);
-
-	if (buf[len - 1] == '\n') {
-		buf[len - 1] = '\0';
-		len -= 1;
-	}
-	_log_real_msg(cs, buf);
 }
 
 int32_t
@@ -480,7 +520,7 @@ qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	    type > QB_LOG_FILTER_FORMAT || c > QB_LOG_TAG_CLEAR_ALL) {
 		return -EINVAL;
 	}
-	pthread_rwlock_wrlock(&_listlock);
+	pthread_rwlock_rdlock(&_listlock);
 	rc = _log_filter_store(t, c, type, text, priority);
 	if (rc < 0) {
 		pthread_rwlock_unlock(&_listlock);
@@ -714,6 +754,7 @@ qb_log_custom_open(qb_log_logger_fn log_fn,
 	snprintf(t->name, PATH_MAX, "custom-%d", t->pos);
 
 	t->logger = log_fn;
+	t->vlogger = NULL;
 	t->reload = reload_fn;
 	t->close = close_fn;
 

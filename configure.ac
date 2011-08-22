@@ -352,7 +352,7 @@ WARNLIST="
 	missing-format-attribute
 	format=2
 	format-security
-	format-nonliteral
+	no-format-nonliteral
 	no-long-long
 	unsigned-char
 	gnu89-inline
