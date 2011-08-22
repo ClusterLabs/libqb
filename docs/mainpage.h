@@ -15,6 +15,7 @@
  * - @subpage qb_list_overview
  * - @subpage qb_atomic_overview
  * - @subpage qb_array_overview
+ * - @subpage qb_map_overview
  * - @subpage qb_hdb_overview
  * - @subpage qb_rb_overview
  * - @subpage qb_loop_overview
@@ -39,6 +40,12 @@
  * @page qb_array_overview Array
  * @copydoc qbarray.h
  * @see qbarray.h
+ */
+
+/**
+ * @page qb_map_overview Map
+ * @copydoc qbmap.h
+ * @see qbmap.h
  */
 
 /** 
