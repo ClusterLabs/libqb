@@ -371,13 +371,13 @@ qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
 			location += p - &string[location] + 1;
 			break;
 		}
-		// copy from current to the next %
+		/* copy from current to the next % */
 		len = p - format;
 		strncpy(&string[location], format, len);
 		location += len;
 		format = p;
 
-		// start building up the format for snprintf
+		/* start building up the format for snprintf */
 		fmt_pos = 0;
 		fmt[fmt_pos++] = *format;
 		format++;

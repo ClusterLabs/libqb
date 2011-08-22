@@ -79,6 +79,10 @@ extern "C" {
 #define typeof __typeof__
 #endif /* ANSI */
 
+#if defined (__GNUC__) && defined (__STRICT_ANSI__)
+#define va_copy(_a, _b) *_a = *_b
+#endif /* ANSI */
+
 #if  __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
 #define QB_GNUC_DEPRECATED                            \
   __attribute__((__deprecated__))
