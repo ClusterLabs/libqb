@@ -22,6 +22,14 @@
 
 #include <qb/qblog.h>
 
+#if !defined (va_copy)
+#if defined (__va_copy)
+#define va_copy(_a, _b) __va_copy(_a, _b)
+#else
+#define va_copy(_a, _b)  memcpy(&_a, &_b, sizeof(va_list))
+#endif /* !__va_copy */
+#endif /* !va_copy */
+
 /**
  * This is used internally by libqb.
  *
