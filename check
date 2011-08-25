@@ -174,7 +174,7 @@ case $command in
 	rpm)
 		check_rpm
 	;;
-	bsd)
+	dist)
 		check_dist
 	;;
 	notimerfd)

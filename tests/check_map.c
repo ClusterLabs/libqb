@@ -22,9 +22,9 @@
  */
 #include "os_base.h"
 #include <check.h>
-#include "qbdefs.h"
-#include "qblog.h"
-#include "qbmap.h"
+#include <qb/qbdefs.h>
+#include <qb/qblog.h>
+#include <qb/qbmap.h>
 
 char chars[] =
     "0123456789" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz";

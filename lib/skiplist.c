@@ -21,8 +21,8 @@
 #include <os_base.h>
 #include <assert.h>
 
-#include "qbdefs.h"
-#include "qbmap.h"
+#include <qb/qbdefs.h>
+#include <qb/qbmap.h>
 #include "map_int.h"
 
 #define SKIPLIST_LEVEL_MAX 8
