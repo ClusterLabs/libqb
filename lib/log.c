@@ -32,6 +32,7 @@
 #include <qb/qbutil.h>
 #include <qb/qbarray.h>
 #include "log_int.h"
+#include "util_int.h"
 
 static struct qb_log_target conf[32];
 static uint32_t conf_used_max = 0;
