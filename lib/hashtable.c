@@ -156,7 +156,7 @@ hashtable_put(struct qb_map *map, const void* key, const void* value)
 	struct hash_node *hash_node;
 
 	hash_entry = hash_table->hash_fn(key, hash_table->order);
-	hashtable_rm_with_hash(map, key, hash_entry);
+	(void)hashtable_rm_with_hash(map, key, hash_entry);
 	hash_node = malloc(sizeof(struct hash_node));
 	if (hash_node == NULL) {
 		errno = ENOMEM;
