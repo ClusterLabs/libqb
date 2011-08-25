@@ -49,10 +49,66 @@ static struct syslog_names prioritynames[] = {
 	{NULL, -1}
 };
 
+struct syslog_names facilitynames[] = {
+	{"auth", LOG_AUTH},
+	{"authpriv", LOG_AUTHPRIV},
+	{"cron", LOG_CRON},
+	{"daemon", LOG_DAEMON},
+	{"ftp", LOG_FTP},
+	{"kern", LOG_KERN},
+	{"lpr", LOG_LPR},
+	{"mail", LOG_MAIL},
+	{"news", LOG_NEWS},
+	{"syslog", LOG_SYSLOG},
+	{"user", LOG_USER},
+	{"uucp", LOG_UUCP},
+	{"local0", LOG_LOCAL0},
+	{"local1", LOG_LOCAL1},
+	{"local2", LOG_LOCAL2},
+	{"local3", LOG_LOCAL3},
+	{"local4", LOG_LOCAL4},
+	{"local5", LOG_LOCAL5},
+	{"local6", LOG_LOCAL6},
+	{"local7", LOG_LOCAL7},
+	{NULL, -1}
+};
+
 static const char log_month_name[][4] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
+
+/* Convert string "auth" to equivalent number "LOG_AUTH" etc. */
+int32_t
+qb_log_facility2int(const char *fname)
+{
+	int32_t i;
+
+	if (fname == NULL) {
+		return -EINVAL;
+	}
+
+	for (i = 0; facilitynames[i].c_name != NULL; i++) {
+		if (strcmp(fname, facilitynames[i].c_name) == 0) {
+			return facilitynames[i].c_val;
+		}
+	}
+	return -EINVAL;
+}
+
+/* Convert number "LOG_AUTH" to equivalent string "auth" etc. */
+const char *
+qb_log_facility2str(int32_t fnum)
+{
+	int32_t i;
+
+	for (i = 0; facilitynames[i].c_name != NULL; i++) {
+		if (facilitynames[i].c_val == fnum) {
+			return facilitynames[i].c_name;
+		}
+	}
+	return NULL;
+}
 
 void
 qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)

@@ -536,6 +536,17 @@ void qb_log_target_format(int32_t target,
 			  time_t timestamp,
 			  const char* formatted_message,
 			  char *output_buffer);
+
+/**
+ * Convert string "auth" to equivalent number "LOG_AUTH" etc.
+ */
+int32_t qb_log_facility2int(const char *fname);
+
+/**
+ * Convert number "LOG_AUTH" to equivalent string "auth" etc.
+ */
+const char * qb_log_facility2str(int32_t fnum);
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }
