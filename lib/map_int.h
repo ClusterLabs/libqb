@@ -23,9 +23,9 @@
 
 struct qb_map;
 
-typedef void (*qb_map_put_func)(struct qb_map *map, const void* key, const void* value);
-typedef void* (*qb_map_get_func)(struct qb_map *map, const void* key);
-typedef int32_t (*qb_map_rm_func)(struct qb_map *map, const void* key);
+typedef void (*qb_map_put_func)(struct qb_map *map, const char* key, const void* value);
+typedef void* (*qb_map_get_func)(struct qb_map *map, const char* key);
+typedef int32_t (*qb_map_rm_func)(struct qb_map *map, const char* key);
 typedef size_t (*qb_map_count_get_func)(struct qb_map *map);
 typedef void (*qb_map_foreach_func)(struct qb_map *map, qb_transverse_func func, void* user_data);
 typedef void (*qb_map_destroy_func)(struct qb_map *map);
@@ -33,8 +33,6 @@ typedef void (*qb_map_destroy_func)(struct qb_map *map);
 struct qb_map {
 	/* user provided
 	 */
-	qb_compare_func key_compare_func;
-	void* key_compare_data;
         qb_destroy_notifier_func key_destroy_func;
         qb_destroy_notifier_func value_destroy_func;
 

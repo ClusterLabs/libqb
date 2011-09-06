@@ -24,19 +24,19 @@
 #include "map_int.h"
 
 void
-qb_map_put(struct qb_map *map, const void *key, const void *value)
+qb_map_put(struct qb_map *map, const char *key, const void *value)
 {
 	map->put(map, key, value);
 }
 
 void *
-qb_map_get(struct qb_map *map, const void *key)
+qb_map_get(struct qb_map *map, const char *key)
 {
 	return map->get(map, key);
 }
 
 int32_t
-qb_map_rm(struct qb_map *map, const void *key)
+qb_map_rm(struct qb_map *map, const char *key)
 {
 	return map->rm(map, key);
 }

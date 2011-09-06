@@ -30,7 +30,7 @@
 struct hash_node {
 	struct qb_list_head list;
 	void *value;
-	void *key;
+	const char *key;
 };
 
 struct hash_bucket {
@@ -41,7 +41,6 @@ struct hash_table {
 	struct qb_map map;
 	size_t count;
 	uint32_t order;
-	qb_hash_func hash_fn;
 	uint32_t hash_buckets_len;
 	struct hash_bucket hash_buckets[0];
 };
@@ -63,42 +62,29 @@ hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
 	return (res);
 }
 
-uint32_t
+static uint32_t
 qb_hash_string(const void *key, uint32_t order)
 {
 	char* str = (char*)key;
 	return hash_fnv(key, strlen(str), order);
 }
 
-uint32_t
-qb_hash_char(const void *key, uint32_t order)
-{
-	return hash_fnv(key, sizeof(char), order);
-}
-
-uint32_t
-qb_hash_pointer(const void *key, uint32_t order)
-{
-	return hash_fnv(key, sizeof(uint32_t), order);
-}
-
 static void*
-hashtable_get(struct qb_map *map, const void* key)
+hashtable_get(struct qb_map *map, const char* key)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
 	uint32_t hash_entry;
 	struct qb_list_head *list;
 	struct hash_node *hash_node;
 
-	hash_entry = hash_table->hash_fn(key, hash_table->order);
+	hash_entry = qb_hash_string(key, hash_table->order);
 
 	for (list = hash_table->hash_buckets[hash_entry].list_head.next;
 	     list != &hash_table->hash_buckets[hash_entry].list_head;
 	     list = list->next) {
 
 		hash_node = qb_list_entry(list, struct hash_node, list);
-		if (map->key_compare_func(hash_node->key, key,
-					  map->key_compare_data) == 0) {
+		if (strcmp(hash_node->key, key) == 0) {
 			return hash_node->value;
 		}
 	}
@@ -119,11 +105,9 @@ hashtable_rm_with_hash(struct qb_map *map, const void* key,
 	     list = list->next) {
 
 		hash_node = qb_list_entry(list, struct hash_node, list);
-		if (map->key_compare_func(hash_node->key, key,
-					  map->key_compare_data) == 0) {
-
+		if (strcmp(hash_node->key, key) == 0) {
 			if (map->key_destroy_func) {
-				map->key_destroy_func(hash_node->key);
+				map->key_destroy_func((void*)hash_node->key);
 			}
 			if (map->value_destroy_func) {
 				map->value_destroy_func(hash_node->value);
@@ -139,23 +123,23 @@ hashtable_rm_with_hash(struct qb_map *map, const void* key,
 }
 
 static int32_t
-hashtable_rm(struct qb_map *map, const void* key)
+hashtable_rm(struct qb_map *map, const char* key)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
 	uint32_t hash_entry;
 
-	hash_entry = hash_table->hash_fn(key, hash_table->order);
+	hash_entry = qb_hash_string(key, hash_table->order);
 	return hashtable_rm_with_hash(map, key, hash_entry);
 }
 
 static void
-hashtable_put(struct qb_map *map, const void* key, const void* value)
+hashtable_put(struct qb_map *map, const char* key, const void* value)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
 	uint32_t hash_entry;
 	struct hash_node *hash_node;
 
-	hash_entry = hash_table->hash_fn(key, hash_table->order);
+	hash_entry = qb_hash_string(key, hash_table->order);
 	(void)hashtable_rm_with_hash(map, key, hash_entry);
 	hash_node = malloc(sizeof(struct hash_node));
 	if (hash_node == NULL) {
@@ -164,7 +148,7 @@ hashtable_put(struct qb_map *map, const void* key, const void* value)
 	}
 
 	hash_table->count++;
-	hash_node->key = (void*)key;
+	hash_node->key = key;
 	hash_node->value = (void*)value;
 	qb_list_init(&hash_node->list);
 	qb_list_add_tail(&hash_node->list,
@@ -212,11 +196,9 @@ hashtable_destroy(struct qb_map *map)
 }
 
 qb_map_t *
-qb_hashtable_create(qb_compare_func key_compare_func,
-		   void *key_compare_data,
-		   qb_destroy_notifier_func key_destroy_func,
+qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 		   qb_destroy_notifier_func value_destroy_func,
-		   size_t max_size, qb_hash_func hash_fn)
+		   size_t max_size)
 {
 	int32_t i;
 	int32_t order;
@@ -234,8 +216,6 @@ qb_hashtable_create(qb_compare_func key_compare_func,
 
 	ht = calloc(1, size);
 
-	ht->map.key_compare_func = key_compare_func;
-	ht->map.key_compare_data = key_compare_data;
 	ht->map.key_destroy_func = key_destroy_func;
 	ht->map.value_destroy_func = value_destroy_func;
 
@@ -248,12 +228,6 @@ qb_hashtable_create(qb_compare_func key_compare_func,
 
 	ht->count = 0;
 	ht->order = order;
-
-	if (hash_fn == NULL) {
-		ht->hash_fn = qb_hash_pointer;
-	} else {
-		ht->hash_fn = hash_fn;
-	}
 
 	ht->hash_buckets_len = 1 << order;
 	for (i = 0; i < ht->hash_buckets_len; i++) {

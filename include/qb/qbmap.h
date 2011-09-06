@@ -40,49 +40,31 @@ extern "C" {
 typedef struct qb_map qb_map_t;
 
 typedef void (*qb_destroy_notifier_func)(void* data);
-typedef int32_t (*qb_compare_func)(const void* a, const void* b, void* data);
-typedef int32_t (*qb_transverse_func)(void* key, void* value, void* data);
+typedef int32_t (*qb_transverse_func)(const char* key, void* value, void* data);
 
-typedef uint32_t (*qb_hash_func)(const void* key, uint32_t order);
-
-uint32_t qb_hash_string(const void *key, uint32_t order);
-uint32_t qb_hash_char(const void *key, uint32_t order);
-uint32_t qb_hash_pointer(const void *key, uint32_t order);
 
 /**
  * Create an unsorted map based on a hashtable.
  *
- * @param key_compare_func a user function to compare keys
- * @param key_compare_data a user pointer to be passed into the compare function
  * @param key_destroy_func function to free the key
  * @param value_destroy_func function to free the data
  * @param max_size maximum size of the hashtable
- * @param hash_fn hash function
- *
- * @see qb_hash_pointer, qb_hash_char, qb_hash_string
  *
  * @return the map instance
  */
-qb_map_t* qb_hashtable_create(qb_compare_func key_compare_func,
-			      void *key_compare_data,
-			      qb_destroy_notifier_func key_destroy_func,
+qb_map_t* qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 			      qb_destroy_notifier_func value_destroy_func,
-			      size_t max_size,
-			      qb_hash_func hash_fn);
+			      size_t max_size);
 
 /**
  * Create a sorted map using a skiplist.
  *
- * @param key_compare_func a user function to compare keys
- * @param key_compare_data a user pointer to be passed into the compare function
  * @param key_destroy_func function to free the key
  * @param value_destroy_func function to free the data
  *
  * @return the map instance
  */
-qb_map_t* qb_skiplist_create(qb_compare_func key_compare_func,
-			     void* key_compare_data,
-                             qb_destroy_notifier_func key_destroy_func,
+qb_map_t* qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
                              qb_destroy_notifier_func value_destroy_func);
 
 /**
@@ -94,12 +76,15 @@ qb_map_t* qb_skiplist_create(qb_compare_func key_compare_func,
  * key_destroy_func when creating the qb_map_t, the old key is freed using
  * that function.
  */
-void qb_map_put(qb_map_t *map, const void* key, const void* value);
+void qb_map_put(qb_map_t *map, const char* key, const void* value);
 
 /**
  * Gets the value corresponding to the given key.
+ *
+ * @retval NULL (if the key does not exist)
+ * @retval a pointer to the value
  */
-void* qb_map_get(qb_map_t *map, const void* key);
+void* qb_map_get(qb_map_t *map, const char* key);
 
 /**
  * Removes a key/value pair from a map.
@@ -109,7 +94,7 @@ void* qb_map_get(qb_map_t *map, const void* key);
  * values are freed yourself. If the key does not exist in the map,
  * the function does nothing.
  */
-int32_t qb_map_rm(qb_map_t *map, const void* key);
+int32_t qb_map_rm(qb_map_t *map, const char* key);
 
 /**
  * Get the number of items in the map.

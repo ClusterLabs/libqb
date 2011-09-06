@@ -31,7 +31,7 @@
 #define SKIPLIST_LEVEL_COUNT (SKIPLIST_LEVEL_MAX - SKIPLIST_LEVEL_MIN + 1)
 
 struct skiplist_node {
-	void *key;
+	const char *key;
 	void *value;
 	int8_t level;
 
@@ -51,7 +51,7 @@ struct skiplist {
  */
 typedef struct skiplist_node *skiplist_update_t[SKIPLIST_LEVEL_COUNT];
 
-static int32_t skiplist_rm(struct qb_map *list, const void *key);
+static int32_t skiplist_rm(struct qb_map *list, const char *key);
 
 static int8_t
 skiplist_level_generate(void)
@@ -90,7 +90,7 @@ skiplist_node_next(const struct skiplist_node *node)
  * return: a new node on success and NULL otherwise.
  */
 static struct skiplist_node *
-skiplist_node_new(const int8_t level, const void* key, const void *value)
+skiplist_node_new(const int8_t level, const char* key, const void *value)
 {
 	struct skiplist_node *new_node = (struct skiplist_node *)
 	    (malloc(sizeof(struct skiplist_node)));
@@ -99,7 +99,7 @@ skiplist_node_new(const int8_t level, const void* key, const void *value)
 		return NULL;
 
 	new_node->value = (void*)value;
-	new_node->key = (void*)key;
+	new_node->key = key;
 	new_node->level = level;
 
 	/* A level 0 node still needs to hold 1 forward pointer, etc. */
@@ -123,12 +123,14 @@ skiplist_header_node_new(void)
 static void
 skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 {
-	if (list->map.key_destroy_func && node != list->header) {
-		list->map.key_destroy_func(node->key);
-	}
 	if (list->map.value_destroy_func && node != list->header) {
 		list->map.value_destroy_func(node->value);
 	}
+
+	if (list->map.key_destroy_func && node != list->header) {
+		list->map.key_destroy_func((void*)node->key);
+	}
+
 	free(node->forward);
 	free(node);
 }
@@ -165,7 +167,7 @@ op_search(const struct skiplist *list,
 	if (!fwd_node)
 		return OP_GOTO_NEXT_LEVEL;
 
-	cmp = list->map.key_compare_func(fwd_node->key, search, list->map.key_compare_data);
+	cmp = strcmp(fwd_node->key, search);
 	if (cmp < 0) {
 		return OP_GOTO_NEXT_NODE;
 	} else if (cmp == 0) {
@@ -176,15 +178,15 @@ op_search(const struct skiplist *list,
 }
 
 static void
-skiplist_put(struct qb_map * map, const void *key, const void *value)
+skiplist_put(struct qb_map * map, const char *key, const void *value)
 {
 	struct skiplist *list = (struct skiplist *)map;
-	struct skiplist_node *cur_node = list->header;
 	struct skiplist_node *new_node;
 	int8_t level = list->level;
 	skiplist_update_t update;
 	int8_t update_level;
 	int8_t new_node_level;
+	struct skiplist_node *cur_node = list->header;
 
 	while ((update_level = level) >= SKIPLIST_LEVEL_MIN) {
 		struct skiplist_node *fwd_node = cur_node->forward[level];
@@ -192,7 +194,7 @@ skiplist_put(struct qb_map * map, const void *key, const void *value)
 		switch (op_search(list, fwd_node, key)) {
 		case OP_FINISH:
 			if (map->key_destroy_func && fwd_node != list->header) {
-				map->key_destroy_func(fwd_node->key);
+				map->key_destroy_func((void*)fwd_node->key);
 			}
 			if (map->value_destroy_func && fwd_node != list->header) {
 				map->value_destroy_func(fwd_node->value);
@@ -236,7 +238,7 @@ skiplist_put(struct qb_map * map, const void *key, const void *value)
 }
 
 static int32_t
-skiplist_rm(struct qb_map *map, const void *key)
+skiplist_rm(struct qb_map *map, const char *key)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *found_node;
@@ -265,8 +267,7 @@ skiplist_rm(struct qb_map *map, const void *key)
 	found_node = skiplist_node_next(cur_node);
 
 	/* ...unless we're at the end of the list or the value doesn't exist. */
-	if (!found_node
-	    || list->map.key_compare_func(found_node->key, key, list->map.key_compare_data) != 0) {
+	if (!found_node || strcmp(found_node->key, key) != 0) {
 		return QB_FALSE;
 	}
 
@@ -294,7 +295,7 @@ skiplist_rm(struct qb_map *map, const void *key)
 }
 
 static void *
-skiplist_get(struct qb_map *map, const void *key)
+skiplist_get(struct qb_map *map, const char *key)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *cur_node = list->header;
@@ -324,7 +325,7 @@ qb_skiplist_foreach(struct qb_map * map, qb_transverse_func func,
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *cur_node = skiplist_node_next(list->header);
 	struct skiplist_node *fwd_node;
-
+	
 	while (cur_node) {
 		fwd_node = skiplist_node_next(cur_node);
 		if (func(cur_node->key, cur_node->value, user_data)) {
@@ -342,17 +343,13 @@ skiplist_count_get(struct qb_map * map)
 }
 
 qb_map_t *
-qb_skiplist_create(qb_compare_func key_compare_func,
-		   void *key_compare_data,
-		   qb_destroy_notifier_func key_destroy_func,
+qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
 		   qb_destroy_notifier_func value_destroy_func)
 {
 	struct skiplist *sl = calloc(1, sizeof(struct skiplist));
 	
 	srand(time(NULL));
 
-	sl->map.key_compare_func = key_compare_func;
-	sl->map.key_compare_data = key_compare_data;
 	sl->map.key_destroy_func = key_destroy_func;
 	sl->map.value_destroy_func = value_destroy_func;
 
