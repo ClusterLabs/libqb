@@ -29,6 +29,9 @@ typedef int32_t (*qb_map_rm_func)(struct qb_map *map, const char* key);
 typedef size_t (*qb_map_count_get_func)(struct qb_map *map);
 typedef void (*qb_map_foreach_func)(struct qb_map *map, qb_transverse_func func, void* user_data);
 typedef void (*qb_map_destroy_func)(struct qb_map *map);
+typedef qb_map_iter_t* (*qb_map_iter_create_func)(struct qb_map *map);
+typedef const char* (*qb_map_iter_next_func)(qb_map_iter_t* i, void** value);
+typedef void (*qb_map_iter_free_func)(qb_map_iter_t* i);
 
 struct qb_map {
 	/* user provided
@@ -42,8 +45,14 @@ struct qb_map {
 	qb_map_get_func get;
 	qb_map_rm_func rm;
 	qb_map_count_get_func count_get;
-	qb_map_foreach_func foreach;
 	qb_map_destroy_func destroy;
+	qb_map_iter_create_func iter_create;
+	qb_map_iter_next_func iter_next;
+	qb_map_iter_free_func iter_free;
+};
+
+struct qb_map_iter {
+	struct qb_map *m;
 };
 
 #endif /* _QB_MAP_INT_H_ */

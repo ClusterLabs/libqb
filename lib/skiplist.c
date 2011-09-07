@@ -30,10 +30,16 @@
 /* The amount of possible levels */
 #define SKIPLIST_LEVEL_COUNT (SKIPLIST_LEVEL_MAX - SKIPLIST_LEVEL_MIN + 1)
 
+struct skiplist_iter {
+	struct qb_map_iter i;
+	struct skiplist_node *n;
+};
+
 struct skiplist_node {
 	const char *key;
 	void *value;
 	int8_t level;
+	uint32_t refcount;
 
 	/* An array of @level + 1 node pointers */
 	struct skiplist_node **forward;
@@ -77,10 +83,14 @@ skiplist_level_generate(void)
 	return SKIPLIST_LEVEL_MAX;
 }
 
-static inline struct skiplist_node *
+static struct skiplist_node *
 skiplist_node_next(const struct skiplist_node *node)
 {
-	return node->forward[SKIPLIST_LEVEL_MIN];
+	const struct skiplist_node *n = node;
+	do {
+		n = n->forward[SKIPLIST_LEVEL_MIN];
+	} while (n && n->refcount == 0);
+	return (struct skiplist_node *)n;
 }
 
 /*
@@ -101,6 +111,7 @@ skiplist_node_new(const int8_t level, const char* key, const void *value)
 	new_node->value = (void*)value;
 	new_node->key = key;
 	new_node->level = level;
+	new_node->refcount = 1;
 
 	/* A level 0 node still needs to hold 1 forward pointer, etc. */
 	new_node->forward = (struct skiplist_node **)
@@ -114,7 +125,7 @@ skiplist_node_new(const int8_t level, const char* key, const void *value)
 	return NULL;
 }
 
-static inline struct skiplist_node *
+static struct skiplist_node *
 skiplist_header_node_new(void)
 {
 	return skiplist_node_new(SKIPLIST_LEVEL_MAX, NULL, NULL);
@@ -133,6 +144,15 @@ skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 
 	free(node->forward);
 	free(node);
+}
+
+static void
+skiplist_node_deref(struct skiplist_node *node, struct skiplist *list)
+{
+	node->refcount--;
+	if (node->refcount == 0) {
+		skiplist_node_destroy(node, list);
+	}
 }
 
 static void
@@ -276,7 +296,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 		if (update[level]->forward[level] == found_node)
 			update[level]->forward[level] = found_node->forward[level];
 
-	skiplist_node_destroy(found_node, list);
+	skiplist_node_deref(found_node, list);
 
 	/* Remove unused levels from @list -- stop removing levels as soon as a
 	 * used level is found. Unused levels can occur if @found_node had the 
@@ -318,21 +338,40 @@ skiplist_get(struct qb_map *map, const char *key)
 	return NULL;
 }
 
-static void
-qb_skiplist_foreach(struct qb_map * map, qb_transverse_func func,
-			     void *user_data)
+static qb_map_iter_t*
+skiplist_iter_create(struct qb_map * map)
 {
+	struct skiplist_iter *i = malloc(sizeof(struct skiplist_iter));
 	struct skiplist *list = (struct skiplist *)map;
-	struct skiplist_node *cur_node = skiplist_node_next(list->header);
-	struct skiplist_node *fwd_node;
-	
-	while (cur_node) {
-		fwd_node = skiplist_node_next(cur_node);
-		if (func(cur_node->key, cur_node->value, user_data)) {
-			return;
-		}
-		cur_node = fwd_node;
+	i->i.m = map;
+	i->n = list->header;
+	i->n->refcount++;
+	return (qb_map_iter_t*)i;
+}
+
+static const char*
+skiplist_iter_next(qb_map_iter_t* i, void** value)
+{
+	struct skiplist_iter *si = (struct skiplist_iter*)i;
+	struct skiplist_node *p = si->n;
+
+	if (p == NULL) {
+		return NULL;
 	}
+	si->n = skiplist_node_next(p);
+	skiplist_node_deref(p, (struct skiplist *)i->m);
+	if (si->n == NULL) {
+		return NULL;
+	}
+	si->n->refcount++;
+	*value = si->n->value;
+	return si->n->key;
+}
+
+static void
+skiplist_iter_free(qb_map_iter_t* i)
+{
+	free(i);
 }
 
 static size_t
@@ -357,7 +396,9 @@ qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
 	sl->map.get = skiplist_get;
 	sl->map.rm = skiplist_rm;
 	sl->map.count_get = skiplist_count_get;
-	sl->map.foreach = qb_skiplist_foreach;
+	sl->map.iter_create = skiplist_iter_create;
+	sl->map.iter_next = skiplist_iter_next;
+	sl->map.iter_free = skiplist_iter_free;
 	sl->map.destroy = skiplist_destroy;
 
 	sl->level = SKIPLIST_LEVEL_MIN;

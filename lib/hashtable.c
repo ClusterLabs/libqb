@@ -31,6 +31,7 @@ struct hash_node {
 	struct qb_list_head list;
 	void *value;
 	const char *key;
+	uint32_t refcount;
 };
 
 struct hash_bucket {
@@ -43,6 +44,12 @@ struct hash_table {
 	uint32_t order;
 	uint32_t hash_buckets_len;
 	struct hash_bucket hash_buckets[0];
+};
+
+struct hashtable_iter {
+	struct qb_map_iter i;
+	struct hash_node *node;
+	uint32_t bucket;
 };
 
 static uint32_t
@@ -92,6 +99,23 @@ hashtable_get(struct qb_map *map, const char* key)
 	return NULL;
 }
 
+static void
+hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
+{
+	hash_node->refcount--;
+	if (hash_node->refcount > 0) {
+		return;
+	}
+	if (map->key_destroy_func) {
+		map->key_destroy_func((void*)hash_node->key);
+	}
+	if (map->value_destroy_func) {
+		map->value_destroy_func(hash_node->value);
+	}
+	qb_list_del(&hash_node->list);
+	free(hash_node);
+}
+
 static int32_t
 hashtable_rm_with_hash(struct qb_map *map, const void* key,
 		       uint32_t hash_entry)
@@ -106,14 +130,7 @@ hashtable_rm_with_hash(struct qb_map *map, const void* key,
 
 		hash_node = qb_list_entry(list, struct hash_node, list);
 		if (strcmp(hash_node->key, key) == 0) {
-			if (map->key_destroy_func) {
-				map->key_destroy_func((void*)hash_node->key);
-			}
-			if (map->value_destroy_func) {
-				map->value_destroy_func(hash_node->value);
-			}
-			qb_list_del(&hash_node->list);
-			free(hash_node);
+			hashtable_node_deref(map, hash_node);
 			hash_table->count--;
 			return QB_TRUE;
 		}
@@ -149,6 +166,7 @@ hashtable_put(struct qb_map *map, const char* key, const void* value)
 
 	hash_table->count++;
 	hash_node->key = key;
+	hash_node->refcount = 1;
 	hash_node->value = (void*)value;
 	qb_list_init(&hash_node->list);
 	qb_list_add_tail(&hash_node->list,
@@ -163,28 +181,59 @@ hashtable_count_get(struct qb_map *map)
 	return hash_table->count;
 }
 
-static void
-hashtable_foreach(struct qb_map *map, qb_transverse_func func, void* user_data)
+static qb_map_iter_t*
+hashtable_iter_create(struct qb_map * map)
 {
-	struct hash_table *hash_table = (struct hash_table *)map;
+	struct hashtable_iter *i = malloc(sizeof(struct hashtable_iter));
+	i->i.m = map;
+	i->node = NULL;
+	i->bucket = 0;
+	return (qb_map_iter_t*)i;
+}
+
+static const char*
+hashtable_iter_next(qb_map_iter_t* it, void** value)
+{
+	struct hashtable_iter *hi = (struct hashtable_iter*)it;
+	struct hash_table *hash_table = (struct hash_table *)hi->i.m;
 	struct qb_list_head *list;
 	struct qb_list_head *next;
-	struct hash_node *hash_node;
-	int32_t i;
+	struct hash_node *hash_node = NULL;
+	int b;
 
-	for (i = 0; i < hash_table->hash_buckets_len; i++) {
-		for (list = hash_table->hash_buckets[i].list_head.next;
-		     list != &hash_table->hash_buckets[i].list_head;
+	for (b = hi->bucket; b < hash_table->hash_buckets_len; b++) {
+		if (hi->bucket == b && hi->node) {
+			list = hi->node->list.next;
+		} else {
+			list = hash_table->hash_buckets[b].list_head.next;
+		}
+		for (;
+		     list != &hash_table->hash_buckets[b].list_head;
 		     list = next) {
 
 			next = list->next;
-
 			hash_node = qb_list_entry(list, struct hash_node, list);
-			if (func(hash_node->key, hash_node->value, user_data)) {
-				return;
-			}
+			*value = hash_node->value;
+			break;
 		}
 	}
+
+	if (hi->node) {
+		hashtable_node_deref(hi->i.m, hi->node);
+	}
+	if (hash_node == NULL) {
+		return NULL;
+	}
+	hash_node->refcount++;
+	hi->node = hash_node;
+	hi->bucket = b;
+	return hash_node->key;
+}
+
+static void
+hashtable_iter_free(qb_map_iter_t* i)
+{
+	free(i);
 }
 
 static void
@@ -223,7 +272,9 @@ qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 	ht->map.get = hashtable_get;
 	ht->map.rm = hashtable_rm;
 	ht->map.count_get = hashtable_count_get;
-	ht->map.foreach = hashtable_foreach;
+	ht->map.iter_create = hashtable_iter_create;
+	ht->map.iter_next = hashtable_iter_next;
+	ht->map.iter_free = hashtable_iter_free;
 	ht->map.destroy = hashtable_destroy;
 
 	ht->count = 0;
@@ -235,17 +286,4 @@ qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 	}
 	return (qb_map_t *) ht;
 }
-
-#if 0
-int32_t qb_hash_key_context_get(qb_handle_t handle,
-				const char *key, void **context)
-{
-	struct hash_table *hash_table;
-	int32_t res = 0;
-
-	qb_hdb_handle_get(&qb_hash_handle_db, handle, (void *)&hash_table);
-	qb_hdb_handle_put(&qb_hash_handle_db, handle);
-	return (res);
-}
-#endif
 

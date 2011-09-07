@@ -38,6 +38,7 @@ extern "C" {
  * This is an opaque data type representing an instance of a map.
  */
 typedef struct qb_map qb_map_t;
+typedef struct qb_map_iter qb_map_iter_t;
 
 typedef void (*qb_destroy_notifier_func)(void* data);
 typedef int32_t (*qb_transverse_func)(const char* key, void* value, void* data);
@@ -108,6 +109,29 @@ size_t qb_map_count_get(qb_map_t *map);
  * parameter. The map is traversed in sorted order.
  */
 void qb_map_foreach(qb_map_t *map, qb_transverse_func func, void* user_data);
+
+/**
+ * Create an iterator
+ */
+qb_map_iter_t* qb_map_iter_create(qb_map_t *map);
+
+/**
+ * Get the next item
+ *
+ * @param i the iterator
+ * @param value (out) the next item's value
+ *
+ * @retval the next key
+ * @retval NULL - the end of the iteration
+ */
+const char* qb_map_iter_next(qb_map_iter_t* i, void** value);
+
+/**
+ * free the iterator
+ *
+ * @param i the iterator
+ */
+void qb_map_iter_free(qb_map_iter_t* i);
 
 /**
  * Destroy the map, removes all the items from the map.

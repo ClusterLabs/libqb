@@ -178,26 +178,26 @@ my_value_destroy(void *value)
 }
 
 static void
-test_map_remove(qb_map_t *tree)
+test_map_remove(qb_map_t *m)
 {
-	char * a, *b, *c, *d;
+	const char * a, *b, *c, *d;
 	int32_t i;
 	int32_t removed;
 	const char *remove_ch[] = {"o","m","k","j","i","g","f","e","d","b","a",	NULL};
 
 	for (i = 0; chars[i]; i++) {
-		qb_map_put(tree, chars[i], chars[i]);
+		qb_map_put(m, chars[i], chars[i]);
 	}
 
 	a = "0";
-	qb_map_put(tree, a, a);
+	qb_map_put(m, a, a);
 	ck_assert(destroyed_key == chars[0]);
 	ck_assert(destroyed_value == chars[0]);
 	destroyed_key = NULL;
 	destroyed_value = NULL;
 
 	b = "5";
-	removed = qb_map_rm(tree, b);
+	removed = qb_map_rm(m, b);
 	ck_assert(removed);
 	ck_assert(destroyed_key == chars[5]);
 	ck_assert(destroyed_value == chars[5]);
@@ -205,14 +205,14 @@ test_map_remove(qb_map_t *tree)
 	destroyed_value = NULL;
 
 	d = "1";
-	qb_map_put(tree, d, d);
+	qb_map_put(m, d, d);
 	ck_assert(destroyed_key == chars[1]);
 	ck_assert(destroyed_value == chars[1]);
 	destroyed_key = NULL;
 	destroyed_value = NULL;
 
 	c = "2";
-	removed = qb_map_rm(tree, c);
+	removed = qb_map_rm(m, c);
 	ck_assert(removed);
 	ck_assert(destroyed_key == chars[2]);
 	ck_assert(destroyed_value == chars[2]);
@@ -220,63 +220,107 @@ test_map_remove(qb_map_t *tree)
 	destroyed_value = NULL;
 
 	for (i = 0; remove_ch[i]; i++) {
-		removed = qb_map_rm(tree, remove_ch[i]);
+		removed = qb_map_rm(m, remove_ch[i]);
 		ck_assert(removed);
 	}
 
-	qb_map_destroy(tree);
-}
-
-static int32_t
-traverse_func(const char *key, void *value, void *data)
-{
-	char *c = value;
-	char **p = data;
-
-	**p = *c;
-	(*p)++;
-
-	return QB_FALSE;
+	qb_map_destroy(m);
 }
 
 static void
-test_map_traverse_ordered(qb_map_t *tree)
+test_map_traverse_ordered(qb_map_t *m)
 {
 	int32_t i;
-	char *p, *result;
+	const char *p;
+	char *result;
+	void *data;
+	qb_map_iter_t *it = qb_map_iter_create(m);
 
 	for (i = 0; chars[i]; i++) {
-		qb_map_put(tree, chars[i], chars[i]);
+		qb_map_put(m, chars[i], chars[i]);
 	}
 	result = calloc(sizeof(char), 26 * 2 + 10 + 1);
 
-	p = result;
-	qb_map_foreach(tree, traverse_func, &p);
+	i = 0;
+	for (p = qb_map_iter_next(it, &data);
+	     p;
+	     p = qb_map_iter_next(it, &data)) {
+		result[i] = *(char*)data;
+		i++;
+	}
+	qb_map_iter_free(it);
 	ck_assert_str_eq(result,
 			 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 
-	qb_map_destroy(tree);
+	qb_map_destroy(m);
 }
 
 static int32_t
 traverse_and_remove_func(const char *key, void *value, void *data)
 {
+	int kk = rand() % 30;
 	qb_map_t *m = (qb_map_t *)data;
-	qb_map_rm(m, key);
-	qb_map_put(m, key + 20, key);
+	qb_map_rm(m, chars[kk]);
+	qb_map_put(m, chars[kk+30], key);
 	return QB_FALSE;
 }
 
 static void
-test_map_traverse_unordered(qb_map_t *tree)
+test_map_iter_safety(qb_map_t *m, int32_t ordered)
 {
-	int32_t i;
-	for (i = 0; i < 20; i++) {
-		qb_map_put(tree, chars[i], chars[i]);
+	void *data;
+	void *data2;
+	const char *p;
+	const char *p2;
+	qb_map_iter_t *it;
+	qb_map_iter_t *it2;
+	int32_t found_good = QB_FALSE;
+
+	qb_map_put(m, "aaaa", "aye");
+	qb_map_put(m, "bbbb", "bee");
+	qb_map_put(m, "cccc", "sea");
+
+	it = qb_map_iter_create(m);
+	it2 = qb_map_iter_create(m);
+	while ((p = qb_map_iter_next(it, &data)) != NULL) {
+		printf("1: %s == %s\n", p, (char*)data);
+		if (strcmp(p, "bbbb") == 0) {
+			qb_map_rm(m, "bbbb");
+			qb_map_rm(m, "cccc");
+			qb_map_put(m, "fffff", "yum");
+			while ((p2 = qb_map_iter_next(it2, &data2)) != NULL) {
+				printf("2: %s == %s\n", p2, (char*)data2);
+				if (strcmp(p2, "fffff") == 0) {
+					qb_map_put(m, "ggggg", "good");
+				}
+			}
+			qb_map_iter_free(it2);
+		}
+		if (strcmp(p, "ggggg") == 0) {
+			found_good = QB_TRUE;
+		}
 	}
-	qb_map_foreach(tree, traverse_and_remove_func, tree);
+	qb_map_iter_free(it);
+
+	if (ordered) {
+		ck_assert_int_eq(found_good, QB_TRUE);
+	}
+
+	qb_map_destroy(m);
 }
 
+
+static void
+test_map_traverse_unordered(qb_map_t *m)
+{
+	int32_t i;
+	srand(time(NULL));
+	for (i = 0; i < 30; i++) {
+		qb_map_put(m, chars[i], chars[i]);
+	}
+	qb_map_foreach(m, traverse_and_remove_func, m);
+	qb_map_destroy(m);
+}
 
 static int32_t
 my_counter_traverse(const char *key, void *value, void *data)
@@ -308,7 +352,7 @@ test_map_load(qb_map_t *m, const char* test_name)
 	fp = fopen("/usr/share/dict/words", "r");
 	qb_util_stopwatch_start(sw);
 	count = 0;
-	while (fgets(word, sizeof(word), fp)) {
+	while (fgets(word, sizeof(word), fp) && count < 100000) {
 		word[strlen(word) - 1] = '\0';
 		w = strdup(word);
 		qb_map_put(m, w, w);
@@ -326,10 +370,12 @@ test_map_load(qb_map_t *m, const char* test_name)
 	 */
 	fp = fopen("/usr/share/dict/words", "r");
 	qb_util_stopwatch_start(sw);
-	while (fgets(word, sizeof(word), fp)) {
+	count2 = 0;
+	while (fgets(word, sizeof(word), fp) && count2 < 100000) {
 		word[strlen(word) - 1] = '\0';
 		value = qb_map_get(m, word);
 		ck_assert_str_eq(word, value);
+		count2++;
 	}
 	qb_util_stopwatch_stop(sw);
 	fclose(fp);
@@ -352,10 +398,12 @@ test_map_load(qb_map_t *m, const char* test_name)
 	 */
 	fp = fopen("/usr/share/dict/words", "r");
 	qb_util_stopwatch_start(sw);
-	while (fgets(word, sizeof(word), fp)) {
+	count2 = 0;
+	while (fgets(word, sizeof(word), fp) && count2 < 100000) {
 		word[strlen(word) - 1] = '\0';
 		res = qb_map_rm(m, word);
 		ck_assert_int_eq(res, QB_TRUE);
+		count2++;
 	}
 	ck_assert_int_eq(qb_map_count_get(m), 0);
 	qb_util_stopwatch_stop(sw);
@@ -388,17 +436,17 @@ END_TEST
 
 START_TEST(test_skiplist_remove)
 {
-	qb_map_t *tree = qb_skiplist_create(my_key_destroy,
-					    my_value_destroy);
-	test_map_remove(tree);
+	qb_map_t *m = qb_skiplist_create(my_key_destroy,
+					 my_value_destroy);
+	test_map_remove(m);
 }
 END_TEST
 
 START_TEST(test_hashtable_remove)
 {
-	qb_map_t *tree = qb_hashtable_create(my_key_destroy,
-					     my_value_destroy, 256);
-	test_map_remove(tree);
+	qb_map_t *m = qb_hashtable_create(my_key_destroy,
+					  my_value_destroy, 256);
+	test_map_remove(m);
 }
 END_TEST
 
@@ -410,13 +458,19 @@ START_TEST(test_skiplist_traverse)
 
 	m = qb_skiplist_create(NULL, NULL);
 	test_map_traverse_unordered(m);
+
+	m = qb_skiplist_create(NULL, NULL);
+	test_map_iter_safety(m, QB_TRUE);
 }
 END_TEST
 
 START_TEST(test_hashtable_traverse)
 {
-	qb_map_t *m = qb_hashtable_create(NULL, NULL, 256);
+	qb_map_t *m;
+	m = qb_hashtable_create(NULL, NULL, 256);
 	test_map_traverse_unordered(m);
+	m = qb_hashtable_create(NULL, NULL, 256);
+	test_map_iter_safety(m, QB_FALSE);
 }
 END_TEST
 
@@ -485,12 +539,12 @@ map_suite(void)
 
 	tc = tcase_create("skiplist_load");
 	tcase_add_test(tc, test_skiplist_load);
-	tcase_set_timeout(tc, 10);
+	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("hashtable_load");
 	tcase_add_test(tc, test_hashtable_load);
-	tcase_set_timeout(tc, 20);
+	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
 
 	return s;
