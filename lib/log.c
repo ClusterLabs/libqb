@@ -34,7 +34,7 @@
 #include "log_int.h"
 #include "util_int.h"
 
-static struct qb_log_target conf[32];
+static struct qb_log_target conf[QB_LOG_TARGET_MAX];
 static uint32_t conf_used_max = 0;
 static uint32_t conf_active_max = 0;
 static int32_t in_logger = QB_FALSE;
@@ -526,7 +526,8 @@ qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	if (!logger_inited) {
 		return -EINVAL;
 	}
-	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
+	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
 	}
 	if (text == NULL ||
@@ -590,7 +591,7 @@ done:
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
 static void
-_log_target_state_set(struct qb_log_target *t, enum qb_log_state s)
+_log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
 {
 	int32_t i;
 	int32_t a_set = QB_FALSE;
@@ -618,7 +619,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	i = pthread_rwlock_init(&_listlock, NULL);
 	assert(i == 0);
 
-	for (i = 0; i < 32; i++) {
+	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
 		conf[i].pos = i;
 		conf[i].debug = QB_FALSE;
 		conf[i].state = QB_LOG_STATE_UNUSED;
@@ -697,7 +698,7 @@ struct qb_log_target *
 qb_log_target_alloc(void)
 {
 	int32_t i;
-	for (i = 0; i < 32; i++) {
+	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
 		if (conf[i].state == QB_LOG_STATE_UNUSED) {
 			_log_target_state_set(&conf[i], QB_LOG_STATE_DISABLED);
 			return &conf[i];
@@ -730,7 +731,8 @@ qb_log_target_user_data_get(int32_t t)
 		errno = -EINVAL;
 		return NULL;
 	}
-	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
+	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		errno = -EBADF;
 		return NULL;
 	}
@@ -744,7 +746,8 @@ qb_log_target_user_data_set(int32_t t, void *user_data)
 	if (!logger_inited) {
 		return -EINVAL;
 	}
-	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
+	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
 	}
 
@@ -783,7 +786,8 @@ qb_log_custom_close(int32_t t)
 	if (!logger_inited) {
 		return;
 	}
-	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
+	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		return;
 	}
 
@@ -839,7 +843,8 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 	if (!logger_inited) {
 		return -EINVAL;
 	}
-	if (t < 0 || t >= 32 || conf[t].state == QB_LOG_STATE_UNUSED) {
+	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
+	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
 	}
 	switch (c) {
@@ -849,6 +854,9 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		} else {
 			_log_target_disable(&conf[t]);
 		}
+		break;
+	case QB_LOG_CONF_STATE_GET:
+		rc = conf[t].state;
 		break;
 	case QB_LOG_CONF_FACILITY:
 		conf[t].facility = arg;

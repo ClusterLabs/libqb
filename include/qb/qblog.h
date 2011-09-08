@@ -349,6 +349,14 @@ void qb_log_from_external_source_va(const char *function,
 #define QB_LOG_STDERR 1
 #define QB_LOG_BLACKBOX 2
 
+#define QB_LOG_TARGET_MAX 32
+
+enum qb_log_target_state {
+	QB_LOG_STATE_UNUSED = 1,
+	QB_LOG_STATE_DISABLED = 2,
+	QB_LOG_STATE_ENABLED = 3,
+};
+
 enum qb_log_conf {
 	QB_LOG_CONF_ENABLED,
 	QB_LOG_CONF_FACILITY,
@@ -356,6 +364,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_SIZE,
 	QB_LOG_CONF_THREADED,
 	QB_LOG_CONF_PRIORITY_BUMP,
+	QB_LOG_CONF_STATE_GET,
 };
 
 enum qb_log_filter_type {
@@ -426,14 +435,16 @@ void qb_log_callsites_dump(void);
 /**
  * Main logging control function.
  *
- * @param t QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
- * @param c what to configure
+ * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
+ * @param conf_type what to configure
  * @param arg the new value
  * @see qb_log_conf
+ *
  * @retval -errno on error
  * @retval 0 on success
+ * @retval qb_log_target_state for QB_LOG_CONF_STATE_GET
  */
-int32_t qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg);
+int32_t qb_log_ctl(int32_t target, enum qb_log_conf conf_type, int32_t arg);
 
 /**
  * This allows you modify the 'tags' and 'targets' callsite fields at runtime.

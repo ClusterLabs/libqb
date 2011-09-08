@@ -311,9 +311,19 @@ END_TEST
 START_TEST(test_log_enable)
 {
 	int32_t t;
+	int32_t state;
 
 	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	state = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_STATE_GET, 0);
+	ck_assert_int_eq(state, QB_LOG_STATE_ENABLED);
+	state = qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_STATE_GET, 0);
+	ck_assert_int_eq(state, QB_LOG_STATE_DISABLED);
+	state = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_STATE_GET, 0);
+	ck_assert_int_eq(state, QB_LOG_STATE_DISABLED);
+
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	state = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_STATE_GET, 0);
+	ck_assert_int_eq(state, QB_LOG_STATE_DISABLED);
 
 	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
 	qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);

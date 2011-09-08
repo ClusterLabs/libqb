@@ -25,17 +25,11 @@
 #include <qb/qblog.h>
 #include <qb/qbrb.h>
 
-enum qb_log_state {
-	QB_LOG_STATE_UNUSED,
-	QB_LOG_STATE_DISABLED,
-	QB_LOG_STATE_ENABLED,
-};
-
 struct qb_log_target;
 
 struct qb_log_target {
 	uint32_t pos;
-	enum qb_log_state state;
+	enum qb_log_target_state state;
 	char name[PATH_MAX];
 	struct qb_list_head filter_head;
 	int32_t facility;
