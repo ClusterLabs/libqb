@@ -82,14 +82,27 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 	if (strcmp(text, "*") == 0) {
 		return QB_TRUE;
 	}
-	if (type == QB_LOG_FILTER_FILE) {
-		if (strstr(cs->filename, text)) {
-			match = QB_TRUE;
-		}
-	} else if (type == QB_LOG_FILTER_FUNCTION) {
-		if (strstr(cs->function, text)) {
-			match = QB_TRUE;
-		}
+	if (type == QB_LOG_FILTER_FILE ||
+	    type == QB_LOG_FILTER_FUNCTION) {
+		char token[500];
+		const char *offset = NULL;
+		const char *next = text;
+
+		do {
+			offset = next;
+			next = strchrnul(offset, ',');
+			snprintf(token, 499, "%.*s", (int)(next - offset), offset);
+
+			if (type == QB_LOG_FILTER_FILE) {
+				match = (strstr(cs->filename, token) != NULL);
+			} else {
+				match = (strstr(cs->function, token) != NULL);
+			}
+			if (!match && next[0] != 0) {
+				next++;
+			}
+
+		} while (match == QB_FALSE && next != NULL && next[0] != 0);
 	} else if (type == QB_LOG_FILTER_FORMAT) {
 		if (strstr(cs->format, text)) {
 			match = QB_TRUE;

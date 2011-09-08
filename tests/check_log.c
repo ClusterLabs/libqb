@@ -158,6 +158,16 @@ _test_logger(int32_t t,
 	num_msgs++;
 }
 
+static void log_also(void)
+{
+	qb_log(LOG_INFO, "yes please");
+}
+
+static void log_and_this_too(void)
+{
+	qb_log(LOG_INFO, "this too please");
+}
+
 static void log_it_please(void)
 {
 	qb_enter();
@@ -228,6 +238,17 @@ START_TEST(test_log_basic)
 	ck_assert_int_eq(num_msgs, 0);
 	qb_log(LOG_DEBUG, "try if you: log_it_please()");
 	ck_assert_int_eq(num_msgs, 1);
+
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FUNCTION,
+			  "log_also,log_and_this_too",
+			  LOG_DEBUG);
+	num_msgs = 0;
+	log_also();
+	log_and_this_too();
+	ck_assert_int_eq(num_msgs, 2);
 }
 END_TEST
 
