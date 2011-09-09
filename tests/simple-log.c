@@ -102,10 +102,22 @@ static const char *my_tags_stringify(uint32_t tags)
 	}
 }
 
+static void 
+trace_logger(int32_t t,
+	     struct qb_log_callsite *cs,
+	     time_t timestamp,
+	     const char *msg)
+{
+	char output_buffer[QB_LOG_MAX_LEN];
+	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
+	fprintf(stderr, "%s\n", output_buffer);
+}
+
 int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "vhtebdf:";
 	int32_t opt;
+	int32_t tracer;
 	int32_t priority = LOG_WARNING;
 	int32_t do_stderr = QB_FALSE;
 	int32_t do_dump_blackbox = QB_FALSE;
@@ -151,11 +163,20 @@ int32_t main(int32_t argc, char *argv[])
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, do_threaded);
 	qb_log_tags_stringify_fn_set(my_tags_stringify);
 
+	tracer = qb_log_custom_open(trace_logger, NULL, NULL, NULL);
+
 	if (do_stderr) {
-		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-				  QB_LOG_FILTER_FILE, __FILE__, priority);
+		qb_log_filter_ctl2(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+				   QB_LOG_FILTER_FILE, __FILE__,
+				   LOG_ALERT, QB_MIN(LOG_DEBUG, priority));
 		qb_log_format_set(QB_LOG_STDERR, "%4g: %f:%l [%p] %b");
 		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+
+		qb_log_ctl(tracer, QB_LOG_CONF_ENABLED, QB_TRUE);
+		qb_log_format_set(tracer, "%4g: %n() %b");
+		qb_log_filter_ctl2(tracer, QB_LOG_FILTER_ADD,
+				   QB_LOG_FILTER_FILE, __FILE__,
+				   LOG_TRACE, LOG_TRACE);
 	}
 	if (do_blackbox) {
 		qb_log_filter_ctl(QB_LOG_BLACKBOX, QB_LOG_FILTER_ADD,

@@ -451,7 +451,15 @@ int32_t qb_log_ctl(int32_t target, enum qb_log_conf conf_type, int32_t arg);
  */
 int32_t qb_log_filter_ctl(int32_t value, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,
-			  uint8_t priority);
+			  uint8_t low_priority);
+
+
+/**
+ * This extends qb_log_filter_ctl() by been able to provide a high_priority.
+ */
+int32_t qb_log_filter_ctl2(int32_t value, enum qb_log_filter_conf c,
+			  enum qb_log_filter_type type, const char * text,
+			  uint8_t high_priority, uint8_t low_priority);
 
 /**
  * Set the callback to map the 'tags' bit map to a string.

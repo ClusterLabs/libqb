@@ -55,11 +55,13 @@ static void _log_target_disable(struct qb_log_target *t);
 static void _log_filter_apply(struct callsite_section *sect,
 			      uint32_t t, enum qb_log_filter_conf c,
 			      enum qb_log_filter_type type,
-			      const char *text, uint8_t priority);
+			      const char *text,
+			      uint8_t high_priority, uint8_t low_priority);
 static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 				    uint32_t t, enum qb_log_filter_conf c,
 				    enum qb_log_filter_type type,
-				    const char *text, uint8_t priority);
+				    const char *text,
+				    uint8_t high_priority, uint8_t low_priority);
 
 /* deprecated method of getting internal log messages */
 static qb_util_log_fn_t old_internal_log_fn = NULL;
@@ -72,11 +74,14 @@ qb_util_set_log_function(qb_util_log_fn_t fn)
 static int32_t
 _cs_matches_filter_(struct qb_log_callsite *cs,
 		    enum qb_log_filter_type type,
-		    const char *text, uint8_t priority)
+		    const char *text,
+		    uint8_t high_priority,
+		    uint8_t low_priority)
 {
 	int32_t match = QB_FALSE;
 
-	if (cs->priority > priority) {
+	if (cs->priority > low_priority ||
+	    cs->priority < high_priority) {
 		return QB_FALSE;
 	}
 	if (strcmp(text, "*") == 0) {
@@ -253,14 +258,16 @@ void qb_log_from_external_source_va(const char *function,
 			for (f_item = t->filter_head.next; f_item != &t->filter_head; f_item = f_item->next) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, t->pos, flt->conf, flt->type,
-							flt->text, flt->priority);
+							flt->text, flt->high_priority,
+						       	flt->low_priority);
 			}
 		}
 		if (tags == 0) {
 			for (f_item = tags_head.next; f_item != &tags_head; f_item = f_item->next) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, flt->new_value, flt->conf, flt->type,
-							flt->text, flt->priority);
+							flt->text, flt->high_priority,
+						       	flt->low_priority);
 			}
 		} else {
 			cs->tags = tags;
@@ -328,12 +335,14 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 		}
 		qb_list_for_each_entry(flt, &t->filter_head, list) {
 			_log_filter_apply(sect, t->pos, flt->conf,
-					  flt->type, flt->text, flt->priority);
+					  flt->type, flt->text,
+					  flt->high_priority, flt->low_priority);
 		}
 	}
 	qb_list_for_each_entry(flt, &tags_head, list) {
 		_log_filter_apply(sect, flt->new_value, flt->conf,
-				  flt->type, flt->text, flt->priority);
+				  flt->type, flt->text,
+				  flt->high_priority, flt->low_priority);
 	}
 	pthread_rwlock_unlock(&_listlock);
 
@@ -368,13 +377,17 @@ qb_log_callsites_dump(void)
 static int32_t
 _log_filter_exists(struct qb_list_head *list_head,
 		   enum qb_log_filter_type type,
-		   const char *text, uint8_t priority, uint32_t new_value)
+		   const char *text,
+		   uint8_t high_priority,
+		   uint8_t low_priority,
+		   uint32_t new_value)
 {
 	struct qb_log_filter *flt;
 
 	qb_list_for_each_entry(flt, list_head, list) {
 		if (flt->type == type &&
-		    flt->priority == priority &&
+		    flt->high_priority == high_priority &&
+		    flt->low_priority == low_priority &&
 		    flt->new_value == new_value &&
 		    strcmp(flt->text, text) == 0) {
 			return QB_TRUE;
@@ -386,7 +399,9 @@ _log_filter_exists(struct qb_list_head *list_head,
 static int32_t
 _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 		  enum qb_log_filter_type type,
-		  const char *text, uint8_t priority)
+		  const char *text,
+		  uint8_t high_priority,
+		  uint8_t low_priority)
 {
 	struct qb_log_filter *flt;
 	struct qb_list_head *iter;
@@ -413,7 +428,8 @@ _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 		if (text == NULL) {
 			return -EINVAL;
 		}
-		if (_log_filter_exists(list_head, type, text, priority, t)) {
+		if (_log_filter_exists(list_head, type, text,
+				       high_priority, low_priority, t)) {
 			return -EEXIST;
 		}
 		flt = calloc(1, sizeof(struct qb_log_filter));
@@ -428,14 +444,16 @@ _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 			free(flt);
 			return -ENOMEM;
 		}
-		flt->priority = priority;
+		flt->high_priority = high_priority;
+		flt->low_priority = low_priority;
 		flt->new_value = t;
 		qb_list_add_tail(&flt->list, list_head);
 	} else if (c == QB_LOG_FILTER_REMOVE || c == QB_LOG_TAG_CLEAR) {
 		qb_list_for_each_safe(iter, next, list_head) {
 			flt = qb_list_entry(iter, struct qb_log_filter, list);
 			if (flt->type == type &&
-			    flt->priority <= priority &&
+			    flt->low_priority == low_priority &&
+			    flt->high_priority == high_priority &&
 			    strcmp(flt->text, text) == 0) {
 				qb_list_del(iter);
 				free(flt->text);
@@ -459,7 +477,8 @@ static void
 _log_filter_apply(struct callsite_section *sect,
 		  uint32_t t, enum qb_log_filter_conf c,
 		  enum qb_log_filter_type type,
-		  const char *text, uint8_t priority)
+		  const char *text,
+		  uint8_t high_priority, uint8_t low_priority)
 {
 	struct qb_log_callsite *cs;
 
@@ -467,7 +486,8 @@ _log_filter_apply(struct callsite_section *sect,
 		if (cs->lineno == 0) {
 			break;
 		}
-		_log_filter_apply_to_cs(cs, t, c, type, text, priority);
+		_log_filter_apply_to_cs(cs, t, c, type, text,
+					high_priority, low_priority);
 	}
 }
 
@@ -476,7 +496,8 @@ static void
 _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 			uint32_t t, enum qb_log_filter_conf c,
 			enum qb_log_filter_type type,
-			const char *text, uint8_t priority)
+			const char *text,
+			uint8_t high_priority, uint8_t low_priority)
 {
 
 	if (c == QB_LOG_FILTER_CLEAR_ALL) {
@@ -487,7 +508,7 @@ _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 		return;
 	}
 
-	if (_cs_matches_filter_(cs, type, text, priority)) {
+	if (_cs_matches_filter_(cs, type, text, high_priority, low_priority)) {
 #ifdef _QB_FILTER_DEBUGGING_
 		uint32_t old_targets = cs->targets;
 		uint32_t old_tags = cs->tags;
@@ -516,9 +537,9 @@ _log_filter_apply_to_cs(struct qb_log_callsite *cs,
 }
 
 int32_t
-qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
-		  enum qb_log_filter_type type,
-		  const char *text, uint8_t priority)
+qb_log_filter_ctl2(int32_t t, enum qb_log_filter_conf c,
+		   enum qb_log_filter_type type, const char * text,
+		   uint8_t high_priority, uint8_t low_priority)
 {
 	struct callsite_section *sect;
 	int32_t rc;
@@ -531,22 +552,32 @@ qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 		return -EBADF;
 	}
 	if (text == NULL ||
-	    priority > LOG_TRACE ||
-	    type > QB_LOG_FILTER_FORMAT || c > QB_LOG_TAG_CLEAR_ALL) {
+	    low_priority > LOG_TRACE ||
+	    low_priority < high_priority ||
+	    type > QB_LOG_FILTER_FORMAT ||
+	    c > QB_LOG_TAG_CLEAR_ALL) {
 		return -EINVAL;
 	}
 	pthread_rwlock_rdlock(&_listlock);
-	rc = _log_filter_store(t, c, type, text, priority);
+	rc = _log_filter_store(t, c, type, text, high_priority, low_priority);
 	if (rc < 0) {
 		pthread_rwlock_unlock(&_listlock);
 		return rc;
 	}
 
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
-		_log_filter_apply(sect, t, c, type, text, priority);
+		_log_filter_apply(sect, t, c, type, text, high_priority, low_priority);
 	}
 	pthread_rwlock_unlock(&_listlock);
 	return 0;
+}
+
+int32_t
+qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
+		  enum qb_log_filter_type type,
+		  const char *text, uint8_t priority)
+{
+	return qb_log_filter_ctl2(t, c, type, text, LOG_EMERG, priority);
 }
 
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
