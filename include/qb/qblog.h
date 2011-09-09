@@ -241,7 +241,7 @@ extern struct qb_log_callsite __stop___verbose[];
 
 #define QB_LOG_INIT_DATA(name)						\
     void name(void);							\
-    void name(void) { assert(__start___verbose != __stop___verbose); }	\
+    void name(void) { if (__start___verbose != __stop___verbose) {assert(1);} }	\
     void __attribute__ ((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
