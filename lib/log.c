@@ -552,7 +552,6 @@ qb_log_filter_ctl2(int32_t t, enum qb_log_filter_conf c,
 		return -EBADF;
 	}
 	if (text == NULL ||
-	    low_priority > LOG_TRACE ||
 	    low_priority < high_priority ||
 	    type > QB_LOG_FILTER_FORMAT ||
 	    c > QB_LOG_TAG_CLEAR_ALL) {

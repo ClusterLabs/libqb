@@ -121,9 +121,6 @@ START_TEST(test_log_stupid_inputs)
 
 	/* crap values to filter_ctl() */
 	rc = qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
-			       QB_LOG_FILTER_FILE, "bla", 45);
-	ck_assert_int_eq(rc, -EINVAL);
-	rc = qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 			       QB_LOG_FILTER_FILE, NULL, LOG_INFO);
 	ck_assert_int_eq(rc, -EINVAL);
 	rc = qb_log_filter_ctl(QB_LOG_SYSLOG, 56,

@@ -36,6 +36,7 @@ static void func_one(void)
 	qb_enter();
 	qb_logt(LOG_DEBUG, MY_TAG_TWO, "arf arf?");
 	qb_logt(LOG_CRIT, MY_TAG_THREE,  "arrrg!");
+	qb_logt(134, MY_TAG_THREE,  "big priority");
 	qb_logt(LOG_ERR, MY_TAG_THREE,   "oops, I did it again");
 	qb_log(LOG_INFO,  "are you aware ...");
 
@@ -176,7 +177,7 @@ int32_t main(int32_t argc, char *argv[])
 		qb_log_format_set(tracer, "%4g: %n() %b");
 		qb_log_filter_ctl2(tracer, QB_LOG_FILTER_ADD,
 				   QB_LOG_FILTER_FILE, __FILE__,
-				   LOG_TRACE, LOG_TRACE);
+				   LOG_TRACE, 200);
 	}
 	if (do_blackbox) {
 		qb_log_filter_ctl(QB_LOG_BLACKBOX, QB_LOG_FILTER_ADD,
