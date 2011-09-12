@@ -69,6 +69,14 @@ qb_map_t* qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
                              qb_destroy_notifier_func value_destroy_func);
 
 /**
+ *
+ */
+qb_map_t*
+qb_trie_create(qb_destroy_notifier_func key_destroy_func,
+	       qb_destroy_notifier_func value_destroy_func);
+
+
+/**
  * Inserts a new key and value into a qb_map_t.
  *
  * If the key already exists in the qb_map_t, it gets replaced by the new key.

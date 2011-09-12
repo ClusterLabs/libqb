@@ -43,7 +43,7 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c \
 			  log.c log_thread.c log_blackbox.c log_file.c \
 			  log_syslog.c log_dcs.c log_format.c \
-			  map.c skiplist.c hashtable.c
+			  map.c skiplist.c hashtable.c trie.c
 
 libqb_la_SOURCES	= $(source_to_lint)
 if USE_TIMERFD

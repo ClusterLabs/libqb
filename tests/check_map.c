@@ -427,9 +427,23 @@ START_TEST(test_hashtable_simple)
 }
 END_TEST
 
+START_TEST(test_trie_simple)
+{
+	qb_map_t *m = qb_trie_create(NULL, NULL);
+	test_map_simple(m);
+}
+END_TEST
+
 START_TEST(test_skiplist_search)
 {
 	qb_map_t *m = qb_skiplist_create(NULL, NULL);
+	test_map_search(m);
+}
+END_TEST
+
+START_TEST(test_trie_search)
+{
+	qb_map_t *m = qb_trie_create(NULL, NULL);
 	test_map_search(m);
 }
 END_TEST
@@ -446,6 +460,14 @@ START_TEST(test_hashtable_remove)
 {
 	qb_map_t *m = qb_hashtable_create(my_key_destroy,
 					  my_value_destroy, 256);
+	test_map_remove(m);
+}
+END_TEST
+
+START_TEST(test_trie_remove)
+{
+	qb_map_t *m = qb_trie_create(my_key_destroy,
+				     my_value_destroy);
 	test_map_remove(m);
 }
 END_TEST
@@ -474,6 +496,16 @@ START_TEST(test_hashtable_traverse)
 }
 END_TEST
 
+START_TEST(test_trie_traverse)
+{
+	qb_map_t *m;
+	m = qb_trie_create(NULL, NULL);
+	test_map_traverse_unordered(m);
+	m = qb_trie_create(NULL, NULL);
+	test_map_iter_safety(m, QB_FALSE);
+}
+END_TEST
+
 START_TEST(test_skiplist_load)
 {
 	qb_map_t *m;
@@ -498,6 +530,18 @@ START_TEST(test_hashtable_load)
 }
 END_TEST
 
+START_TEST(test_trie_load)
+{
+	qb_map_t *m;
+	if (access("/usr/share/dict/words", R_OK) != 0) {
+		printf("no dict/words - not testing\n");
+		return;
+	}
+	m = qb_trie_create(NULL, NULL);
+	test_map_load(m, __func__);
+}
+END_TEST
+
 static Suite *
 map_suite(void)
 {
@@ -512,12 +556,20 @@ map_suite(void)
 	tcase_add_test(tc, test_hashtable_simple);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("trie_simple");
+	tcase_add_test(tc, test_trie_simple);
+	suite_add_tcase(s, tc);
+
 	tc = tcase_create("skiplist_remove");
 	tcase_add_test(tc, test_skiplist_remove);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("hashtable_remove");
 	tcase_add_test(tc, test_hashtable_remove);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("trie_remove");
+	tcase_add_test(tc, test_trie_remove);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("skiplist_search");
@@ -528,6 +580,9 @@ map_suite(void)
  * 	No hashtable_search as it assumes an ordered
  *	collection
  */
+	tc = tcase_create("trie_search");
+	tcase_add_test(tc, test_trie_search);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("skiplist_traverse");
 	tcase_add_test(tc, test_skiplist_traverse);
@@ -537,6 +592,10 @@ map_suite(void)
 	tcase_add_test(tc, test_hashtable_traverse);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("trie_traverse");
+	tcase_add_test(tc, test_trie_traverse);
+	suite_add_tcase(s, tc);
+
 	tc = tcase_create("skiplist_load");
 	tcase_add_test(tc, test_skiplist_load);
 	tcase_set_timeout(tc, 30);
@@ -544,6 +603,11 @@ map_suite(void)
 
 	tc = tcase_create("hashtable_load");
 	tcase_add_test(tc, test_hashtable_load);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("trie_load");
+	tcase_add_test(tc, test_trie_load);
 	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
 
