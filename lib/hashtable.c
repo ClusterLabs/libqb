@@ -117,7 +117,7 @@ hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
 }
 
 static int32_t
-hashtable_rm_with_hash(struct qb_map *map, const void* key,
+hashtable_rm_with_hash(struct qb_map *map, const char* key,
 		       uint32_t hash_entry)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
@@ -158,7 +158,7 @@ hashtable_put(struct qb_map *map, const char* key, const void* value)
 
 	hash_entry = qb_hash_string(key, hash_table->order);
 	(void)hashtable_rm_with_hash(map, key, hash_entry);
-	hash_node = malloc(sizeof(struct hash_node));
+	hash_node = calloc(1, sizeof(struct hash_node));
 	if (hash_node == NULL) {
 		errno = ENOMEM;
 		return;
@@ -170,8 +170,7 @@ hashtable_put(struct qb_map *map, const char* key, const void* value)
 	hash_node->value = (void*)value;
 	qb_list_init(&hash_node->list);
 	qb_list_add_tail(&hash_node->list,
-			 &hash_table->hash_buckets[hash_entry].
-			 list_head);
+			 &hash_table->hash_buckets[hash_entry].list_head);
 }
 
 static size_t
@@ -196,37 +195,43 @@ hashtable_iter_next(qb_map_iter_t* it, void** value)
 {
 	struct hashtable_iter *hi = (struct hashtable_iter*)it;
 	struct hash_table *hash_table = (struct hash_table *)hi->i.m;
-	struct qb_list_head *list;
-	struct qb_list_head *next;
+	struct qb_list_head *ln;
 	struct hash_node *hash_node = NULL;
+	int found = QB_FALSE;
+	int cont = QB_TRUE;
 	int b;
 
-	for (b = hi->bucket; b < hash_table->hash_buckets_len; b++) {
-		if (hi->bucket == b && hi->node) {
-			list = hi->node->list.next;
+	if (hi->node == NULL) {
+		cont = QB_FALSE;
+	}
+	for (b = hi->bucket;
+	     b < hash_table->hash_buckets_len && !found; b++) {
+		if (cont) {
+			ln = hi->node->list.next;
+			cont = QB_FALSE;
 		} else {
-			list = hash_table->hash_buckets[b].list_head.next;
+			ln = hash_table->hash_buckets[b].list_head.next;
 		}
-		for (;
-		     list != &hash_table->hash_buckets[b].list_head;
-		     list = next) {
-
-			next = list->next;
-			hash_node = qb_list_entry(list, struct hash_node, list);
-			*value = hash_node->value;
-			break;
+		for (; ln != &hash_table->hash_buckets[b].list_head;
+		     ln = ln->next) {
+			hash_node = qb_list_entry(ln, struct hash_node, list);
+			if (hash_node->refcount > 0) {
+				found = QB_TRUE;
+				hash_node->refcount++;
+				hi->bucket = b;
+				*value = hash_node->value;
+				break;
+			}
 		}
 	}
 
 	if (hi->node) {
 		hashtable_node_deref(hi->i.m, hi->node);
 	}
-	if (hash_node == NULL) {
+	if (!found) {
 		return NULL;
 	}
-	hash_node->refcount++;
 	hi->node = hash_node;
-	hi->bucket = b;
 	return hash_node->key;
 }
 
