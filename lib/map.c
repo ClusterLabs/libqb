@@ -68,7 +68,13 @@ clean_up:
 qb_map_iter_t*
 qb_map_iter_create(struct qb_map *map)
 {
-	return map->iter_create(map);
+	return map->iter_create(map, NULL);
+}
+
+qb_map_iter_t*
+qb_map_pref_iter_create(qb_map_t *map, const char* prefix)
+{
+	return map->iter_create(map, prefix);
 }
 
 const char*

@@ -338,7 +338,7 @@ skiplist_get(struct qb_map *map, const char *key)
 }
 
 static qb_map_iter_t*
-skiplist_iter_create(struct qb_map * map)
+skiplist_iter_create(struct qb_map * map, const char* prefix)
 {
 	struct skiplist_iter *i = malloc(sizeof(struct skiplist_iter));
 	struct skiplist *list = (struct skiplist *)map;

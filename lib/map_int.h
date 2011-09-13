@@ -23,13 +23,17 @@
 
 struct qb_map;
 
-typedef void (*qb_map_put_func)(struct qb_map *map, const char* key, const void* value);
+typedef void (*qb_map_put_func)(struct qb_map *map, const char* key,
+				const void* value);
 typedef void* (*qb_map_get_func)(struct qb_map *map, const char* key);
 typedef int32_t (*qb_map_rm_func)(struct qb_map *map, const char* key);
 typedef size_t (*qb_map_count_get_func)(struct qb_map *map);
-typedef void (*qb_map_foreach_func)(struct qb_map *map, qb_transverse_func func, void* user_data);
+typedef void (*qb_map_foreach_func)(struct qb_map *map,
+				    qb_transverse_func func,
+				    void* user_data);
 typedef void (*qb_map_destroy_func)(struct qb_map *map);
-typedef qb_map_iter_t* (*qb_map_iter_create_func)(struct qb_map *map);
+typedef qb_map_iter_t* (*qb_map_iter_create_func)(struct qb_map *map,
+						  const char* prefix);
 typedef const char* (*qb_map_iter_next_func)(qb_map_iter_t* i, void** value);
 typedef void (*qb_map_iter_free_func)(qb_map_iter_t* i);
 

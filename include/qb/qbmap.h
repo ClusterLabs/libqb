@@ -126,6 +126,15 @@ void qb_map_foreach(qb_map_t *map, qb_transverse_func func, void* user_data);
 qb_map_iter_t* qb_map_iter_create(qb_map_t *map);
 
 /**
+ * Create a prefix iterator.
+ *
+ * This will iterate over all items with the given
+ * prefix.
+ * @note this is only supported by the trie.
+ */
+qb_map_iter_t* qb_map_pref_iter_create(qb_map_t *map, const char* prefix);
+
+/**
  * Get the next item
  *
  * @param i the iterator

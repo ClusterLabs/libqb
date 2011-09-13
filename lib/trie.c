@@ -27,8 +27,9 @@
 
 struct trie_iter {
 	struct qb_map_iter i;
-	const char *key;
+	const char *prefix;
 	struct trie_node *n;
+	struct trie_node *root;
 };
 
 struct trie_node {
@@ -57,7 +58,7 @@ static int32_t trie_rm(struct qb_map *list, const char *key);
 #define TRIE_CHAR2INDEX(ch) (126 - ch)
 
 static struct trie_node *
-trie_node_next(struct trie_node *node)
+trie_node_next(struct trie_node *node, struct trie_node *root)
 {
 	struct trie_node *c = node;
 	struct trie_node *n;
@@ -83,7 +84,7 @@ keep_going:
 		}
 	}
 	// sibling/parent
-	if (c->parent == NULL) {
+	if (c == root) {
 		return NULL;
 	}
 	p = c;
@@ -97,13 +98,13 @@ keep_going:
 		if (n == NULL) {
 			p = p->parent;
 		}
-	} while (n == NULL && p->parent);
+	} while (n == NULL && p != root);
 
 	if (n) {
 		if (n->value) {
 			return n;
 		}
-		if (n->parent == NULL) {
+		if (n == root) {
 			return NULL;
 		}
 		c = n;
@@ -260,12 +261,14 @@ trie_get(struct qb_map *map, const char *key)
 }
 
 static qb_map_iter_t*
-trie_iter_create(struct qb_map * map)
+trie_iter_create(struct qb_map * map, const char* prefix)
 {
 	struct trie_iter *i = malloc(sizeof(struct trie_iter));
-	struct trie *list = (struct trie *)map;
+	struct trie *t = (struct trie *)map;
 	i->i.m = map;
-	i->n = list->header;
+	i->prefix = prefix;
+	i->n = t->header;
+	i->root = t->header;
 	i->n->refcount++;
 	return (qb_map_iter_t*)i;
 }
@@ -275,16 +278,30 @@ trie_iter_next(qb_map_iter_t* i, void** value)
 {
 	struct trie_iter *si = (struct trie_iter*)i;
 	struct trie_node *p = si->n;
+	struct trie *t = (struct trie *)(i->m);
 
 	if (p == NULL) {
 		return NULL;
 	}
-	si->n = trie_node_next(p);
-	trie_node_deref((struct trie *)i->m, p);
+
+	if (p->parent == NULL && si->prefix) {
+		si->root = trie_lookup(t, si->prefix, QB_FALSE);
+		if (si->root == NULL) {
+			si->n = NULL;
+		} else if (si->root->value == NULL) {
+			si->n = trie_node_next(si->root, si->root);
+		} else {
+			si->n = si->root;
+		}
+	} else {
+		si->n = trie_node_next(p, si->root);
+	}
 	if (si->n == NULL) {
+		trie_node_deref((struct trie *)i->m, p);
 		return NULL;
 	}
 	si->n->refcount++;
+	trie_node_deref((struct trie *)i->m, p);
 	*value = si->n->value;
 	return si->n->key;
 }

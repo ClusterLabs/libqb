@@ -325,6 +325,61 @@ test_map_iter_safety(qb_map_t *m, int32_t ordered)
 	qb_map_destroy(m);
 }
 
+static void
+test_map_iter_prefix(qb_map_t *m)
+{
+	void *data;
+	const char *p;
+	qb_map_iter_t *it;
+	int count;
+
+	qb_map_put(m, "aaaa", "aye");
+	qb_map_put(m, "facc", "nope");
+	qb_map_put(m, "abbb", "bee");
+	qb_map_put(m, "a.ac", "nope");
+	qb_map_put(m, "aacc", "yip");
+	qb_map_put(m, "cacc", "nope");
+	qb_map_put(m, "c", "----");
+
+	count = 0;
+	it = qb_map_pref_iter_create(m, "aa");
+	while ((p = qb_map_iter_next(it, &data)) != NULL) {
+		printf("1: %s == %s\n", p, (char*)data);
+		count++;
+	}
+	qb_map_iter_free(it);
+	ck_assert_int_eq(count, 2);
+
+	count = 0;
+	it = qb_map_pref_iter_create(m, "a");
+	while ((p = qb_map_iter_next(it, &data)) != NULL) {
+		printf("2: %s == %s\n", p, (char*)data);
+		count++;
+	}
+	qb_map_iter_free(it);
+	ck_assert_int_eq(count, 4);
+
+	count = 0;
+	it = qb_map_pref_iter_create(m, "zz");
+	while ((p = qb_map_iter_next(it, &data)) != NULL) {
+		printf("??: %s == %s\n", p, (char*)data);
+		count++;
+	}
+	qb_map_iter_free(it);
+	ck_assert_int_eq(count, 0);
+
+	count = 0;
+	it = qb_map_pref_iter_create(m, "c");
+	while ((p = qb_map_iter_next(it, &data)) != NULL) {
+		printf("3: %s == %s\n", p, (char*)data);
+		count++;
+	}
+	qb_map_iter_free(it);
+	ck_assert_int_eq(count, 2);
+
+	qb_map_destroy(m);
+}
+
 
 static void
 test_map_traverse_unordered(qb_map_t *m)
@@ -525,6 +580,8 @@ START_TEST(test_trie_traverse)
 	test_map_traverse_unordered(m);
 	m = qb_trie_create(NULL, NULL);
 	test_map_iter_safety(m, QB_FALSE);
+	m = qb_trie_create(NULL, NULL);
+	test_map_iter_prefix(m);
 }
 END_TEST
 

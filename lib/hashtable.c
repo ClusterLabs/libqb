@@ -181,7 +181,7 @@ hashtable_count_get(struct qb_map *map)
 }
 
 static qb_map_iter_t*
-hashtable_iter_create(struct qb_map * map)
+hashtable_iter_create(struct qb_map * map, const char* prefix)
 {
 	struct hashtable_iter *i = malloc(sizeof(struct hashtable_iter));
 	i->i.m = map;
