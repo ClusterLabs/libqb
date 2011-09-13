@@ -75,7 +75,7 @@ skiplist_level_generate(void)
 	int8_t level = SKIPLIST_LEVEL_MIN;
 
 	while ((uint16_t) (rand()) < P_CEIL)
-		level += 1;
+		level++;
 
 	if (level < SKIPLIST_LEVEL_MAX)
 		return level;
@@ -228,7 +228,7 @@ skiplist_put(struct qb_map * map, const char *key, const void *value)
 			cur_node = fwd_node;
 			break;
 		case OP_GOTO_NEXT_LEVEL:
-			level -= 1;
+			level--;
 		}
 
 		update[update_level] = cur_node;
@@ -237,8 +237,7 @@ skiplist_put(struct qb_map * map, const char *key, const void *value)
 	new_node_level = skiplist_level_generate();
 
 	if (new_node_level > list->level) {
-		for (level = list->level + 1; level <= new_node_level;
-		     level += 1)
+		for (level = list->level + 1; level <= new_node_level; level++)
 			update[level] = list->header;
 
 		list->level = new_node_level;
@@ -249,12 +248,12 @@ skiplist_put(struct qb_map * map, const char *key, const void *value)
 	assert(new_node != NULL);
 
 	/* Drop @new_node into @list. */
-	for (level = SKIPLIST_LEVEL_MIN; level <= new_node_level; level += 1) {
+	for (level = SKIPLIST_LEVEL_MIN; level <= new_node_level; level++) {
 		new_node->forward[level] = update[level]->forward[level];
 		update[level]->forward[level] = new_node;
 	}
 
-	list->length += 1;
+	list->length++;
 }
 
 static int32_t
@@ -276,7 +275,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 			break;
 		case OP_GOTO_NEXT_LEVEL:
 		default:
-			level -= 1;
+			level--;
 			break;
 		}
 
@@ -292,7 +291,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 	}
 
 	/* Splice found_node out of list. */
-	for (level = SKIPLIST_LEVEL_MIN; level <= list->level; level += 1)
+	for (level = SKIPLIST_LEVEL_MIN; level <= list->level; level++)
 		if (update[level]->forward[level] == found_node)
 			update[level]->forward[level] = found_node->forward[level];
 
@@ -302,14 +301,14 @@ skiplist_rm(struct qb_map *map, const char *key)
 	 * used level is found. Unused levels can occur if @found_node had the 
 	 * highest level.
 	 */
-	for (level = list->level; level >= SKIPLIST_LEVEL_MIN; level -= 1) {
+	for (level = list->level; level >= SKIPLIST_LEVEL_MIN; level--) {
 		if (list->header->forward[level])
 			break;
 
-		list->level -= 1;
+		list->level--;
 	}
 
-	list->length -= 1;
+	list->length--;
 
 	return QB_TRUE;
 }
@@ -331,7 +330,7 @@ skiplist_get(struct qb_map *map, const char *key)
 			cur_node = fwd_node;
 			break;
 		case OP_GOTO_NEXT_LEVEL:
-			level -= 1;
+			level--;
 		}
 	}
 
