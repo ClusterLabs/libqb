@@ -43,18 +43,34 @@ static void *destroyed_key = NULL;
 static void *destroyed_value = NULL;
 
 static void
-test_map_simple(qb_map_t *m)
+test_map_simple(qb_map_t *m, const char *name)
 {
+	int i;
+	char *p;
+	void *data;
+	qb_map_iter_t *it;
+
 	qb_map_put(m, "k1", "one");
 	qb_map_put(m, "k2", "two");
 	qb_map_put(m, "k3", "three");
 	ck_assert_int_eq(qb_map_count_get(m), 3);
 	qb_map_put(m, "k4", "four");
-
 	ck_assert_int_eq(qb_map_count_get(m), 4);
+
+	it = qb_map_iter_create(m);
+	i = 0;
+	for (p = qb_map_iter_next(it, &data);
+	     p;
+	     p = qb_map_iter_next(it, &data)) {
+		printf("%25s(%d) %s > %s\n", name, i, p, (char*)data);
+		i++;
+	}
+	qb_map_iter_free(it);
+	ck_assert_int_eq(i, 4);
 
 	ck_assert_str_eq(qb_map_get(m, "k3"), "three");
 	ck_assert_str_eq(qb_map_get(m, "k1"), "one");
+	ck_assert_str_eq(qb_map_get(m, "k2"), "two");
 	ck_assert_str_eq(qb_map_get(m, "k4"), "four");
 
 	qb_map_rm(m, "k2");
@@ -340,6 +356,7 @@ test_map_load(qb_map_t *m, const char* test_name)
 	int32_t count;
 	int32_t count2;
 	float ops;
+	float secs;
 	void *value;
 	qb_util_stopwatch_t *sw;
 
@@ -362,8 +379,9 @@ test_map_load(qb_map_t *m, const char* test_name)
 	ck_assert_int_eq(qb_map_count_get(m), count);
 	fclose(fp);
 
-	ops = count / qb_util_stopwatch_sec_elapsed_get(sw);
-	qb_log(LOG_INFO, "%s %9.3f puts/sec\n", test_name, ops);
+	secs = qb_util_stopwatch_sec_elapsed_get(sw);
+	ops = (float)count / secs;
+	qb_log(LOG_INFO, "%25s %12.2f puts/sec (%d/%fs)\n", test_name, ops, count, secs);
 
 	/*
 	 * Verify dictionary produces correct values
@@ -380,8 +398,9 @@ test_map_load(qb_map_t *m, const char* test_name)
 	qb_util_stopwatch_stop(sw);
 	fclose(fp);
 
-	ops = count / qb_util_stopwatch_sec_elapsed_get(sw);
-	qb_log(LOG_INFO, "%s %9.3f gets/sec\n", test_name, ops);
+	secs = qb_util_stopwatch_sec_elapsed_get(sw);
+	ops = (float)count2 / secs;
+	qb_log(LOG_INFO, "%25s %12.2f gets/sec (%d/%fs)\n", test_name, ops, count2, secs);
 
 	/*
 	 * time the iteration
@@ -390,8 +409,10 @@ test_map_load(qb_map_t *m, const char* test_name)
 	qb_util_stopwatch_start(sw);
 	qb_map_foreach(m, my_counter_traverse, &count2);
 	qb_util_stopwatch_stop(sw);
-	ops = count2 / qb_util_stopwatch_sec_elapsed_get(sw);
-	qb_log(LOG_INFO, "%s %9.3f iterations/sec\n", test_name, ops);
+	ck_assert_int_eq(qb_map_count_get(m), count2);
+	secs = qb_util_stopwatch_sec_elapsed_get(sw);
+	ops = (float)count2 / secs;
+	qb_log(LOG_INFO, "%25s %12.2f iters/sec (%d/%fs)\n", test_name, ops, count2, secs);
 
 	/*
 	 * Delete all dictionary entries
@@ -405,32 +426,33 @@ test_map_load(qb_map_t *m, const char* test_name)
 		ck_assert_int_eq(res, QB_TRUE);
 		count2++;
 	}
-	ck_assert_int_eq(qb_map_count_get(m), 0);
 	qb_util_stopwatch_stop(sw);
+	ck_assert_int_eq(qb_map_count_get(m), 0);
 	fclose(fp);
 
-	ops = count / qb_util_stopwatch_sec_elapsed_get(sw);
-	qb_log(LOG_INFO, "%s %9.3f deletes/sec\n", test_name, ops);
+	secs = qb_util_stopwatch_sec_elapsed_get(sw);
+	ops = (float)count2 / secs;
+	qb_log(LOG_INFO, "%25s %12.2f dels/sec (%d/%fs)\n", test_name, ops, count2, secs);
 }
 
 START_TEST(test_skiplist_simple)
 {
 	qb_map_t *m = qb_skiplist_create(NULL, NULL);
-	test_map_simple(m);
+	test_map_simple(m, __func__);
 }
 END_TEST
 
 START_TEST(test_hashtable_simple)
 {
 	qb_map_t *m = qb_hashtable_create(NULL, NULL, 32);
-	test_map_simple(m);
+	test_map_simple(m, __func__);
 }
 END_TEST
 
 START_TEST(test_trie_simple)
 {
 	qb_map_t *m = qb_trie_create(NULL, NULL);
-	test_map_simple(m);
+	test_map_simple(m, __func__);
 }
 END_TEST
 
