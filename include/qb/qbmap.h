@@ -69,7 +69,9 @@ qb_map_t* qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
                              qb_destroy_notifier_func value_destroy_func);
 
 /**
+ * Create a sorted map using a trie or "Prefix list".
  *
+ * @see en.wikipedia.org/wiki/Trie
  */
 qb_map_t*
 qb_trie_create(qb_destroy_notifier_func key_destroy_func,

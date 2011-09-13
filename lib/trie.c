@@ -32,7 +32,7 @@ struct trie_iter {
 };
 
 struct trie_node {
-	char key_ch;
+	uint32_t idx;
 	char *key;
 	void *value;
 	struct trie_node **children;
@@ -50,6 +50,12 @@ struct trie {
 
 static int32_t trie_rm(struct qb_map *list, const char *key);
 
+/*
+ * characters are stored in reverse to make accessing the
+ * more common case (non-control chars) more space efficient.
+ */
+#define TRIE_CHAR2INDEX(ch) (126 - ch)
+
 static struct trie_node *
 trie_node_next(struct trie_node *node)
 {
@@ -62,7 +68,7 @@ keep_going:
 	n = NULL;
 
 	// child/outward
-	for (i = 0; i < c->num_children; i++) {
+	for (i = c->num_children - 1; i >= 0; i--) {
 		if (c->children[i]) {
 			n = c->children[i];
 			break;
@@ -82,7 +88,7 @@ keep_going:
 	}
 	p = c;
 	do {
-		for (i = (p->key_ch + 1); i < p->parent->num_children; i++) {
+		for (i = p->idx - 1; i >= 0; i--) {
 			if (p->parent->children[i]) {
 				n = p->parent->children[i];
 				break;
@@ -153,6 +159,9 @@ trie_new_node(struct trie * t, struct trie_node* parent)
 
 	new_node->parent = parent;
 
+	new_node->num_children = 30;
+	new_node->children = calloc(new_node->num_children,
+				    sizeof(struct trie_node*));
 	return new_node;
 }
 
@@ -164,7 +173,7 @@ trie_lookup(struct trie * t, const char *key, int32_t create_path)
 	int old_max_idx;
 	int i;
 	char *cur = (char*)key;
-	int idx = key[0];
+	int idx = TRIE_CHAR2INDEX(key[0]);
 
 	do {
 		if (idx >= cur_node->num_children) {
@@ -190,12 +199,12 @@ trie_lookup(struct trie * t, const char *key, int32_t create_path)
 				return NULL;
 			}
 			new_node = trie_new_node(t, cur_node);
-			new_node->key_ch = *cur;
+			new_node->idx = idx;
 			cur_node->children[idx] = new_node;
 		}
 		cur_node = cur_node->children[idx];
 		cur++;
-		idx = *cur;
+		idx = TRIE_CHAR2INDEX(*cur);
 	} while (*cur != '\0');
 
 	return cur_node;
