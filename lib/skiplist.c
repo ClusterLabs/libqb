@@ -358,11 +358,12 @@ skiplist_iter_next(qb_map_iter_t* i, void** value)
 		return NULL;
 	}
 	si->n = skiplist_node_next(p);
-	skiplist_node_deref(p, (struct skiplist *)i->m);
 	if (si->n == NULL) {
+		skiplist_node_deref(p, (struct skiplist *)i->m);
 		return NULL;
 	}
 	si->n->refcount++;
+	skiplist_node_deref(p, (struct skiplist *)i->m);
 	*value = si->n->value;
 	return si->n->key;
 }
