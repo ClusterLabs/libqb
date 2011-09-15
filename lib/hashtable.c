@@ -32,6 +32,7 @@ struct hash_node {
 	void *value;
 	const char *key;
 	uint32_t refcount;
+	struct qb_list_head notifier_head;
 };
 
 struct hash_bucket {
@@ -44,6 +45,7 @@ struct hash_table {
 	uint32_t order;
 	uint32_t hash_buckets_len;
 	struct hash_bucket hash_buckets[0];
+	struct qb_list_head notifier_head;
 };
 
 struct hashtable_iter {
@@ -51,6 +53,10 @@ struct hashtable_iter {
 	struct hash_node *node;
 	uint32_t bucket;
 };
+
+static void hashtable_notify(struct hash_table *t, struct hash_node *n,
+			     uint32_t event, const char *key,
+			     void *old_value, void *value, void *user_data);
 
 static uint32_t
 hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
@@ -72,53 +78,61 @@ hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
 static uint32_t
 qb_hash_string(const void *key, uint32_t order)
 {
-	char* str = (char*)key;
+	char *str = (char *)key;
 	return hash_fnv(key, strlen(str), order);
 }
 
-static void*
-hashtable_get(struct qb_map *map, const char* key)
+static struct hash_node *
+hashtable_lookup(struct hash_table *t, const char *key)
 {
-	struct hash_table *hash_table = (struct hash_table *)map;
 	uint32_t hash_entry;
 	struct qb_list_head *list;
 	struct hash_node *hash_node;
 
-	hash_entry = qb_hash_string(key, hash_table->order);
+	hash_entry = qb_hash_string(key, t->order);
 
-	for (list = hash_table->hash_buckets[hash_entry].list_head.next;
-	     list != &hash_table->hash_buckets[hash_entry].list_head;
+	for (list = t->hash_buckets[hash_entry].list_head.next;
+	     list != &t->hash_buckets[hash_entry].list_head;
 	     list = list->next) {
 
 		hash_node = qb_list_entry(list, struct hash_node, list);
 		if (strcmp(hash_node->key, key) == 0) {
-			return hash_node->value;
+			return hash_node;
 		}
 	}
 
 	return NULL;
 }
 
+static void *
+hashtable_get(struct qb_map *map, const char *key)
+{
+	struct hash_table *t = (struct hash_table *)map;
+	struct hash_node *n = hashtable_lookup(t, key);
+	if (n) {
+		return n->value;
+	}
+	return NULL;
+}
+
 static void
 hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
 {
+	struct hash_table *t = (struct hash_table *)map;
+
 	hash_node->refcount--;
 	if (hash_node->refcount > 0) {
 		return;
 	}
-	if (map->key_destroy_func) {
-		map->key_destroy_func((void*)hash_node->key);
-	}
-	if (map->value_destroy_func) {
-		map->value_destroy_func(hash_node->value);
-	}
+	hashtable_notify(t, hash_node,
+			 QB_MAP_NOTIFY_DELETED,
+			 hash_node->key, hash_node->value, NULL, NULL);
 	qb_list_del(&hash_node->list);
 	free(hash_node);
 }
 
 static int32_t
-hashtable_rm_with_hash(struct qb_map *map, const char* key,
-		       uint32_t hash_entry)
+hashtable_rm_with_hash(struct qb_map *map, const char *key, uint32_t hash_entry)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
 	struct qb_list_head *list;
@@ -140,7 +154,7 @@ hashtable_rm_with_hash(struct qb_map *map, const char* key,
 }
 
 static int32_t
-hashtable_rm(struct qb_map *map, const char* key)
+hashtable_rm(struct qb_map *map, const char *key)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
 	uint32_t hash_entry;
@@ -150,27 +164,156 @@ hashtable_rm(struct qb_map *map, const char* key)
 }
 
 static void
-hashtable_put(struct qb_map *map, const char* key, const void* value)
+hashtable_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
 	uint32_t hash_entry;
-	struct hash_node *hash_node;
+	struct hash_node *hash_node = NULL;
+	struct hash_node *node_try;
+	struct qb_list_head *list;
 
 	hash_entry = qb_hash_string(key, hash_table->order);
-	(void)hashtable_rm_with_hash(map, key, hash_entry);
-	hash_node = calloc(1, sizeof(struct hash_node));
-	if (hash_node == NULL) {
-		errno = ENOMEM;
-		return;
+
+	for (list = hash_table->hash_buckets[hash_entry].list_head.next;
+	     list != &hash_table->hash_buckets[hash_entry].list_head;
+	     list = list->next) {
+
+		node_try = qb_list_entry(list, struct hash_node, list);
+		if (strcmp(node_try->key, key) == 0) {
+			hash_node = node_try;
+			break;
+		}
 	}
 
-	hash_table->count++;
-	hash_node->key = key;
-	hash_node->refcount = 1;
-	hash_node->value = (void*)value;
-	qb_list_init(&hash_node->list);
-	qb_list_add_tail(&hash_node->list,
-			 &hash_table->hash_buckets[hash_entry].list_head);
+	if (hash_node == NULL) {
+		hash_node = calloc(1, sizeof(struct hash_node));
+		if (hash_node == NULL) {
+			errno = ENOMEM;
+			return;
+		}
+
+		hash_table->count++;
+		hash_node->refcount = 1;
+		hash_node->key = key;
+		hash_node->value = (void *)value;
+		qb_list_init(&hash_node->list);
+		qb_list_add_tail(&hash_node->list,
+				 &hash_table->hash_buckets[hash_entry].
+				 list_head);
+		qb_list_init(&hash_node->notifier_head);
+
+		hashtable_notify(hash_table, hash_node,
+				 QB_MAP_NOTIFY_INSERTED,
+				 hash_node->key, hash_node->value, NULL, NULL);
+	} else {
+		char *old_k = (char *)hash_node->key;
+		char *old_v = (void *)hash_node->value;
+		hash_node->key = key;
+		hash_node->value = (void *)value;
+
+		hashtable_notify(hash_table, hash_node,
+				 QB_MAP_NOTIFY_REPLACED,
+				 old_k, old_v, hash_node->value, NULL);
+	}
+}
+
+static void
+hashtable_notify(struct hash_table *t, struct hash_node *n,
+		 uint32_t event, const char *key,
+		 void *old_value, void *value, void *user_data)
+{
+	struct qb_list_head *list;
+	struct qb_map_notifier *tn;
+
+	for (list = n->notifier_head.next;
+	     list != &n->notifier_head; list = list->next) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (tn->events & event) {
+			tn->callback(event, (char *)key, old_value, value,
+				     user_data);
+		}
+	}
+	for (list = t->notifier_head.next;
+	     list != &t->notifier_head; list = list->next) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (tn->events & event) {
+			tn->callback(event, (char *)key, old_value, value,
+				     user_data);
+		}
+	}
+}
+
+static int32_t
+hashtable_notify_add(qb_map_t * m, const char *key,
+		     qb_map_notify_fn fn, int32_t events)
+{
+	struct hash_table *t = (struct hash_table *)m;
+	struct qb_map_notifier *f;
+	struct hash_node *n;
+	struct qb_list_head *head = NULL;
+	struct qb_list_head *list;
+
+	if (key) {
+		n = hashtable_lookup(t, key);
+		if (n) {
+			head = &n->notifier_head;
+		}
+	} else {
+		head = &t->notifier_head;
+	}
+	if (head == NULL) {
+		return -ENOENT;
+	}
+	for (list = head->next; list != head; list = list->next) {
+		f = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (f->events == events && f->callback == fn) {
+			return -EEXIST;
+		}
+	}
+
+	f = malloc(sizeof(struct qb_map_notifier));
+	f->events = events;
+	f->callback = fn;
+	qb_list_init(&f->list);
+	qb_list_add(&f->list, head);
+	return 0;
+}
+
+static int32_t
+hashtable_notify_del(qb_map_t * m, const char *key,
+		     qb_map_notify_fn fn, int32_t events)
+{
+	struct hash_table *t = (struct hash_table *)m;
+	struct qb_map_notifier *f;
+	struct hash_node *n;
+	struct qb_list_head *head = NULL;
+	struct qb_list_head *list;
+
+	if (key) {
+		n = hashtable_lookup(t, key);
+		if (n) {
+			head = &n->notifier_head;
+		}
+	} else {
+		head = &t->notifier_head;
+	}
+	if (head == NULL) {
+		return -ENOENT;
+	}
+
+	for (list = head->next; list != head; list = list->next) {
+		f = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (f->events == events && f->callback == fn) {
+			qb_list_del(&f->list);
+			free(f);
+			return 0;
+		}
+	}
+	return -ENOENT;
 }
 
 static size_t
@@ -180,20 +323,20 @@ hashtable_count_get(struct qb_map *map)
 	return hash_table->count;
 }
 
-static qb_map_iter_t*
-hashtable_iter_create(struct qb_map * map, const char* prefix)
+static qb_map_iter_t *
+hashtable_iter_create(struct qb_map *map, const char *prefix)
 {
 	struct hashtable_iter *i = malloc(sizeof(struct hashtable_iter));
 	i->i.m = map;
 	i->node = NULL;
 	i->bucket = 0;
-	return (qb_map_iter_t*)i;
+	return (qb_map_iter_t *) i;
 }
 
-static const char*
-hashtable_iter_next(qb_map_iter_t* it, void** value)
+static const char *
+hashtable_iter_next(qb_map_iter_t * it, void **value)
 {
-	struct hashtable_iter *hi = (struct hashtable_iter*)it;
+	struct hashtable_iter *hi = (struct hashtable_iter *)it;
 	struct hash_table *hash_table = (struct hash_table *)hi->i.m;
 	struct qb_list_head *ln;
 	struct hash_node *hash_node = NULL;
@@ -204,8 +347,7 @@ hashtable_iter_next(qb_map_iter_t* it, void** value)
 	if (hi->node == NULL) {
 		cont = QB_FALSE;
 	}
-	for (b = hi->bucket;
-	     b < hash_table->hash_buckets_len && !found; b++) {
+	for (b = hi->bucket; b < hash_table->hash_buckets_len && !found; b++) {
 		if (cont) {
 			ln = hi->node->list.next;
 			cont = QB_FALSE;
@@ -236,7 +378,7 @@ hashtable_iter_next(qb_map_iter_t* it, void** value)
 }
 
 static void
-hashtable_iter_free(qb_map_iter_t* i)
+hashtable_iter_free(qb_map_iter_t * i)
 {
 	free(i);
 }
@@ -250,9 +392,7 @@ hashtable_destroy(struct qb_map *map)
 }
 
 qb_map_t *
-qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
-		   qb_destroy_notifier_func value_destroy_func,
-		   size_t max_size)
+qb_hashtable_create(size_t max_size)
 {
 	int32_t i;
 	int32_t order;
@@ -269,9 +409,9 @@ qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 	    (sizeof(struct hash_bucket) * (1 << order));
 
 	ht = calloc(1, size);
-
-	ht->map.key_destroy_func = key_destroy_func;
-	ht->map.value_destroy_func = value_destroy_func;
+	if (ht == NULL) {
+		return NULL;
+	}
 
 	ht->map.put = hashtable_put;
 	ht->map.get = hashtable_get;
@@ -281,9 +421,11 @@ qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 	ht->map.iter_next = hashtable_iter_next;
 	ht->map.iter_free = hashtable_iter_free;
 	ht->map.destroy = hashtable_destroy;
-
+	ht->map.notify_add = hashtable_notify_add;
+	ht->map.notify_del = hashtable_notify_del;
 	ht->count = 0;
 	ht->order = order;
+	qb_list_init(&ht->notifier_head);
 
 	ht->hash_buckets_len = 1 << order;
 	for (i = 0; i < ht->hash_buckets_len; i++) {
@@ -291,4 +433,3 @@ qb_hashtable_create(qb_destroy_notifier_func key_destroy_func,
 	}
 	return (qb_map_t *) ht;
 }
-

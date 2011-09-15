@@ -40,6 +40,7 @@ struct skiplist_node {
 	void *value;
 	int8_t level;
 	uint32_t refcount;
+	struct qb_list_head notifier_head;
 
 	/* An array of @level + 1 node pointers */
 	struct skiplist_node **forward;
@@ -56,8 +57,6 @@ struct skiplist {
 /* An array of nodes that need to be updated after an insert or delete operation
  */
 typedef struct skiplist_node *skiplist_update_t[SKIPLIST_LEVEL_COUNT];
-
-static int32_t skiplist_rm(struct qb_map *list, const char *key);
 
 static int8_t
 skiplist_level_generate(void)
@@ -96,11 +95,11 @@ skiplist_node_next(const struct skiplist_node *node)
 /*
  * Create a new level @level node with value @value. The node should eventually
  * be destroyed with @skiplist_node_destroy.
- * 
+ *
  * return: a new node on success and NULL otherwise.
  */
 static struct skiplist_node *
-skiplist_node_new(const int8_t level, const char* key, const void *value)
+skiplist_node_new(const int8_t level, const char *key, const void *value)
 {
 	struct skiplist_node *new_node = (struct skiplist_node *)
 	    (malloc(sizeof(struct skiplist_node)));
@@ -108,10 +107,11 @@ skiplist_node_new(const int8_t level, const char* key, const void *value)
 	if (!new_node)
 		return NULL;
 
-	new_node->value = (void*)value;
+	new_node->value = (void *)value;
 	new_node->key = key;
 	new_node->level = level;
 	new_node->refcount = 1;
+	qb_list_init(&new_node->notifier_head);
 
 	/* A level 0 node still needs to hold 1 forward pointer, etc. */
 	new_node->forward = (struct skiplist_node **)
@@ -131,16 +131,94 @@ skiplist_header_node_new(void)
 	return skiplist_node_new(SKIPLIST_LEVEL_MAX, NULL, NULL);
 }
 
+/* An operation to perform after comparing a user value or search with a
+ * node's value
+ */
+typedef enum {
+	OP_GOTO_NEXT_LEVEL,
+	OP_GOTO_NEXT_NODE,
+	OP_FINISH,
+} op_t;
+
+static op_t
+op_search(const struct skiplist *list,
+	  const struct skiplist_node *fwd_node, const void *search)
+{
+	int32_t cmp;
+
+	if (!fwd_node)
+		return OP_GOTO_NEXT_LEVEL;
+
+	cmp = strcmp(fwd_node->key, search);
+	if (cmp < 0) {
+		return OP_GOTO_NEXT_NODE;
+	} else if (cmp == 0) {
+		return OP_FINISH;
+	}
+
+	return OP_GOTO_NEXT_LEVEL;
+}
+
+static struct skiplist_node *
+skiplist_lookup(struct skiplist *list, const char *key)
+{
+	struct skiplist_node *cur_node = list->header;
+	int8_t level = list->level;
+
+	while (level >= SKIPLIST_LEVEL_MIN) {
+		struct skiplist_node *fwd_node = cur_node->forward[level];
+
+		switch (op_search(list, fwd_node, key)) {
+		case OP_FINISH:
+			return fwd_node;
+		case OP_GOTO_NEXT_NODE:
+			cur_node = fwd_node;
+			break;
+		case OP_GOTO_NEXT_LEVEL:
+			level--;
+		}
+	}
+
+	return NULL;
+}
+
+static void
+skiplist_notify(struct skiplist *l, struct skiplist_node *n,
+		uint32_t event,
+		char *key, void *old_value, void *value, void *user_data)
+{
+	struct qb_list_head *list;
+	struct qb_map_notifier *tn;
+
+	/* node callbacks
+	 */
+	for (list = n->notifier_head.next;
+	     list != &n->notifier_head; list = list->next) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (tn->events & event) {
+			tn->callback(event, key, old_value, value, user_data);
+		}
+	}
+	/* global callbacks
+	 */
+	for (list = l->header->notifier_head.next;
+	     list != &l->header->notifier_head; list = list->next) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (tn->events & event) {
+			tn->callback(event, key, old_value, value, user_data);
+		}
+	}
+
+}
+
 static void
 skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 {
-	if (list->map.value_destroy_func && node != list->header) {
-		list->map.value_destroy_func(node->value);
-	}
-
-	if (list->map.key_destroy_func && node != list->header) {
-		list->map.key_destroy_func((void*)node->key);
-	}
+	skiplist_notify(list, node,
+			QB_MAP_NOTIFY_DELETED,
+			(char *)node->key, node->value, NULL, NULL);
 
 	free(node->forward);
 	free(node);
@@ -153,6 +231,43 @@ skiplist_node_deref(struct skiplist_node *node, struct skiplist *list)
 	if (node->refcount == 0) {
 		skiplist_node_destroy(node, list);
 	}
+}
+
+static int32_t
+skiplist_notify_add(qb_map_t * m, const char *key,
+		    qb_map_notify_fn fn, int32_t events)
+{
+	struct skiplist *t = (struct skiplist *)m;
+	struct qb_map_notifier *f;
+	struct skiplist_node *n;
+
+	if (key) {
+		n = skiplist_lookup(t, key);
+	} else {
+		n = t->header;
+	}
+	if (n) {
+		f = malloc(sizeof(struct qb_map_notifier));
+		f->events = events;
+		f->callback = fn;
+		qb_list_init(&f->list);
+		qb_list_add(&f->list, &n->notifier_head);
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static int32_t
+skiplist_notify_del(qb_map_t * m, const char *key,
+		    qb_map_notify_fn fn, int32_t events)
+{
+	struct skiplist *t = (struct skiplist *)m;
+	struct skiplist_node *n = skiplist_lookup(t, key);
+
+	if (n) {
+		return 0;
+	}
+	return -ENOENT;
 }
 
 static void
@@ -169,36 +284,8 @@ skiplist_destroy(struct qb_map *map)
 	free(list);
 }
 
-/* An operation to perform after comparing a user value or search with a
- * node's value
- */
-typedef enum {
-	OP_GOTO_NEXT_LEVEL,
-	OP_GOTO_NEXT_NODE,
-	OP_FINISH,
-} op_t;
-
-static op_t
-op_search(const struct skiplist *list,
-	  const struct skiplist_node *fwd_node, const void *search)
-{
-	int32_t cmp;
-	
-	if (!fwd_node)
-		return OP_GOTO_NEXT_LEVEL;
-
-	cmp = strcmp(fwd_node->key, search);
-	if (cmp < 0) {
-		return OP_GOTO_NEXT_NODE;
-	} else if (cmp == 0) {
-		return OP_FINISH;
-	}
-
-	return OP_GOTO_NEXT_LEVEL;
-}
-
 static void
-skiplist_put(struct qb_map * map, const char *key, const void *value)
+skiplist_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *new_node;
@@ -207,21 +294,21 @@ skiplist_put(struct qb_map * map, const char *key, const void *value)
 	int8_t update_level;
 	int8_t new_node_level;
 	struct skiplist_node *cur_node = list->header;
+	char *old_k;
+	char *old_v;
 
 	while ((update_level = level) >= SKIPLIST_LEVEL_MIN) {
 		struct skiplist_node *fwd_node = cur_node->forward[level];
 
 		switch (op_search(list, fwd_node, key)) {
 		case OP_FINISH:
-			if (map->key_destroy_func && fwd_node != list->header) {
-				map->key_destroy_func((void*)fwd_node->key);
-			}
-			if (map->value_destroy_func && fwd_node != list->header) {
-				map->value_destroy_func(fwd_node->value);
-			}
-
-			fwd_node->value = (void*)value;
-			fwd_node->key = (void*)key;
+			old_k = (char *)fwd_node->key;
+			old_v = (char *)fwd_node->value;
+			fwd_node->value = (void *)value;
+			fwd_node->key = (void *)key;
+			skiplist_notify(list, fwd_node,
+					QB_MAP_NOTIFY_REPLACED,
+					old_k, old_v, fwd_node->value, NULL);
 			return;
 
 		case OP_GOTO_NEXT_NODE:
@@ -293,12 +380,13 @@ skiplist_rm(struct qb_map *map, const char *key)
 	/* Splice found_node out of list. */
 	for (level = SKIPLIST_LEVEL_MIN; level <= list->level; level++)
 		if (update[level]->forward[level] == found_node)
-			update[level]->forward[level] = found_node->forward[level];
+			update[level]->forward[level] =
+			    found_node->forward[level];
 
 	skiplist_node_deref(found_node, list);
 
 	/* Remove unused levels from @list -- stop removing levels as soon as a
-	 * used level is found. Unused levels can occur if @found_node had the 
+	 * used level is found. Unused levels can occur if @found_node had the
 	 * highest level.
 	 */
 	for (level = list->level; level >= SKIPLIST_LEVEL_MIN; level--) {
@@ -317,41 +405,29 @@ static void *
 skiplist_get(struct qb_map *map, const char *key)
 {
 	struct skiplist *list = (struct skiplist *)map;
-	struct skiplist_node *cur_node = list->header;
-	int8_t level = list->level;
-
-	while (level >= SKIPLIST_LEVEL_MIN) {
-		struct skiplist_node *fwd_node = cur_node->forward[level];
-
-		switch (op_search(list, fwd_node, key)) {
-		case OP_FINISH:
-			return fwd_node->value;
-		case OP_GOTO_NEXT_NODE:
-			cur_node = fwd_node;
-			break;
-		case OP_GOTO_NEXT_LEVEL:
-			level--;
-		}
+	struct skiplist_node *n = skiplist_lookup(list, key);
+	if (n) {
+		return n->value;
 	}
 
 	return NULL;
 }
 
-static qb_map_iter_t*
-skiplist_iter_create(struct qb_map * map, const char* prefix)
+static qb_map_iter_t *
+skiplist_iter_create(struct qb_map *map, const char *prefix)
 {
 	struct skiplist_iter *i = malloc(sizeof(struct skiplist_iter));
 	struct skiplist *list = (struct skiplist *)map;
 	i->i.m = map;
 	i->n = list->header;
 	i->n->refcount++;
-	return (qb_map_iter_t*)i;
+	return (qb_map_iter_t *) i;
 }
 
-static const char*
-skiplist_iter_next(qb_map_iter_t* i, void** value)
+static const char *
+skiplist_iter_next(qb_map_iter_t * i, void **value)
 {
-	struct skiplist_iter *si = (struct skiplist_iter*)i;
+	struct skiplist_iter *si = (struct skiplist_iter *)i;
 	struct skiplist_node *p = si->n;
 
 	if (p == NULL) {
@@ -369,28 +445,27 @@ skiplist_iter_next(qb_map_iter_t* i, void** value)
 }
 
 static void
-skiplist_iter_free(qb_map_iter_t* i)
+skiplist_iter_free(qb_map_iter_t * i)
 {
 	free(i);
 }
 
 static size_t
-skiplist_count_get(struct qb_map * map)
+skiplist_count_get(struct qb_map *map)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	return list->length;
 }
 
 qb_map_t *
-qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
-		   qb_destroy_notifier_func value_destroy_func)
+qb_skiplist_create(void)
 {
-	struct skiplist *sl = calloc(1, sizeof(struct skiplist));
-	
-	srand(time(NULL));
+	struct skiplist *sl = malloc(sizeof(struct skiplist));
+	if (sl == NULL) {
+		return NULL;
+	}
 
-	sl->map.key_destroy_func = key_destroy_func;
-	sl->map.value_destroy_func = value_destroy_func;
+	srand(time(NULL));
 
 	sl->map.put = skiplist_put;
 	sl->map.get = skiplist_get;
@@ -400,11 +475,11 @@ qb_skiplist_create(qb_destroy_notifier_func key_destroy_func,
 	sl->map.iter_next = skiplist_iter_next;
 	sl->map.iter_free = skiplist_iter_free;
 	sl->map.destroy = skiplist_destroy;
-
+	sl->map.notify_add = skiplist_notify_add;
+	sl->map.notify_del = skiplist_notify_del;
 	sl->level = SKIPLIST_LEVEL_MIN;
 	sl->length = 0;
 	sl->header = skiplist_header_node_new();
 
 	return (qb_map_t *) sl;
 }
-

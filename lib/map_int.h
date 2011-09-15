@@ -21,6 +21,8 @@
 #ifndef _QB_MAP_INT_H_
 #define _QB_MAP_INT_H_
 
+#include <qb/qblist.h>
+
 struct qb_map;
 
 typedef void (*qb_map_put_func)(struct qb_map *map, const char* key,
@@ -28,23 +30,18 @@ typedef void (*qb_map_put_func)(struct qb_map *map, const char* key,
 typedef void* (*qb_map_get_func)(struct qb_map *map, const char* key);
 typedef int32_t (*qb_map_rm_func)(struct qb_map *map, const char* key);
 typedef size_t (*qb_map_count_get_func)(struct qb_map *map);
-typedef void (*qb_map_foreach_func)(struct qb_map *map,
-				    qb_transverse_func func,
-				    void* user_data);
 typedef void (*qb_map_destroy_func)(struct qb_map *map);
 typedef qb_map_iter_t* (*qb_map_iter_create_func)(struct qb_map *map,
 						  const char* prefix);
 typedef const char* (*qb_map_iter_next_func)(qb_map_iter_t* i, void** value);
 typedef void (*qb_map_iter_free_func)(qb_map_iter_t* i);
 
-struct qb_map {
-	/* user provided
-	 */
-        qb_destroy_notifier_func key_destroy_func;
-        qb_destroy_notifier_func value_destroy_func;
+typedef int32_t (*qb_map_notify_add_func)(qb_map_t* m, const char* key,
+					  qb_map_notify_fn fn, int32_t events);
+typedef int32_t (*qb_map_notify_del_func)(qb_map_t* m, const char* key,
+					  qb_map_notify_fn fn, int32_t events);
 
-	/* data type provided
-	 */
+struct qb_map {
 	qb_map_put_func put;
 	qb_map_get_func get;
 	qb_map_rm_func rm;
@@ -53,10 +50,19 @@ struct qb_map {
 	qb_map_iter_create_func iter_create;
 	qb_map_iter_next_func iter_next;
 	qb_map_iter_free_func iter_free;
+	qb_map_notify_add_func notify_add;
+	qb_map_notify_del_func notify_del;
 };
 
 struct qb_map_iter {
 	struct qb_map *m;
 };
+
+struct qb_map_notifier {
+	struct qb_list_head list;
+	qb_map_notify_fn callback;
+	int32_t events;
+};
+
 
 #endif /* _QB_MAP_INT_H_ */

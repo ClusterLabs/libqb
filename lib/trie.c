@@ -22,6 +22,7 @@
 #include <assert.h>
 
 #include <qb/qbdefs.h>
+#include <qb/qblist.h>
 #include <qb/qbmap.h>
 #include "map_int.h"
 
@@ -38,8 +39,9 @@ struct trie_node {
 	void *value;
 	struct trie_node **children;
 	uint32_t num_children;
-	int32_t refcount;
+	uint32_t refcount;
 	struct trie_node *parent;
+	struct qb_list_head notifier_head;
 };
 
 struct trie {
@@ -49,7 +51,8 @@ struct trie {
 	struct trie_node *header;
 };
 
-static int32_t trie_rm(struct qb_map *list, const char *key);
+static void trie_notify(struct trie_node *n, uint32_t event, const char *key,
+			void *old_value, void *value, void *user_data);
 
 /*
  * characters are stored in reverse to make accessing the
@@ -68,7 +71,8 @@ trie_node_next(struct trie_node *node, struct trie_node *root)
 keep_going:
 	n = NULL;
 
-	// child/outward
+	/* child/outward
+	 */
 	for (i = c->num_children - 1; i >= 0; i--) {
 		if (c->children[i]) {
 			n = c->children[i];
@@ -83,7 +87,8 @@ keep_going:
 			goto keep_going;
 		}
 	}
-	// sibling/parent
+	/* sibling/parent
+	 */
 	if (c == root) {
 		return NULL;
 	}
@@ -115,65 +120,62 @@ keep_going:
 }
 
 static void
-trie_node_destroy(struct trie *t, struct trie_node *node)
+trie_node_destroy(struct trie *t, struct trie_node *n)
 {
-	if (t->map.value_destroy_func && node != t->header) {
-		t->map.value_destroy_func(node->value);
-	}
+	trie_notify(n, QB_MAP_NOTIFY_DELETED, n->key, n->value, NULL, NULL);
 
-	if (t->map.key_destroy_func && node != t->header) {
-		t->map.key_destroy_func((void*)node->key);
-	}
-	node->key = NULL;
-	node->value = NULL;
+	n->key = NULL;
+	n->value = NULL;
 }
 
 static void
 trie_node_deref(struct trie *t, struct trie_node *node)
 {
 	node->refcount--;
-	if (node->refcount == 0) {
-		trie_node_destroy(t, node);
+	if (node->refcount > 0) {
+		return;
 	}
+	trie_node_destroy(t, node);
 }
 
 static void
 trie_destroy(struct qb_map *map)
 {
-	struct trie *list = (struct trie *)map;
-#if 0
-	struct trie_node *cur_node = list->header;
+	struct trie *t = (struct trie *)map;
+
+	struct trie_node *cur_node = t->header;
 	struct trie_node *fwd_node;
 
 	do {
-		fwd_node = trie_node_next(cur_node);
-		trie_node_destroy(cur_node, list);
+		fwd_node = trie_node_next(cur_node, t->header);
+		trie_node_destroy(t, cur_node);
 	} while ((cur_node = fwd_node));
-#endif
-	free(list);
+
+	free(t);
 }
 
-static struct trie_node*
-trie_new_node(struct trie * t, struct trie_node* parent)
+static struct trie_node *
+trie_new_node(struct trie *t, struct trie_node *parent)
 {
-	struct trie_node* new_node = calloc(1, sizeof(struct trie_node));
+	struct trie_node *new_node = calloc(1, sizeof(struct trie_node));
 
 	new_node->parent = parent;
 
 	new_node->num_children = 30;
 	new_node->children = calloc(new_node->num_children,
-				    sizeof(struct trie_node*));
+				    sizeof(struct trie_node *));
+	qb_list_init(&new_node->notifier_head);
 	return new_node;
 }
 
-static struct trie_node*
-trie_lookup(struct trie * t, const char *key, int32_t create_path)
+static struct trie_node *
+trie_lookup(struct trie *t, const char *key, int32_t create_path)
 {
-	struct trie_node* cur_node = t->header;
-	struct trie_node* new_node;
+	struct trie_node *cur_node = t->header;
+	struct trie_node *new_node;
 	int old_max_idx;
 	int i;
-	char *cur = (char*)key;
+	char *cur = (char *)key;
 	int idx = TRIE_CHAR2INDEX(key[0]);
 
 	do {
@@ -182,15 +184,19 @@ trie_lookup(struct trie * t, const char *key, int32_t create_path)
 				return NULL;
 			}
 			if (cur_node->num_children == 0) {
-				old_max_idx =  0;
+				old_max_idx = 0;
 			} else {
 				old_max_idx = cur_node->num_children;
 			}
 			cur_node->num_children = idx + 1;
 			cur_node->children = realloc(cur_node->children,
 						     (cur_node->num_children *
-						      sizeof(struct trie_node*)));
-			//printf("%s(%d) %d %d\n", __func__, idx, old_max_idx, cur_node->num_children);
+						      sizeof(struct trie_node
+							     *)));
+			/*
+			   printf("%s(%d) %d %d\n", __func__, idx,
+			   old_max_idx, cur_node->num_children);
+			 */
 			for (i = old_max_idx; i < cur_node->num_children; i++) {
 				cur_node->children[i] = NULL;
 			}
@@ -212,25 +218,27 @@ trie_lookup(struct trie * t, const char *key, int32_t create_path)
 }
 
 static void
-trie_put(struct qb_map * map, const char *key, const void *value)
+trie_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct trie *t = (struct trie *)map;
 	struct trie_node *n = trie_lookup(t, key, QB_TRUE);
 	if (n) {
-		if (n->value == NULL) {
-			t->length++;
-		} else {
-			if (t->map.value_destroy_func && n != t->header) {
-				t->map.value_destroy_func(n->value);
-			}
+		const char *old_value = n->value;
+		const char *old_key = n->key;
 
-			if (t->map.key_destroy_func && n != t->header) {
-				t->map.key_destroy_func((void*)n->key);
-			}
+		n->key = (char *)key;
+		n->value = (void *)value;
+
+		if (old_value == NULL) {
+			n->refcount++;
+			t->length++;
+			trie_notify(n, QB_MAP_NOTIFY_INSERTED,
+				    n->key, NULL, n->value, NULL);
+		} else {
+			trie_notify(n, QB_MAP_NOTIFY_REPLACED,
+				    (char *)old_key, (void *)old_value,
+				    (void *)value, NULL);
 		}
-		n->key = (char*)key;
-		n->value = (void*)value;
-		n->refcount++;
 	}
 }
 
@@ -260,8 +268,91 @@ trie_get(struct qb_map *map, const char *key)
 	return NULL;
 }
 
-static qb_map_iter_t*
-trie_iter_create(struct qb_map * map, const char* prefix)
+static void
+trie_notify(struct trie_node *n,
+	    uint32_t event,
+	    const char *key, void *old_value, void *value, void *user_data)
+{
+	struct trie_node *c = n;
+	struct qb_list_head *list;
+	struct qb_map_notifier *tn;
+
+	do {
+		for (list = c->notifier_head.next;
+		     list != &c->notifier_head; list = list->next) {
+			tn = qb_list_entry(list, struct qb_map_notifier, list);
+
+			if ((tn->events & event) &&
+			    ((tn->events & QB_MAP_NOTIFY_RECURSIVE) ||
+			     (n == c))) {
+				tn->callback(event, (char *)key, old_value,
+					     value, user_data);
+			}
+		}
+		c = c->parent;
+	} while (c);
+}
+
+static int32_t
+trie_notify_add(qb_map_t * m, const char *key,
+		qb_map_notify_fn fn, int32_t events)
+{
+	struct trie *t = (struct trie *)m;
+	struct qb_map_notifier *f;
+	struct trie_node *n;
+
+	if (key) {
+		n = trie_lookup(t, key, QB_TRUE);
+	} else {
+		n = t->header;
+	}
+	if (n) {
+		f = malloc(sizeof(struct qb_map_notifier));
+		f->events = events;
+		f->callback = fn;
+		qb_list_init(&f->list);
+		if (events & QB_MAP_NOTIFY_RECURSIVE) {
+			qb_list_add(&f->list, &n->notifier_head);
+		} else {
+			qb_list_add_tail(&f->list, &n->notifier_head);
+		}
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static int32_t
+trie_notify_del(qb_map_t * m, const char *key,
+		qb_map_notify_fn fn, int32_t events)
+{
+	struct trie *t = (struct trie *)m;
+	struct qb_map_notifier *f;
+	struct trie_node *n;
+	struct qb_list_head *list;
+
+	if (key) {
+		n = trie_lookup(t, key, QB_TRUE);
+	} else {
+		n = t->header;
+	}
+	if (n == NULL) {
+		return -ENOENT;
+	}
+	for (list = n->notifier_head.next;
+	     list != &n->notifier_head; list = list->next) {
+		f = qb_list_entry(list, struct qb_map_notifier, list);
+
+		if (f->events == events && f->callback == fn) {
+			qb_list_del(&f->list);
+			free(f);
+			return 0;
+		}
+	}
+	return -ENOENT;
+}
+
+static qb_map_iter_t *
+trie_iter_create(struct qb_map *map, const char *prefix)
 {
 	struct trie_iter *i = malloc(sizeof(struct trie_iter));
 	struct trie *t = (struct trie *)map;
@@ -270,13 +361,13 @@ trie_iter_create(struct qb_map * map, const char* prefix)
 	i->n = t->header;
 	i->root = t->header;
 	i->n->refcount++;
-	return (qb_map_iter_t*)i;
+	return (qb_map_iter_t *) i;
 }
 
-static const char*
-trie_iter_next(qb_map_iter_t* i, void** value)
+static const char *
+trie_iter_next(qb_map_iter_t * i, void **value)
 {
-	struct trie_iter *si = (struct trie_iter*)i;
+	struct trie_iter *si = (struct trie_iter *)i;
 	struct trie_node *p = si->n;
 	struct trie *t = (struct trie *)(i->m);
 
@@ -307,41 +398,38 @@ trie_iter_next(qb_map_iter_t* i, void** value)
 }
 
 static void
-trie_iter_free(qb_map_iter_t* i)
+trie_iter_free(qb_map_iter_t * i)
 {
 	free(i);
 }
 
 static size_t
-trie_count_get(struct qb_map * map)
+trie_count_get(struct qb_map *map)
 {
 	struct trie *list = (struct trie *)map;
 	return list->length;
 }
 
 qb_map_t *
-qb_trie_create(qb_destroy_notifier_func key_destroy_func,
-		   qb_destroy_notifier_func value_destroy_func)
+qb_trie_create(void)
 {
-	struct trie *sl = calloc(1, sizeof(struct trie));
+	struct trie *t = malloc(sizeof(struct trie));
+	if (t == NULL) {
+		return NULL;
+	}
 
-	srand(time(NULL));
+	t->map.put = trie_put;
+	t->map.get = trie_get;
+	t->map.rm = trie_rm;
+	t->map.count_get = trie_count_get;
+	t->map.iter_create = trie_iter_create;
+	t->map.iter_next = trie_iter_next;
+	t->map.iter_free = trie_iter_free;
+	t->map.destroy = trie_destroy;
+	t->map.notify_add = trie_notify_add;
+	t->map.notify_del = trie_notify_del;
+	t->length = 0;
+	t->header = trie_new_node(t, NULL);
 
-	sl->map.key_destroy_func = key_destroy_func;
-	sl->map.value_destroy_func = value_destroy_func;
-
-	sl->map.put = trie_put;
-	sl->map.get = trie_get;
-	sl->map.rm = trie_rm;
-	sl->map.count_get = trie_count_get;
-	sl->map.iter_create = trie_iter_create;
-	sl->map.iter_next = trie_iter_next;
-	sl->map.iter_free = trie_iter_free;
-	sl->map.destroy = trie_destroy;
-
-	sl->length = 0;
-	sl->header = trie_new_node(sl, NULL);
-
-	return (qb_map_t *) sl;
+	return (qb_map_t *) t;
 }
-
