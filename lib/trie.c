@@ -52,7 +52,7 @@ struct trie {
 };
 
 static void trie_notify(struct trie_node *n, uint32_t event, const char *key,
-			void *old_value, void *value, void *user_data);
+			void *old_value, void *value);
 
 /*
  * characters are stored in reverse to make accessing the
@@ -122,7 +122,7 @@ keep_going:
 static void
 trie_node_destroy(struct trie *t, struct trie_node *n)
 {
-	trie_notify(n, QB_MAP_NOTIFY_DELETED, n->key, n->value, NULL, NULL);
+	trie_notify(n, QB_MAP_NOTIFY_DELETED, n->key, n->value, NULL);
 
 	n->key = NULL;
 	n->value = NULL;
@@ -233,11 +233,11 @@ trie_put(struct qb_map *map, const char *key, const void *value)
 			n->refcount++;
 			t->length++;
 			trie_notify(n, QB_MAP_NOTIFY_INSERTED,
-				    n->key, NULL, n->value, NULL);
+				    n->key, NULL, n->value);
 		} else {
 			trie_notify(n, QB_MAP_NOTIFY_REPLACED,
 				    (char *)old_key, (void *)old_value,
-				    (void *)value, NULL);
+				    (void *)value);
 		}
 	}
 }
@@ -271,7 +271,7 @@ trie_get(struct qb_map *map, const char *key)
 static void
 trie_notify(struct trie_node *n,
 	    uint32_t event,
-	    const char *key, void *old_value, void *value, void *user_data)
+	    const char *key, void *old_value, void *value)
 {
 	struct trie_node *c = n;
 	struct qb_list_head *list;
@@ -286,7 +286,7 @@ trie_notify(struct trie_node *n,
 			    ((tn->events & QB_MAP_NOTIFY_RECURSIVE) ||
 			     (n == c))) {
 				tn->callback(event, (char *)key, old_value,
-					     value, user_data);
+					     value, tn->user_data);
 			}
 		}
 		c = c->parent;
@@ -295,7 +295,7 @@ trie_notify(struct trie_node *n,
 
 static int32_t
 trie_notify_add(qb_map_t * m, const char *key,
-		qb_map_notify_fn fn, int32_t events)
+		qb_map_notify_fn fn, int32_t events, void *user_data)
 {
 	struct trie *t = (struct trie *)m;
 	struct qb_map_notifier *f;
@@ -309,6 +309,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 	if (n) {
 		f = malloc(sizeof(struct qb_map_notifier));
 		f->events = events;
+		f->user_data = user_data;
 		f->callback = fn;
 		qb_list_init(&f->list);
 		if (events & QB_MAP_NOTIFY_RECURSIVE) {

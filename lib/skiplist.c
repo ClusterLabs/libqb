@@ -185,7 +185,7 @@ skiplist_lookup(struct skiplist *list, const char *key)
 static void
 skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 		uint32_t event,
-		char *key, void *old_value, void *value, void *user_data)
+		char *key, void *old_value, void *value)
 {
 	struct qb_list_head *list;
 	struct qb_map_notifier *tn;
@@ -197,7 +197,7 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, key, old_value, value, user_data);
+			tn->callback(event, key, old_value, value, tn->user_data);
 		}
 	}
 	/* global callbacks
@@ -207,7 +207,7 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, key, old_value, value, user_data);
+			tn->callback(event, key, old_value, value, tn->user_data);
 		}
 	}
 
@@ -218,7 +218,7 @@ skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 {
 	skiplist_notify(list, node,
 			QB_MAP_NOTIFY_DELETED,
-			(char *)node->key, node->value, NULL, NULL);
+			(char *)node->key, node->value, NULL);
 
 	free(node->forward);
 	free(node);
@@ -235,7 +235,7 @@ skiplist_node_deref(struct skiplist_node *node, struct skiplist *list)
 
 static int32_t
 skiplist_notify_add(qb_map_t * m, const char *key,
-		    qb_map_notify_fn fn, int32_t events)
+		    qb_map_notify_fn fn, int32_t events, void *user_data)
 {
 	struct skiplist *t = (struct skiplist *)m;
 	struct qb_map_notifier *f;
@@ -249,6 +249,7 @@ skiplist_notify_add(qb_map_t * m, const char *key,
 	if (n) {
 		f = malloc(sizeof(struct qb_map_notifier));
 		f->events = events;
+		f->user_data = user_data;
 		f->callback = fn;
 		qb_list_init(&f->list);
 		qb_list_add(&f->list, &n->notifier_head);
@@ -308,7 +309,7 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 			fwd_node->key = (void *)key;
 			skiplist_notify(list, fwd_node,
 					QB_MAP_NOTIFY_REPLACED,
-					old_k, old_v, fwd_node->value, NULL);
+					old_k, old_v, fwd_node->value);
 			return;
 
 		case OP_GOTO_NEXT_NODE:

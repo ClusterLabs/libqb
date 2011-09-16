@@ -42,6 +42,7 @@ const char *chars2[] = {
 static char *notified_key = NULL;
 static void *notified_value = NULL;
 static void *notified_new_value = NULL;
+static void *notified_user_data = NULL;
 
 static void
 test_map_simple(qb_map_t *m, const char *name)
@@ -188,6 +189,7 @@ my_map_notification(uint32_t event,
 	notified_key = key;
 	notified_value = old_value;
 	notified_new_value = value;
+	notified_user_data = user_data;
 }
 
 static void
@@ -201,7 +203,8 @@ test_map_remove(qb_map_t *m)
 	i = qb_map_notify_add(m, NULL, my_map_notification,
 			      (QB_MAP_NOTIFY_DELETED|
 			       QB_MAP_NOTIFY_REPLACED|
-			       QB_MAP_NOTIFY_RECURSIVE));
+			       QB_MAP_NOTIFY_RECURSIVE),
+			      m);
 	ck_assert_int_eq(i, 0);
 
 	for (i = 0; chars[i]; i++) {
@@ -212,21 +215,26 @@ test_map_remove(qb_map_t *m)
 	qb_map_put(m, a, a);
 	ck_assert(notified_key == chars[0]);
 	ck_assert(notified_value == chars[0]);
+	ck_assert(notified_user_data == m);
 	notified_key = NULL;
 	notified_value = NULL;
+	notified_user_data = NULL;
 
 	b = "5";
 	removed = qb_map_rm(m, b);
 	ck_assert(removed);
 	ck_assert(notified_key == chars[5]);
 	ck_assert(notified_value == chars[5]);
+	ck_assert(notified_user_data == m);
 	notified_key = NULL;
 	notified_value = NULL;
+	notified_user_data = NULL;
 
 	d = "1";
 	qb_map_put(m, d, d);
 	ck_assert(notified_key == chars[1]);
 	ck_assert(notified_value == chars[1]);
+	ck_assert(notified_user_data == m);
 	notified_key = NULL;
 	notified_value = NULL;
 
@@ -257,24 +265,28 @@ test_map_notifications(qb_map_t *m)
 			      (QB_MAP_NOTIFY_INSERTED|
 			       QB_MAP_NOTIFY_DELETED|
 			       QB_MAP_NOTIFY_REPLACED|
-			       QB_MAP_NOTIFY_RECURSIVE));
+			       QB_MAP_NOTIFY_RECURSIVE),
+			       m);
 	ck_assert_int_eq(i, 0);
 
 /* insert */
 	qb_map_put(m, "garden", "grow");
 	ck_assert_str_eq(notified_key, "garden");
 	ck_assert_str_eq(notified_new_value, "grow");
+	ck_assert(notified_user_data == m);
 
 /* update */
 	qb_map_put(m, "garden", "green");
 	ck_assert_str_eq(notified_key, "garden");
 	ck_assert_str_eq(notified_value, "grow");
 	ck_assert_str_eq(notified_new_value, "green");
+	ck_assert(notified_user_data == m);
 
 /* delete */
 	qb_map_rm(m, "garden");
 	ck_assert_str_eq(notified_key, "garden");
 	ck_assert_str_eq(notified_value, "green");
+	ck_assert(notified_user_data == m);
 
 /* no event with notifier removed */
 	i = qb_map_notify_del(m, NULL, my_map_notification,
@@ -292,19 +304,20 @@ test_map_notifications(qb_map_t *m)
 	ck_assert(notified_new_value == NULL);
 
 
-/* with prefic notifier */
-
+/* with prefix notifier */
 	i = qb_map_notify_add(m, "add", my_map_notification,
 			      (QB_MAP_NOTIFY_INSERTED|
 			       QB_MAP_NOTIFY_DELETED|
 			       QB_MAP_NOTIFY_REPLACED|
-			       QB_MAP_NOTIFY_RECURSIVE));
+			       QB_MAP_NOTIFY_RECURSIVE),
+			       &i);
 	ck_assert_int_eq(i, 0);
 
 /* insert */
 	qb_map_put(m, "adder", "snake");
 	ck_assert_str_eq(notified_key, "adder");
 	ck_assert_str_eq(notified_new_value, "snake");
+	ck_assert(notified_user_data == &i);
 
 /* insert (no match) */
 	notified_key = NULL;
@@ -326,6 +339,13 @@ test_map_notifications(qb_map_t *m)
 	ck_assert_str_eq(notified_key, "adder");
 	ck_assert_str_eq(notified_value, "+++");
 
+/* deleting a non-existing notification */
+	i = qb_map_notify_del(m, "a", my_map_notification,
+			      (QB_MAP_NOTIFY_INSERTED|
+			       QB_MAP_NOTIFY_DELETED|
+			       QB_MAP_NOTIFY_REPLACED|
+			       QB_MAP_NOTIFY_RECURSIVE));
+	ck_assert_int_eq(i, -ENOENT);
 }
 
 static void

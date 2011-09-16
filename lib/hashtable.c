@@ -56,7 +56,7 @@ struct hashtable_iter {
 
 static void hashtable_notify(struct hash_table *t, struct hash_node *n,
 			     uint32_t event, const char *key,
-			     void *old_value, void *value, void *user_data);
+			     void *old_value, void *value);
 
 static uint32_t
 hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
@@ -126,7 +126,7 @@ hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
 	}
 	hashtable_notify(t, hash_node,
 			 QB_MAP_NOTIFY_DELETED,
-			 hash_node->key, hash_node->value, NULL, NULL);
+			 hash_node->key, hash_node->value, NULL);
 	qb_list_del(&hash_node->list);
 	free(hash_node);
 }
@@ -204,7 +204,7 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 
 		hashtable_notify(hash_table, hash_node,
 				 QB_MAP_NOTIFY_INSERTED,
-				 hash_node->key, hash_node->value, NULL, NULL);
+				 hash_node->key, hash_node->value, NULL);
 	} else {
 		char *old_k = (char *)hash_node->key;
 		char *old_v = (void *)hash_node->value;
@@ -213,14 +213,14 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 
 		hashtable_notify(hash_table, hash_node,
 				 QB_MAP_NOTIFY_REPLACED,
-				 old_k, old_v, hash_node->value, NULL);
+				 old_k, old_v, hash_node->value);
 	}
 }
 
 static void
 hashtable_notify(struct hash_table *t, struct hash_node *n,
 		 uint32_t event, const char *key,
-		 void *old_value, void *value, void *user_data)
+		 void *old_value, void *value)
 {
 	struct qb_list_head *list;
 	struct qb_map_notifier *tn;
@@ -231,7 +231,7 @@ hashtable_notify(struct hash_table *t, struct hash_node *n,
 
 		if (tn->events & event) {
 			tn->callback(event, (char *)key, old_value, value,
-				     user_data);
+				     tn->user_data);
 		}
 	}
 	for (list = t->notifier_head.next;
@@ -240,14 +240,14 @@ hashtable_notify(struct hash_table *t, struct hash_node *n,
 
 		if (tn->events & event) {
 			tn->callback(event, (char *)key, old_value, value,
-				     user_data);
+				     tn->user_data);
 		}
 	}
 }
 
 static int32_t
 hashtable_notify_add(qb_map_t * m, const char *key,
-		     qb_map_notify_fn fn, int32_t events)
+		     qb_map_notify_fn fn, int32_t events, void *user_data)
 {
 	struct hash_table *t = (struct hash_table *)m;
 	struct qb_map_notifier *f;
@@ -276,6 +276,7 @@ hashtable_notify_add(qb_map_t * m, const char *key,
 
 	f = malloc(sizeof(struct qb_map_notifier));
 	f->events = events;
+	f->user_data = user_data;
 	f->callback = fn;
 	qb_list_init(&f->list);
 	qb_list_add(&f->list, head);

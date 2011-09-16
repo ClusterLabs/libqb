@@ -37,7 +37,8 @@ typedef const char* (*qb_map_iter_next_func)(qb_map_iter_t* i, void** value);
 typedef void (*qb_map_iter_free_func)(qb_map_iter_t* i);
 
 typedef int32_t (*qb_map_notify_add_func)(qb_map_t* m, const char* key,
-					  qb_map_notify_fn fn, int32_t events);
+					  qb_map_notify_fn fn, int32_t events,
+					  void *user_data);
 typedef int32_t (*qb_map_notify_del_func)(qb_map_t* m, const char* key,
 					  qb_map_notify_fn fn, int32_t events);
 
@@ -62,6 +63,7 @@ struct qb_map_notifier {
 	struct qb_list_head list;
 	qb_map_notify_fn callback;
 	int32_t events;
+	void *user_data;
 };
 
 

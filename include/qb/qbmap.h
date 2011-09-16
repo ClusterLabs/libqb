@@ -89,6 +89,7 @@ qb_map_t* qb_trie_create(void);
  * @param key the key (or prefix) to attach the notification to.
  * @param fn the callback
  * @param events the type of events to register for.
+ * @param user_data a pointer to be passed into the callback
  *
  * @note QB_MAP_NOTIFY_INSERTED is only valid on tries.
  * @note you can use key prefixes with trie maps.
@@ -97,7 +98,8 @@ qb_map_t* qb_trie_create(void);
  * @retval -errno failure
  */
 int32_t qb_map_notify_add(qb_map_t* m, const char* key,
-			  qb_map_notify_fn fn, int32_t events);
+			  qb_map_notify_fn fn, int32_t events,
+			  void *user_data);
 
 /**
  * Delete a notifier from the map.

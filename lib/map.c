@@ -90,10 +90,10 @@ qb_map_iter_free(qb_map_iter_t * i)
 
 int32_t
 qb_map_notify_add(qb_map_t * m, const char *key, qb_map_notify_fn fn,
-		  int32_t events)
+		  int32_t events, void *user_data)
 {
 	if (m->notify_add) {
-		return m->notify_add(m, key, fn, events);
+		return m->notify_add(m, key, fn, events, user_data);
 	} else {
 		return -ENOSYS;
 	}
