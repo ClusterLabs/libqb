@@ -117,7 +117,7 @@ qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
 }
 
 static int
-_strcpy_cutoff(char *dest, const char *src, size_t cutoff, size_t buf_len)
+_strcpy_cutoff(char *dest, const char *src, size_t cutoff, int ralign, size_t buf_len)
 {
 	size_t len = strlen(src);
 	if (buf_len <= 1) {
@@ -132,8 +132,14 @@ _strcpy_cutoff(char *dest, const char *src, size_t cutoff, size_t buf_len)
 
 	cutoff = QB_MIN(cutoff, buf_len - 1);
 	len = QB_MIN(len, cutoff);
-	memcpy(dest, src, len);
-	memset(dest + len, ' ', cutoff - len);
+        if(ralign) {
+            memset(dest, ' ', cutoff - len);
+            memcpy(dest + cutoff - len, src, len);
+        } else {
+            memcpy(dest, src, len);
+            memset(dest + len, ' ', cutoff - len);
+        }
+        
 	dest[cutoff] = '\0';
 
 	return cutoff;
@@ -163,11 +169,13 @@ qb_log_target_format(int32_t target,
 	unsigned int output_buffer_idx = 0;
 	size_t cutoff;
 	uint32_t len;
+        int ralign;
 	int c;
 	struct qb_log_target *t = qb_log_target_get(target);
 
 	while ((c = t->format[format_buffer_idx])) {
 		cutoff = 0;
+                ralign = 0;
 		if (c != '%') {
 			output_buffer[output_buffer_idx++] = c;
 			format_buffer_idx++;
@@ -175,6 +183,11 @@ qb_log_target_format(int32_t target,
 			const char *p;
 
 			format_buffer_idx += 1;
+                        if(t->format[format_buffer_idx] == '-') {
+                            ralign = 1;
+                            format_buffer_idx += 1;
+                        }
+                        
 			if (isdigit(t->format[format_buffer_idx])) {
 				cutoff = atoi(&t->format[format_buffer_idx]);
 			}
@@ -240,7 +253,7 @@ qb_log_target_format(int32_t target,
 				break;
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
-					     p, cutoff,
+					     p, cutoff, ralign,
 					     (QB_LOG_MAX_LEN -
 					      output_buffer_idx));
 			output_buffer_idx += len;
