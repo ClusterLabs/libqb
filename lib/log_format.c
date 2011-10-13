@@ -314,6 +314,7 @@ reprocess:
 			if (*format == 'l') {
 				type_long = 0;
 				type_longlong = 1;
+				format++;
 			}
 			goto reprocess;
 		case 'd': /* int argument */
