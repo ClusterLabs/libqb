@@ -302,6 +302,10 @@ START_TEST(test_log_format)
 	ck_assert_str_eq(test_buf, "ANY Angus");
 	qb_logt(LOG_INFO, 8, "Angus");
 	ck_assert_str_eq(test_buf, "ATE Angus");
+
+	qb_log_format_set(t, "%-15f %b");
+	qb_log(LOG_WARNING, "Andrew");
+	ck_assert_str_eq(test_buf, "    check_log.c Andrew");
 }
 END_TEST
 
