@@ -245,14 +245,13 @@ qb_log_thread_stop(void)
 	}
 	if (wthread_active == 0) {
 		for (;;) {
-			(void)qb_thread_lock(logt_wthread_lock);
-
 			res = sem_getvalue(&logt_print_finished, &value);
 			if (res != 0 || value == 0) {
-				(void)qb_thread_unlock(logt_wthread_lock);
 				return;
 			}
 			sem_wait(&logt_print_finished);
+
+			(void)qb_thread_lock(logt_wthread_lock);
 
 			rec = qb_list_entry(logt_print_finished_records.next,
 					    struct qb_log_record, list);
