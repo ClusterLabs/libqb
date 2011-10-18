@@ -136,6 +136,13 @@ check_rpm() {
 	set -e
 }
 
+check_coverity() {
+	make clean
+	cov-build --dir=cov make
+	cov-analyze --dir cov --concurrency --wait-for-license
+	cov-format-errors --dir cov
+}
+
 check_all() {
 		check_ansi
 		check_nosection
@@ -179,6 +186,9 @@ case $command in
 	;;
 	notimerfd)
 		check_notimerfd
+	;;
+	coverity)
+		check_coverity
 	;;
 	all)
 		check_all
