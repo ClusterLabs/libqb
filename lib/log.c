@@ -547,10 +547,16 @@ qb_log_filter_ctl2(int32_t t, enum qb_log_filter_conf c,
 	if (!logger_inited) {
 		return -EINVAL;
 	}
-	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
-	    conf[t].state == QB_LOG_STATE_UNUSED) {
-		return -EBADF;
+
+	if (t == QB_LOG_FILTER_ADD ||
+	    t == QB_LOG_FILTER_CLEAR_ALL ||
+	    t == QB_LOG_FILTER_REMOVE) {
+		if (t < 0 || t >= QB_LOG_TARGET_MAX ||
+		    conf[t].state == QB_LOG_STATE_UNUSED) {
+			return -EBADF;
+		}
 	}
+
 	if (text == NULL ||
 	    low_priority < high_priority ||
 	    type > QB_LOG_FILTER_FORMAT ||
