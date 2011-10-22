@@ -136,6 +136,18 @@ check_rpm() {
 	set -e
 }
 
+
+check_mock() {
+	echo "checking mock building"
+	set +e
+	make maintainer-clean
+	rm -f *.rpm
+	./autogen.sh
+	./configure --quiet
+	make srpm
+	mock --no-clean --rebuild *.src.rpm
+}
+
 check_coverity() {
 	make clean
 	cov-build --dir=cov make
@@ -180,6 +192,9 @@ case $command in
 	;;
 	rpm)
 		check_rpm
+	;;
+	mock)
+		check_mock
 	;;
 	dist)
 		check_dist
