@@ -21,8 +21,17 @@ MAINTAINERCLEANFILES = Makefiles.in
 EXTRA_DIST =
 CLEANFILES =
 
-noinst_PROGRAMS = simplelog
+noinst_PROGRAMS = simplelog tcpclient tcpserver
 
 simplelog_SOURCES = simplelog.c $(top_builddir)/include/qb/qblog.h
 simplelog_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 simplelog_LDADD = -lrt $(top_builddir)/lib/libqb.la
+
+tcpclient_SOURCES = tcpclient.c $(top_builddir)/include/qb/qbloop.h
+tcpclient_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+tcpclient_LDADD = -lrt $(top_builddir)/lib/libqb.la
+
+tcpserver_SOURCES = tcpserver.c $(top_builddir)/include/qb/qbloop.h
+tcpserver_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+tcpserver_LDADD = -lrt $(top_builddir)/lib/libqb.la
+

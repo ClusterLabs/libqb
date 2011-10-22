@@ -34,6 +34,8 @@ extern "C" {
  * @file qbloop.h
  *
  * Main loop manages timers, jobs and polling sockets.
+ *
+ * @example tcpserver.c
  */
 
 
