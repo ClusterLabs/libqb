@@ -6,5 +6,4 @@ bms
 loop
 rbreader
 rbwriter
-simple-log
 write_logs.c

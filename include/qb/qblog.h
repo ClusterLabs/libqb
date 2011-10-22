@@ -210,6 +210,8 @@ extern "C" {
  * [three] info hello
  * [MAIN ] info hello
  * @endcode
+ *
+ * @example simplelog.c
  */
 
 #undef LOG_TRACE

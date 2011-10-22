@@ -450,6 +450,7 @@ AC_CONFIG_FILES([Makefile
 		 lib/Makefile
 		 lib/libqb.pc
 		 tests/Makefile
+		 examples/Makefile
 		 docs/Makefile
 		 docs/man.dox
 		 docs/html.dox])

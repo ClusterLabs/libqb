@@ -41,7 +41,7 @@ ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= COPYING INSTALL README.markdown
 
-SUBDIRS			= include lib docs tests
+SUBDIRS			= include lib docs tests examples
 
 doxygen:
 	$(MAKE) -C docs doxygen
