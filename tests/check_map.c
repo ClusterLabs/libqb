@@ -521,14 +521,15 @@ test_map_load(qb_map_t *m, const char* test_name)
 	ck_assert(m != NULL);
 	sw = qb_util_stopwatch_create();
 
+#define MAX_WORDS 100000
+
 	/*
 	 * Load with dictionary
 	 */
 	fp = fopen("/usr/share/dict/words", "r");
 	qb_util_stopwatch_start(sw);
 	count = 0;
-	while (fgets(word, sizeof(word), fp) && count < 100000) {
-		word[strlen(word) - 1] = '\0';
+	while (fgets(word, sizeof(word), fp) && count < MAX_WORDS) {
 		w = strdup(word);
 		qb_map_put(m, w, w);
 		count++;
@@ -536,7 +537,6 @@ test_map_load(qb_map_t *m, const char* test_name)
 	qb_util_stopwatch_stop(sw);
 	ck_assert_int_eq(qb_map_count_get(m), count);
 	fclose(fp);
-
 	secs = qb_util_stopwatch_sec_elapsed_get(sw);
 	ops = (float)count / secs;
 	qb_log(LOG_INFO, "%25s %12.2f puts/sec (%d/%fs)\n", test_name, ops, count, secs);
@@ -547,8 +547,7 @@ test_map_load(qb_map_t *m, const char* test_name)
 	fp = fopen("/usr/share/dict/words", "r");
 	qb_util_stopwatch_start(sw);
 	count2 = 0;
-	while (fgets(word, sizeof(word), fp) && count2 < 100000) {
-		word[strlen(word) - 1] = '\0';
+	while (fgets(word, sizeof(word), fp) && count2 < MAX_WORDS) {
 		value = qb_map_get(m, word);
 		ck_assert_str_eq(word, value);
 		count2++;
@@ -578,8 +577,7 @@ test_map_load(qb_map_t *m, const char* test_name)
 	fp = fopen("/usr/share/dict/words", "r");
 	qb_util_stopwatch_start(sw);
 	count2 = 0;
-	while (fgets(word, sizeof(word), fp) && count2 < 100000) {
-		word[strlen(word) - 1] = '\0';
+	while (fgets(word, sizeof(word), fp) && count2 < MAX_WORDS) {
 		res = qb_map_rm(m, word);
 		ck_assert_int_eq(res, QB_TRUE);
 		count2++;
