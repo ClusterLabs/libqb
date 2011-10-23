@@ -275,13 +275,16 @@ static void
 skiplist_destroy(struct qb_map *map)
 {
 	struct skiplist *list = (struct skiplist *)map;
-	struct skiplist_node *cur_node = list->header;
+	struct skiplist_node *cur_node;
 	struct skiplist_node *fwd_node;
 
-	do {
+	for (cur_node = skiplist_node_next(list->header);
+	     cur_node;
+	     cur_node = fwd_node) {
 		fwd_node = skiplist_node_next(cur_node);
 		skiplist_node_destroy(cur_node, list);
-	} while ((cur_node = fwd_node));
+	}
+	skiplist_node_destroy(list->header, list);
 	free(list);
 }
 
