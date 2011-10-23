@@ -55,6 +55,9 @@ extern "C" {
  * The asynchronous messages are queued and can provide very high out-of-band performance.
  * To determine when to call qb_ipcc_event_recv() the qb_ipcc_fd_get() call is
  * used to obtain a file descriptor used in the poll() or select() system calls.
+ *
+ * @example ipcclient.c
+ * This is an example of how to use the client.
  */
 
 typedef struct qb_ipcc_connection qb_ipcc_connection_t;

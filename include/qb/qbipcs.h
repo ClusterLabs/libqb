@@ -34,6 +34,14 @@ extern "C" {
 #include <qb/qbhdb.h>
 #include <qb/qbloop.h>
 
+/**
+ * @file qbipcs.h
+ *
+ * Server IPC API.
+ *
+ * @example ipcserver.c
+ */
+
 enum qb_ipcs_rate_limit {
 	QB_IPCS_RATE_FAST,
 	QB_IPCS_RATE_NORMAL,

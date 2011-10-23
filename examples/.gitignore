@@ -1,3 +1,5 @@
 simplelog
 tcpclient
 tcpserver
+ipcclient
+ipcserver
