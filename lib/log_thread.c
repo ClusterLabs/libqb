@@ -123,7 +123,9 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 	logt_sched_policy = policy;
 
 	if (policy == SCHED_OTHER ||
+#ifdef SCHED_IDLE
 	    policy == SCHED_IDLE ||
+#endif
 	    policy == SCHED_BATCH) {
 		logt_sched_param.sched_priority = 0;
 	} else {
