@@ -33,11 +33,22 @@
 #include <stdarg.h>
 #include <limits.h>
 
+#ifdef HAVE_WINSOCK2_H
+#include <windows.h>
+#include <Winsock2.h>
+#endif /* HAVE_WINSOCK2_H */
+
+#ifdef QB_MINGW
+#include "mingw.h"
+#endif /* QB_MINGW */
+
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif /* HAVE_SYS_TYPES_H */
 
+#ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
+#endif /* HAVE_SYS_UIO_H */
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>

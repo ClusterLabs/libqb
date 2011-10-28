@@ -33,10 +33,12 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
-#include <syslog.h>
 #include <string.h>
 #include <qb/qbutil.h>
 #include <qb/qbconfig.h>
+#ifndef QB_MINGW
+#include <syslog.h>
+#endif /* QB_MINGW */
 
 #ifdef S_SPLINT_S
 #undef QB_HAVE_ATTRIBUTE_SECTION
@@ -214,8 +216,45 @@ extern "C" {
  * @example simplelog.c
  */
 
+/*
+ * levels
+ */
+#ifndef LOG_EMERG
+#define LOG_EMERG 1
+#endif
+#ifndef LOG_ALERT
+#define LOG_ALERT 2
+#endif
+#ifndef LOG_CRIT
+#define LOG_CRIT 3
+#endif
+#ifndef LOG_ERR
+#define LOG_ERR 4
+#endif
+#ifndef LOG_WARNING
+#define LOG_WARNING 5
+#endif
+#ifndef LOG_NOTICE
+#define LOG_NOTICE 6
+#endif
+#ifndef LOG_INFO
+#define LOG_INFO 7
+#endif
+#ifndef LOG_DEBUG
+#define LOG_DEBUG 8
+#endif
 #undef LOG_TRACE
 #define LOG_TRACE    (LOG_DEBUG + 1)
+
+/*
+ * facilities
+ */
+#ifndef LOG_USER
+#define LOG_USER (1 << 3)
+#endif
+#ifndef LOG_DAEMON
+#define LOG_DAEMON (3 << 3)
+#endif
 
 #define QB_LOG_MAX_LEN 512
 #define QB_LOG_STRERROR_MAX_LEN 128

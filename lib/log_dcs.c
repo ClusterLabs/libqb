@@ -20,7 +20,9 @@
  */
 #include "os_base.h"
 #include <ctype.h>
+#ifdef HAVE_LINK_H
 #include <link.h>
+#endif
 #include <stdarg.h>
 
 #include <qb/qbdefs.h>

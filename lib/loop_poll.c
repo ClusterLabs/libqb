@@ -20,11 +20,16 @@
  */
 #include "os_base.h"
 
+#ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
+#endif
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
 #endif /* HAVE_SYS_EPOLL_H */
+
+#ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
+#endif /* HAVE_SYS_POLL_H */
 #ifndef S_SPLINT_S
 #ifdef HAVE_SYS_TIMERFD_H
 #include <sys/timerfd.h>
@@ -135,7 +140,7 @@ _poll_entry_check_generate_(struct qb_poll_entry *pe)
 	int32_t i;
 
 	for (i = 0; i < 200; i++) {
-		pe->check = random();
+		pe->check = qb_sys_random();
 
 		if (pe->check != 0 && pe->check != 0xffffffff) {
 			break;
@@ -921,8 +926,8 @@ qb_loop_signals_create(struct qb_loop *l)
 			qb_util_perror(LOG_ERR, "Can't light pipe");
 			goto error_exit;
 		}
-		(void)qb_util_fd_nonblock_cloexec_set(pipe_fds[0]);
-		(void)qb_util_fd_nonblock_cloexec_set(pipe_fds[1]);
+		(void)qb_sys_fd_nonblock_cloexec_set(pipe_fds[0]);
+		(void)qb_sys_fd_nonblock_cloexec_set(pipe_fds[1]);
 
 		res = _poll_add_(l, QB_LOOP_HIGH,
 				 pipe_fds[0], POLLIN, NULL, &pe);

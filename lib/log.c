@@ -20,10 +20,14 @@
  */
 #include "os_base.h"
 #include <ctype.h>
+#ifdef HAVE_LINK_H
 #include <link.h>
+#endif /* HAVE_LINK_H */
 #include <stdarg.h>
 #include <pthread.h>
+#ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
+#endif /* HAVE_DLFCN_H */
 #include <stdarg.h>
 
 #include <qb/qbdefs.h>

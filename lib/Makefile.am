@@ -46,6 +46,13 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  map.c skiplist.c hashtable.c trie.c
 
 libqb_la_SOURCES	= $(source_to_lint)
+
+if HAVE_MINGW
+libqb_la_SOURCES+=mingw.c
+else
+libqb_la_SOURCES+=unix.c
+endif
+
 if USE_TIMERFD
 else
 libqb_la_SOURCES+=loop_timerlist.c

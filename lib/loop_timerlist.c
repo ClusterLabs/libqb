@@ -201,7 +201,7 @@ qb_loop_timer_add(struct qb_loop * l,
 	qb_list_init(&t->item.list);
 
 	for (i = 0; i < 200; i++) {
-		t->check = random();
+		t->check = qb_sys_random();
 
 		if (t->check != 0 && t->check != 0xffffffff) {
 			break;

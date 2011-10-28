@@ -56,7 +56,7 @@ static struct sched_param logt_sched_param;
 
 static int logt_after_log_ops_yield = 10;
 
-static pthread_t logt_thread_id = 0;
+static pthread_t logt_thread_id;
 
 static void *qb_logt_worker_thread(void *data) __attribute__ ((noreturn));
 static void *

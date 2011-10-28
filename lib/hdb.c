@@ -22,6 +22,7 @@
 
 #include <qb/qbhdb.h>
 #include <qb/qbatomic.h>
+#include "util_int.h"
 
 enum QB_HDB_HANDLE_STATE {
 	QB_HDB_HANDLE_STATE_EMPTY,
@@ -103,7 +104,7 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 	 * If we get 0 200 times in a row, the RNG may be broken
 	 */
 	for (i = 0; i < 200; i++) {
-		check = random();
+		check = qb_sys_random();
 
 		if (check != 0 && check != 0xffffffff) {
 			break;

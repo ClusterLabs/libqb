@@ -111,10 +111,11 @@ fi
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
-		  time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
-		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h sys/epoll.h \
-		  sys/sockio.h sys/un.h syslog.h errno.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
+		  dlfcn.h time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
+		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h sys/poll.h sys/epoll.h sys/uio.h \
+		  sys/sockio.h sys/un.h sys/resource.h syslog.h errno.h unistd.h sys/mman.h \
+		  sys/sem.h sys/ipc.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_UID_T
@@ -137,9 +138,9 @@ AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime_r memset munmap \
-		socket strchr strdup strerror strrchr strstr \
-		epoll_create epoll_create1 \
+AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r \
+	       	memset munmap socket strchr strdup strerror strrchr strstr \
+		poll epoll_create epoll_create1 random rand getrlimit sysconf \
 		pthread_spin_lock timerfd_create pthread_setschedparam \
 		sched_get_priority_max sched_setscheduler])
 
@@ -202,6 +203,7 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
+have_mingw="no"
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
@@ -248,10 +250,17 @@ case "$host_os" in
 		CP=rsync
 		AC_MSG_RESULT([Solaris])
 	;;
+	mingw32)
+		AC_DEFINE_UNQUOTED([QB_MINGW], [1],
+				   [Compiling for Mingw32(windows) platform])
+		have_mingw="yes"
+		AC_MSG_RESULT([Windows(mingw32)])
+	;;
 	*)
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;
 esac
+AM_CONDITIONAL(HAVE_MINGW, [test x$have_mingw = xyes])
 
 # Check for atomic support
 gcc_has_builtin_atomic_operations=no

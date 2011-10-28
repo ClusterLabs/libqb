@@ -20,6 +20,7 @@
 #ifndef QB_UTIL_INT_H_DEFINED
 #define QB_UTIL_INT_H_DEFINED
 
+#include "os_base.h"
 #include <qb/qblog.h>
 
 #if !defined (va_copy)
@@ -52,6 +53,12 @@
 #define qb_util_perror
 #endif
 
+#ifdef QB_MINGW
+#define QB_MMAP_FILE_HANDLE HANDLE
+#else
+#define QB_MMAP_FILE_HANDLE int
+#endif
+
 /**
  * Create a file to be used to back shared memory.
  *
@@ -61,8 +68,8 @@
  * @param file_flags same as passed into open()
  * @return 0 (success) or -errno
  */
-int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
-			       uint32_t file_flags);
+QB_MMAP_FILE_HANDLE qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
+					  uint32_t file_flags);
 
 /**
  * Create a shared mamory circular buffer.
@@ -72,14 +79,15 @@ int32_t qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
  * @param bytes the size of the shared memory.
  * @return 0 (success) or -errno
  */
-int32_t qb_util_circular_mmap(int32_t fd, void **buf, size_t bytes);
-
+int32_t qb_sys_circular_mmap(QB_MMAP_FILE_HANDLE fd, void **buf, size_t bytes);
 
 /**
  * Set O_NONBLOCK and FD_CLOEXEC on a file descriptor.
  * @param fd the file descriptor.
  * @return 0 (success) or -errno
  */
-int32_t qb_util_fd_nonblock_cloexec_set(int32_t fd);
+int32_t qb_sys_fd_nonblock_cloexec_set(int32_t fd);
+
+int32_t qb_sys_random(void);
 
 #endif /* QB_UTIL_INT_H_DEFINED */
