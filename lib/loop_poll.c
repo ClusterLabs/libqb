@@ -873,6 +873,7 @@ struct qb_loop_sig {
 	struct qb_loop_sig *cloned_from;
 };
 
+#ifndef QB_MINGW
 static void
 _handle_real_signal_(int signal_num, siginfo_t * si, void *context)
 {
@@ -890,6 +891,7 @@ try_again:
 		}
 	}
 }
+#endif
 
 static void
 _signal_dispatch_and_take_back_(struct qb_loop_item *item,
@@ -917,8 +919,9 @@ qb_loop_signals_create(struct qb_loop *l)
 	s->s.dispatch_and_take_back = _signal_dispatch_and_take_back_;
 	s->s.poll = NULL;
 	qb_list_init(&s->sig_head);
+#ifndef QB_MINGW
 	sigemptyset(&s->signal_superset);
-
+#endif
 	if (pipe_fds[0] < 0) {
 		res = pipe(pipe_fds);
 		if (res == -1) {
@@ -996,6 +999,7 @@ _qb_signal_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 	return jobs_added;
 }
 
+#ifndef QB_MINGW
 static void
 _adjust_sigactions_(struct qb_signal_source *s)
 {
@@ -1028,6 +1032,7 @@ _adjust_sigactions_(struct qb_signal_source *s)
 		}
 	}
 }
+#endif
 
 int32_t
 qb_loop_signal_add(qb_loop_t * l,
@@ -1058,9 +1063,11 @@ qb_loop_signal_add(qb_loop_t * l,
 	qb_list_init(&sig->item.list);
 	qb_list_add_tail(&sig->item.list, &s->sig_head);
 
+#ifndef QB_MINGW
 	if (sigismember(&s->signal_superset, the_sig) != 1) {
 		_adjust_sigactions_(s);
 	}
+#endif
 	if (handle) {
 		*handle = sig;
 	}
@@ -1093,7 +1100,9 @@ qb_loop_signal_mod(qb_loop_t * l,
 
 	if (sig->signal != the_sig) {
 		sig->signal = the_sig;
+#ifndef QB_MINGW
 		_adjust_sigactions_(s);
+#endif
 	}
 
 	return 0;

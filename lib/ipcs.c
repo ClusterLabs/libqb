@@ -87,9 +87,11 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 	case QB_IPC_SHM:
 		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
 		break;
+#ifdef HAVE_MQUEUE_H
 	case QB_IPC_POSIX_MQ:
 		qb_ipcs_pmq_init((struct qb_ipcs_service *)s);
 		break;
+#endif
 	case QB_IPC_SYSV_MQ:
 		qb_ipcs_smq_init((struct qb_ipcs_service *)s);
 		break;
@@ -112,17 +114,19 @@ _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 {
 	qb_ipcs_dispatch_mod_fn disp_mod = c->service->poll_fns.dispatch_mod;
 
-	if (c->service->type == QB_IPC_POSIX_MQ
+	if (c->service->type == QB_IPC_SOCKET) {
+		return disp_mod(c->service->poll_priority,
+				c->event.u.us.sock,
+				c->poll_events, c,
+				qb_ipcs_dispatch_connection_request);
+#ifdef HAVE_MQUEUE_H
+	} else if (c->service->type == QB_IPC_POSIX_MQ
 	    && !c->service->needs_sock_for_poll) {
 		return disp_mod(c->service->poll_priority,
 				(int32_t) c->request.u.pmq.q,
 				c->poll_events, c,
 				qb_ipcs_dispatch_service_request);
-	} else if (c->service->type == QB_IPC_SOCKET) {
-		return disp_mod(c->service->poll_priority,
-				c->event.u.us.sock,
-				c->poll_events, c,
-				qb_ipcs_dispatch_connection_request);
+#endif
 	} else {
 		return disp_mod(c->service->poll_priority,
 				c->setup.u.us.sock,

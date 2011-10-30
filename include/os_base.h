@@ -33,8 +33,15 @@
 #include <stdarg.h>
 #include <limits.h>
 
-#ifdef HAVE_WINSOCK2_H
+#ifdef HAVE_WINDOWS_H
 #include <windows.h>
+#endif /* HAVE_WINDOWS_H */
+
+#ifdef HAVE_WINSOCK_H
+#include <winsock.h>
+#endif /* HAVE_WINSOCK_H */
+
+#ifdef HAVE_WINSOCK2_H
 #include <Winsock2.h>
 #endif /* HAVE_WINSOCK2_H */
 

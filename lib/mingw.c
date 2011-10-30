@@ -20,19 +20,17 @@
  */
 #include "os_base.h"
 
-
 int
 qb_sys_getrlimit(int resource, struct rlimit *rlp)
 {
-        if (resource != RLIMIT_NOFILE) {
-                errno = EINVAL;
-                return -1;
-        }
+	if (resource != RLIMIT_NOFILE) {
+		errno = EINVAL;
+		return -1;
+	}
 
-        rlp->rlim_cur = 2048;
-        return 0;
+	rlp->rlim_cur = 2048;
+	return 0;
 }
-
 
 long
 qb_sys_sysconf(int name)
@@ -41,22 +39,24 @@ qb_sys_sysconf(int name)
 	if (name == PAGESIZE || name == _SC_PAGESIZE) {
 		if (!g_pagesize) {
 			SYSTEM_INFO system_info;
-			GetSystemInfo (&system_info);
+			GetSystemInfo(&system_info);
 			g_pagesize = system_info.dwPageSize;
 		}
 		return g_pagesize;
 	} else {
-                errno = EINVAL;
-                return -1;
+		errno = EINVAL;
+		return -1;
 	}
 }
 
 struct tm *
-qb_sys_localtime_r(const time_t *timep, struct tm *result)
+qb_sys_localtime_r(const time_t * timep, struct tm *result)
 {
-        /* localtime() in MSVCRT.DLL is thread-safe, but not reentrant */
-        memcpy(result, localtime(timep), sizeof(struct tm));
-        return result;
+	/*
+	 * localtime() in MSVCRT.DLL is thread-safe, but not reentrant
+	 */
+	memcpy(result, localtime(timep), sizeof(struct tm));
+	return result;
 }
 
 char *
@@ -74,52 +74,37 @@ qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 	if (file_flags & O_CREAT) {
 		hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE,
 					     NULL, PAGE_READWRITE,
-					     0, bytes * 2,
-					     file);
+					     0, bytes * 2, file);
 	} else {
-		hMapFile = OpenFileMapping(FILE_MAP_ALL_ACCESS,
-					   FALSE,
-					   file);
+		hMapFile = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, file);
 		if (hMapFile == NULL) {
-//			_tprintf(TEXT("Could not open file mapping object (%d).\n"),
-//					GetLastError());
+			errno = err_win_to_posix(GetLastError());
 			return -1;
 		}
 	}
 	return hMapFile;
 }
 
-
 int32_t
 qb_util_circular_mmap(QB_MMAP_FILE_HANDLE fd, void **buf, size_t bytes)
 {
 	BYTE *pBuf;
-	// determine valid buffer size
 	SYSTEM_INFO info;
+	DWORD bufferSize;
+
 	GetSystemInfo(&info);
 
-	// note that the base address must be a multiple of the allocation granularity
-	DWORD bufferSize=info.dwAllocationGranularity;
+	bufferSize = info.dwAllocationGranularity;
 
-
-	pBuf = (BYTE*)MapViewOfFile(fd,
-			FILE_MAP_ALL_ACCESS,
-			0,
-			0,
-			bytes);
-	MapViewOfFileEx(fd,
-			FILE_MAP_ALL_ACCESS,
-			0,
-			0,
-			bytes,
-			pBuf + bytes);
+	pBuf = (BYTE *) MapViewOfFile(fd, FILE_MAP_ALL_ACCESS, 0, 0, bytes);
+	MapViewOfFileEx(fd, FILE_MAP_ALL_ACCESS, 0, 0, bytes, pBuf + bytes);
 	*buf = pBuf;
 	return 0;
 }
 
 void *
 qb_sys_mmap(void *start, size_t length, int prot, int flags,
-	     int fd, off_t offset)
+	    int fd, off_t offset)
 {
 	HANDLE handle;
 
@@ -127,16 +112,15 @@ qb_sys_mmap(void *start, size_t length, int prot, int flags,
 		die("Invalid usage of mingw_mmap");
 	}
 
-	if (offset % getpagesize() != 0) {
+
+	if (offset % qb_sys_sysconf(PAGESIZE) != 0) {
 		die("Offset does not match the memory allocation granularity");
 	}
-	handle = CreateFileMapping((HANDLE)_get_osfhandle(fd), NULL,
-				   PAGE_WRITECOPY,
-				   0, 0, NULL);
+	handle = CreateFileMapping((HANDLE) _get_osfhandle(fd), NULL,
+				   PAGE_WRITECOPY, 0, 0, NULL);
 
 	if (handle != NULL) {
-		start = MapViewOfFile(handle, FILE_MAP_COPY, 0, offset,
-				      length);
+		start = MapViewOfFile(handle, FILE_MAP_COPY, 0, offset, length);
 		CloseHandle(handle);
 	}
 
@@ -148,6 +132,12 @@ qb_sys_munmap(void *start, size_t length)
 {
 	UnmapViewOfFile(start);
 	return 0;
+}
+
+int
+qb_sys_chown(const char *path, uid_t owner, gid_t group)
+{
+	return -1;
 }
 
 int32_t
@@ -196,11 +186,11 @@ qb_sys_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 	FD_ZERO(&efds);
 	for (i = 0, op = ip = 0; i < nfds; ++i) {
 		fds[i].revents = 0;
-		if(fds[i].events & (POLLIN|POLLPRI)) {
+		if (fds[i].events & (POLLIN | POLLPRI)) {
 			ip = &ifds;
 			FD_SET(fds[i].fd, ip);
 		}
-		if(fds[i].events & POLLOUT) {
+		if (fds[i].events & POLLOUT) {
 			op = &ofds;
 			FD_SET(fds[i].fd, op);
 		}
@@ -223,7 +213,8 @@ qb_sys_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 	if (rc > 0) {
 		for (i = 0; i < nfds; ++i) {
 			int fd = fds[i].fd;
-			if (fds[i].events & (POLLIN|POLLPRI) && FD_ISSET(fd, &ifds)) {
+			if (fds[i].events & (POLLIN | POLLPRI)
+			    && FD_ISSET(fd, &ifds)) {
 				fds[i].revents |= POLLIN;
 			}
 			if (fds[i].events & POLLOUT && FD_ISSET(fd, &ofds)) {
@@ -235,4 +226,21 @@ qb_sys_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 		}
 	}
 	return rc;
+}
+
+int
+qb_sys_sendmsg(int s, const struct msghdr *msg, int flags)
+{
+	DWORD dwBufferCount;
+	if (WSASendTo((SOCKET) s,
+		      (LPWSABUF) msg->msg_iov,
+		      (DWORD) msg->msg_iovlen,
+		      &dwBufferCount,
+		      flags,
+		      msg->msg_name, msg->msg_namelen, NULL, NULL) == 0) {
+		return dwBufferCount;
+	}
+	if (WSAGetLastError() == WSAECONNRESET)
+		return 0;
+	return -1;
 }

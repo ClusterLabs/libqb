@@ -108,7 +108,7 @@ my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
 	}
 }
 
-#ifndef HAVE_POSIX_SHARED_SEMAPHORE
+#if !defined(HAVE_POSIX_SHARED_SEMAPHORE) && !defined(QB_MINGW)
 static int32_t
 my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
@@ -254,7 +254,7 @@ my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 int32_t
 qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 {
-#ifndef HAVE_POSIX_SHARED_SEMAPHORE
+#if !defined(HAVE_POSIX_SHARED_SEMAPHORE) && !defined(QB_MINGW)
 	if (rb->flags & QB_RB_FLAG_SHARED_PROCESS) {
 		rb->sem_timedwait_fn = my_sysv_sem_timedwait;
 		rb->sem_post_fn = my_sysv_sem_post;

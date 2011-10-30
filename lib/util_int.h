@@ -53,11 +53,7 @@
 #define qb_util_perror
 #endif
 
-#ifdef QB_MINGW
-#define QB_MMAP_FILE_HANDLE HANDLE
-#else
 #define QB_MMAP_FILE_HANDLE int
-#endif
 
 /**
  * Create a file to be used to back shared memory.

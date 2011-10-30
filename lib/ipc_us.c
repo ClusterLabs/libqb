@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+
 #if defined(HAVE_GETPEERUCRED)
 #include <ucred.h>
 #endif
@@ -29,7 +30,9 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
+#endif
 
 #include <qb/qbatomic.h>
 #include <qb/qbipcs.h>

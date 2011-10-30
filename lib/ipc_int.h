@@ -25,7 +25,9 @@
 #include "os_base.h"
 
 #include <dirent.h>
+#ifdef HAVE_MQUEUE_H
 #include <mqueue.h>
+#endif
 #include <qb/qblist.h>
 #include <qb/qbloop.h>
 #include <qb/qbipcc.h>
@@ -75,10 +77,12 @@ struct qb_ipc_one_way {
 			void* shared_data;
 			char shared_file_name[NAME_MAX];
 		} us;
+#ifdef HAVE_MQUEUE_H
 		struct {
 			mqd_t q;
 			char name[NAME_MAX];
 		} pmq;
+#endif
 		struct {
 			int32_t q;
 			int32_t key;

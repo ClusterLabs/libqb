@@ -27,9 +27,25 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+#include <qb/qbconfig.h>
+
 #include <pthread.h>
+#ifdef QB_MINGW
+#include <windows.h>
+#include <Winsock2.h>
+
+#ifndef QB_HAVE_IOVEC
+#define QB_HAVE_IOVEC 1
+struct iovec {
+    void *iov_base;   /* Starting address */
+    size_t iov_len;   /* Number of bytes */
+};
+#endif
+
+#else
 #include <sys/poll.h>
 #include <sys/socket.h>
+#endif
 #include <qb/qbhdb.h>
 #include <qb/qbipc_common.h>
 

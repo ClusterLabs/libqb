@@ -20,7 +20,9 @@
  */
 #include "os_base.h"
 
+#ifdef HAVE_MQUEUE_H
 #include <mqueue.h>
+#endif
 #include "ipc_int.h"
 #include "util_int.h"
 #include <qb/qbdefs.h>
