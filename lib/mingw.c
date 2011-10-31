@@ -20,6 +20,9 @@
  */
 #include "os_base.h"
 
+#include <qb/qbatomic.h>
+#include <qb/qbutil.h>
+
 int
 qb_sys_getrlimit(int resource, struct rlimit *rlp)
 {
@@ -66,6 +69,10 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 	return buf;
 }
 
+/*
+ * shared memory
+ * --------------------------------------------------------------------------
+ */
 QB_MMAP_FILE_HANDLE
 qb_util_mmap_file_open(char *path, const char *file, size_t bytes,
 		       uint32_t file_flags)
@@ -134,6 +141,10 @@ qb_sys_munmap(void *start, size_t length)
 	return 0;
 }
 
+/*
+ * files and sockets
+ * --------------------------------------------------------------------------
+ */
 int
 qb_sys_chown(const char *path, uid_t owner, gid_t group)
 {
@@ -244,3 +255,72 @@ qb_sys_sendmsg(int s, const struct msghdr *msg, int flags)
 		return 0;
 	return -1;
 }
+
+/*
+ * atomic
+ * --------------------------------------------------------------------------
+ */
+
+void
+qb_atomic_init(void)
+{
+}
+
+int32_t
+qb_atomic_int_exchange_and_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+			       int32_t val)
+{
+	return InterlockedExchangeAdd(atomic, val);
+}
+
+void
+qb_atomic_int_add(volatile int32_t QB_GNUC_MAY_ALIAS * atomic, int32_t val)
+{
+	InterlockedAdd(atomic, val);
+}
+
+int32_t
+qb_atomic_int_compare_and_exchange(volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+				   int32_t oldval, int32_t newval)
+{
+	return InterlockedCompareExchange(atomic, newval, oldval);
+}
+
+int32_t
+qb_atomic_pointer_compare_and_exchange(volatile void *QB_GNUC_MAY_ALIAS *
+				       atomic, void *oldval, void *newval)
+{
+	PVOID old = InterlockedCompareExchangePointer(atomic, newval, oldval);
+	return (old != atomic);
+}
+
+int32_t
+(qb_atomic_int_get) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic)
+{
+	MemoryBarrier();
+	return *atomic;
+}
+
+void
+(qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
+		     int32_t newval)
+{
+	*atomic = newval;
+	MemoryBarrier();
+}
+
+void *
+(qb_atomic_pointer_get) (volatile void *QB_GNUC_MAY_ALIAS * atomic)
+{
+	MemoryBarrier();
+	return (void *)*atomic;
+}
+
+void
+(qb_atomic_pointer_set) (volatile void *QB_GNUC_MAY_ALIAS * atomic,
+			      void *newval)
+{
+	*atomic = newval;
+	MemoryBarrier();
+}
+

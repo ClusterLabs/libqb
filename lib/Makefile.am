@@ -48,19 +48,14 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 libqb_la_SOURCES	= $(source_to_lint)
 
 if HAVE_MINGW
-libqb_la_SOURCES+=mingw.c
+  libqb_la_SOURCES+=mingw.c
 else
-libqb_la_SOURCES+=unix.c ipc_sysv_mq.c ipc_posix_mq.c
+  libqb_la_SOURCES+=unix.c ipc_sysv_mq.c ipc_posix_mq.c
 endif
 
 if USE_TIMERFD
 else
 libqb_la_SOURCES+=loop_timerlist.c
-endif
-if HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS
-libqb_la_SOURCES+=atomic_gcc.c
-else
-libqb_la_SOURCES+=atomic_lock.c
 endif
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libqb.pc

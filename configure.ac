@@ -147,10 +147,10 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r
 ## local defines
 PACKAGE_FEATURES=""
 
-if test $ac_cv_func_timerfd_create = yes; then
+if test x$ac_cv_func_timerfd_create = xyes; then
 	PACKAGE_FEATURES="$PACKAGE_FEATURES timerfd"
 fi
-if test $ac_cv_func_epoll_create = yes; then
+if test x$ac_cv_func_epoll_create = xyes; then
 	PACKAGE_FEATURES="$PACKAGE_FEATURES epoll"
 fi
 
@@ -262,38 +262,43 @@ case "$host_os" in
 esac
 AM_CONDITIONAL(HAVE_MINGW, [test x$have_mingw = xyes])
 
-# Check for atomic support
-gcc_has_builtin_atomic_operations=no
-if test x"$GCC" = xyes; then
-	AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
-	AC_TRY_LINK([],
-		    [int i;
-		     __sync_synchronize ();
-		     __sync_bool_compare_and_swap (&i, 0, 1);
-		     __sync_fetch_and_add (&i, 1);
-		     ],
-		     [gcc_has_builtin_atomic_operations=yes],
-		     [gcc_has_builtin_atomic_operations=no])
+AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
+if test -z "$gcc_has_builtin_atomic_operations"; then
+	gcc_has_builtin_atomic_operations=no
+	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
+		AC_TRY_LINK([],
+			    [int i;
+			     __sync_synchronize ();
+			     __sync_bool_compare_and_swap (&i, 0, 1);
+			     __sync_fetch_and_add (&i, 1);
+			     ],
+			     [gcc_has_builtin_atomic_operations=yes],
+			     [gcc_has_builtin_atomic_operations=no])
+	fi
+fi
+AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
 
-	AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
-	if test $gcc_has_builtin_atomic_operations = yes; then
+AC_MSG_CHECKING([whether atomics need memory barrier])
+if test -n "$ac_cv_atomic_need_memory_barrier"; then
+	memory_barrier_needed=$ac_cv_atomic_need_memory_barrier
+else
+	if test x$gcc_has_builtin_atomic_operations = xyes; then
 		memory_barrier_needed=yes
-                PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
+		PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
 	else
-		if test $nongcc_memory_barrier_needed = yes; then
-			memory_barrier_needed=yes
-		fi
+		memory_barrier_needed=$nongcc_memory_barrier_needed
 		AC_MSG_WARN([-----------------------------])
 		AC_MSG_WARN([You have gcc but not __sync_bool_compare_and_swap])
 		AC_MSG_WARN([try CFLAGS="-march=<your arch> -mtune=native" ./configure])
 		AC_MSG_WARN([-----------------------------])
 	fi
 fi
+AC_MSG_RESULT($memory_barrier_needed)
 
-if test x"$memory_barrier_needed" != xno; then
+if test x$memory_barrier_needed = xyes; then
 	AC_DEFINE_UNQUOTED(QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED, 1,
 			   [need atomic memory barrier])
-	fi
+fi
 
 AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
 	       [test $gcc_has_builtin_atomic_operations = yes])

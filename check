@@ -4,23 +4,24 @@ export CFLAGS="$CFLAGS -Wp,-D_FORTIFY_SOURCE=2 -O2"
 export MAKEFLAGS="$MAKEFLAGS --no-print-directory"
 
 help_all() {
-	echo 
+	echo
 	echo "Usage: check <command>"
-	echo 
+	echo
 	echo "Commands:"
-	echo 
+	echo
 	echo "  ansi            Check using ansi compiler option"
 	echo "  sysv            Check using sys-v semaphores"
 	echo "  nosection       Check without gcc __attribute__(section)"
 	echo "  noepoll         Check using poll (not epoll)"
 	echo "  nogettime       Check without gettime()"
 	echo "  notimerfd       Check without timerfd"
+	echo "  noatomic        Check without gcc atomic"
 	echo "  bsd             Check with a bsd-like config"
 	echo "  dist            do make distcheck"
 	echo "  rpm             do a rpmlint"
-	echo 
+	echo
 	echo "  help            This help"
-	echo 
+	echo
 	exit 1
 }
 
@@ -54,6 +55,18 @@ then
 	./configure --quiet
 fi
 
+build() {
+	echo "./configure $1 --enable-fatal-warnings --quiet"
+	echo "ENV CFLAGS=\"$CFLAGS\""
+	echo "ENV MAKEFLAGS=\"$MAKEFLAGS\""
+	( ./configure $1 --enable-fatal-warnings --quiet )
+	make
+	if [ $? -ne 0 ]
+	then
+		exit 1
+	fi
+}
+
 check() {
 	echo "./configure $1 --enable-fatal-warnings --quiet"
 	echo "ENV CFLAGS=\"$CFLAGS\""
@@ -80,6 +93,13 @@ check_ansi() {
 check_nosection() {
 	# no __attribute__((section))
 	check "ac_cv_link_attribute_section=no"
+}
+
+check_noatomic() {
+	build "gcc_has_builtin_atomic_operations=yes ac_cv_atomic_need_memory_barrier=yes"
+	build "gcc_has_builtin_atomic_operations=yes ac_cv_atomic_need_memory_barrier=no"
+	build "gcc_has_builtin_atomic_operations=no ac_cv_atomic_need_memory_barrier=yes"
+	build "gcc_has_builtin_atomic_operations=no ac_cv_atomic_need_memory_barrier=no"
 }
 
 check_sysv() {
@@ -186,6 +206,9 @@ case $command in
 	;;
 	nogettime)
 		check_nogettime
+	;;
+	noatomic)
+		check_noatomic
 	;;
 	bsd)
 		check_bsd
