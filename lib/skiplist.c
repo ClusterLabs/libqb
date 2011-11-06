@@ -248,6 +248,9 @@ skiplist_notify_add(qb_map_t * m, const char *key,
 	}
 	if (n) {
 		f = malloc(sizeof(struct qb_map_notifier));
+		if (f == NULL) {
+			return -errno;
+		}
 		f->events = events;
 		f->user_data = user_data;
 		f->callback = fn;
@@ -422,6 +425,9 @@ skiplist_iter_create(struct qb_map *map, const char *prefix)
 {
 	struct skiplist_iter *i = malloc(sizeof(struct skiplist_iter));
 	struct skiplist *list = (struct skiplist *)map;
+	if (i == NULL) {
+		return NULL;
+	}
 	i->i.m = map;
 	i->n = list->header;
 	i->n->refcount++;

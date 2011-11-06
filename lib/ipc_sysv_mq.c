@@ -278,7 +278,7 @@ qb_ipcc_smq_connect(struct qb_ipcc_connection *c,
 	if (c->response.u.smq.q == -1) {
 		res = -errno;
 		perror("msgget:RESPONSE");
-		goto cleanup;
+		goto cleanup_request;
 	}
 
 	memcpy(&c->event.u.smq.key, response->event, sizeof(uint32_t));
@@ -286,9 +286,14 @@ qb_ipcc_smq_connect(struct qb_ipcc_connection *c,
 	if (c->event.u.smq.q == -1) {
 		res = -errno;
 		perror("msgget:EVENT");
-		goto cleanup;
+		goto cleanup_request_response;
 	}
+	return 0;
 
+cleanup_request_response:
+	msgctl(c->response.u.smq.q, IPC_RMID, NULL);
+cleanup_request:
+	msgctl(c->request.u.smq.q, IPC_RMID, NULL);
 cleanup:
 	return res;
 }
@@ -346,10 +351,10 @@ qb_ipcs_smq_connect(struct qb_ipcs_service *s,
 	r->hdr.error = 0;
 	return 0;
 
-cleanup_request:
-	msgctl(c->request.u.smq.q, IPC_RMID, NULL);
 cleanup_request_response:
 	msgctl(c->response.u.smq.q, IPC_RMID, NULL);
+cleanup_request:
+	msgctl(c->request.u.smq.q, IPC_RMID, NULL);
 
 cleanup:
 	r->hdr.error = res;

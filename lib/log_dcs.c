@@ -149,6 +149,9 @@ qb_log_dcs_get(int32_t * newly_created,
 
 		if (cs == NULL) {
 			csl = calloc(1, sizeof(struct callsite_list));
+			if (csl == NULL) {
+				goto cleanup;
+			}
 			csl->cs = _log_dcs_new_cs(function, filename, format,
 						  priority, lineno, tags);
 			csl->next = NULL;
@@ -157,6 +160,7 @@ qb_log_dcs_get(int32_t * newly_created,
 			*newly_created = QB_TRUE;
 		}
 	}
+cleanup:
 	(void)qb_thread_unlock(arr_next_lock);
 
 	return cs;

@@ -275,6 +275,9 @@ hashtable_notify_add(qb_map_t * m, const char *key,
 	}
 
 	f = malloc(sizeof(struct qb_map_notifier));
+	if (f == NULL) {
+		return -errno;
+	}
 	f->events = events;
 	f->user_data = user_data;
 	f->callback = fn;
@@ -328,6 +331,9 @@ static qb_map_iter_t *
 hashtable_iter_create(struct qb_map *map, const char *prefix)
 {
 	struct hashtable_iter *i = malloc(sizeof(struct hashtable_iter));
+	if (i == NULL) {
+		return NULL;
+	}
 	i->i.m = map;
 	i->node = NULL;
 	i->bucket = 0;

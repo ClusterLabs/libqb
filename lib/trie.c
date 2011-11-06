@@ -159,11 +159,19 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 {
 	struct trie_node *new_node = calloc(1, sizeof(struct trie_node));
 
+	if (new_node == NULL) {
+		return NULL;
+	}
+
 	new_node->parent = parent;
 
 	new_node->num_children = 30;
 	new_node->children = calloc(new_node->num_children,
 				    sizeof(struct trie_node *));
+	if (new_node->children) {
+		free(new_node);
+		return NULL;
+	}
 	qb_list_init(&new_node->notifier_head);
 	return new_node;
 }
@@ -206,6 +214,9 @@ trie_lookup(struct trie *t, const char *key, int32_t create_path)
 				return NULL;
 			}
 			new_node = trie_new_node(t, cur_node);
+			if (new_node == NULL) {
+				return NULL;
+			}
 			new_node->idx = idx;
 			cur_node->children[idx] = new_node;
 		}
@@ -308,6 +319,9 @@ trie_notify_add(qb_map_t * m, const char *key,
 	}
 	if (n) {
 		f = malloc(sizeof(struct qb_map_notifier));
+		if (f == NULL) {
+			return -errno;
+		}
 		f->events = events;
 		f->user_data = user_data;
 		f->callback = fn;
@@ -357,6 +371,9 @@ trie_iter_create(struct qb_map *map, const char *prefix)
 {
 	struct trie_iter *i = malloc(sizeof(struct trie_iter));
 	struct trie *t = (struct trie *)map;
+	if (i == NULL) {
+		return NULL;
+	}
 	i->i.m = map;
 	i->prefix = prefix;
 	i->n = t->header;
