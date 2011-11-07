@@ -942,8 +942,14 @@ qb_loop_signals_create(struct qb_loop *l)
 	return (struct qb_loop_source *)s;
 
 error_exit:
-	free(s);
 	errno = -res;
+	free(s);
+	if (pipe_fds[0] >= 0) {
+		close(pipe_fds[0]);
+	}
+	if (pipe_fds[1] >= 0) {
+		close(pipe_fds[1]);
+	}
 	return NULL;
 }
 
