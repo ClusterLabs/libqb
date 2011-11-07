@@ -117,7 +117,8 @@ qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
 }
 
 static int
-_strcpy_cutoff(char *dest, const char *src, size_t cutoff, int ralign, size_t buf_len)
+_strcpy_cutoff(char *dest, const char *src, size_t cutoff, int ralign,
+	       size_t buf_len)
 {
 	size_t len = strlen(src);
 	if (buf_len <= 1) {
@@ -287,7 +288,7 @@ qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap)
 	for (;;) {
 		type_long = 0;
 		type_longlong = 0;
-		p = strchrnul ((const char *)format, '%');
+		p = strchrnul((const char *)format, '%');
 		if (*p == '\0') {
 			break;
 		}
@@ -340,16 +341,17 @@ reprocess:
 				long int arg_int;
 
 				arg_int = va_arg(ap, long int);
-				memcpy (&serialize[location], &arg_int, sizeof (long int));
+				memcpy(&serialize[location], &arg_int,
+				       sizeof(long int));
 				location += sizeof(long int);
 				format++;
 				break;
-			} else
-			if (type_longlong) {
+			} else if (type_longlong) {
 				long long int arg_int;
 
 				arg_int = va_arg(ap, long long int);
-				memcpy (&serialize[location], &arg_int, sizeof (long long int));
+				memcpy(&serialize[location], &arg_int,
+				       sizeof(long long int));
 				location += sizeof(long long int);
 				format++;
 				break;
@@ -357,7 +359,8 @@ reprocess:
 				int arg_int;
 
 				arg_int = va_arg(ap, int);
-				memcpy (&serialize[location], &arg_int, sizeof (int));
+				memcpy(&serialize[location], &arg_int,
+				       sizeof(int));
 				location += sizeof(int);
 				format++;
 				break;
@@ -510,8 +513,7 @@ reprocess:
 				data_pos += sizeof(long int);
 				format++;
 				break;
-			} else
-			if (type_longlong) {
+			} else if (type_longlong) {
 				long long int *arg_int;
 
 				fmt[fmt_pos++] = *format;

@@ -227,35 +227,37 @@ struct qb_util_stopwatch {
 	uint64_t stopped;
 };
 
-qb_util_stopwatch_t*
+qb_util_stopwatch_t *
 qb_util_stopwatch_create(void)
 {
 	struct qb_util_stopwatch *sw;
-	sw = (struct qb_util_stopwatch *)calloc(1, sizeof(struct qb_util_stopwatch));
+	sw = (struct qb_util_stopwatch *)calloc(1,
+						sizeof(struct
+						       qb_util_stopwatch));
 	return sw;
 }
 
 void
-qb_util_stopwatch_free(qb_util_stopwatch_t *sw)
+qb_util_stopwatch_free(qb_util_stopwatch_t * sw)
 {
 	free(sw);
 }
 
 void
-qb_util_stopwatch_start(qb_util_stopwatch_t *sw)
+qb_util_stopwatch_start(qb_util_stopwatch_t * sw)
 {
 	sw->started = qb_util_nano_current_get();
 	sw->stopped = 0;
 }
 
 void
-qb_util_stopwatch_stop(qb_util_stopwatch_t *sw)
+qb_util_stopwatch_stop(qb_util_stopwatch_t * sw)
 {
 	sw->stopped = qb_util_nano_current_get();
 }
 
 uint64_t
-qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t *sw)
+qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t * sw)
 {
 	if (sw->stopped == 0 || sw->started == 0) {
 		return 0;
@@ -264,7 +266,7 @@ qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t *sw)
 }
 
 float
-qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t *sw)
+qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t * sw)
 {
 	uint64_t e6;
 	if (sw->stopped == 0 || sw->started == 0) {
@@ -458,9 +460,9 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 #ifdef QB_LINUX
 	return strerror_r(errnum, buf, buflen);
 #else
-	char * out_buf;
+	char *out_buf;
 
-	if (strerror_r(err_num, buffer, sizeof_buffer) == 0 ) {
+	if (strerror_r(err_num, buffer, sizeof_buffer) == 0) {
 		out_ptr = buffer;
 	} else {
 		out_ptr = "";
@@ -468,4 +470,3 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 	return out_buf;
 #endif /* QB_LINUX */
 }
-

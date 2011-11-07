@@ -230,12 +230,12 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 	}
 }
 
-void qb_log_from_external_source_va(const char *function,
-			    const char *filename,
-			    const char *format,
-			    uint8_t priority,
-			    uint32_t lineno, uint32_t tags,
-			    va_list ap)
+void
+qb_log_from_external_source_va(const char *function,
+			       const char *filename,
+			       const char *format,
+			       uint8_t priority,
+			       uint32_t lineno, uint32_t tags, va_list ap)
 {
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;

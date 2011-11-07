@@ -280,8 +280,7 @@ trie_get(struct qb_map *map, const char *key)
 
 static void
 trie_notify(struct trie_node *n,
-	    uint32_t event,
-	    const char *key, void *old_value, void *value)
+	    uint32_t event, const char *key, void *old_value, void *value)
 {
 	struct trie_node *c = n;
 	struct qb_list_head *list;

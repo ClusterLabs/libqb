@@ -44,8 +44,7 @@ _blackbox_reload(int32_t target)
  */
 static void
 _blackbox_vlogger(int32_t target,
-		 struct qb_log_callsite *cs,
-		 time_t timestamp, va_list ap)
+		  struct qb_log_callsite *cs, time_t timestamp, va_list ap)
 {
 	size_t max_size;
 	size_t actual_size;
@@ -190,7 +189,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 					       tm);
 			} else {
 				snprintf(time_buf, sizeof(time_buf), "%ld",
-					 (long int) timestamp);
+					 (long int)timestamp);
 			}
 			/* message content */
 			len = qb_vsnprintf_deserialize(message, QB_LOG_MAX_LEN, ptr);

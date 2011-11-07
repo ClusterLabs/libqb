@@ -184,8 +184,7 @@ skiplist_lookup(struct skiplist *list, const char *key)
 
 static void
 skiplist_notify(struct skiplist *l, struct skiplist_node *n,
-		uint32_t event,
-		char *key, void *old_value, void *value)
+		uint32_t event, char *key, void *old_value, void *value)
 {
 	struct qb_list_head *list;
 	struct qb_map_notifier *tn;
@@ -197,7 +196,8 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, key, old_value, value, tn->user_data);
+			tn->callback(event, key, old_value, value,
+				     tn->user_data);
 		}
 	}
 	/* global callbacks
@@ -207,7 +207,8 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, key, old_value, value, tn->user_data);
+			tn->callback(event, key, old_value, value,
+				     tn->user_data);
 		}
 	}
 
@@ -282,8 +283,7 @@ skiplist_destroy(struct qb_map *map)
 	struct skiplist_node *fwd_node;
 
 	for (cur_node = skiplist_node_next(list->header);
-	     cur_node;
-	     cur_node = fwd_node) {
+	     cur_node; cur_node = fwd_node) {
 		fwd_node = skiplist_node_next(cur_node);
 		skiplist_node_destroy(cur_node, list);
 	}
