@@ -246,7 +246,9 @@ void qb_log_from_external_source_va(const char *function,
 
 	cs = qb_log_dcs_get(&new_dcs, function, filename,
 			    format, priority, lineno, tags);
-	assert(cs != NULL);
+	if (cs == NULL) {
+		return;
+	}
 
 	if (new_dcs) {
 		pthread_rwlock_rdlock(&_listlock);
