@@ -908,6 +908,9 @@ qb_loop_signals_create(struct qb_loop *l)
 	struct qb_poll_entry *pe;
 	struct qb_signal_source *s = calloc(1, sizeof(struct qb_signal_source));
 
+	if (s == NULL) {
+		return NULL;
+	}
 	s->s.l = l;
 	s->s.dispatch_and_take_back = _signal_dispatch_and_take_back_;
 	s->s.poll = NULL;
@@ -980,6 +983,9 @@ _qb_signal_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 		sig = (struct qb_loop_sig *)item;
 		if (sig->signal == the_signal) {
 			new_sig_job = calloc(1, sizeof(struct qb_loop_sig));
+			if (new_sig_job == NULL) {
+				return jobs_added;
+			}
 			memcpy(new_sig_job, sig, sizeof(struct qb_loop_sig));
 
 			new_sig_job->cloned_from = sig;
@@ -1043,6 +1049,9 @@ qb_loop_signal_add(qb_loop_t * l,
 	}
 	s = (struct qb_signal_source *)l->signal_source;
 	sig = calloc(1, sizeof(struct qb_loop_sig));
+	if (sig == NULL) {
+		return -errno;
+	}
 
 	sig->dispatch_fn = dispatch_fn;
 	sig->p = p;

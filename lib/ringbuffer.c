@@ -603,7 +603,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	}
 	rb->shared_hdr = calloc(1, sizeof(struct qb_ringbuffer_shared_s));
 	if (rb->shared_hdr == NULL) {
-		goto cleanup_fail;
+		goto cleanup_fail2;
 	}
 
 	rb->flags = flags;
@@ -651,6 +651,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 
 cleanup_fail:
 	free(rb->shared_hdr);
+cleanup_fail2:
 	free(rb);
 	return NULL;
 }
