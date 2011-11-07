@@ -164,11 +164,10 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 	}
 
 	new_node->parent = parent;
-
 	new_node->num_children = 30;
 	new_node->children = calloc(new_node->num_children,
 				    sizeof(struct trie_node *));
-	if (new_node->children) {
+	if (new_node->children == NULL) {
 		free(new_node);
 		return NULL;
 	}

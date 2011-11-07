@@ -117,12 +117,12 @@ skiplist_node_new(const int8_t level, const char *key, const void *value)
 	new_node->forward = (struct skiplist_node **)
 	    (calloc(level + 1, sizeof(struct skiplist_node *)));
 
-	if (new_node->forward)
-		return new_node;
+	if (new_node->forward == NULL) {
+		free(new_node);
+		return NULL;
+	}
 
-	free(new_node);
-
-	return NULL;
+	return new_node;
 }
 
 static struct skiplist_node *
