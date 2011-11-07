@@ -432,9 +432,7 @@ qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 			c->service->serv_fns.connection_destroyed(c);
 		}
 		c->service->funcs.disconnect(c);
-		if (c->receive_buf) {
-			free(c->receive_buf);
-		}
+		free(c->receive_buf);
 		free(c);
 	}
 }

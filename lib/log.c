@@ -930,11 +930,7 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 void
 qb_log_format_set(int32_t t, const char *format)
 {
-	if (conf[t].format) {
-		free(conf[t].format);
-		conf[t].format = NULL;
-	}
-
+	free(conf[t].format);
 	conf[t].format = strdup(format ? format : "[%p] %b");
 	assert(conf[t].format != NULL);
 }
