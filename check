@@ -17,7 +17,9 @@ help_all() {
 	echo "  notimerfd       Check without timerfd"
 	echo "  bsd             Check with a bsd-like config"
 	echo "  dist            do make distcheck"
-	echo "  rpm             do a rpmlint"
+	echo "  rpm             Run rpmlint"
+	echo "  mock            Test doing a mock build"
+	echo "  coverity        Run coverity"
 	echo 
 	echo "  help            This help"
 	echo 
