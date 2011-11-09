@@ -55,7 +55,7 @@ qb_array_create(size_t max_elements, size_t element_size)
 	}
 	a->element_size = element_size;
 	a->max_elements = max_elements;
-	a->num_bins = (max_elements / MAX_BIN_ELEMENTS) + 1;
+	a->num_bins = QB_MIN((max_elements / MAX_BIN_ELEMENTS) + 1, MAX_BINS);
 
 	for (i = 0; i < MAX_BINS; i++) {
 		if (i < a->num_bins) {
@@ -125,7 +125,7 @@ qb_array_grow(struct qb_array * a, size_t max_elements)
 		return 0;
 	}
 	old_bins = a->num_bins;
-	a->num_bins = ((max_elements / MAX_BIN_ELEMENTS) + 1);
+	a->num_bins = QB_MIN((max_elements / MAX_BIN_ELEMENTS) + 1, MAX_BINS);
 	for (i = old_bins; i < a->num_bins; i++) {
 		if (a->bin[i] == NULL) {
 			a->bin[i] = calloc(MAX_BIN_ELEMENTS, a->element_size);
