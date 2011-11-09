@@ -67,6 +67,14 @@ START_TEST(test_array_limits)
 }
 END_TEST
 
+START_TEST(test_array_alloc_free)
+{
+	qb_array_t *a;
+	a = qb_array_create(65536, sizeof(struct test_my_st));
+	qb_array_free(a);
+}
+END_TEST
+
 START_TEST(test_array_correct_retrieval)
 {
 	qb_array_t *a;
@@ -132,6 +140,10 @@ static Suite *array_suite(void)
 
 	tc = tcase_create("limits");
 	tcase_add_test(tc, test_array_limits);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("alloc_free");
+	tcase_add_test(tc, test_array_alloc_free);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("correct_retrieval");
