@@ -181,4 +181,7 @@ qb_log_dcs_init(void)
 void
 qb_log_dcs_fini(void)
 {
+	qb_array_free(lookup_arr);
+	qb_array_free(callsite_arr);
+	(void)qb_thread_lock_destroy(arr_next_lock);
 }

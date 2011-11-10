@@ -273,4 +273,5 @@ qb_log_thread_stop(void)
 		sem_post(&logt_print_finished);
 		pthread_join(logt_thread_id, NULL);
 	}
+	(void)qb_thread_lock_destroy(logt_wthread_lock);
 }

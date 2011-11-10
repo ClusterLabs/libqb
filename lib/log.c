@@ -707,10 +707,8 @@ qb_log_fini(void)
 
 	for (pos = 0; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
-		if (t->state != QB_LOG_STATE_ENABLED) {
-			continue;
-		}
 		_log_target_disable(t);
+		free(conf[pos].format);
 		qb_list_for_each_safe(iter2, next2, &t->filter_head) {
 			flt = qb_list_entry(iter2, struct qb_log_filter, list);
 			qb_list_del(iter2);
@@ -765,10 +763,6 @@ qb_log_target_get(int32_t pos)
 void *
 qb_log_target_user_data_get(int32_t t)
 {
-	if (!logger_inited) {
-		errno = -EINVAL;
-		return NULL;
-	}
 	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
 	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		errno = -EBADF;
