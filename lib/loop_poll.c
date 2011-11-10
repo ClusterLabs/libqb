@@ -956,10 +956,23 @@ error_exit:
 void
 qb_loop_signals_destroy(struct qb_loop *l)
 {
+	struct qb_signal_source *s =
+	    (struct qb_signal_source *)l->signal_source;
+	struct qb_list_head *list;
+	struct qb_list_head *n;
+	struct qb_loop_item *item;
+
 	close(pipe_fds[0]);
 	pipe_fds[0] = -1;
 	close(pipe_fds[1]);
 	pipe_fds[1] = -1;
+
+	qb_list_for_each_safe(list, n, &s->sig_head) {
+		item = qb_list_entry(list, struct qb_loop_item, list);
+		qb_list_del(&item->list);
+		free(item);
+	}
+
 	free(l->signal_source);
 }
 
