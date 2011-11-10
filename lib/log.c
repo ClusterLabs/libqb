@@ -454,9 +454,10 @@ _log_filter_store(uint32_t t, enum qb_log_filter_conf c,
 		qb_list_for_each_safe(iter, next, list_head) {
 			flt = qb_list_entry(iter, struct qb_log_filter, list);
 			if (flt->type == type &&
-			    flt->low_priority == low_priority &&
-			    flt->high_priority == high_priority &&
-			    strcmp(flt->text, text) == 0) {
+			    flt->low_priority <= low_priority &&
+			    flt->high_priority >= high_priority &&
+			    (strcmp(flt->text, text) == 0 ||
+			     strcmp("*", text) == 0)) {
 				qb_list_del(iter);
 				free(flt->text);
 				free(flt);
@@ -683,7 +684,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	_log_target_state_set(&conf[QB_LOG_SYSLOG], QB_LOG_STATE_ENABLED);
 	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 				QB_LOG_FILTER_FILE, "*", priority);
-
 }
 
 void
