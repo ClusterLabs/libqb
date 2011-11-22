@@ -157,6 +157,47 @@ check_coverity() {
 	cov-format-errors --dir cov
 }
 
+check_abi() {
+	ver1=$1
+	ver2=$2
+
+	TMPL=build-aux/abi-check-templ.xml
+	checker=abi-compliance-checker
+
+	mkdir -p abi_dumps/libqb
+	for v in $ver1 $ver2
+	do
+		p=$(pwd)_inst_$v
+		sed -e "s|@PREFIX@|$p|" -e "s|@VERSION@|$v|" $TMPL > abi_dumps/libqb/$v.xml
+	done
+	for v in $ver1 $ver2
+	do
+		p=$(pwd)_inst_$v
+		t=v$v
+		b=api-check-$v
+		echo "== Version $v =="
+		if [ ! -f abi_dumps/libqb/libqb_$v.abi.tar.gz ]
+		then
+			git checkout -B $b $t
+			./autogen.sh
+			./configure
+			make
+			make install DESTDIR=$p
+			$checker -l libqb -dump_abi abi_dumps/libqb/$v.xml
+		fi
+	done
+
+	$checker -l libqb \
+	   -d1 abi_dumps/libqb/libqb_$ver1.abi.tar.gz \
+	   -d2 abi_dumps/libqb/libqb_$ver2.abi.tar.gz
+
+	google-chrome compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html
+
+	echo mv compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html abi_compat_report_$ver1\_to_$ver2.html
+	echo scp abi_compat_report_$ver1\_to_$ver2.html fedorahosted.org:quarterback
+	git checkout master
+}
+
 check_all() {
 		check_ansi
 		check_nosection
@@ -206,6 +247,9 @@ case $command in
 	;;
 	coverity)
 		check_coverity
+	;;
+	abi)
+		check_abi $args
 	;;
 	all)
 		check_all

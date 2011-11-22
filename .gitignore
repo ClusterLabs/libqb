@@ -34,3 +34,6 @@ lib/run_splint.sh
 .tarball-version
 libqb.spec
 include/qb/stamp-h2
+cov
+compat_reports
+abi_dumps
