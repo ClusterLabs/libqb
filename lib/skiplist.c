@@ -368,6 +368,9 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 	new_node = skiplist_node_new(new_node_level, key, value);
 
 	assert(new_node != NULL);
+	skiplist_notify(list, new_node,
+			QB_MAP_NOTIFY_INSERTED,
+			(char*)new_node->key, NULL, new_node->value);
 
 	/* Drop @new_node into @list. */
 	for (level = SKIPLIST_LEVEL_MIN; level <= new_node_level; level++) {
