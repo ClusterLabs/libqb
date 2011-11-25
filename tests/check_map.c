@@ -254,9 +254,8 @@ test_map_remove(qb_map_t *m)
 	qb_map_destroy(m);
 }
 
-
 static void
-test_map_notifications(qb_map_t *m)
+test_map_notifications_basic(qb_map_t *m)
 {
 	int32_t i;
 
@@ -268,6 +267,10 @@ test_map_notifications(qb_map_t *m)
 			       QB_MAP_NOTIFY_RECURSIVE),
 			       m);
 	ck_assert_int_eq(i, 0);
+
+	notified_key = NULL;
+	notified_value = NULL;
+	notified_new_value = NULL;
 
 /* insert */
 	qb_map_put(m, "garden", "grow");
@@ -302,6 +305,20 @@ test_map_notifications(qb_map_t *m)
 	ck_assert(notified_key == NULL);
 	ck_assert(notified_value == NULL);
 	ck_assert(notified_new_value == NULL);
+
+/* deleting a non-existing notification */
+	i = qb_map_notify_del(m, "a", my_map_notification,
+			      (QB_MAP_NOTIFY_INSERTED|
+			       QB_MAP_NOTIFY_DELETED|
+			       QB_MAP_NOTIFY_REPLACED|
+			       QB_MAP_NOTIFY_RECURSIVE));
+	ck_assert_int_eq(i, -ENOENT);
+}
+
+static void
+test_map_notifications_prefix(qb_map_t *m)
+{
+	int32_t i;
 
 
 /* with prefix notifier */
@@ -339,13 +356,6 @@ test_map_notifications(qb_map_t *m)
 	ck_assert_str_eq(notified_key, "adder");
 	ck_assert_str_eq(notified_value, "+++");
 
-/* deleting a non-existing notification */
-	i = qb_map_notify_del(m, "a", my_map_notification,
-			      (QB_MAP_NOTIFY_INSERTED|
-			       QB_MAP_NOTIFY_DELETED|
-			       QB_MAP_NOTIFY_REPLACED|
-			       QB_MAP_NOTIFY_RECURSIVE));
-	ck_assert_int_eq(i, -ENOENT);
 }
 
 static void
@@ -646,7 +656,25 @@ START_TEST(test_trie_notifications)
 	m = qb_trie_create();
 	test_map_remove(m);
 	m = qb_trie_create();
-	test_map_notifications(m);
+	test_map_notifications_basic(m);
+	m = qb_trie_create();
+	test_map_notifications_prefix(m);
+}
+END_TEST
+
+START_TEST(test_hash_notifications)
+{
+	qb_map_t *m;
+	m = qb_hashtable_create(256);
+	test_map_notifications_basic(m);
+}
+END_TEST
+
+START_TEST(test_skiplist_notifications)
+{
+	qb_map_t *m;
+	m = qb_skiplist_create();
+	test_map_notifications_basic(m);
 }
 END_TEST
 
@@ -749,6 +777,14 @@ map_suite(void)
 
 	tc = tcase_create("trie_notifications");
 	tcase_add_test(tc, test_trie_notifications);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("hash_notifications");
+	tcase_add_test(tc, test_hash_notifications);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("skiplist_notifications");
+	tcase_add_test(tc, test_skiplist_notifications);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("skiplist_search");
