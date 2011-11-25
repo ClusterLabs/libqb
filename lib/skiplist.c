@@ -267,12 +267,40 @@ skiplist_notify_del(qb_map_t * m, const char *key,
 		    qb_map_notify_fn fn, int32_t events)
 {
 	struct skiplist *t = (struct skiplist *)m;
-	struct skiplist_node *n = skiplist_lookup(t, key);
+	struct skiplist_node *n;
+	struct qb_map_notifier *f;
+	struct qb_list_head *head = NULL;
+	struct qb_list_head *list;
+	struct qb_list_head *next;
+	int32_t found = QB_FALSE;
 
-	if (n) {
-		return 0;
+	if (key) {
+		n = skiplist_lookup(t, key);
+		if (n) {
+			head = &n->notifier_head;
+		}
+	} else {
+		head = &t->header->notifier_head;
 	}
-	return -ENOENT;
+	if (head == NULL) {
+		return -ENOENT;
+	}
+	for (list = head->next;
+	     list != head; list = next) {
+		f = qb_list_entry(list, struct qb_map_notifier, list);
+		next = list->next;
+
+		if (f->events == events && f->callback == fn) {
+			found = QB_TRUE;
+			qb_list_del(&f->list);
+			free(f);
+		}
+	}
+	if (found) {
+		return 0;
+	} else {
+		return -ENOENT;
+	}
 }
 
 static void
