@@ -204,7 +204,7 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 
 		hashtable_notify(hash_table, hash_node,
 				 QB_MAP_NOTIFY_INSERTED,
-				 hash_node->key, hash_node->value, NULL);
+				 hash_node->key, NULL, hash_node->value);
 	} else {
 		char *old_k = (char *)hash_node->key;
 		char *old_v = (void *)hash_node->value;
