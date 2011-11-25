@@ -7,3 +7,4 @@ loop
 rbreader
 rbwriter
 write_logs.c
+libqb

@@ -198,6 +198,14 @@ check_abi() {
 	git checkout master
 }
 
+check_api_sanity() {
+	make
+	export CFLAGS="-Wall -ggdb2"
+	api-sanity-autotest -l libqb -d build-aux/api-auto-test.xml -gen -build -run
+	google-chrome test_results/libqb/master/test_results.html
+	google-chrome test_results/libqb/master/test_results.html
+}
+
 check_all() {
 		check_ansi
 		check_nosection
@@ -250,6 +258,9 @@ case $command in
 	;;
 	abi)
 		check_abi $args
+	;;
+	api_sanity)
+		check_api_sanity
 	;;
 	all)
 		check_all

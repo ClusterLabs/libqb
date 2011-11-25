@@ -244,6 +244,10 @@ qb_log_from_external_source_va(const char *function,
 	struct qb_list_head *f_item;
 	int32_t pos;
 
+	if (!logger_inited) {
+		return;
+	}
+
 	cs = qb_log_dcs_get(&new_dcs, function, filename,
 			    format, priority, lineno, tags);
 	if (cs == NULL) {

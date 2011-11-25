@@ -90,7 +90,7 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 	ssize_t res;
 	ssize_t res2;
 
-	if (msg_len > c->request.max_msg_size) {
+	if (c == NULL || msg_len > c->request.max_msg_size) {
 		return -EINVAL;
 	}
 	if (c->funcs.fc_get) {
@@ -133,7 +133,7 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 	for (i = 0; i < iov_len; i++) {
 		total_size += iov[i].iov_len;
 	}
-	if (total_size > c->request.max_msg_size) {
+	if (c == NULL || total_size > c->request.max_msg_size) {
 		return -EINVAL;
 	}
 
@@ -171,6 +171,9 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 {
 	int32_t res = 0;
 	int32_t res2 = 0;
+	if (c == NULL) {
+		return -EINVAL;
+	}
 
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
 	if ((res == -EAGAIN || res == -ETIMEDOUT) && c->needs_sock_for_poll) {
@@ -190,6 +193,10 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 		   void *res_msg, size_t res_len, int32_t ms_timeout)
 {
 	ssize_t res = 0;
+
+	if (c == NULL) {
+		return -EINVAL;
+	}
 
 	if (c->funcs.fc_get) {
 		res = c->funcs.fc_get(&c->request);
@@ -215,6 +222,9 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 int32_t
 qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 {
+	if (c == NULL) {
+		return -EINVAL;
+	}
 	if (c->type == QB_IPC_SOCKET) {
 		*fd = c->event.u.us.sock;
 	} else {
@@ -232,6 +242,9 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	ssize_t size;
 	struct qb_ipc_one_way *ow = NULL;
 
+	if (c == NULL) {
+		return -EINVAL;
+	}
 	if (c->needs_sock_for_poll) {
 		ow = &c->setup;
 	}
@@ -262,6 +275,9 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 
+	if (c == NULL) {
+		return;
+	}
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);

@@ -1,0 +1,9 @@
+<version>
+    master
+</version>
+<headers>
+    include/qb
+</headers>
+<libs>
+    lib/
+</libs>

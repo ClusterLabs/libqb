@@ -250,18 +250,27 @@ qb_rb_close(qb_ringbuffer_t * rb)
 char *
 qb_rb_name_get(qb_ringbuffer_t * rb)
 {
+	if (rb == NULL) {
+		return NULL;
+	}
 	return rb->shared_hdr->hdr_path;
 }
 
 void *
 qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
 {
+	if (rb == NULL) {
+		return NULL;
+	}
 	return rb->shared_hdr->user_data;
 }
 
 int32_t
 qb_rb_refcount_get(qb_ringbuffer_t * rb)
 {
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	return qb_atomic_int_get(&rb->shared_hdr->ref_count);
 }
 
@@ -272,6 +281,9 @@ qb_rb_space_free(qb_ringbuffer_t * rb)
 	uint32_t read_size;
 	size_t space_free = 0;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	write_size = rb->shared_hdr->write_pt;
 	/*
 	 * TODO idx_cache_line_step (write_size);
@@ -298,6 +310,9 @@ qb_rb_space_used(qb_ringbuffer_t * rb)
 	uint32_t read_size;
 	size_t space_used;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	write_size = rb->shared_hdr->write_pt;
 	read_size = rb->shared_hdr->read_pt;
 
@@ -316,6 +331,9 @@ qb_rb_space_used(qb_ringbuffer_t * rb)
 ssize_t
 qb_rb_chunks_used(struct qb_ringbuffer_s *rb)
 {
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	return rb->sem_getvalue_fn(rb);
 }
 
@@ -324,6 +342,9 @@ qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 {
 	uint32_t write_pt;
 
+	if (rb == NULL) {
+		return NULL;
+	}
 	/*
 	 * Reclaim data if we are over writing and we need space
 	 */
@@ -381,11 +402,15 @@ qb_rb_chunk_step(qb_ringbuffer_t * rb, uint32_t pointer)
 int32_t
 qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
 {
-	uint32_t old_write_pt = rb->shared_hdr->write_pt;
+	uint32_t old_write_pt;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	/*
 	 * commit the magic & chunk_size
 	 */
+	old_write_pt = rb->shared_hdr->write_pt;
 	rb->shared_data[old_write_pt] = len;
 	rb->shared_data[old_write_pt + 1] = QB_RB_CHUNK_MAGIC;
 
@@ -410,6 +435,10 @@ qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 	char *dest = qb_rb_chunk_alloc(rb, len);
 	int32_t res = 0;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
+
 	if (dest == NULL) {
 		return -errno;
 	}
@@ -427,12 +456,12 @@ qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 void
 qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 {
-	uint32_t old_read_pt = rb->shared_hdr->read_pt;
+	uint32_t old_read_pt;
 
-	if (qb_rb_space_used(rb) == 0) {
+	if (rb == NULL || qb_rb_space_used(rb) == 0) {
 		return;
 	}
-
+	old_read_pt = rb->shared_hdr->read_pt;
 	qb_rb_chunk_check(rb, old_read_pt);
 
 	rb->shared_hdr->read_pt = qb_rb_chunk_step(rb, old_read_pt);
@@ -456,6 +485,9 @@ qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 	uint32_t chunk_magic;
 	int32_t res;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	res = rb->sem_timedwait_fn(rb, timeout);
 	if (res < 0 && res != -EIDRM) {
 		if (res != -ETIMEDOUT) {
@@ -484,6 +516,9 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 	uint32_t chunk_size;
 	int32_t res = 0;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	if (rb->sem_timedwait_fn) {
 		res = rb->sem_timedwait_fn(rb, timeout);
 	}
@@ -554,6 +589,9 @@ qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
 	ssize_t result;
 	ssize_t written_size = 0;
 
+	if (rb == NULL) {
+		return -EINVAL;
+	}
 	print_header(rb);
 
 	result = write(fd, &rb->shared_hdr->size, sizeof(uint32_t));
@@ -598,7 +636,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	uint32_t write_pt;
 	qb_ringbuffer_t *rb = calloc(1, sizeof(qb_ringbuffer_t));
 
-	if (rb == NULL) {
+	if (rb == NULL || fd < 0) {
 		return NULL;
 	}
 	rb->shared_hdr = calloc(1, sizeof(struct qb_ringbuffer_shared_s));
@@ -632,6 +670,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	if (n_read != n_required) {
 		qb_util_log(LOG_WARNING, "read %zd bytes, but expected %zu",
 			    n_read, n_required);
+		goto cleanup_fail;
 	}
 
 	n_read = read(fd, &write_pt, sizeof(uint32_t));
@@ -659,7 +698,12 @@ cleanup_fail2:
 int32_t
 qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group)
 {
-	int32_t res = chown(rb->shared_hdr->data_path, owner, group);
+	int32_t res;
+
+	if (rb == NULL) {
+		return -EINVAL;
+	}
+	res = chown(rb->shared_hdr->data_path, owner, group);
 	if (res < 0) {
 		return -errno;
 	}

@@ -174,6 +174,10 @@ qb_log_target_format(int32_t target,
 	int c;
 	struct qb_log_target *t = qb_log_target_get(target);
 
+	if (t->format == NULL) {
+		return;
+	}
+
 	while ((c = t->format[format_buffer_idx])) {
 		cutoff = 0;
 		ralign = 0;

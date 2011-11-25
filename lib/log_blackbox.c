@@ -144,7 +144,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 	int fd;
 	char time_buf[64];
 
-	fd = open(bb_filename, O_CREAT | O_RDWR, 0700);
+	fd = open(bb_filename, 0);
 	if (fd < 0) {
 		qb_perror(LOG_ERR, "qb_log_blackbox_print_from_file");
 		return;
