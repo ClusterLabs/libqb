@@ -269,7 +269,9 @@ hashtable_notify_add(qb_map_t * m, const char *key,
 	for (list = head->next; list != head; list = list->next) {
 		f = qb_list_entry(list, struct qb_map_notifier, list);
 
-		if (f->events == events && f->callback == fn) {
+		if (f->events == events &&
+		    f->user_data == user_data &&
+		    f->callback == fn) {
 			return -EEXIST;
 		}
 	}

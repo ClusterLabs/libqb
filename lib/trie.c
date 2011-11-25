@@ -309,6 +309,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 	struct trie *t = (struct trie *)m;
 	struct qb_map_notifier *f;
 	struct trie_node *n;
+	struct qb_list_head *list;
 
 	if (key) {
 		n = trie_lookup(t, key, QB_TRUE);
@@ -316,6 +317,17 @@ trie_notify_add(qb_map_t * m, const char *key,
 		n = t->header;
 	}
 	if (n) {
+		for (list = n->notifier_head.next;
+		     list != &n->notifier_head; list = list->next) {
+			f = qb_list_entry(list, struct qb_map_notifier, list);
+
+			if (f->events == events &&
+			    f->callback == fn &&
+			    f->user_data == user_data) {
+				return -EEXIST;
+			}
+		}
+
 		f = malloc(sizeof(struct qb_map_notifier));
 		if (f == NULL) {
 			return -errno;

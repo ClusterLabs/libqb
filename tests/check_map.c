@@ -313,6 +313,15 @@ test_map_notifications_basic(qb_map_t *m)
 			       QB_MAP_NOTIFY_REPLACED|
 			       QB_MAP_NOTIFY_RECURSIVE));
 	ck_assert_int_eq(i, -ENOENT);
+
+/* test uniquess */
+	qb_map_put(m, "fred", "null");
+	i = qb_map_notify_add(m, "fred", my_map_notification,
+			      QB_MAP_NOTIFY_REPLACED, m);
+	ck_assert_int_eq(i, 0);
+	i = qb_map_notify_add(m, "fred", my_map_notification,
+			      QB_MAP_NOTIFY_REPLACED, m);
+	ck_assert_int_eq(i, -EEXIST);
 }
 
 static void
