@@ -104,7 +104,18 @@ qb_map_notify_del(qb_map_t * m, const char *key, qb_map_notify_fn fn,
 		  int32_t events)
 {
 	if (m->notify_del) {
-		return m->notify_del(m, key, fn, events);
+		return m->notify_del(m, key, fn, events, QB_FALSE, NULL);
+	} else {
+		return -ENOSYS;
+	}
+}
+
+int32_t
+qb_map_notify_del_2(qb_map_t * m, const char *key, qb_map_notify_fn fn,
+		    int32_t events, void *user_data)
+{
+	if (m->notify_del) {
+		return m->notify_del(m, key, fn, events, QB_TRUE, user_data);
 	} else {
 		return -ENOSYS;
 	}

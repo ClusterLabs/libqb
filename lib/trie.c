@@ -336,12 +336,15 @@ trie_notify_add(qb_map_t * m, const char *key,
 
 static int32_t
 trie_notify_del(qb_map_t * m, const char *key,
-		qb_map_notify_fn fn, int32_t events)
+		qb_map_notify_fn fn, int32_t events,
+		int32_t cmp_userdata, void *user_data)
 {
 	struct trie *t = (struct trie *)m;
 	struct qb_map_notifier *f;
 	struct trie_node *n;
 	struct qb_list_head *list;
+	struct qb_list_head *next;
+	int32_t found = QB_FALSE;
 
 	if (key) {
 		n = trie_lookup(t, key, QB_TRUE);
@@ -352,16 +355,27 @@ trie_notify_del(qb_map_t * m, const char *key,
 		return -ENOENT;
 	}
 	for (list = n->notifier_head.next;
-	     list != &n->notifier_head; list = list->next) {
+	     list != &n->notifier_head; list = next) {
 		f = qb_list_entry(list, struct qb_map_notifier, list);
+		next = list->next;
 
 		if (f->events == events && f->callback == fn) {
-			qb_list_del(&f->list);
-			free(f);
-			return 0;
+			if (cmp_userdata && (f->user_data == user_data)) {
+				found = QB_TRUE;
+				qb_list_del(&f->list);
+				free(f);
+			} else if (!cmp_userdata) {
+				found = QB_TRUE;
+				qb_list_del(&f->list);
+				free(f);
+			}
 		}
 	}
-	return -ENOENT;
+	if (found) {
+		return 0;
+	} else {
+		return -ENOENT;
+	}
 }
 
 static qb_map_iter_t *

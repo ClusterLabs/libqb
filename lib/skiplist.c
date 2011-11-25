@@ -264,7 +264,8 @@ skiplist_notify_add(qb_map_t * m, const char *key,
 
 static int32_t
 skiplist_notify_del(qb_map_t * m, const char *key,
-		    qb_map_notify_fn fn, int32_t events)
+		    qb_map_notify_fn fn, int32_t events,
+		    int32_t cmp_userdata, void *user_data)
 {
 	struct skiplist *t = (struct skiplist *)m;
 	struct skiplist_node *n;
@@ -291,9 +292,15 @@ skiplist_notify_del(qb_map_t * m, const char *key,
 		next = list->next;
 
 		if (f->events == events && f->callback == fn) {
-			found = QB_TRUE;
-			qb_list_del(&f->list);
-			free(f);
+			if (cmp_userdata && (f->user_data == user_data)) {
+				found = QB_TRUE;
+				qb_list_del(&f->list);
+				free(f);
+			} else if (!cmp_userdata) {
+				found = QB_TRUE;
+				qb_list_del(&f->list);
+				free(f);
+			}
 		}
 	}
 	if (found) {

@@ -118,6 +118,24 @@ int32_t qb_map_notify_del(qb_map_t* m, const char* key,
 			  qb_map_notify_fn fn, int32_t events);
 
 /**
+ * Delete a notifier from the map (including the userdata).
+ *
+ * @note the key, fn, events and userdata must match those you added.
+ *
+ * @param m the map instance
+ * @param key the key (or prefix) to attach the notification to.
+ * @param fn the callback
+ * @param events the type of events to register for.
+ * @param user_data a pointer to be passed into the callback
+ *
+ * @retval 0 success
+ * @retval -errno failure
+ */
+int32_t qb_map_notify_del_2(qb_map_t* m, const char* key,
+			    qb_map_notify_fn fn, int32_t events,
+			    void *userdata);
+
+/**
  * Inserts a new key and value into a qb_map_t.
  *
  * If the key already exists in the qb_map_t, it gets replaced by the new key.
