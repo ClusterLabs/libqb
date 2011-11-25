@@ -311,6 +311,10 @@ AC_ARG_ENABLE([coverage],
 	[  --enable-coverage       : coverage analysis of the codebase. ],
 	[ default="no" ])
 
+AC_ARG_ENABLE([slow-tests],
+	[  --enable-slow-tests     : build and run slow tests. ],
+	[ default="no" ])
+
 AC_ARG_WITH([socket-dir],
 	[  --with-socket-dir=DIR   : socket dir. ],
 	[ SOCKETDIR="$withval" ],
@@ -378,6 +382,14 @@ else
 	COVERAGE_CFLAGS=""
 	COVERAGE_LDFLAGS=""
 fi
+
+
+if test "x${enable_slow_tests}" = xyes ; then
+	AC_DEFINE([HAVE_SLOW_TESTS], 1,[have slow tests])
+	AC_MSG_NOTICE([Enabling Slow tests])
+fi
+AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x$enable_slow_tests" = xyes])
+
 
 AM_CONDITIONAL(USE_TIMERFD, [test "x$ac_cv_func_timerfd_create" = xyes])
 

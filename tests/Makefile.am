@@ -48,6 +48,7 @@ loop_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 loop_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 if HAVE_DICT_WORDS
+if HAVE_SLOW_TESTS
 EXTRA_DIST += make-log-test
 CLEANFILES += write_logs.c
 MAINTAINERCLEANFILES += write_logs.c
@@ -62,6 +63,7 @@ $(builddir)/write_logs.c: make-log-test
 distclean-compile:
 	rm -rf write_logs.c
 
+endif
 endif
 
 bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h

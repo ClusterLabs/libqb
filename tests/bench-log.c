@@ -82,7 +82,7 @@ main(void)
 		qb_log(LOG_DEBUG, "%i %u %p", -534, 4508, &i);
 	}
 	bm_finish ("qb_log 3 args(int):");
-#ifdef HAVE_DICT_WORDS
+#if defined(HAVE_DICT_WORDS) && defined(HAVE_SLOW_TESTS)
 	qb_util_stopwatch_start(sw);
 	log_dict_words();
 	bm_finish ("qb_log /usr/share/dict/words:");
