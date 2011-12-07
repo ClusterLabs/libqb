@@ -129,22 +129,29 @@ char *qb_strerror_r(int errnum, char *buf, size_t buflen);
 typedef struct qb_util_stopwatch qb_util_stopwatch_t;
 
 /**
- * Create a Stop Watch (to time operations)
+ * Create a Stopwatch (to time operations)
  */
 qb_util_stopwatch_t * qb_util_stopwatch_create(void);
 
 /**
- * Free the stop watch
+ * Free the stopwatch
  */
 void qb_util_stopwatch_free(qb_util_stopwatch_t *sw);
 
 /**
- * Start the stop watch
+ * Start the stopwatch
+ *
+ * This also acts as a reset. Essentially it sets the
+ * starting time.
  */
 void qb_util_stopwatch_start(qb_util_stopwatch_t *sw);
 
 /**
- * Stop the stop watch
+ * Stop the stopwatch
+ *
+ * This just allows you to get the elapsed time. So
+ * you can call this multiple times. Do not call qb_util_stopwatch_start()
+ * unless you want to reset the stopwatch.
  */
 void qb_util_stopwatch_stop(qb_util_stopwatch_t *sw);
 
