@@ -92,6 +92,9 @@ int32_t
 qb_map_notify_add(qb_map_t * m, const char *key, qb_map_notify_fn fn,
 		  int32_t events, void *user_data)
 {
+	if (key != NULL && events & QB_MAP_NOTIFY_FREE) {
+		return -EINVAL;
+	}
 	if (m->notify_add) {
 		return m->notify_add(m, key, fn, events, user_data);
 	} else {

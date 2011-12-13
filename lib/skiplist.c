@@ -210,6 +210,12 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 			tn->callback(event, key, old_value, value,
 				     tn->user_data);
 		}
+		if (((event & QB_MAP_NOTIFY_DELETED) ||
+		     (event & QB_MAP_NOTIFY_REPLACED)) &&
+		    (tn->events & QB_MAP_NOTIFY_FREE)) {
+			tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
+				     old_value, value, tn->user_data);
+		}
 	}
 
 }
@@ -242,17 +248,26 @@ skiplist_notify_add(qb_map_t * m, const char *key,
 	struct qb_map_notifier *f;
 	struct skiplist_node *n;
 	struct qb_list_head *list;
+	int add_to_tail = QB_FALSE;
 
 	if (key) {
 		n = skiplist_lookup(t, key);
 	} else {
 		n = t->header;
 	}
+	if (events & QB_MAP_NOTIFY_FREE) {
+		add_to_tail = QB_TRUE;
+	}
 	if (n) {
 		for (list = n->notifier_head.next;
 		     list != &n->notifier_head; list = list->next) {
 			f = qb_list_entry(list, struct qb_map_notifier, list);
 
+			if (events & QB_MAP_NOTIFY_FREE &&
+			    f->events == events) {
+				/* only one free notifier */
+				return -EEXIST;
+			}
 			if (f->events == events &&
 			    f->callback == fn &&
 			    f->user_data == user_data) {
@@ -268,7 +283,11 @@ skiplist_notify_add(qb_map_t * m, const char *key,
 		f->user_data = user_data;
 		f->callback = fn;
 		qb_list_init(&f->list);
-		qb_list_add(&f->list, &n->notifier_head);
+		if (add_to_tail) {
+			qb_list_add_tail(&f->list, &n->notifier_head);
+		} else {
+			qb_list_add(&f->list, &n->notifier_head);
+		}
 		return 0;
 	}
 	return -EINVAL;

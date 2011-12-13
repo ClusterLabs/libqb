@@ -43,6 +43,8 @@ static char *notified_key = NULL;
 static void *notified_value = NULL;
 static void *notified_new_value = NULL;
 static void *notified_user_data = NULL;
+static int32_t notified_event = 0;
+static int32_t notified_event_prev = 0;
 
 static void
 test_map_simple(qb_map_t *m, const char *name)
@@ -190,6 +192,15 @@ my_map_notification(uint32_t event,
 	notified_value = old_value;
 	notified_new_value = value;
 	notified_user_data = user_data;
+	notified_event_prev = notified_event;
+	notified_event = event;
+}
+
+static void
+my_map_notification_2(uint32_t event,
+		      char* key, void* old_value,
+		      void* value, void* user_data)
+{
 }
 
 static void
@@ -322,6 +333,51 @@ test_map_notifications_basic(qb_map_t *m)
 	i = qb_map_notify_add(m, "fred", my_map_notification,
 			      QB_MAP_NOTIFY_REPLACED, m);
 	ck_assert_int_eq(i, -EEXIST);
+}
+
+/* test free'ing notifier
+ *
+ * input:
+ *   only one can be added
+ *   can only be added with NULL key (global)
+ * output:
+ *   is the last notifier called (after deleted or replaced)
+ *   recursive is implicit
+ */
+static void
+test_map_notifications_free(qb_map_t *m)
+{
+	int32_t i;
+	i = qb_map_notify_add(m, "not global", my_map_notification,
+			      QB_MAP_NOTIFY_FREE, m);
+	ck_assert_int_eq(i, -EINVAL);
+	i = qb_map_notify_add(m, NULL, my_map_notification,
+			      QB_MAP_NOTIFY_FREE, m);
+	ck_assert_int_eq(i, 0);
+	i = qb_map_notify_add(m, NULL, my_map_notification_2,
+			      QB_MAP_NOTIFY_FREE, m);
+	ck_assert_int_eq(i, -EEXIST);
+	i = qb_map_notify_del_2(m, NULL, my_map_notification,
+			      QB_MAP_NOTIFY_FREE, m);
+	ck_assert_int_eq(i, 0);
+	i = qb_map_notify_add(m, NULL, my_map_notification,
+			      (QB_MAP_NOTIFY_FREE |
+			       QB_MAP_NOTIFY_REPLACED |
+			       QB_MAP_NOTIFY_DELETED |
+			       QB_MAP_NOTIFY_RECURSIVE), m);
+	ck_assert_int_eq(i, 0);
+
+	qb_map_put(m, "garden", "grow");
+
+/* update */
+	qb_map_put(m, "garden", "green");
+	ck_assert_int_eq(notified_event_prev, QB_MAP_NOTIFY_REPLACED);
+	ck_assert_int_eq(notified_event, QB_MAP_NOTIFY_FREE);
+
+/* delete */
+	qb_map_rm(m, "garden");
+	ck_assert_int_eq(notified_event_prev, QB_MAP_NOTIFY_DELETED);
+	ck_assert_int_eq(notified_event, QB_MAP_NOTIFY_FREE);
 }
 
 static void
@@ -668,6 +724,8 @@ START_TEST(test_trie_notifications)
 	test_map_notifications_basic(m);
 	m = qb_trie_create();
 	test_map_notifications_prefix(m);
+	m = qb_trie_create();
+	test_map_notifications_free(m);
 }
 END_TEST
 
@@ -676,6 +734,8 @@ START_TEST(test_hash_notifications)
 	qb_map_t *m;
 	m = qb_hashtable_create(256);
 	test_map_notifications_basic(m);
+	m = qb_hashtable_create(256);
+	test_map_notifications_free(m);
 }
 END_TEST
 
@@ -684,6 +744,8 @@ START_TEST(test_skiplist_notifications)
 	qb_map_t *m;
 	m = qb_skiplist_create();
 	test_map_notifications_basic(m);
+	m = qb_skiplist_create();
+	test_map_notifications_free(m);
 }
 END_TEST
 

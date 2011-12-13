@@ -122,6 +122,9 @@ keep_going:
 static void
 trie_node_destroy(struct trie *t, struct trie_node *n)
 {
+	if (t->header == n) {
+		return;
+	}
 	trie_notify(n, QB_MAP_NOTIFY_DELETED, n->key, n->value, NULL);
 
 	n->key = NULL;
@@ -131,6 +134,9 @@ trie_node_destroy(struct trie *t, struct trie_node *n)
 static void
 trie_node_deref(struct trie *t, struct trie_node *node)
 {
+	if (t->header == node) {
+		return;
+	}
 	node->refcount--;
 	if (node->refcount > 0) {
 		return;
@@ -297,6 +303,12 @@ trie_notify(struct trie_node *n,
 				tn->callback(event, (char *)key, old_value,
 					     value, tn->user_data);
 			}
+			if (((event & QB_MAP_NOTIFY_DELETED) ||
+			     (event & QB_MAP_NOTIFY_REPLACED)) &&
+			    (tn->events & QB_MAP_NOTIFY_FREE)) {
+				tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
+					     old_value, value, tn->user_data);
+			}
 		}
 		c = c->parent;
 	} while (c);
@@ -310,6 +322,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 	struct qb_map_notifier *f;
 	struct trie_node *n;
 	struct qb_list_head *list;
+	int add_to_tail = QB_FALSE;
 
 	if (key) {
 		n = trie_lookup(t, key, QB_TRUE);
@@ -321,6 +334,11 @@ trie_notify_add(qb_map_t * m, const char *key,
 		     list != &n->notifier_head; list = list->next) {
 			f = qb_list_entry(list, struct qb_map_notifier, list);
 
+			if (events & QB_MAP_NOTIFY_FREE &&
+			    f->events == events) {
+				/* only one free notifier */
+				return -EEXIST;
+			}
 			if (f->events == events &&
 			    f->callback == fn &&
 			    f->user_data == user_data) {
@@ -336,10 +354,19 @@ trie_notify_add(qb_map_t * m, const char *key,
 		f->user_data = user_data;
 		f->callback = fn;
 		qb_list_init(&f->list);
-		if (events & QB_MAP_NOTIFY_RECURSIVE) {
-			qb_list_add(&f->list, &n->notifier_head);
+		if (key) {
+			if (events & QB_MAP_NOTIFY_RECURSIVE) {
+				add_to_tail = QB_TRUE;
+			}
 		} else {
+			if (events & QB_MAP_NOTIFY_FREE) {
+				add_to_tail = QB_TRUE;
+			}
+		}
+		if (add_to_tail) {
 			qb_list_add_tail(&f->list, &n->notifier_head);
+		} else {
+			qb_list_add(&f->list, &n->notifier_head);
 		}
 		return 0;
 	}

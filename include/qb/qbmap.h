@@ -48,6 +48,7 @@ typedef struct qb_map_iter qb_map_iter_t;
 #define	QB_MAP_NOTIFY_REPLACED  2
 #define QB_MAP_NOTIFY_INSERTED  4
 #define	QB_MAP_NOTIFY_RECURSIVE 8
+#define	QB_MAP_NOTIFY_FREE      16
 
 typedef void (*qb_map_notify_fn)(uint32_t event,
 				 char* key,
