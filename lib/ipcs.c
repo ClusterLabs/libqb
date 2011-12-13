@@ -154,6 +154,7 @@ qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 		break;
 	case QB_IPCS_RATE_SLOW:
 	case QB_IPCS_RATE_OFF:
+	case QB_IPCS_RATE_OFF_2:
 		s->poll_priority = QB_LOOP_LOW;
 		break;
 	default:
@@ -168,7 +169,13 @@ qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 		c = qb_list_entry(pos, struct qb_ipcs_connection, list);
 		qb_ipcs_connection_ref(c);
 
-		qb_ipcs_flowcontrol_set(c, (rl == QB_IPCS_RATE_OFF));
+		if (rl == QB_IPCS_RATE_OFF) {
+			qb_ipcs_flowcontrol_set(c, 1);
+		} else if (rl == QB_IPCS_RATE_OFF_2) {
+			qb_ipcs_flowcontrol_set(c, 2);
+		} else {
+			qb_ipcs_flowcontrol_set(c, QB_FALSE);
+		}
 		if (old_p != s->poll_priority) {
 			(void)_modify_dispatch_descriptor_(c);
 		}

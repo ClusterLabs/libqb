@@ -49,6 +49,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	c->request.max_msg_size = response.max_msg_size;
 	c->event.max_msg_size = response.max_msg_size;
 	c->receive_buf = malloc(response.max_msg_size);
+	c->fc_enable_max = 1;
 	if (c->receive_buf == NULL) {
 		res = -ENOMEM;
 		goto disconnect_and_cleanup;
@@ -97,7 +98,7 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 		res = c->funcs.fc_get(&c->request);
 		if (res < 0) {
 			return res;
-		} else if (res > 0) {
+		} else if (res > 0 && res <= c->fc_enable_max) {
 			return -EAGAIN;
 		} else {
 			/*
@@ -121,6 +122,16 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 	return res;
 }
 
+int32_t
+qb_ipcc_fc_enable_max_set(struct qb_ipcc_connection * c, uint32_t max)
+{
+	if (c == NULL || max > 2) {
+		return -EINVAL;
+	}
+	c->fc_enable_max = max;
+	return 0;
+}
+
 ssize_t
 qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 	      size_t iov_len)
@@ -141,7 +152,7 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 		res = c->funcs.fc_get(&c->request);
 		if (res < 0) {
 			return res;
-		} else if (res > 0) {
+		} else if (res > 0 && res <= c->fc_enable_max) {
 			return -EAGAIN;
 		} else {
 			/*
@@ -202,7 +213,7 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 		res = c->funcs.fc_get(&c->request);
 		if (res < 0) {
 			return res;
-		} else if (res > 0) {
+		} else if (res > 0 && res <= c->fc_enable_max) {
 			return -EAGAIN;
 		} else {
 			/*

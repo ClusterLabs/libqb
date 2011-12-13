@@ -107,6 +107,7 @@ struct qb_ipcc_connection {
 	struct qb_ipc_one_way event;
 	struct qb_ipcc_funcs funcs;
 	struct qb_ipc_request_header *receive_buf;
+	uint32_t fc_enable_max;
 };
 
 int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,

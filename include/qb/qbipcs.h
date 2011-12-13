@@ -47,6 +47,7 @@ enum qb_ipcs_rate_limit {
 	QB_IPCS_RATE_NORMAL,
 	QB_IPCS_RATE_SLOW,
 	QB_IPCS_RATE_OFF,
+	QB_IPCS_RATE_OFF_2,
 };
 
 struct qb_ipcs_connection;

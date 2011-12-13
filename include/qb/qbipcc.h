@@ -88,6 +88,16 @@ void qb_ipcc_disconnect(qb_ipcc_connection_t* c);
 int32_t qb_ipcc_fd_get(qb_ipcc_connection_t* c, int32_t * fd);
 
 /**
+ * Set the maximum allowable flowcontrol value.
+ *
+ * @note the default is 1
+ *
+ * @param c connection instance
+ * @param max the max allowable flowcontrol value (1 or 2)
+ */
+int32_t qb_ipcc_fc_enable_max_set(qb_ipcc_connection_t * c, uint32_t max);
+
+/**
  * Send a message.
  *
  * @param c connection instance
