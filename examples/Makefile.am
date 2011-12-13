@@ -21,7 +21,11 @@ MAINTAINERCLEANFILES = Makefiles.in
 EXTRA_DIST =
 CLEANFILES =
 
-noinst_PROGRAMS = simplelog tcpclient tcpserver ipcclient ipcserver
+noinst_PROGRAMS = mapnotify simplelog tcpclient tcpserver ipcclient ipcserver
+
+mapnotify_SOURCES = mapnotify.c $(top_builddir)/include/qb/qbmap.h
+mapnotify_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+mapnotify_LDADD = -lrt $(top_builddir)/lib/libqb.la
 
 simplelog_SOURCES = simplelog.c $(top_builddir)/include/qb/qblog.h
 simplelog_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
