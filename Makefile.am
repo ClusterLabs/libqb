@@ -51,6 +51,7 @@ dist-clean-local:
 
 maintainer-clean-local:
 	$(AM_V_GEN)rm -rf m4
+	$(AM_V_GEN)rm -f .version .tarball-version
 
 clean-generic:
 	$(AM_V_GEN)rm -rf $(SPEC) $(TARFILE)
