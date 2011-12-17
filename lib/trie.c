@@ -35,6 +35,8 @@ struct trie_iter {
 
 struct trie_node {
 	uint32_t idx;
+	char *segment;
+	uint32_t num_segments;
 	char *key;
 	void *value;
 	struct trie_node **children;
@@ -62,9 +64,10 @@ static struct trie_node *trie_new_node(struct trie *t, struct trie_node *parent)
  * more common case (non-control chars) more space efficient.
  */
 #define TRIE_CHAR2INDEX(ch) (126 - ch)
+#define TRIE_INDEX2CHAR(idx) (126 - idx)
 
 static struct trie_node *
-trie_node_next(struct trie_node *node, struct trie_node *root)
+trie_node_next(struct trie_node *node, struct trie_node *root, int all)
 {
 	struct trie_node *c = node;
 	struct trie_node *n;
@@ -83,7 +86,7 @@ keep_going:
 		}
 	}
 	if (n) {
-		if (n->value) {
+		if (all || n->value) {
 			return n;
 		} else {
 			c = n;
@@ -109,7 +112,7 @@ keep_going:
 	} while (n == NULL && p != root);
 
 	if (n) {
-		if (n->value) {
+		if (all || n->value) {
 			return n;
 		}
 		if (n == root) {
@@ -123,63 +126,208 @@ keep_going:
 }
 
 static struct trie_node *
+new_child_node(struct trie *t, struct trie_node * parent, char ch)
+{
+	struct trie_node *new_node;
+	int old_max_idx;
+	int i;
+	int idx = TRIE_CHAR2INDEX(ch);
+
+	if (idx >= parent->num_children) {
+		old_max_idx = parent->num_children;
+		parent->num_children = QB_MAX(idx + 1, 30);
+		t->mem_used += (sizeof(struct trie_node*) * (parent->num_children - old_max_idx));
+		parent->children = realloc(parent->children,
+				(parent->num_children * sizeof(struct trie_node*)));
+		if (parent->children == NULL) {
+			return NULL;
+		}
+		for (i = old_max_idx; i < parent->num_children; i++) {
+			parent->children[i] = NULL;
+		}
+	}
+	new_node = trie_new_node(t, parent);
+	if (new_node == NULL) {
+		return NULL;
+	}
+	new_node->idx = idx;
+	parent->children[idx] = new_node;
+	return new_node;
+}
+
+
+static struct trie_node *
+trie_node_split(struct trie *t, struct trie_node *cur_node, int seg_cnt)
+{
+	struct trie_node *split_node;
+	struct trie_node ** children = cur_node->children;
+	uint32_t num_children = cur_node->num_children;
+	int i;
+	int s;
+
+	cur_node->children = NULL;
+	cur_node->num_children = 0;
+	split_node = new_child_node(t, cur_node, cur_node->segment[seg_cnt]);
+	if (split_node == NULL) {
+		return NULL;
+	}
+	split_node->children = children;
+	split_node->num_children = num_children;
+	for (i = 0; i < split_node->num_children; i++) {
+		if (split_node->children[i]) {
+			split_node->children[i]->parent = split_node;
+		}
+	}
+	split_node->value = cur_node->value;
+	split_node->key = cur_node->key;
+	split_node->refcount = cur_node->refcount;
+	cur_node->value = NULL;
+	cur_node->key = NULL;
+	cur_node->refcount = 0;
+	/* move notifier list to split */
+	split_node->notifier_head.next = cur_node->notifier_head.next;
+	split_node->notifier_head.next->prev = &split_node->notifier_head;
+	split_node->notifier_head.prev = cur_node->notifier_head.prev;
+	split_node->notifier_head.prev->next = &split_node->notifier_head;
+	qb_list_init(&cur_node->notifier_head);
+
+	if (seg_cnt < cur_node->num_segments) {
+		split_node->num_segments = cur_node->num_segments - seg_cnt - 1;
+		split_node->segment = malloc(split_node->num_segments * sizeof(char));
+		if (split_node->segment == NULL) {
+			free(split_node);
+			return NULL;
+		}
+		for (i = (seg_cnt + 1); i < cur_node->num_segments; i++) {
+			s = i - seg_cnt - 1;
+			split_node->segment[s] = cur_node->segment[i];
+			cur_node->segment[i] = '\0';
+		}
+		cur_node->num_segments = seg_cnt;
+	}
+	return cur_node;
+}
+
+static struct trie_node *
 trie_insert(struct trie *t, const char *key)
 {
 	struct trie_node *cur_node = t->header;
 	struct trie_node *new_node;
-	int old_max_idx;
-	int i;
 	char *cur = (char *)key;
 	int idx = TRIE_CHAR2INDEX(key[0]);
+	int seg_cnt = 0;
 
 	do {
-		if (idx >= cur_node->num_children) {
-			old_max_idx = cur_node->num_children;
-			cur_node->num_children = QB_MAX(idx + 1, 30);;
-			t->mem_used += (sizeof(struct trie_node*) * (cur_node->num_children - old_max_idx));
-			cur_node->children = realloc(cur_node->children,
-						     (cur_node->num_children *
-						      sizeof(struct trie_node*)));
-			/*
-			   printf("%s(%d) %d %d\n", __func__, idx,
-			   old_max_idx, cur_node->num_children);
-			 */
-			for (i = old_max_idx; i < cur_node->num_children; i++) {
-				cur_node->children[i] = NULL;
+		new_node = NULL;
+		if (cur_node->num_segments > 0 &&
+		    seg_cnt < cur_node->num_segments) {
+			if (cur_node->segment[seg_cnt] == *cur) {
+				/* we found the char in the segment */
+				seg_cnt++;
+			} else {
+				cur_node = trie_node_split(t, cur_node, seg_cnt);
+				if (cur_node == NULL) {
+					return NULL;
+				}
+				new_node = new_child_node(t, cur_node, *cur);
+				if (new_node == NULL) {
+					return NULL;
+				}
 			}
-		}
-		if (cur_node->children[idx] == NULL) {
-			new_node = trie_new_node(t, cur_node);
+		} else if (idx < cur_node->num_children &&
+		    cur_node->children[idx]) {
+			/* the char can be found on the next node */
+			new_node = cur_node->children[idx];
+		} else if (cur_node == t->header) {
+			/* the root node is empty so make it on the next node */
+			new_node = new_child_node(t, cur_node, *cur);
 			if (new_node == NULL) {
 				return NULL;
 			}
-			new_node->idx = idx;
-			cur_node->children[idx] = new_node;
+		} else if (cur_node->value == NULL &&
+			   qb_list_empty(&cur_node->notifier_head) &&
+			   cur_node->num_children == 0 &&
+			   seg_cnt == cur_node->num_segments) {
+			/* we are on a leaf (with no value) so just add it as a segment */
+			cur_node->segment = realloc(cur_node->segment, cur_node->num_segments + 1);
+			cur_node->segment[cur_node->num_segments] = *cur;
+			t->mem_used += sizeof(char);
+			cur_node->num_segments++;
+			seg_cnt++;
+		} else if (seg_cnt == cur_node->num_segments) {
+			/* on the last segment need to make a new node */
+			new_node = new_child_node(t, cur_node, *cur);
+			if (new_node == NULL) {
+				return NULL;
+			}
+		} else /* need_to_split */ {
+			cur_node = trie_node_split(t, cur_node, seg_cnt);
+			if (cur_node == NULL) {
+				return NULL;
+			}
+			new_node = new_child_node(t, cur_node, *cur);
+			if (new_node == NULL) {
+				return NULL;
+			}
 		}
-		cur_node = cur_node->children[idx];
+		if (new_node) {
+			seg_cnt = 0;
+			cur_node = new_node;
+		}
 		cur++;
 		idx = TRIE_CHAR2INDEX(*cur);
 	} while (*cur != '\0');
+
+	if (cur_node->num_segments > 0 &&
+	    seg_cnt < cur_node->num_segments) {
+		/* we need to split */
+		cur_node = trie_node_split(t, cur_node, seg_cnt);
+		if (cur_node == NULL) {
+			return NULL;
+		}
+		new_node = new_child_node(t, cur_node, *cur);
+		if (new_node == NULL) {
+			return NULL;
+		}
+	}
 
 	return cur_node;
 }
 
 static struct trie_node *
-trie_lookup(struct trie *t, const char *key)
+trie_lookup(struct trie *t, const char *key, int exact_match)
 {
 	struct trie_node *cur_node = t->header;
 	char *cur = (char *)key;
 	int idx = TRIE_CHAR2INDEX(key[0]);
+	int seg_cnt = 0;
 
 	do {
-		if (idx >= cur_node->num_children ||
-		    cur_node->children[idx] == NULL) {
+		if (cur_node->num_segments > 0 &&
+		    seg_cnt < cur_node->num_segments) {
+			if (cur_node->segment[seg_cnt] == *cur) {
+				/* we found the char in the segment */
+				seg_cnt++;
+			} else {
+				return NULL;
+			}
+		} else if (idx < cur_node->num_children &&
+		    cur_node->children[idx]) {
+			/* the char can be found on the next node */
+			cur_node = cur_node->children[idx];
+			seg_cnt = 0;
+		} else {
 			return NULL;
 		}
-		cur_node = cur_node->children[idx];
 		cur++;
 		idx = TRIE_CHAR2INDEX(*cur);
 	} while (*cur != '\0');
+
+	if (exact_match &&
+	    cur_node->num_segments > 0 &&
+	    seg_cnt < cur_node->num_segments) {
+		return NULL;
+	}
 
 	return cur_node;
 }
@@ -187,7 +335,7 @@ trie_lookup(struct trie *t, const char *key)
 static void
 trie_node_destroy(struct trie *t, struct trie_node *n)
 {
-	if (t->header == n) {
+	if (n->value == NULL) {
 		return;
 	}
 	trie_notify(n, QB_MAP_NOTIFY_DELETED, n->key, n->value, NULL);
@@ -197,9 +345,42 @@ trie_node_destroy(struct trie *t, struct trie_node *n)
 }
 
 static void
-trie_node_deref(struct trie *t, struct trie_node *node)
+trie_print_node(struct trie_node *n, struct trie_node *r, const char *suffix)
+{
+	int i;
+
+	if (n->parent) {
+		trie_print_node(n->parent, n, suffix);
+	}
+	if (n->idx == 0) {
+		return;
+	}
+
+	printf("[%c", TRIE_INDEX2CHAR(n->idx));
+	for (i = 0; i < n->num_segments; i++) {
+		printf("%c", n->segment[i]);
+	}
+	if (n == r) {
+		printf("] (%d) %s\n", n->refcount, suffix);
+	} else {
+		printf("] ");
+	}
+}
+
+
+static void
+trie_node_ref(struct trie *t, struct trie_node *node)
 {
 	if (t->header == node) {
+		return;
+	}
+	node->refcount++;
+}
+
+static void
+trie_node_deref(struct trie *t, struct trie_node *node)
+{
+	if (node->value == NULL) {
 		return;
 	}
 	node->refcount--;
@@ -218,7 +399,7 @@ trie_destroy(struct qb_map *map)
 	struct trie_node *fwd_node;
 
 	do {
-		fwd_node = trie_node_next(cur_node, t->header);
+		fwd_node = trie_node_next(cur_node, t->header, QB_FALSE);
 		trie_node_destroy(t, cur_node);
 	} while ((cur_node = fwd_node));
 
@@ -242,6 +423,8 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 		free(new_node);
 		return NULL;
 	}
+	new_node->num_segments = 0;
+	new_node->segment = NULL;
 	t->num_nodes++;
 	t->mem_used += (sizeof(struct trie_node*) * new_node->num_children);
 	t->mem_used += sizeof(struct trie_node);
@@ -253,7 +436,21 @@ void
 qb_trie_dump(qb_map_t* m)
 {
 	struct trie * t = (struct trie*)m;
+	struct trie_node *n;
+
+	if (t == NULL) {
+		return;
+	}
+
 	printf("nodes: %d, bytes: %d\n", t->num_nodes, t->mem_used);
+
+	n = t->header;
+	do {
+		if (n->num_children == 0) {
+			trie_print_node(n, n, " ");
+		}
+		n = trie_node_next(n, t->header, QB_FALSE);
+	} while (n);
 }
 
 static void
@@ -269,7 +466,7 @@ trie_put(struct qb_map *map, const char *key, const void *value)
 		n->value = (void *)value;
 
 		if (old_value == NULL) {
-			n->refcount++;
+			trie_node_ref(t, n);
 			t->length++;
 			trie_notify(n, QB_MAP_NOTIFY_INSERTED,
 				    n->key, NULL, n->value);
@@ -285,7 +482,7 @@ static int32_t
 trie_rm(struct qb_map *map, const char *key)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key);
+	struct trie_node *n = trie_lookup(t, key, QB_TRUE);
 	if (n) {
 		trie_node_deref(t, n);
 		t->length--;
@@ -299,7 +496,7 @@ static void *
 trie_get(struct qb_map *map, const char *key)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key);
+	struct trie_node *n = trie_lookup(t, key, QB_TRUE);
 	if (n) {
 		return n->value;
 	}
@@ -348,7 +545,10 @@ trie_notify_add(qb_map_t * m, const char *key,
 	int add_to_tail = QB_FALSE;
 
 	if (key) {
-		n = trie_insert(t, key);
+		n = trie_lookup(t, key, QB_TRUE);
+		if (n == NULL) {
+			n = trie_insert(t, key);
+		}
 	} else {
 		n = t->header;
 	}
@@ -409,7 +609,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	int32_t found = QB_FALSE;
 
 	if (key) {
-		n = trie_lookup(t, key);
+		n = trie_lookup(t, key, QB_FALSE);
 	} else {
 		n = t->header;
 	}
@@ -452,7 +652,6 @@ trie_iter_create(struct qb_map *map, const char *prefix)
 	i->prefix = prefix;
 	i->n = t->header;
 	i->root = t->header;
-	i->n->refcount++;
 	return (qb_map_iter_t *) i;
 }
 
@@ -468,23 +667,23 @@ trie_iter_next(qb_map_iter_t * i, void **value)
 	}
 
 	if (p->parent == NULL && si->prefix) {
-		si->root = trie_lookup(t, si->prefix);
+		si->root = trie_lookup(t, si->prefix, QB_FALSE);
 		if (si->root == NULL) {
 			si->n = NULL;
 		} else if (si->root->value == NULL) {
-			si->n = trie_node_next(si->root, si->root);
+			si->n = trie_node_next(si->root, si->root, QB_FALSE);
 		} else {
 			si->n = si->root;
 		}
 	} else {
-		si->n = trie_node_next(p, si->root);
+		si->n = trie_node_next(p, si->root, QB_FALSE);
 	}
 	if (si->n == NULL) {
-		trie_node_deref((struct trie *)i->m, p);
+		trie_node_deref(t, p);
 		return NULL;
 	}
-	si->n->refcount++;
-	trie_node_deref((struct trie *)i->m, p);
+	trie_node_ref(t, si->n);
+	trie_node_deref(t, p);
 	*value = si->n->value;
 	return si->n->key;
 }
