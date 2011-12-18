@@ -55,10 +55,10 @@ test_map_simple(qb_map_t *m, const char *name)
 	qb_map_iter_t *it;
 
 	qb_map_put(m, "k1", "one");
-	qb_map_put(m, "k2", "two");
-	qb_map_put(m, "k3", "three");
+	qb_map_put(m, "k12", "two");
+	qb_map_put(m, "k34", "three");
 	ck_assert_int_eq(qb_map_count_get(m), 3);
-	qb_map_put(m, "k4", "four");
+	qb_map_put(m, "k3", "four");
 	ck_assert_int_eq(qb_map_count_get(m), 4);
 
 	it = qb_map_iter_create(m);
@@ -70,17 +70,17 @@ test_map_simple(qb_map_t *m, const char *name)
 	qb_map_iter_free(it);
 	ck_assert_int_eq(i, 4);
 
-	ck_assert_str_eq(qb_map_get(m, "k3"), "three");
+	ck_assert_str_eq(qb_map_get(m, "k34"), "three");
 	ck_assert_str_eq(qb_map_get(m, "k1"), "one");
-	ck_assert_str_eq(qb_map_get(m, "k2"), "two");
-	ck_assert_str_eq(qb_map_get(m, "k4"), "four");
+	ck_assert_str_eq(qb_map_get(m, "k12"), "two");
+	ck_assert_str_eq(qb_map_get(m, "k3"), "four");
 
-	qb_map_rm(m, "k2");
+	qb_map_rm(m, "k12");
 	ck_assert_int_eq(qb_map_count_get(m), 3);
 	qb_map_put(m, "9k", "nine");
 
-	qb_map_put(m, "k3", "not_three");
-	ck_assert_str_eq(qb_map_get(m, "k3"), "not_three");
+	qb_map_put(m, "k34", "not_three");
+	ck_assert_str_eq(qb_map_get(m, "k34"), "not_three");
 	ck_assert_int_eq(qb_map_count_get(m), 4);
 
 	qb_map_destroy(m);
