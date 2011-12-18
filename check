@@ -20,6 +20,8 @@ help_all() {
 	echo "  rpm             Run rpmlint"
 	echo "  mock            Test doing a mock build"
 	echo "  coverity        Run coverity"
+	echo "  abi             Check abi compatibility"
+	echo "  api             api sanity test"
 	echo 
 	echo "  help            This help"
 	echo 
