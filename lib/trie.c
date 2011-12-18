@@ -53,6 +53,7 @@ struct trie {
 
 static void trie_notify(struct trie_node *n, uint32_t event, const char *key,
 			void *old_value, void *value);
+static struct trie_node *trie_new_node(struct trie *t, struct trie_node *parent);
 
 /*
  * characters are stored in reverse to make accessing the
@@ -119,6 +120,67 @@ keep_going:
 	return n;
 }
 
+static struct trie_node *
+trie_insert(struct trie *t, const char *key)
+{
+	struct trie_node *cur_node = t->header;
+	struct trie_node *new_node;
+	int old_max_idx;
+	int i;
+	char *cur = (char *)key;
+	int idx = TRIE_CHAR2INDEX(key[0]);
+
+	do {
+		if (idx >= cur_node->num_children) {
+			old_max_idx = cur_node->num_children;
+			cur_node->num_children = QB_MAX(idx + 1, 30);;
+			cur_node->children = realloc(cur_node->children,
+						     (cur_node->num_children *
+						      sizeof(struct trie_node*)));
+			/*
+			   printf("%s(%d) %d %d\n", __func__, idx,
+			   old_max_idx, cur_node->num_children);
+			 */
+			for (i = old_max_idx; i < cur_node->num_children; i++) {
+				cur_node->children[i] = NULL;
+			}
+		}
+		if (cur_node->children[idx] == NULL) {
+			new_node = trie_new_node(t, cur_node);
+			if (new_node == NULL) {
+				return NULL;
+			}
+			new_node->idx = idx;
+			cur_node->children[idx] = new_node;
+		}
+		cur_node = cur_node->children[idx];
+		cur++;
+		idx = TRIE_CHAR2INDEX(*cur);
+	} while (*cur != '\0');
+
+	return cur_node;
+}
+
+static struct trie_node *
+trie_lookup(struct trie *t, const char *key)
+{
+	struct trie_node *cur_node = t->header;
+	char *cur = (char *)key;
+	int idx = TRIE_CHAR2INDEX(key[0]);
+
+	do {
+		if (idx >= cur_node->num_children ||
+		    cur_node->children[idx] == NULL) {
+			return NULL;
+		}
+		cur_node = cur_node->children[idx];
+		cur++;
+		idx = TRIE_CHAR2INDEX(*cur);
+	} while (*cur != '\0');
+
+	return cur_node;
+}
+
 static void
 trie_node_destroy(struct trie *t, struct trie_node *n)
 {
@@ -181,63 +243,14 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 	return new_node;
 }
 
-static struct trie_node *
-trie_lookup(struct trie *t, const char *key, int32_t create_path)
 {
-	struct trie_node *cur_node = t->header;
-	struct trie_node *new_node;
-	int old_max_idx;
-	int i;
-	char *cur = (char *)key;
-	int idx = TRIE_CHAR2INDEX(key[0]);
-
-	do {
-		if (idx >= cur_node->num_children) {
-			if (!create_path) {
-				return NULL;
-			}
-			if (cur_node->num_children == 0) {
-				old_max_idx = 0;
-			} else {
-				old_max_idx = cur_node->num_children;
-			}
-			cur_node->num_children = idx + 1;
-			cur_node->children = realloc(cur_node->children,
-						     (cur_node->num_children *
-						      sizeof(struct trie_node
-							     *)));
-			/*
-			   printf("%s(%d) %d %d\n", __func__, idx,
-			   old_max_idx, cur_node->num_children);
-			 */
-			for (i = old_max_idx; i < cur_node->num_children; i++) {
-				cur_node->children[i] = NULL;
-			}
-		}
-		if (cur_node->children[idx] == NULL) {
-			if (!create_path) {
-				return NULL;
-			}
-			new_node = trie_new_node(t, cur_node);
-			if (new_node == NULL) {
-				return NULL;
-			}
-			new_node->idx = idx;
-			cur_node->children[idx] = new_node;
-		}
-		cur_node = cur_node->children[idx];
-		cur++;
-		idx = TRIE_CHAR2INDEX(*cur);
-	} while (*cur != '\0');
-
-	return cur_node;
 }
 
 static void
 trie_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key, QB_TRUE);
+	struct trie_node *n = trie_insert(t, key);
 	if (n) {
 		const char *old_value = n->value;
 		const char *old_key = n->key;
@@ -262,7 +275,7 @@ static int32_t
 trie_rm(struct qb_map *map, const char *key)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key, QB_FALSE);
+	struct trie_node *n = trie_lookup(t, key);
 	if (n) {
 		trie_node_deref(t, n);
 		t->length--;
@@ -276,7 +289,7 @@ static void *
 trie_get(struct qb_map *map, const char *key)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key, QB_FALSE);
+	struct trie_node *n = trie_lookup(t, key);
 	if (n) {
 		return n->value;
 	}
@@ -325,7 +338,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 	int add_to_tail = QB_FALSE;
 
 	if (key) {
-		n = trie_lookup(t, key, QB_TRUE);
+		n = trie_insert(t, key);
 	} else {
 		n = t->header;
 	}
@@ -386,7 +399,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	int32_t found = QB_FALSE;
 
 	if (key) {
-		n = trie_lookup(t, key, QB_TRUE);
+		n = trie_lookup(t, key);
 	} else {
 		n = t->header;
 	}
@@ -445,7 +458,7 @@ trie_iter_next(qb_map_iter_t * i, void **value)
 	}
 
 	if (p->parent == NULL && si->prefix) {
-		si->root = trie_lookup(t, si->prefix, QB_FALSE);
+		si->root = trie_lookup(t, si->prefix);
 		if (si->root == NULL) {
 			si->n = NULL;
 		} else if (si->root->value == NULL) {
