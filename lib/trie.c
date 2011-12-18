@@ -416,17 +416,11 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 	}
 
 	new_node->parent = parent;
-	new_node->num_children = 30;
-	new_node->children = calloc(new_node->num_children,
-				    sizeof(struct trie_node *));
-	if (new_node->children == NULL) {
-		free(new_node);
-		return NULL;
-	}
+	new_node->num_children = 0;
+	new_node->children = NULL;
 	new_node->num_segments = 0;
 	new_node->segment = NULL;
 	t->num_nodes++;
-	t->mem_used += (sizeof(struct trie_node*) * new_node->num_children);
 	t->mem_used += sizeof(struct trie_node);
 	qb_list_init(&new_node->notifier_head);
 	return new_node;
