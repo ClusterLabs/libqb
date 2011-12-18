@@ -48,6 +48,8 @@ struct trie {
 	struct qb_map map;
 
 	size_t length;
+	uint32_t num_nodes;
+	uint32_t mem_used;
 	struct trie_node *header;
 };
 
@@ -134,6 +136,7 @@ trie_insert(struct trie *t, const char *key)
 		if (idx >= cur_node->num_children) {
 			old_max_idx = cur_node->num_children;
 			cur_node->num_children = QB_MAX(idx + 1, 30);;
+			t->mem_used += (sizeof(struct trie_node*) * (cur_node->num_children - old_max_idx));
 			cur_node->children = realloc(cur_node->children,
 						     (cur_node->num_children *
 						      sizeof(struct trie_node*)));
@@ -239,11 +242,18 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 		free(new_node);
 		return NULL;
 	}
+	t->num_nodes++;
+	t->mem_used += (sizeof(struct trie_node*) * new_node->num_children);
+	t->mem_used += sizeof(struct trie_node);
 	qb_list_init(&new_node->notifier_head);
 	return new_node;
 }
 
+void
+qb_trie_dump(qb_map_t* m)
 {
+	struct trie * t = (struct trie*)m;
+	printf("nodes: %d, bytes: %d\n", t->num_nodes, t->mem_used);
 }
 
 static void
@@ -511,6 +521,8 @@ qb_trie_create(void)
 	t->map.notify_add = trie_notify_add;
 	t->map.notify_del = trie_notify_del;
 	t->length = 0;
+	t->num_nodes = 0;
+	t->mem_used = sizeof(struct trie);
 	t->header = trie_new_node(t, NULL);
 
 	return (qb_map_t *) t;

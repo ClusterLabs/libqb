@@ -84,6 +84,14 @@ qb_map_t* qb_skiplist_create(void);
 qb_map_t* qb_trie_create(void);
 
 /**
+ * print out the nodes in the trie
+ *
+ * (for debug purposes)
+ */
+void
+qb_trie_dump(qb_map_t* m);
+
+/**
  * Add a notifier to the map.
  *
  * @param m the map instance
