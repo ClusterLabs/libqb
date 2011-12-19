@@ -20,7 +20,6 @@
  */
 #include "os_base.h"
 
-#include <mqueue.h>
 #include "ipc_int.h"
 #include "util_int.h"
 #include <qb/qbdefs.h>

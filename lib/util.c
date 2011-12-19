@@ -460,13 +460,25 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 #ifdef QB_LINUX
 	return strerror_r(errnum, buf, buflen);
 #else
-	char *out_buf;
-
-	if (strerror_r(err_num, buffer, sizeof_buffer) == 0) {
-		out_ptr = buffer;
-	} else {
-		out_ptr = "";
+	if (strerror_r(errnum, buf, buflen) == 0) {
+		return buf;
 	}
-	return out_buf;
+	return strdup("");
 #endif /* QB_LINUX */
 }
+
+#ifdef QB_DARWIN
+/* Borrowed from gnulib's strchrnul.c under GLPv2+ */
+
+#include <string.h>
+/* Find the first occurrence of C in S or the final NUL byte.  */
+char *
+strchrnul (const char *s, int c_in)
+{
+  char c = c_in;
+  while (*s && (*s != c))
+    s++;
+
+  return (char *) s;
+}
+#endif

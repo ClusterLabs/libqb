@@ -20,7 +20,9 @@
  */
 #include "os_base.h"
 #include <ctype.h>
+#ifndef QB_DARWIN
 #include <link.h>
+#endif
 #include <stdarg.h>
 #include <pthread.h>
 #include <dlfcn.h>
