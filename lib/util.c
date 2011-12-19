@@ -462,10 +462,10 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 #else
 	char *out_buf;
 
-	if (strerror_r(err_num, buffer, sizeof_buffer) == 0) {
-		out_ptr = buffer;
+	if (strerror_r(errnum, buf, buflen) == 0) {
+		out_buf = buf;
 	} else {
-		out_ptr = "";
+		out_buf = (char*)"";
 	}
 	return out_buf;
 #endif /* QB_LINUX */
