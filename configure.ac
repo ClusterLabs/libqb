@@ -8,8 +8,12 @@ AC_INIT([libqb],
 	[quarterback-devel@fedorahosted.org])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
-AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
-AM_SILENT_RULES([yes])
+AM_INIT_AUTOMAKE([-Wno-portability])
+dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
+dnl normal compilation.  When a failure occurs, it will then display the full 
+dnl command line
+dnl Wrap in m4_ifdef to avoid breaking on older platforms
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES])
 LT_PREREQ([2.2.6])
 LT_INIT
 
@@ -215,6 +219,9 @@ case "$host_os" in
 				   [Compiling for Darwin platform])
 		CP=rsync
 		LIB_RT=
+		ac_cv_link_attribute_section=no
+		dnl Attribute section appears to work here but fails later with:
+		dnl cc1: error in backend: Global variable 'descriptor.4902' has an invalid section specifier '__verbose': mach-o section specifier requires a segment and section separated by a comma
 		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
 				   [Shared memory define for Darwin platform])
 		AC_DEFINE_UNQUOTED([PATH_MAX], [4096],

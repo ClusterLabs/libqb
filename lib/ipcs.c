@@ -121,10 +121,12 @@ _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 
 	if (c->service->type == QB_IPC_POSIX_MQ
 	    && !c->service->needs_sock_for_poll) {
+#ifndef QB_DARWIN
 		return disp_mod(c->service->poll_priority,
 				(int32_t) c->request.u.pmq.q,
 				c->poll_events, c,
 				qb_ipcs_dispatch_service_request);
+#endif
 	} else if (c->service->type == QB_IPC_SOCKET) {
 		return disp_mod(c->service->poll_priority,
 				c->event.u.us.sock,
