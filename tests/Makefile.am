@@ -25,27 +25,27 @@ noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log
 
 bmc_SOURCES = bmc.c $(top_builddir)/include/qb/qbipcc.h
 bmc_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-bmc_LDADD = -lrt $(top_builddir)/lib/libqb.la
+bmc_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 bmcpt_SOURCES = bmcpt.c $(top_builddir)/include/qb/qbipcc.h
 bmcpt_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-bmcpt_LDADD = -lrt $(top_builddir)/lib/libqb.la
+bmcpt_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 bms_SOURCES = bms.c $(top_builddir)/include/qb/qbipcs.h
 bms_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include $(GLIB_CFLAGS)
-bms_LDADD = -lrt $(top_builddir)/lib/libqb.la $(GLIB_LIBS)
+bms_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la $(GLIB_LIBS)
 
 rbwriter_SOURCES = rbwriter.c $(top_builddir)/include/qb/qbrb.h
 rbwriter_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-rbwriter_LDADD = -lrt $(top_builddir)/lib/libqb.la
+rbwriter_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 rbreader_SOURCES = rbreader.c $(top_builddir)/include/qb/qbrb.h
 rbreader_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-rbreader_LDADD = -lrt $(top_builddir)/lib/libqb.la
+rbreader_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
 loop_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-loop_LDADD = -lrt $(top_builddir)/lib/libqb.la
+loop_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 if HAVE_DICT_WORDS
 if HAVE_SLOW_TESTS
@@ -68,7 +68,7 @@ endif
 
 bench_log_SOURCES = bench-log.c $(top_builddir)/include/qb/qblog.h
 bench_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-bench_log_LDADD = -lrt $(top_builddir)/lib/libqb.la
+bench_log_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
 EXTRA_DIST += resources.test
@@ -82,27 +82,27 @@ check_SCRIPTS = resources.test
 
 array_test_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
 array_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-array_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+array_test_LDADD = $(top_builddir)/lib/libqb.la $(LIB_RT) @CHECK_LIBS@
 
 map_test_SOURCES = check_map.c $(top_builddir)/include/qb/qbmap.h
 map_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-map_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+map_test_LDADD = $(top_builddir)/lib/libqb.la $(LIB_RT) @CHECK_LIBS@
 
 rb_test_SOURCES = check_rb.c $(top_builddir)/include/qb/qbrb.h
 rb_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-rb_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+rb_test_LDADD = $(top_builddir)/lib/libqb.la $(LIB_RT) @CHECK_LIBS@
 
 loop_test_SOURCES = check_loop.c $(top_builddir)/include/qb/qbloop.h
 loop_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-loop_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+loop_test_LDADD = $(top_builddir)/lib/libqb.la $(LIB_RT) @CHECK_LIBS@
 
 ipc_test_SOURCES = check_ipc.c $(top_builddir)/include/qb/qbipcc.h $(top_builddir)/include/qb/qbipcs.h
 ipc_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-ipc_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+ipc_test_LDADD = $(top_builddir)/lib/libqb.la $(LIB_RT) @CHECK_LIBS@
 
 log_test_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
 log_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
-log_test_LDADD = $(top_builddir)/lib/libqb.la -lrt @CHECK_LIBS@
+log_test_LDADD = $(top_builddir)/lib/libqb.la $(LIB_RT) @CHECK_LIBS@
 
 endif
 

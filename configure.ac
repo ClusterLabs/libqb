@@ -202,6 +202,7 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
+LIB_RT=-lrt
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
@@ -213,6 +214,7 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
+		LIB_RT=
 		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
 				   [Shared memory define for Darwin platform])
 		AC_DEFINE_UNQUOTED([PATH_MAX], [4096],
@@ -321,6 +323,7 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$localstatedir/run" ])
 
 AC_SUBST(CP)
+AC_SUBST(LIB_RT)
 # *FLAGS handling goes here
 
 ENV_CFLAGS="$CFLAGS"
