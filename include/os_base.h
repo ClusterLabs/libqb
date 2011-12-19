@@ -127,4 +127,8 @@
 #endif /* _POSIX_THREAD_PROCESS_SHARED */
 #endif /* DISABLE_POSIX_THREAD_PROCESS_SHARED */
 
+#ifdef QB_DARWIN
+char *strchrnul (const char *s, int c_in);
+#endif
+
 #endif /* QB_OS_BASE_H_DEFINED */
