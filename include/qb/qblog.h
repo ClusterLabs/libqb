@@ -312,10 +312,8 @@ void qb_log_from_external_source_va(const char *function,
     } while(0)
 #else
 #define qb_logt(priority, tags, fmt, args...) do { 			\
-	char _log_buf_[QB_LOG_MAX_LEN]; 				\
-	snprintf(_log_buf_, QB_LOG_MAX_LEN, fmt, ##args); 		\
 	qb_log_from_external_source(__func__, __FILE__, fmt, priority, 	\
-				    __LINE__, tags, _log_buf_); 	\
+				    __LINE__, tags, ##args); 		\
     } while(0)
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
