@@ -8,12 +8,12 @@ AC_INIT([libqb],
 	[quarterback-devel@fedorahosted.org])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
-AM_INIT_AUTOMAKE([-Wno-portability])
+AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
 dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
 dnl normal compilation.  When a failure occurs, it will then display the full 
 dnl command line
 dnl Wrap in m4_ifdef to avoid breaking on older platforms
-m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES])
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 LT_PREREQ([2.2.6])
 LT_INIT
 
