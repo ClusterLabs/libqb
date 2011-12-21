@@ -19,7 +19,6 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
-#ifndef QB_DARWIN
 
 #include <mqueue.h>
 #include <sys/resource.h>
@@ -417,4 +416,3 @@ qb_ipcs_pmq_init(struct qb_ipcs_service *s)
 	s->needs_sock_for_poll = QB_TRUE;
 #endif
 }
-#endif

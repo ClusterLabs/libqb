@@ -73,7 +73,7 @@ bench_log_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 if HAVE_CHECK
 EXTRA_DIST += resources.test
 
-TESTS = array.test map.test rb.test log.test loop.test ipc.test resources.test map.test
+TESTS = array.test map.test rb.test log.test loop.test ipc.test resources.test
 
 resources.log: rb.log log.log ipc.log
 

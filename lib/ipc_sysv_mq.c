@@ -20,8 +20,12 @@
  */
 #include "os_base.h"
 
+#ifdef HAVE_SYS_IPC_H
 #include <sys/ipc.h>
+#endif
+#ifdef HAVE_SYS_MSG_H
 #include <sys/msg.h>
+#endif
 
 #include <qb/qbdefs.h>
 #include <qb/qbloop.h>

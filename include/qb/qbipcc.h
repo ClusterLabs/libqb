@@ -27,6 +27,8 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+#include <qb/qbconfig.h>
+
 #include <pthread.h>
 #include <sys/poll.h>
 #include <sys/socket.h>

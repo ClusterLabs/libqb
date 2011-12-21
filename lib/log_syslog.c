@@ -19,7 +19,10 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
+#endif /* HAVE_SYSLOG_H */
 #include "log_int.h"
 
 static void

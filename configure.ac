@@ -58,6 +58,7 @@ AC_PROG_CXX
 AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
+AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -115,10 +116,11 @@ fi
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
-		  time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
-		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h sys/epoll.h \
-		  sys/sockio.h sys/un.h syslog.h errno.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
+		  dlfcn.h time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
+		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h sys/poll.h sys/epoll.h sys/uio.h \
+		  sys/sockio.h sys/un.h sys/resource.h syslog.h errno.h unistd.h sys/mman.h \
+		  sys/sem.h sys/ipc.h sys/msg.h mqueue.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_UID_T
@@ -141,19 +143,19 @@ AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime_r memset munmap \
-		socket strchr strdup strerror strrchr strstr \
-		epoll_create epoll_create1 \
+AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r \
+		memset munmap socket strchr strrchr strchrnul strdup strerror strstr \
+		poll epoll_create epoll_create1 random rand getrlimit sysconf \
 		pthread_spin_lock timerfd_create pthread_setschedparam \
 		sched_get_priority_max sched_setscheduler])
 
 ## local defines
 PACKAGE_FEATURES=""
 
-if test $ac_cv_func_timerfd_create = yes; then
+if test x$ac_cv_func_timerfd_create = xyes; then
 	PACKAGE_FEATURES="$PACKAGE_FEATURES timerfd"
 fi
-if test $ac_cv_func_epoll_create = yes; then
+if test x$ac_cv_func_epoll_create = xyes; then
 	PACKAGE_FEATURES="$PACKAGE_FEATURES epoll"
 fi
 
@@ -207,6 +209,8 @@ fi
 # THIS SECTION MUST DIE!
 CP=cp
 LIB_RT=-lrt
+supports_sysv_mq="yes"
+supports_posix_mq="yes"
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
@@ -219,6 +223,8 @@ case "$host_os" in
 				   [Compiling for Darwin platform])
 		CP=rsync
 		LIB_RT=
+		supports_sysv_mq="no"
+		supports_posix_mq="no"
 		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902' has an invalid section specifier '__verbose': mach-o section specifier requires a segment and section separated by a comma
@@ -245,7 +251,7 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 		esac
-		AC_MSG_RESULT([BSB])
+		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
@@ -262,42 +268,50 @@ case "$host_os" in
 	;;
 esac
 
-# Check for atomic support
-gcc_has_builtin_atomic_operations=no
-if test x"$GCC" = xyes; then
-	AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
-	AC_TRY_LINK([],
-		    [int i;
-		     __sync_synchronize ();
-		     __sync_bool_compare_and_swap (&i, 0, 1);
-		     __sync_fetch_and_add (&i, 1);
-		     ],
-		     [gcc_has_builtin_atomic_operations=yes],
-		     [gcc_has_builtin_atomic_operations=no])
+AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
+if test -z "$gcc_has_builtin_atomic_operations"; then
+	gcc_has_builtin_atomic_operations=no
+	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
+		AC_TRY_LINK([],
+			    [int i;
+			     __sync_synchronize ();
+			     __sync_bool_compare_and_swap (&i, 0, 1);
+			     __sync_fetch_and_add (&i, 1);
+			     ],
+			     [gcc_has_builtin_atomic_operations=yes],
+			     [gcc_has_builtin_atomic_operations=no])
+	fi
+fi
+AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
+AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
+	       [test "x$gcc_has_builtin_atomic_operations" = xyes])
 
-	AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
-	if test $gcc_has_builtin_atomic_operations = yes; then
+if test "x$gcc_has_builtin_atomic_operations" = xyes; then
+	AC_DEFINE_UNQUOTED(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS, 1,
+			   [have builtin atomic operations])
+fi
+
+AC_MSG_CHECKING([whether atomics need memory barrier])
+if test -n "$ac_cv_atomic_need_memory_barrier"; then
+	memory_barrier_needed=$ac_cv_atomic_need_memory_barrier
+else
+	if test x$gcc_has_builtin_atomic_operations = xyes; then
 		memory_barrier_needed=yes
-                PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
+		PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
 	else
-		if test $nongcc_memory_barrier_needed = yes; then
-			memory_barrier_needed=yes
-		fi
+		memory_barrier_needed=$nongcc_memory_barrier_needed
 		AC_MSG_WARN([-----------------------------])
 		AC_MSG_WARN([You have gcc but not __sync_bool_compare_and_swap])
 		AC_MSG_WARN([try CFLAGS="-march=<your arch> -mtune=native" ./configure])
 		AC_MSG_WARN([-----------------------------])
 	fi
 fi
+AC_MSG_RESULT($memory_barrier_needed)
 
 if test x"$memory_barrier_needed" != xno; then
 	AC_DEFINE_UNQUOTED(QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED, 1,
 			   [need atomic memory barrier])
-	fi
-
-AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
-	       [test $gcc_has_builtin_atomic_operations = yes])
-
+fi
 
 LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
 	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
@@ -393,12 +407,33 @@ else
 	COVERAGE_LDFLAGS=""
 fi
 
-
 if test "x${enable_slow_tests}" = xyes ; then
 	AC_DEFINE([HAVE_SLOW_TESTS], 1,[have slow tests])
 	AC_MSG_NOTICE([Enabling Slow tests])
 fi
-AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x$enable_slow_tests" = xyes])
+AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
+
+if test -n "$ac_cv_supports_sysv_mq"; then
+	supports_sysv_mq=$ac_cv_supports_sysv_mq
+fi
+if test "x${supports_sysv_mq}" = xyes ; then
+	AC_DEFINE([HAVE_SYSV_MQ], [1],
+		  [have sysv message queues])
+	PACKAGE_FEATURES="$PACKAGE_FEATURES sysv_mq"
+	AC_MSG_NOTICE([Enabling SYSV Message Queues])
+fi
+AM_CONDITIONAL(HAVE_SYSV_MQ, [test "x${supports_sysv_mq}" = xyes])
+
+if test -n "$ac_cv_supports_posix_mq"; then
+	supports_posix_mq=$ac_cv_supports_posix_mq
+fi
+if test "x${supports_posix_mq}" = xyes ; then
+	AC_DEFINE([HAVE_POSIX_MQ], [1],
+		  [have posix message queues])
+	PACKAGE_FEATURES="$PACKAGE_FEATURES posix_mq"
+	AC_MSG_NOTICE([Enabling POSIX Message Queues])
+fi
+AM_CONDITIONAL(HAVE_POSIX_MQ, [test "x${supports_posix_mq}" = xyes])
 
 
 AM_CONDITIONAL(USE_TIMERFD, [test "x$ac_cv_func_timerfd_create" = xyes])

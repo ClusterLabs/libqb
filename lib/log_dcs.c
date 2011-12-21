@@ -20,8 +20,8 @@
  */
 #include "os_base.h"
 #include <ctype.h>
-#ifndef QB_DARWIN
-#  include <link.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
 #endif
 #include <stdarg.h>
 

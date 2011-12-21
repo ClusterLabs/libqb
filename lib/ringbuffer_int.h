@@ -23,9 +23,15 @@
 
 #include "os_base.h"
 
+#ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
+#endif /* HAVE_SYS_MMAN_H */
+#ifdef HAVE_SYS_SEM_H
 #include <sys/sem.h>
+#endif
+#ifdef HAVE_SYS_IPC_H
 #include <sys/ipc.h>
+#endif
 #include <pthread.h>
 #include <semaphore.h>
 

@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+
 #if defined(HAVE_GETPEERUCRED)
 #include <ucred.h>
 #endif
@@ -29,7 +30,9 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
+#endif
 
 #include <qb/qbatomic.h>
 #include <qb/qbipcs.h>
@@ -267,7 +270,7 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 #ifdef SO_NOSIGPIPE
 	socket_nosigpipe(request_fd);
 #endif /* SO_NOSIGPIPE */
-	res = qb_util_fd_nonblock_cloexec_set(request_fd);
+	res = qb_sys_fd_nonblock_cloexec_set(request_fd);
 	if (res < 0) {
 		goto error_connect;
 	}
@@ -371,8 +374,8 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	c->response.u.us.sock = c->setup.u.us.sock;
 	c->setup.u.us.sock = -1;
 
-	fd_hdr = qb_util_mmap_file_open(path, r->request,
-					sizeof(struct ipc_us_control), O_RDWR);
+	fd_hdr = qb_sys_mmap_file_open(path, r->request,
+				       sizeof(struct ipc_us_control), O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't open file for mmap");
@@ -444,7 +447,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		return res;
 	}
 
-	res = qb_util_fd_nonblock_cloexec_set(s->server_sock);
+	res = qb_sys_fd_nonblock_cloexec_set(s->server_sock);
 	if (res < 0) {
 		goto error_close;
 	}
@@ -779,7 +782,7 @@ retry_accept:
 		return 0;
 	}
 
-	res = qb_util_fd_nonblock_cloexec_set(new_fd);
+	res = qb_sys_fd_nonblock_cloexec_set(new_fd);
 	if (res < 0) {
 		close(new_fd);
 		/* This is an error, but -1 would indicate disconnect
@@ -822,9 +825,9 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	snprintf(r->request, NAME_MAX, "qb-%s-control-%d-%d",
 		 s->name, c->pid, c->setup.u.us.sock);
 
-	fd_hdr = qb_util_mmap_file_open(path, r->request,
-					sizeof(struct ipc_us_control),
-					O_CREAT | O_TRUNC | O_RDWR);
+	fd_hdr = qb_sys_mmap_file_open(path, r->request,
+				       sizeof(struct ipc_us_control),
+				       O_CREAT | O_TRUNC | O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't create file for mmap");

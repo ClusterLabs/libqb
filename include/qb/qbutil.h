@@ -26,6 +26,8 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+#include <pthread.h>
+
 #include <stdint.h>
 #ifndef S_SPLINT_S
 #include <unistd.h>

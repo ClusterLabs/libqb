@@ -120,8 +120,8 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	 * Create a shared_hdr memory segment for the header.
 	 */
 	snprintf(filename, PATH_MAX, "qb-%s-header", name);
-	fd_hdr = qb_util_mmap_file_open(path, filename,
-					shared_size, file_flags);
+	fd_hdr = qb_sys_mmap_file_open(path, filename,
+				       shared_size, file_flags);
 	if (fd_hdr < 0) {
 		error = fd_hdr;
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
@@ -162,14 +162,14 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
 		snprintf(filename, PATH_MAX, "qb-%s-data", name);
-		fd_data = qb_util_mmap_file_open(path,
-						 filename,
-						 real_size, file_flags);
+		fd_data = qb_sys_mmap_file_open(path,
+						filename,
+						real_size, file_flags);
 		strncpy(rb->shared_hdr->data_path, path, PATH_MAX);
 	} else {
-		fd_data = qb_util_mmap_file_open(path,
-						 rb->shared_hdr->data_path,
-						 real_size, file_flags);
+		fd_data = qb_sys_mmap_file_open(path,
+						rb->shared_hdr->data_path,
+						real_size, file_flags);
 	}
 	if (fd_data < 0) {
 		error = fd_data;
@@ -181,7 +181,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		    "shm size:%zd; real_size:%zd; rb->size:%d", size,
 		    real_size, rb->shared_hdr->size);
 
-	error = qb_util_circular_mmap(fd_data, &shm_addr, real_size);
+	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size);
 	rb->shared_data = shm_addr;
 	if (error != 0) {
 		qb_util_log(LOG_ERR, "couldn't create circular mmap on %s",

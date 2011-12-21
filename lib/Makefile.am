@@ -40,20 +40,24 @@ libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqb_la_LDFLAGS	= -version-info 7:0:7
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  loop.c loop_poll.c loop_job.c \
-			  ipcc.c ipcs.c ipc_posix_mq.c ipc_sysv_mq.c ipc_shm.c ipc_us.c \
+			  ipcc.c ipcs.c ipc_shm.c ipc_us.c \
 			  log.c log_thread.c log_blackbox.c log_file.c \
 			  log_syslog.c log_dcs.c log_format.c \
 			  map.c skiplist.c hashtable.c trie.c
 
-libqb_la_SOURCES	= $(source_to_lint)
+libqb_la_SOURCES	= $(source_to_lint) unix.c
+
+if HAVE_SYSV_MQ
+  libqb_la_SOURCES+=ipc_sysv_mq.c
+endif
+
+if HAVE_POSIX_MQ
+  libqb_la_SOURCES+=ipc_posix_mq.c
+endif
+
 if USE_TIMERFD
 else
 libqb_la_SOURCES+=loop_timerlist.c
-endif
-if HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS
-libqb_la_SOURCES+=atomic_gcc.c
-else
-libqb_la_SOURCES+=atomic_lock.c
 endif
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libqb.pc

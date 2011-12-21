@@ -25,9 +25,9 @@
 #include "os_base.h"
 
 #include <dirent.h>
-#ifndef QB_DARWIN
-#  include <mqueue.h>
-#endif
+#ifdef HAVE_MQUEUE_H
+#include <mqueue.h>
+#endif /* HAVE_MQUEUE_H */
 #include <qb/qblist.h>
 #include <qb/qbloop.h>
 #include <qb/qbipcc.h>
@@ -77,7 +77,7 @@ struct qb_ipc_one_way {
 			void* shared_data;
 			char shared_file_name[NAME_MAX];
 		} us;
-#ifndef QB_DARWIN
+#ifdef HAVE_MQUEUE_H
 		struct {
 			mqd_t q;
 			char name[NAME_MAX];
