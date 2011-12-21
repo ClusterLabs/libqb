@@ -16,6 +16,7 @@ help_all() {
 	echo "  nogettime       Check without gettime()"
 	echo "  notimerfd       Check without timerfd"
 	echo "  bsd             Check with a bsd-like config"
+	echo "  mac             Check with a mac/darwin-like config"
 	echo "  dist            do make distcheck"
 	echo "  rpm             Run rpmlint"
 	echo "  mock            Test doing a mock build"
@@ -112,6 +113,15 @@ check_noepoll() {
 check_bsd() {
 	# bsd-like
 	check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+}
+
+check_mac() {
+	# mac-like
+	ORIG_CFLAGS=$CFLAGS
+	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED"
+	check "ac_cv_supports_sysv_mq=no ac_cv_supports_posix_mq=no ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no ac_cv_link_attribute_section=no"
+	export CFLAGS=$ORIG_CFLAGS
+
 }
 
 check_dist() {
@@ -242,6 +252,9 @@ case $command in
 	;;
 	bsd)
 		check_bsd
+	;;
+	mac)
+		check_mac
 	;;
 	rpm)
 		check_rpm
