@@ -38,14 +38,10 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 #ifdef QB_LINUX
 	return strerror_r(errnum, buf, buflen);
 #else
-	char *out_buf;
-
-	if (strerror_r(errnum, buf, buflen) == 0) {
-		out_buf = buf;
-	} else {
-		out_buf = (char*)"";
+	if (strerror_r(errnum, buf, buflen) != 0) {
+		buf[0] = '\0';
 	}
-	return out_buf;
+	return buf;
 #endif /* QB_LINUX */
 }
 
