@@ -720,15 +720,15 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	 * Usually Linux systems
 	 */
 	{
-		struct ucred *cred;
+		struct ucred cred;
 		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg_recv);
 		assert(cmsg != NULL);
-		cred = (struct ucred *)CMSG_DATA(cmsg);
-		if (cred) {
+		if (CMSG_DATA(cmsg)) {
+			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
 			res = 0;
-			ugp->pid = cred->pid;
-			ugp->uid = cred->uid;
-			ugp->gid = cred->gid;
+			ugp->pid = cred.pid;
+			ugp->uid = cred.uid;
+			ugp->gid = cred.gid;
 		} else {
 			res = -EBADMSG;
 		}

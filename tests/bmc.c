@@ -49,18 +49,23 @@ static void bm_finish(const char *operation, int32_t size)
 	printf("MB/sec, %9.3f\n", mbs_per_sec);
 }
 
-static char buffer[1024 * 1024];
+struct my_req {
+	struct qb_ipc_request_header hdr;
+	char message[1024 * 1024];
+};
+
+static struct my_req request;
+
 static int32_t bmc_send_nozc(uint32_t size)
 {
-	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
 	int32_t res;
 
-	req_header->id = QB_IPC_MSG_USER_START + 3;
-	req_header->size = sizeof(struct qb_ipc_request_header) + size;
+	request.hdr.id = QB_IPC_MSG_USER_START + 3;
+	request.hdr.size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
-	res = qb_ipcc_send(conn, req_header, req_header->size);
+	res = qb_ipcc_send(conn, &request, request.hdr.size);
 	if (res < 0) {
 		if (res == -EAGAIN) {
 			goto repeat_send;

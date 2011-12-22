@@ -27,12 +27,23 @@
 
 #define MAX_MSG_SIZE (8192)
 
+struct my_req {
+	struct qb_ipc_request_header hdr;
+	char message[256];
+};
+
+struct my_res {
+	struct qb_ipc_response_header hdr;
+	char message[256];
+};
+
 int
 main(int argc, char *argv[])
 {
 	qb_ipcc_connection_t *conn;
-	int32_t res;
-	char *buffer[MAX_MSG_SIZE];
+	int32_t rc;
+	struct my_req req;
+	struct my_res res;
 
 	conn = qb_ipcc_connect("ipcserver", MAX_MSG_SIZE);
 	if (conn == NULL) {
@@ -41,39 +52,31 @@ main(int argc, char *argv[])
 	}
 
 	while(1) {
-		struct qb_ipc_request_header  *req_header = (struct qb_ipc_request_header *)buffer;
-		struct qb_ipc_response_header *res_header = (struct qb_ipc_response_header *)buffer;
-		char *data = (char*)buffer + sizeof(struct qb_ipc_request_header);
-
 		printf("SEND (q or Q to quit) : ");
-		if (gets(data) == NULL) {
+		if (gets(req.message) == NULL) {
 			continue;
 		}
 
-		if (strcmp(data , "q") != 0 &&
-		    strcmp(data , "Q") != 0) {
-			req_header->id = QB_IPC_MSG_USER_START + 3;
-			req_header->size = sizeof(struct qb_ipc_request_header) + strlen(data) + 1;
-			res = qb_ipcc_send(conn, req_header, req_header->size);
-			if (res < 0) {
+		if (strcmp(req.message, "q") != 0 &&
+		    strcmp(req.message, "Q") != 0) {
+			req.hdr.id = QB_IPC_MSG_USER_START + 3;
+			req.hdr.size = sizeof(struct my_req);
+			rc = qb_ipcc_send(conn, &req, req.hdr.size);
+			if (rc < 0) {
 				perror("qb_ipcc_send");
 			}
 		} else {
 			break;
 		}
 
-		if (res > 0) {
-			res = qb_ipcc_recv(conn,
-					   buffer,
-					   MAX_MSG_SIZE, -1);
-			if (res < 0) {
+		if (rc > 0) {
+			rc = qb_ipcc_recv(conn,
+					   &res,
+					   sizeof(res), -1);
+			if (rc < 0) {
 				perror("qb_ipcc_recv");
 			}
-			res_header = (struct qb_ipc_response_header*)buffer;
-			data = (char*)buffer + sizeof(struct qb_ipc_response_header);
-			data[res - sizeof(struct qb_ipc_response_header)] = '\0';
-
-			printf("Response[%d]: %s \n", res_header->id, data);
+			printf("Response[%d]: %s \n", res.hdr.id, res.message);
 		}
 	}
 

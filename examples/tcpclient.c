@@ -39,7 +39,7 @@ main(int argc, char *argv[])
 
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(5000);
-	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
+	memcpy(&server_addr.sin_addr, host->h_addr, sizeof(host->h_addr));
 	bzero(&(server_addr.sin_zero),8);
 
 	if (connect(sock, (struct sockaddr *)&server_addr,

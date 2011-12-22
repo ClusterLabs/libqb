@@ -482,11 +482,12 @@ reprocess:
 			goto reprocess;
 
 		case '*': {
-			int *arg_int = (int *)&buf[data_pos];
+			int arg_int;
+			memcpy(&arg_int, &buf[data_pos], sizeof(int));
 			data_pos += sizeof(int);
 			fmt_pos += snprintf(&fmt[fmt_pos],
 					   MINI_FORMAT_STR_LEN - fmt_pos,
-					   "%d", *arg_int);
+					   "%d", arg_int);
 			format++;
 			goto reprocess;
 		}
@@ -506,38 +507,38 @@ reprocess:
 		case 'x':
 		case 'X':
 			if (type_long) {
-				long int *arg_int;
+				long int arg_int;
 
 				fmt[fmt_pos++] = *format;
 				fmt[fmt_pos++] = '\0';
-				arg_int = (long int *)&buf[data_pos];
+				memcpy(&arg_int, &buf[data_pos], sizeof(long int));
 				location += snprintf(&string[location],
 						     str_len - location,
-						     fmt, *arg_int);
+						     fmt, arg_int);
 				data_pos += sizeof(long int);
 				format++;
 				break;
 			} else if (type_longlong) {
-				long long int *arg_int;
+				long long int arg_int;
 
 				fmt[fmt_pos++] = *format;
 				fmt[fmt_pos++] = '\0';
-				arg_int = (long long int *)&buf[data_pos];
+				memcpy(&arg_int, &buf[data_pos], sizeof(long long int));
 				location += snprintf(&string[location],
 						     str_len - location,
-						     fmt, *arg_int);
+						     fmt, arg_int);
 				data_pos += sizeof(long long int);
 				format++;
 				break;
 			} else {
-				int *arg_int;
+				int arg_int;
 
 				fmt[fmt_pos++] = *format;
 				fmt[fmt_pos++] = '\0';
-				arg_int = (int *)&buf[data_pos];
+				memcpy(&arg_int, &buf[data_pos], sizeof(int));
 				location += snprintf(&string[location],
 						     str_len - location,
-						     fmt, *arg_int);
+						     fmt, arg_int);
 				data_pos += sizeof(int);
 				format++;
 				break;
@@ -551,14 +552,14 @@ reprocess:
 		case 'a':
 		case 'A':
 			{
-			double *arg_double;
+			double arg_double;
 
 			fmt[fmt_pos++] = *format;
 			fmt[fmt_pos++] = '\0';
-			arg_double = (double *)&buf[data_pos];
+			memcpy(&arg_double, &buf[data_pos], sizeof(double));
 			location += snprintf(&string[location],
 					     str_len - location,
-					     fmt, *arg_double);
+					     fmt, arg_double);
 			data_pos += sizeof(double);
 			format++;
 			break;

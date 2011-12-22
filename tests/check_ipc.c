@@ -210,21 +210,24 @@ static int32_t stop_process(pid_t pid)
 	return 0;
 }
 
-#define IPC_BUF_SIZE (1024 * 1024)
-static char buffer[IPC_BUF_SIZE];
+struct my_req {
+	struct qb_ipc_request_header hdr;
+	char message[1024 * 1024];
+};
+
+static struct my_req request;
 static int32_t send_and_check(uint32_t size, int32_t ms_timeout)
 {
-	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
 	int32_t res;
 	int32_t try_times = 0;
 
-	req_header->id = IPC_MSG_REQ_TX_RX;
-	req_header->size = sizeof(struct qb_ipc_request_header) + size;
+	request.hdr.id = IPC_MSG_REQ_TX_RX;
+	request.hdr.size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
 
-	res = qb_ipcc_send(conn, req_header, req_header->size);
+	res = qb_ipcc_send(conn, &request, request.hdr.size);
 	try_times++;
 	if (res < 0) {
 		if (res == -EAGAIN && try_times < 10) {
@@ -378,6 +381,12 @@ START_TEST(test_ipc_txrx_smq)
 }
 END_TEST
 
+struct my_res {
+	struct qb_ipc_response_header hdr;
+	char message[1024 * 1024];
+};
+
+static struct my_res response;
 static void test_ipc_dispatch(void)
 {
 	int32_t res;
@@ -385,7 +394,6 @@ static void test_ipc_dispatch(void)
 	int32_t c = 0;
 	pid_t pid;
 	struct qb_ipc_request_header req_header;
-	struct qb_ipc_response_header *res_header = (struct qb_ipc_response_header*)buffer;
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
@@ -420,7 +428,7 @@ static void test_ipc_dispatch(void)
 		}
 	}
  repeat_event_recv:
-	res = qb_ipcc_event_recv(conn, res_header, IPC_BUF_SIZE, 0);
+	res = qb_ipcc_event_recv(conn, &response, sizeof(struct my_res), 0);
 	if (res < 0) {
 		if (res == -EAGAIN || res == -ETIMEDOUT) {
 			goto repeat_event_recv;
@@ -431,7 +439,7 @@ static void test_ipc_dispatch(void)
 		}
 	}
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
-	ck_assert_int_eq(res_header->id, IPC_MSG_RES_DISPATCH);
+	ck_assert_int_eq(response.hdr.id, IPC_MSG_RES_DISPATCH);
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);

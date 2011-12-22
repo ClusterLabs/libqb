@@ -88,18 +88,23 @@ static void bmc_disconnect(struct bm_ctx *ctx)
 	qb_ipcc_disconnect(ctx->conn);
 }
 
-static char buffer[1024 * 1024];
+struct my_req {
+	struct qb_ipc_request_header hdr;
+	char message[1024 * 1024];
+};
+
+static struct my_req request;
+
 static int32_t bmc_send_nozc(struct bm_ctx *ctx, uint32_t size)
 {
-	struct qb_ipc_request_header *req_header = (struct qb_ipc_request_header *)buffer;
 	struct qb_ipc_response_header res_header;
 	int32_t res;
 
-	req_header->id = QB_IPC_MSG_USER_START + 3;
-	req_header->size = sizeof(struct qb_ipc_request_header) + size;
+	request.hdr.id = QB_IPC_MSG_USER_START + 3;
+	request.hdr.size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
-	res = qb_ipcc_send(ctx->conn, req_header, req_header->size);
+	res = qb_ipcc_send(ctx->conn, &request, request.hdr.size);
 	if (res < 0) {
 		if (res == -EAGAIN) {
 			goto repeat_send;
