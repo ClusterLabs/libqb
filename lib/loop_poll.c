@@ -25,6 +25,9 @@
 #endif
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
+#ifndef epoll_create1
+int epoll_create1(int flags);
+#endif /* workaround a set of sparc and alpha broken headers */
 #endif /* HAVE_SYS_EPOLL_H */
 
 #ifdef HAVE_SYS_POLL_H
