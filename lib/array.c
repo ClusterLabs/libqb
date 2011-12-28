@@ -29,7 +29,7 @@
 #define ELEM_NUM_GET(_idx_) (_idx_ & 0xff)
 
 struct qb_array {
-	void *bin[MAX_BIN_ELEMENTS];
+	void *bin[MAX_BINS];
 	size_t max_elements;
 	size_t element_size;
 	size_t num_bins;
