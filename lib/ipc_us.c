@@ -526,6 +526,7 @@ handle_new_connection(struct qb_ipcs_service *s,
 	struct qb_ipcs_connection *c = NULL;
 	struct qb_ipc_connection_request *req = msg;
 	int32_t res = auth_result;
+	int32_t res2 = 0;
 	struct qb_ipc_connection_response response;
 
 	c = qb_ipcs_connection_alloc(s);
@@ -605,15 +606,16 @@ send_response:
 		s->stats.active_connections++;
 	}
 
-	res = qb_ipc_us_send(&c->setup, &response, response.hdr.size);
-	if (res == response.hdr.size) {
-		res = 0;
+	res2 = qb_ipc_us_send(&c->setup, &response, response.hdr.size);
+	if (res == 0 && res2 != response.hdr.size) {
+		res = res2;
 	}
 
 	if (res == 0) {
 		if (s->serv_fns.connection_created) {
 			s->serv_fns.connection_created(c);
 		}
+		c->state = QB_IPCS_CONNECTION_ESTABLISHED;
 	} else {
 		if (res == -EACCES) {
 			qb_util_log(LOG_ERR, "Invalid IPC credentials.");

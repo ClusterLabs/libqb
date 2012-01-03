@@ -165,7 +165,8 @@ struct qb_ipcs_service {
 enum qb_ipcs_connection_state {
 	QB_IPCS_CONNECTION_INACTIVE,
 	QB_IPCS_CONNECTION_ACTIVE,
-	QB_IPCS_CONNECTION_DOWN,
+	QB_IPCS_CONNECTION_ESTABLISHED,
+	QB_IPCS_CONNECTION_SHUTTING_DOWN,
 };
 
 struct qb_ipcs_connection {
