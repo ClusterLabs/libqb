@@ -31,7 +31,62 @@ extern "C" {
 
 /**
  * @file qbmap.h
- * This provides a map interface to a trie, hashtable or skiplist.
+ * This provides a map interface to a Patricia trie, hashtable or skiplist.
+ *
+ * @par Ordering
+ * The hashtable is NOT ordered, but ptrie and skiplist are.
+ *
+ * @par Iterating
+ * Below is a simple example of how to iterate over a map.
+ * @code
+ * const char *p;
+ * void *data;
+ * qb_map_iter_t *it = qb_map_iter_create(m);
+ * for (p = qb_map_iter_next(it, &data); p; p = qb_map_iter_next(it, &data)) {
+ *     printf("%s > %s\n", p, (char*) data);
+ * }
+ * qb_map_iter_free(it);
+ * @endcode
+ *
+ * Deletion of items within the iterator is supported. But note do not
+ * free the item memory in the iterator. If you need to free the data
+ * items then register for a notifier and free the memory there. This
+ * is required as the items are reference counted.
+ * @code
+ * qb_map_notify_add(m, NULL, my_map_free_handler,
+ *		     QB_MAP_NOTIFY_FREE, NULL);
+ * @endcode
+ *
+ * @par Notifications
+ * These allow you to get callbacks when values are inserted/removed or
+ * replaced.
+ * @note hashtable only supports deletion and replacement notificatins.
+ * There is also a special global callback for freeing deleted and replaced
+ * values (QB_MAP_NOTIFY_FREE).
+ * @see qb_map_notify_add() qb_map_notify_del_2()
+ *
+ * @par Prefix matching
+ * The ptrie supports prefixes in the iterator:
+ *
+ * @code
+ * it = qb_map_pref_iter_create(m, "aa");
+ * while ((p = qb_map_iter_next(it, &data)) != NULL) {
+ *     printf("%s > %s\n", p, (char*)data);
+ * }
+ * qb_map_iter_free(it);
+ * @endcode
+ *
+ * The ptrie also supports prefixes in notifications:
+ * (remember to pass QB_MAP_NOTIFY_RECURSIVE into the notify_add.
+ * @code
+ * qb_map_notify_add(m, "root", my_map_notification,
+ *		    (QB_MAP_NOTIFY_INSERTED|
+ *		     QB_MAP_NOTIFY_DELETED|
+ *		     QB_MAP_NOTIFY_REPLACED|
+ *		     QB_MAP_NOTIFY_RECURSIVE),
+ *		    NULL);
+ *
+ * @endcode
  */
 
 /**
@@ -77,9 +132,12 @@ qb_map_t* qb_hashtable_create(size_t max_size);
 qb_map_t* qb_skiplist_create(void);
 
 /**
- * Create a sorted map using a trie or "Prefix list".
+ * Create a sorted map using a Patricia trie or "Radix tree".
  *
- * @see en.wikipedia.org/wiki/Trie
+ * @htmlonly
+ * See the wikipedia <a href="http://en.wikipedia.org/wiki/Radix_Tree">Radix_tree</a>
+ * and <a href="http://en.wikipedia.org/wiki/Trie">Trie</a> pages.
+ * @endhtmlonly
  */
 qb_map_t* qb_trie_create(void);
 
