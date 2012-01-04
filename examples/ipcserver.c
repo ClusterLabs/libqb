@@ -173,10 +173,6 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	GIOChannel *channel;
 	int32_t res = 0;
 
-	res = qb_array_grow(gio_map, fd + 1);
-	if (res < 0) {
-		return res;
-	}
 	res = qb_array_index(gio_map, fd, (void**)&adaptor);
 	if (res < 0) {
 		return res;
@@ -320,7 +316,7 @@ main(int32_t argc, char *argv[])
 	} else {
 #ifdef HAVE_GLIB
 		glib_loop = g_main_loop_new(NULL, FALSE);
-		gio_map = qb_array_create(64, sizeof(struct gio_to_qb_poll));
+		gio_map = qb_array_create_2(64, sizeof(struct gio_to_qb_poll), 1);
 		qb_ipcs_poll_handlers_set(s1, &glib_ph);
 		qb_ipcs_run(s1);
 		g_main_loop_run(glib_loop);

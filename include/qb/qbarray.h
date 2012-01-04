@@ -36,6 +36,16 @@ extern "C" {
 /**
  * @file qbarray.h
  * This is a dynamic array (it can grow, but without moving memory).
+ *
+ * @code
+ * arr = qb_array_create_2(64, sizeof(struct my_struct), 256);
+ * ...
+ * res = qb_array_index(arr, idx, (void**)&my_ptr);
+ * if (res < 0) {
+ *	return res;
+ * }
+ * // use my_ptr, now even if there is a grow, this pointer will be valid.
+ * @endcode
  */
 
 struct qb_array;
@@ -53,6 +63,19 @@ typedef struct qb_array qb_array_t;
  * @return array instance.
  */
 qb_array_t* qb_array_create(size_t max_elements, size_t element_size);
+
+/**
+ * Create an array with fixed sized elements.
+ *
+ * @param max_elements initial max elements.
+ * @param element_size size of each element.
+ * @param autogrow_elements the number of elements to grow automatically by.
+ *
+ * @return array instance.
+ */
+qb_array_t* qb_array_create_2(size_t max_elements, size_t element_size,
+                              size_t autogrow_elements);
+
 
 /**
  * Get an element at a particular index.

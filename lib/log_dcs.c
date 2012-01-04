@@ -78,8 +78,6 @@ _log_dcs_new_cs(const char *function,
 	int32_t call_register = QB_FALSE;
 
 	if (qb_array_index(callsite_arr, callsite_arr_next, (void **)&cs) < 0) {
-		rc = qb_array_grow(callsite_arr, callsite_arr_next + 255);
-		assert(rc == 0);
 		rc = qb_array_index(callsite_arr, callsite_arr_next,
 				    (void **)&cs);
 		assert(rc == 0);
@@ -128,8 +126,6 @@ qb_log_dcs_get(int32_t * newly_created,
 	 */
 	(void)qb_thread_lock(arr_next_lock);
 	if (rc < 0) {
-		rc = qb_array_grow(lookup_arr, lineno + 255);
-		assert(rc == 0);
 		rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
 		assert(rc == 0);
 	}
@@ -171,8 +167,8 @@ cleanup:
 void
 qb_log_dcs_init(void)
 {
-	lookup_arr = qb_array_create(256, sizeof(struct callsite_list));
-	callsite_arr = qb_array_create(256, sizeof(struct qb_log_callsite));
+	lookup_arr = qb_array_create_2(256, sizeof(struct callsite_list), 256);
+	callsite_arr = qb_array_create_2(256, sizeof(struct qb_log_callsite), 256);
 
 	arr_next_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 
