@@ -335,15 +335,35 @@ trie_lookup(struct trie *t, const char *key, int exact_match)
 static void
 trie_node_release(struct trie *t, struct trie_node *node)
 {
-	if (node->num_children == 0 &&
-	    node->refcount == 0 &&
+	int i;
+	int empty = QB_FALSE;
+
+	if (node->key == NULL &&
 	    node->parent != NULL &&
 	    qb_list_empty(&node->notifier_head)) {
 		struct trie_node *p = node->parent;
+
+		if (node->num_children == 0) {
+			empty = QB_TRUE;
+		} else {
+			empty = QB_TRUE;
+			for (i = node->num_children - 1; i >= 0; i--) {
+				if (node->children[i]) {
+					empty = QB_FALSE;
+					break;
+				}
+			}
+		}
+		if (!empty) {
+			return;
+		}
+
 		/*
 		 * unlink the node from the parent
 		 */
 		p->children[node->idx] = NULL;
+		free(node->segment);
+		free(node->children);
 		free(node);
 		t->num_nodes--;
 		t->mem_used -= sizeof(struct trie_node);
