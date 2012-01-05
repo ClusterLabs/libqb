@@ -22,7 +22,7 @@ help_all() {
 	echo "  mock            Test doing a mock build"
 	echo "  coverity        Run coverity"
 	echo "  abi             Check abi compatibility"
-	echo "  api             api sanity test"
+	echo "  api_sanity      api sanity test"
 	echo 
 	echo "  help            This help"
 	echo 
