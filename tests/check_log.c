@@ -246,6 +246,14 @@ START_TEST(test_log_basic)
 	log_also();
 	log_and_this_too();
 	ck_assert_int_eq(num_msgs, 2);
+
+	/*
+	 * make sure we can pass in a null filename or function name.
+	 */
+	qb_log_from_external_source(__func__, NULL, "%s", LOG_INFO,
+				    __LINE__, 0, "null filename");
+	qb_log_from_external_source(NULL, __FILE__, "%s", LOG_INFO,
+				    __LINE__, 0, "null function");
 }
 END_TEST
 
