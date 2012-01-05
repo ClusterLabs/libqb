@@ -97,15 +97,18 @@ static int32_t
 check_order(const char *key, void *value, void *data)
 {
 	int *o = (int*)data;
-	ck_assert(chars[*o][0] == key[0]);
+	ck_assert_str_eq(chars[*o], key);
+	ck_assert_str_eq(chars[*o], value);
 	(*o)++;
 	return QB_FALSE;
 }
+
 static int32_t
 check_order2(const char *key, void *value, void *data)
 {
 	int *o = (int*)data;
-	ck_assert(chars2[*o][0] == key[0]);
+	ck_assert_str_eq(chars2[*o], key);
+	ck_assert_str_eq(chars2[*o], value);
 	(*o)++;
 	return QB_FALSE;
 }

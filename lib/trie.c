@@ -333,6 +333,26 @@ trie_lookup(struct trie *t, const char *key, int exact_match)
 }
 
 static void
+trie_node_release(struct trie *t, struct trie_node *node)
+{
+	if (node->num_children == 0 &&
+	    node->refcount == 0 &&
+	    node->parent != NULL &&
+	    qb_list_empty(&node->notifier_head)) {
+		struct trie_node *p = node->parent;
+		/*
+		 * unlink the node from the parent
+		 */
+		p->children[node->idx] = NULL;
+		free(node);
+		t->num_nodes--;
+		t->mem_used -= sizeof(struct trie_node);
+
+		trie_node_release(t, p);
+	}
+}
+
+static void
 trie_node_destroy(struct trie *t, struct trie_node *n)
 {
 	if (n->value == NULL) {
@@ -342,6 +362,8 @@ trie_node_destroy(struct trie *t, struct trie_node *n)
 
 	n->key = NULL;
 	n->value = NULL;
+
+	trie_node_release(t, n);
 }
 
 static void
@@ -366,7 +388,6 @@ trie_print_node(struct trie_node *n, struct trie_node *r, const char *suffix)
 		printf("] ");
 	}
 }
-
 
 static void
 trie_node_ref(struct trie *t, struct trie_node *node)
@@ -628,6 +649,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 		}
 	}
 	if (found) {
+		trie_node_release(t, n);
 		return 0;
 	} else {
 		return -ENOENT;
