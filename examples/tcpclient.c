@@ -39,7 +39,7 @@ main(int argc, char *argv[])
 
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(5000);
-	memcpy(&server_addr.sin_addr, host->h_addr, sizeof(host->h_addr));
+	memcpy(&server_addr.sin_addr, host->h_addr_list[0], sizeof(server_addr.sin_addr));
 	bzero(&(server_addr.sin_zero),8);
 
 	if (connect(sock, (struct sockaddr *)&server_addr,
@@ -65,9 +65,12 @@ main(int argc, char *argv[])
 
 		if (res > 0) {
 			res = recv(sock, recv_data, 1024, 0);
-			recv_data[res] = '\0';
-
-			printf("\nResponse: %s ", recv_data);
+			if (res > 0) {
+				recv_data[res] = '\0';
+				printf("\nResponse: %s ", recv_data);
+			} else {
+				perror("recv");
+			}
 		}
 	}
 	return EXIT_SUCCESS;
