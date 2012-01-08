@@ -126,8 +126,8 @@ void
 qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 {
 #ifndef S_SPLINT_S
-	ts->tv_sec = ms / 1000;
-	ts->tv_nsec = (ms % 1000) * QB_TIME_NS_IN_MSEC;
+	ts->tv_sec += ms / 1000;
+	ts->tv_nsec += (ms % 1000) * QB_TIME_NS_IN_MSEC;
 	if (ts->tv_nsec >= 1000000000L) {
 		ts->tv_sec++;
 		ts->tv_nsec = ts->tv_nsec - 1000000000L;
