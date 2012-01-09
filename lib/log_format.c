@@ -253,6 +253,11 @@ qb_log_target_format(int32_t target,
 				}
 				break;
 
+			case 'P':
+				snprintf(line_no, 30, "%d", getpid());
+				p = line_no;
+				break;
+
 			default:
 				p = "";
 				break;
