@@ -32,7 +32,7 @@ _blackbox_reload(int32_t target)
 		return;
 	}
 	qb_rb_close(t->instance);
-	t->instance = qb_rb_open(t->name, t->size,
+	t->instance = qb_rb_open(t->filename, t->size,
 				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
 }
 
@@ -100,8 +100,9 @@ qb_log_blackbox_open(struct qb_log_target *t)
 	if (t->size < 1024) {
 		return -EINVAL;
 	}
+	snprintf(t->filename, PATH_MAX, "%s-blackbox", t->name);
 
-	t->instance = qb_rb_open(t->name, t->size,
+	t->instance = qb_rb_open(t->filename, t->size,
 				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
 	if (t->instance == NULL) {
 		return -errno;

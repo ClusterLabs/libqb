@@ -57,7 +57,7 @@ _file_reload(int32_t target)
 	if (t->instance) {
 		fclose(t->instance);
 	}
-	t->instance = fopen(t->name, "a+");
+	t->instance = fopen(t->filename, "a+");
 }
 
 int32_t
@@ -66,7 +66,7 @@ qb_log_stderr_open(struct qb_log_target *t)
 	t->logger = _file_logger;
 	t->reload = NULL;
 	t->close = NULL;
-	strncpy(t->name, "stderr", PATH_MAX);
+	strncpy(t->filename, "stderr", PATH_MAX);
 	t->instance = stderr;
 	return 0;
 }
@@ -90,7 +90,7 @@ qb_log_file_open(const char *filename)
 		return rc;
 	}
 	t->instance = fp;
-	strncpy(t->name, filename, PATH_MAX);
+	strncpy(t->filename, filename, PATH_MAX);
 
 	t->logger = _file_logger;
 	t->reload = _file_reload;

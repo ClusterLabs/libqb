@@ -670,7 +670,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		conf[i].pos = i;
 		conf[i].debug = QB_FALSE;
 		conf[i].state = QB_LOG_STATE_UNUSED;
-		conf[i].name[0] = '\0';
+		strncpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
 		qb_list_init(&conf[i].filter_head);
 		qb_log_format_set(i, NULL);
@@ -684,8 +684,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 
 	conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
 	conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
-	strncpy(conf[QB_LOG_SYSLOG].name, name, PATH_MAX);
-	snprintf(conf[QB_LOG_BLACKBOX].name, PATH_MAX, "%s-blackbox", name);
 
 	logger_inited = QB_TRUE;
 	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
@@ -757,7 +755,7 @@ qb_log_target_free(struct qb_log_target *t)
 	(void)qb_log_filter_ctl(t->pos, QB_LOG_FILTER_CLEAR_ALL,
 				QB_LOG_FILTER_FILE, NULL, 0);
 	t->debug = QB_FALSE;
-	t->name[0] = '\0';
+	t->filename[0] = '\0';
 	qb_log_format_set(t->pos, NULL);
 	_log_target_state_set(t, QB_LOG_STATE_UNUSED);
 }
@@ -808,7 +806,7 @@ qb_log_custom_open(qb_log_logger_fn log_fn,
 	}
 
 	t->instance = user_data;
-	snprintf(t->name, PATH_MAX, "custom-%d", t->pos);
+	snprintf(t->filename, PATH_MAX, "custom-%d", t->pos);
 
 	t->logger = log_fn;
 	t->vlogger = NULL;
@@ -934,7 +932,24 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 void
 qb_log_format_set(int32_t t, const char *format)
 {
+	char* ptr = NULL;
+	size_t len = 0;
+
+	if (format) {
+		ptr = strstr(format, "%N");
+		len = strlen(format);
+	}
 	free(conf[t].format);
-	conf[t].format = strdup(format ? format : "[%p] %b");
+
+	if (ptr) {
+		len += strlen(conf[t].name);
+		conf[t].format = calloc(len + 1, sizeof(char));
+		strncpy(conf[t].format, format, ptr - format);
+		strcat(conf[t].format, conf[t].name);
+		ptr += 2;
+		strcat(conf[t].format, ptr);
+	} else {
+		conf[t].format = strdup(format ? format : "[%p] %b");
+	}
 	assert(conf[t].format != NULL);
 }

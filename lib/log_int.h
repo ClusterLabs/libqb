@@ -31,6 +31,7 @@ struct qb_log_target {
 	uint32_t pos;
 	enum qb_log_target_state state;
 	char name[PATH_MAX];
+	char filename[PATH_MAX];
 	struct qb_list_head filter_head;
 	int32_t facility;
 	int32_t priority_bump;

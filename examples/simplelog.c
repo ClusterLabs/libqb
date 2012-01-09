@@ -190,7 +190,7 @@ int32_t main(int32_t argc, char *argv[])
 		log_fd = qb_log_file_open(logfile);
 		qb_log_filter_ctl(log_fd, QB_LOG_FILTER_ADD,
 				  QB_LOG_FILTER_FILE, __FILE__, priority);
-		qb_log_format_set(log_fd, "%t %n() [%p] %b");
+		qb_log_format_set(log_fd, "[%N] %t %n() [%p] %b");
 		qb_log_ctl(log_fd, QB_LOG_CONF_THREADED, do_threaded);
 		qb_log_ctl(log_fd, QB_LOG_CONF_ENABLED, QB_TRUE);
 	}
