@@ -73,14 +73,16 @@ static qb_ipcs_service_t* s1;
 static int32_t turn_on_fc = QB_FALSE;
 static int32_t fc_enabled = 89;
 
-static int32_t exit_handler(int32_t rsignal, void *data)
+static int32_t
+exit_handler(int32_t rsignal, void *data)
 {
 	qb_log(LOG_DEBUG, "caught signal %d", rsignal);
 	qb_ipcs_destroy(s1);
 	return -1;
 }
 
-static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
+static int32_t
+s1_msg_process_fn(qb_ipcs_connection_t *c,
 		void *data, size_t size)
 {
 	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
@@ -117,37 +119,43 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 	return 0;
 }
 
-static int32_t my_job_add(enum qb_loop_priority p,
+static int32_t
+my_job_add(enum qb_loop_priority p,
 			  void *data,
 			  qb_loop_job_dispatch_fn fn)
 {
 	return qb_loop_job_add(my_loop, p, data, fn);
 }
 
-static int32_t my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
+static int32_t
+my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t events,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
 	return qb_loop_poll_add(my_loop, p, fd, events, data, fn);
 }
 
-static int32_t my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t events,
+static int32_t
+my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t events,
 	void *data, qb_ipcs_dispatch_fn_t fn)
 {
 	return qb_loop_poll_mod(my_loop, p, fd, events, data, fn);
 }
 
-static int32_t my_dispatch_del(int32_t fd)
+static int32_t
+my_dispatch_del(int32_t fd)
 {
 	return qb_loop_poll_del(my_loop, fd);
 }
 
-static void s1_connection_destroyed(qb_ipcs_connection_t *c)
+static void
+s1_connection_destroyed(qb_ipcs_connection_t *c)
 {
 	qb_enter();
 	qb_loop_stop(my_loop);
 }
 
-static void run_ipc_server(void)
+static void
+run_ipc_server(void)
 {
 	int32_t res;
 	qb_loop_signal_handle handle;
@@ -185,7 +193,8 @@ static void run_ipc_server(void)
 	qb_loop_run(my_loop);
 }
 
-static int32_t run_function_in_new_process(void (*run_ipc_server_fn)(void))
+static int32_t
+run_function_in_new_process(void (*run_ipc_server_fn)(void))
 {
 	pid_t pid = fork ();
 
@@ -201,7 +210,8 @@ static int32_t run_function_in_new_process(void (*run_ipc_server_fn)(void))
 	return pid;
 }
 
-static int32_t stop_process(pid_t pid)
+static int32_t
+stop_process(pid_t pid)
 {
 	/* wait a bit for the server to shutdown by it's self */
 	usleep(100000);
@@ -216,7 +226,8 @@ struct my_req {
 };
 
 static struct my_req request;
-static int32_t send_and_check(uint32_t size, int32_t ms_timeout)
+static int32_t
+send_and_check(uint32_t size, int32_t ms_timeout, int32_t expect_perfection)
 {
 	struct qb_ipc_response_header res_header;
 	int32_t res;
@@ -265,7 +276,8 @@ repeat_send:
 }
 
 static int32_t recv_timeout = -1;
-static void test_ipc_txrx(void)
+static void
+test_ipc_txrx(void)
 {
 	int32_t j;
 	int32_t c = 0;
@@ -387,7 +399,8 @@ struct my_res {
 };
 
 static struct my_res response;
-static void test_ipc_dispatch(void)
+static void
+test_ipc_dispatch(void)
 {
 	int32_t res;
 	int32_t j;
@@ -461,9 +474,10 @@ START_TEST(test_ipc_disp_us)
 }
 END_TEST
 
+static void
+test_ipc_server_fail(void)
 #ifdef IPC_HANDLES_FAILED_SERVER
 
-static void test_ipc_server_fail(void)
 {
 	struct qb_ipc_request_header req_header;
 	struct qb_ipc_response_header res_header;
@@ -539,7 +553,8 @@ START_TEST(test_ipc_server_fail_shm)
 END_TEST
 #endif /* IPC_HANDLES_FAILED_SERVER */
 
-static Suite *ipc_suite(void)
+static Suite *
+ipc_suite(void)
 {
 	TCase *tc;
 	uid_t uid;
@@ -587,7 +602,6 @@ static Suite *ipc_suite(void)
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
-
 	uid = geteuid();
 	if (uid == 0) {
 		tc = tcase_create("ipc_txrx_posix_mq");
@@ -613,7 +627,8 @@ static Suite *ipc_suite(void)
 	return s;
 }
 
-int32_t main(void)
+int32_t
+main(void)
 {
 	int32_t number_failed;
 
