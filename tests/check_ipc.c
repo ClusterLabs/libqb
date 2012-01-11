@@ -252,22 +252,15 @@ repeat_send:
 			return res;
 		}
 	}
-	try_times = 0;
- repeat_recv:
 	res = qb_ipcc_recv(conn, &res_header,
 			sizeof(struct qb_ipc_response_header), ms_timeout);
-	try_times++;
 	if (res == -EINTR) {
 		return -1;
 	}
 	if (res == -EAGAIN || res == -ETIMEDOUT) {
-		if (try_times < 10) {
-			goto repeat_recv;
-		} else {
-			fc_enabled = QB_TRUE;
-			qb_perror(LOG_DEBUG, "qb_ipcc_recv");
-			return res;
-		}
+		fc_enabled = QB_TRUE;
+		qb_perror(LOG_DEBUG, "qb_ipcc_recv");
+		return res;
 	}
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 	ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
