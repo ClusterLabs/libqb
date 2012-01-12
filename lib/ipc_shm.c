@@ -22,6 +22,7 @@
 
 #include "ipc_int.h"
 #include "util_int.h"
+#include "ringbuffer_int.h"
 #include <qb/qbdefs.h>
 #include <qb/qbatomic.h>
 #include <qb/qbloop.h>
@@ -38,9 +39,15 @@
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
-	qb_rb_close(c->request.u.shm.rb);
-	qb_rb_close(c->response.u.shm.rb);
-	qb_rb_close(c->event.u.shm.rb);
+	if (c->is_connected) {
+		qb_rb_close(c->request.u.shm.rb);
+		qb_rb_close(c->response.u.shm.rb);
+		qb_rb_close(c->event.u.shm.rb);
+	} else {
+		qb_rb_force_close(c->request.u.shm.rb);
+		qb_rb_force_close(c->response.u.shm.rb);
+		qb_rb_force_close(c->event.u.shm.rb);
+	}
 }
 
 static ssize_t

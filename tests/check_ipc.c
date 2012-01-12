@@ -262,10 +262,12 @@ repeat_send:
 		qb_perror(LOG_DEBUG, "qb_ipcc_recv");
 		return res;
 	}
-	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
-	ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
-	ck_assert_int_eq(res_header.size, sizeof(struct qb_ipc_response_header));
-	return 0;
+	if (expect_perfection) {
+		ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
+		ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
+		ck_assert_int_eq(res_header.size, sizeof(struct qb_ipc_response_header));
+	}
+	return res;
 }
 
 static int32_t recv_timeout = -1;
@@ -297,7 +299,7 @@ test_ipc_txrx(void)
 		size *= 2;
 		if (size >= MAX_MSG_SIZE)
 			break;
-		if (send_and_check(size, recv_timeout) < 0) {
+		if (send_and_check(size, recv_timeout, QB_TRUE) < 0) {
 			break;
 		}
 	}
@@ -307,6 +309,54 @@ test_ipc_txrx(void)
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
 }
+
+static void
+test_ipc_exit(void)
+{
+	int32_t c = 0;
+	int32_t j = 0;
+	int32_t rc = 0;
+	pid_t pid;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	/* confirm we can send one message */
+	rc = send_and_check(100, recv_timeout, QB_TRUE);
+	_ck_assert_int(rc, >=, 0);
+
+	/* kill the server */
+	stop_process(pid);
+
+	/* assertion: we can call send/recv without locking up */
+	rc = send_and_check(100, recv_timeout, QB_FALSE);
+	ck_assert_int_eq(rc, -ENOTCONN);
+
+	/* this needs to free up the shared mem */
+	qb_ipcc_disconnect(conn);
+}
+
+
+START_TEST(test_ipc_exit_shm)
+{
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	recv_timeout = 1000;
+	test_ipc_exit();
+}
+END_TEST
 
 START_TEST(test_ipc_txrx_shm_tmo)
 {
@@ -469,8 +519,6 @@ END_TEST
 
 static void
 test_ipc_server_fail(void)
-#ifdef IPC_HANDLES_FAILED_SERVER
-
 {
 	struct qb_ipc_request_header req_header;
 	struct qb_ipc_response_header res_header;
@@ -544,7 +592,6 @@ START_TEST(test_ipc_server_fail_shm)
 	test_ipc_server_fail();
 }
 END_TEST
-#endif /* IPC_HANDLES_FAILED_SERVER */
 
 static Suite *
 ipc_suite(void)
@@ -553,7 +600,6 @@ ipc_suite(void)
 	uid_t uid;
 	Suite *s = suite_create("ipc");
 
-#ifdef IPC_HANDLES_FAILED_SERVER
 	tc = tcase_create("ipc_server_fail_shm");
 	tcase_add_test(tc, test_ipc_server_fail_shm);
 	tcase_set_timeout(tc, 6);
@@ -563,7 +609,6 @@ ipc_suite(void)
 	tcase_add_test(tc, test_ipc_server_fail_soc);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
-#endif /* IPC_HANDLES_FAILED_SERVER */
 
 	tc = tcase_create("ipc_txrx_shm_block");
 	tcase_add_test(tc, test_ipc_txrx_shm_block);
@@ -615,6 +660,11 @@ ipc_suite(void)
 	tc = tcase_create("ipc_dispatch_us");
 	tcase_add_test(tc, test_ipc_disp_us);
 	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_exit_shm");
+	tcase_add_test(tc, test_ipc_exit_shm);
+	tcase_set_timeout(tc, 3);
 	suite_add_tcase(s, tc);
 
 	return s;

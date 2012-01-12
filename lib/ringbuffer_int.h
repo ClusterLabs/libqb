@@ -71,6 +71,9 @@ struct qb_ringbuffer_s {
 	qb_rb_sem_destroy_fn_t sem_destroy_fn;
 };
 
+
+void qb_rb_force_close(qb_ringbuffer_t * rb);
+
 #if defined(_SEM_SEMUN_UNDEFINED)
 union semun {
 	int32_t val;

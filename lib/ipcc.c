@@ -85,6 +85,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	if (res != 0) {
 		goto disconnect_and_cleanup;
 	}
+	c->is_connected = QB_TRUE;
 	return c;
 
 disconnect_and_cleanup:
@@ -123,6 +124,7 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 			res2 = qb_ipc_us_send(&c->setup, msg_ptr, 1);
 		} while (res2 == -EAGAIN);
 		if (res2 == -EPIPE) {
+			c->is_connected = QB_FALSE;
 			return -ENOTCONN;
 		}
 		if (res2 != 1) {
@@ -177,6 +179,7 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 			res2 = qb_ipc_us_send(&c->setup, &res, 1);
 		} while (res2 == -EAGAIN);
 		if (res2 == -EPIPE) {
+			c->is_connected = QB_FALSE;
 			return -ENOTCONN;
 		}
 		if (res2 != 1) {
@@ -200,6 +203,9 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	if ((res == -EAGAIN || res == -ETIMEDOUT) && c->needs_sock_for_poll) {
 		res2 = qb_ipc_us_recv_ready(&c->setup, 0);
 		if (res2 < 0) {
+			if (res2 == -ENOTCONN) {
+				c->is_connected = QB_FALSE;
+			}
 			return res2;
 		} else {
 			return res;
@@ -275,6 +281,9 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	if (ow) {
 		res = qb_ipc_us_recv_ready(ow, ms_timeout);
 		if (res < 0) {
+			if (res == -ENOTCONN) {
+				c->is_connected = QB_FALSE;
+			}
 			return res;
 		}
 	}
@@ -285,6 +294,9 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	if (c->needs_sock_for_poll) {
 		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
 		if (res < 0) {
+			if (res == -ENOTCONN) {
+				c->is_connected = QB_FALSE;
+			}
 			return res;
 		}
 	}
