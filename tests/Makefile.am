@@ -21,7 +21,13 @@ MAINTAINERCLEANFILES = Makefiles.in
 EXTRA_DIST =
 CLEANFILES =
 
-noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log
+noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
+	auto_check_header_qbarray auto_check_header_qbconfig auto_check_header_qbhdb \
+	auto_check_header_qbipc_common auto_check_header_qblist auto_check_header_qbloop \
+	auto_check_header_qbrb auto_check_header_qbatomic auto_check_header_qbdefs \
+	auto_check_header_qbipcc auto_check_header_qbipcs auto_check_header_qblog \
+	auto_check_header_qbmap auto_check_header_qbutil
+
 
 bmc_SOURCES = bmc.c $(top_builddir)/include/qb/qbipcc.h
 bmc_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
@@ -47,6 +53,20 @@ loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
 loop_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 loop_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
+public_headers = $(wildcard $(top_srcdir)/include/qb/qb*.h)
+auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
+CLEANFILES += $(auto_c_files)
+MAINTAINERCLEANFILES += $(auto_c_files)
+
+$(builddir)/auto_check_header_%.c: $(top_srcdir)/include/qb/%.h
+	@name=$$(echo "$<" | sed "s|.*qb\([a-z_]\+\).h|\1|") ;\
+	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
+	echo "#include <qb/qb$$name.h>" > $@_ ;\
+	echo "#ifndef QB_$${NAME}_H_DEFINED" >> $@_ ;\
+	echo "#error no header protector in file qb$$name.h" >> $@_ ;\
+	echo "#endif" >> $@_ ;\
+	echo "int main(void) {return 0;}" >> $@_
+	$(AM_V_GEN)mv $@_ $@
 
 distclean-compile:
 	rm -rf auto_*.c
