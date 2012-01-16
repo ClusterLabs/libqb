@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef QB_LOOP_DEFINED
-#define QB_LOOP_DEFINED
+#ifndef QB_LOOP_H_DEFINED
+#define QB_LOOP_H_DEFINED
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
@@ -255,5 +255,5 @@ int32_t qb_loop_signal_del(qb_loop_t *l,
 }
 #endif /* __cplusplus */
 /* *INDENT-ON* */
-#endif /* QB_LOOP_DEFINED */
+#endif /* QB_LOOP_H_DEFINED */
 

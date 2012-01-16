@@ -22,8 +22,8 @@
  * for libqb.
  */
 
-#ifndef QB_ATOMIC_DEFINED
-#define QB_ATOMIC_DEFINED
+#ifndef QB_ATOMIC_H_DEFINED
+#define QB_ATOMIC_H_DEFINED
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
@@ -204,4 +204,4 @@ void qb_atomic_pointer_set(volatile void* QB_GNUC_MAY_ALIAS * atomic,
 #endif
 /* *INDENT-ON* */
 
-#endif /* QB_ATOMIC_DEFINED */
+#endif /* QB_ATOMIC_H_DEFINED */

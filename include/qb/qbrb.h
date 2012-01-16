@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef QB_RB_DEFINED
-#define QB_RB_DEFINED
+#ifndef QB_RB_H_DEFINED
+#define QB_RB_H_DEFINED
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
@@ -285,4 +285,4 @@ int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group);
 #endif /* __cplusplus */
 /* *INDENT-ON* */
 
-#endif /* QB_RB_DEFINED */
+#endif /* QB_RB_H_DEFINED */
