@@ -30,6 +30,7 @@ extern "C" {
 /* *INDENT-ON* */
 
 #include <stdlib.h>
+#include <sys/uio.h>
 #include <qb/qbipc_common.h>
 #include <qb/qbhdb.h>
 #include <qb/qbloop.h>

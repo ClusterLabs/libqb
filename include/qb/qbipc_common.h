@@ -23,6 +23,8 @@
 #ifndef QB_IPC_COMMON_H_DEFINED
 #define QB_IPC_COMMON_H_DEFINED
 
+#include <stdint.h>
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 extern "C" {
