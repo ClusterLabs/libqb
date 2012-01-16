@@ -47,22 +47,22 @@ loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
 loop_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 loop_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
-if HAVE_DICT_WORDS
-if HAVE_SLOW_TESTS
-EXTRA_DIST += make-log-test
-CLEANFILES += write_logs.c
-MAINTAINERCLEANFILES += write_logs.c
-
-nodist_bench_log_SOURCES = write_logs.c
-
-bench_log: write_logs.c
-$(builddir)/write_logs.c: make-log-test
-	$(srcdir)/make-log-test > $(builddir)/write_logs-tmp.c
-	$(AM_V_GEN)mv $(builddir)/write_logs-tmp.c $(builddir)/write_logs.c
 
 distclean-compile:
-	rm -rf write_logs.c
+	rm -rf auto_*.c
 
+if HAVE_DICT_WORDS
+if HAVE_SLOW_TESTS
+EXTRA_DIST += make-log-test.sh
+CLEANFILES += auto_write_logs.c
+MAINTAINERCLEANFILES += auto_write_logs.c
+
+nodist_bench_log_SOURCES = auto_write_logs.c
+
+bench_log: auto_write_logs.c
+$(builddir)/auto_write_logs.c: make-log-test.sh
+	$(srcdir)/make-log-test.sh > $(builddir)/write_logs-tmp.c
+	$(AM_V_GEN)mv $(builddir)/write_logs-tmp.c $(builddir)/auto_write_logs.c
 endif
 endif
 
