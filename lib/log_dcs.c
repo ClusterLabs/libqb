@@ -126,8 +126,9 @@ qb_log_dcs_get(int32_t * newly_created,
 	 */
 	rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
 	assert(rc == 0);
-	if (csl_head->cs
-	    && strcmp(safe_filename, csl_head->cs->filename) == 0) {
+	if (csl_head->cs &&
+		format == csl_head->cs->format &&
+		strcmp(safe_filename, csl_head->cs->filename) == 0) {
 		return csl_head->cs;
 	}
 	/*
@@ -143,7 +144,8 @@ qb_log_dcs_get(int32_t * newly_created,
 	} else {
 		for (csl = csl_head; csl; csl = csl->next) {
 			assert(csl->cs->lineno == lineno);
-			if (strcmp(safe_filename, csl->cs->filename) == 0) {
+			if (format == csl->cs->format &&
+				strcmp(safe_filename, csl->cs->filename) == 0) {
 				cs = csl->cs;
 				break;
 			}

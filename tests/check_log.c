@@ -252,6 +252,10 @@ START_TEST(test_log_basic)
 	log_and_this_too();
 	ck_assert_int_eq(num_msgs, 2);
 
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, __FILE__, LOG_DEBUG);
 	/*
 	 * make sure we can pass in a null filename or function name.
 	 */
@@ -259,6 +263,21 @@ START_TEST(test_log_basic)
 				    __LINE__, 0, "null filename");
 	qb_log_from_external_source(NULL, __FILE__, "%s", LOG_INFO,
 				    __LINE__, 0, "null function");
+
+	/* check same file/lineno logs with different formats work
+	 */
+	num_msgs = 0;
+	qb_log_from_external_source(__func__, __FILE__, "%s bla", LOG_INFO,
+				    56, 0, "filename/lineno");
+	ck_assert_int_eq(num_msgs, 1);
+	ck_assert_str_eq(test_buf, "filename/lineno bla");
+
+	num_msgs = 0;
+	qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+				    56, 0, "same filename/lineno");
+	ck_assert_int_eq(num_msgs, 1);
+	ck_assert_str_eq(test_buf, "same filename/lineno");
+
 }
 END_TEST
 
