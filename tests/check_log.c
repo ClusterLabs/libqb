@@ -101,6 +101,11 @@ START_TEST(test_log_stupid_inputs)
 	rc = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 2000);
 	ck_assert_int_eq(rc, -EINVAL);
 
+	qb_log(LOG_INFO, "not init'd");
+
+	qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+				    __LINE__, 0, "also not init'd");
+
 	qb_log_init("test", LOG_USER, LOG_DEBUG);
 
 	/* non-opened log file */
