@@ -223,6 +223,10 @@ qb_util_nano_from_epoch_get(void)
 struct qb_util_stopwatch {
 	uint64_t started;
 	uint64_t stopped;
+	uint32_t split_options;
+	uint32_t split_size;
+	uint32_t split_entries;
+	uint64_t *split_entry_list;
 };
 
 qb_util_stopwatch_t *
@@ -236,6 +240,7 @@ qb_util_stopwatch_create(void)
 void
 qb_util_stopwatch_free(qb_util_stopwatch_t * sw)
 {
+	free(sw->split_entry_list);
 	free(sw);
 }
 
@@ -244,6 +249,7 @@ qb_util_stopwatch_start(qb_util_stopwatch_t * sw)
 {
 	sw->started = qb_util_nano_current_get();
 	sw->stopped = 0;
+	sw->split_entries = 0;
 }
 
 void
@@ -272,3 +278,86 @@ qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t * sw)
 	return ((float)e6 / (float)QB_TIME_US_IN_SEC);
 }
 
+int32_t
+qb_util_stopwatch_split_ctl(qb_util_stopwatch_t *sw,
+        uint32_t max_splits, uint32_t options)
+{
+	sw->split_size = max_splits;
+	sw->split_options = options;
+	sw->split_entry_list = (uint64_t *)calloc(1, sizeof (uint64_t) * max_splits);
+	if (sw->split_entry_list == NULL) {
+		return -errno;
+	}
+	return 0;
+}
+
+uint64_t
+qb_util_stopwatch_split(qb_util_stopwatch_t *sw)
+{
+	uint32_t new_entry_pos;
+	uint64_t time_start;
+	uint64_t time_end;
+
+	if (sw->split_size == 0) {
+		return 0;
+	}
+	if (!(sw->split_options & QB_UTIL_SW_OVERWRITE) &&
+	    sw->split_entries == sw->split_size) {
+		return 0;
+	}
+	if (sw->started == 0) {
+		qb_util_stopwatch_start(sw);
+	}
+	new_entry_pos = sw->split_entries % (sw->split_size);
+	sw->split_entry_list[new_entry_pos] = qb_util_nano_current_get();
+	sw->split_entries++;
+
+	time_start = sw->split_entry_list[new_entry_pos];
+	if (sw->split_entries == 1) {
+		/* first entry */
+		time_end = sw->started;
+	} else if (new_entry_pos == 0) {
+		/* wrap around */
+		time_end = sw->split_entry_list[sw->split_size - 1];
+	} else {
+		time_end = sw->split_entry_list[(new_entry_pos - 1) % sw->split_size];
+	}
+	return (time_start - time_end) / QB_TIME_NS_IN_USEC;
+}
+
+uint32_t
+qb_util_stopwatch_split_last(qb_util_stopwatch_t *sw)
+{
+	if (sw->split_entries) {
+		return sw->split_entries - 1;
+	}
+	return sw->split_entries;
+}
+
+uint64_t
+qb_util_stopwatch_time_split_get(qb_util_stopwatch_t *sw,
+				 uint32_t receint, uint32_t older)
+{
+	uint64_t time_start;
+	uint64_t time_end;
+
+	if (sw->started == 0 ||
+	    receint >= sw->split_entries ||
+	    older >= sw->split_entries ||
+	    receint < older) {
+		return 0;
+	}
+	if (sw->split_options & QB_UTIL_SW_OVERWRITE &&
+	    (receint < (sw->split_entries - sw->split_size) ||
+	     older < (sw->split_entries - sw->split_size))) {
+		return 0;
+	}
+
+	time_start = sw->split_entry_list[receint % (sw->split_size)];
+	if (older == receint) {
+		time_end = sw->started;
+	} else {
+		time_end = sw->split_entry_list[older % (sw->split_size)];
+	}
+	return (time_start - time_end) / QB_TIME_NS_IN_USEC;
+}

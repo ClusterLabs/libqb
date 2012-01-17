@@ -39,6 +39,72 @@ extern "C" {
  * @author Angus Salkeld <asalkeld@redhat.com>
  *
  * These are some convience functions used throughout libqb.
+ *
+ * @par Locking
+ * - qb_thread_lock_create()
+ * - qb_thread_lock()
+ * - qb_thread_trylock()
+ * - qb_thread_unlock()
+ * - qb_thread_lock_destroy()
+ *
+ * @par Time functions
+ * - qb_timespec_add_ms()
+ * - qb_util_nano_current_get()
+ * - qb_util_nano_monotonic_hz()
+ * - qb_util_nano_from_epoch_get()
+ * - qb_util_timespec_from_epoch_get()
+ *
+ * @par Basic Stopwatch
+ * @code
+ * uint64_t elapsed1;
+ * uint64_t elapsed2;
+ * qb_util_stopwatch_t *sw = qb_util_stopwatch_create();
+ *
+ * qb_util_stopwatch_start(sw);
+ *
+ * usleep(sometime);
+ * qb_util_stopwatch_stop(sw);
+ * elapsed1 = qb_util_stopwatch_us_elapsed_get(sw);
+ *
+ * usleep(somemoretime);
+ * qb_util_stopwatch_stop(sw);
+ * elapsed2 = qb_util_stopwatch_us_elapsed_get(sw);
+ *
+ * qb_util_stopwatch_free(sw);
+ * @endcode
+ *
+ * @par Stopwatch with splits
+ * Setup a stopwatch with space for 3 splits.
+ *
+ * @code
+ * uint64_t split;
+ * qb_util_stopwatch_t *sw = qb_util_stopwatch_create();
+ *
+ * qb_util_stopwatch_split_ctl(sw, 3, 0);
+ * qb_util_stopwatch_start(sw);
+ *
+ * usleep(sometime);
+ * qb_util_stopwatch_split(sw);
+ *
+ * usleep(somemoretime);
+ * qb_util_stopwatch_split(sw);
+ *
+ * usleep(somemoretime);
+ * qb_util_stopwatch_split(sw);
+ *
+ * idx = qb_util_stopwatch_split_last(sw);
+ * do {
+ *      split = qb_util_stopwatch_time_split_get(sw, idx, idx);
+ *      qb_log(LOG_INFO, "split %d is %"PRIu64"", last, split);
+ *      idx--;
+ * } while (split > 0);
+ *
+ * split = qb_util_stopwatch_time_split_get(sw, 2, 1);
+ * qb_log(LOG_INFO, "time between second and third split is %"PRIu64"", split);
+ *
+ * qb_util_stopwatch_free(sw);
+ * @endcode
+ *
  */
 
 /**
@@ -131,6 +197,9 @@ char *qb_strerror_r(int errnum, char *buf, size_t buflen);
 
 typedef struct qb_util_stopwatch qb_util_stopwatch_t;
 
+#define QB_UTIL_SW_OVERWRITE 0x01
+
+
 /**
  * Create a Stopwatch (to time operations)
  */
@@ -145,7 +214,7 @@ void qb_util_stopwatch_free(qb_util_stopwatch_t *sw);
  * Start the stopwatch
  *
  * This also acts as a reset. Essentially it sets the
- * starting time.
+ * starting time and clears the splits.
  */
 void qb_util_stopwatch_start(qb_util_stopwatch_t *sw);
 
@@ -171,6 +240,54 @@ uint64_t qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t *sw);
  * (it must have been started and stopped).
  */
 float qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t *sw);
+
+/**
+ *
+ * @param sw the stopwatch
+ * @param max_splits maximum number of time splits
+ * @param options (0 or QB_UTIL_SW_OVERWRITE )
+ * @retval 0 on success
+ * @retval -errno on failure
+ */
+int32_t qb_util_stopwatch_split_ctl(qb_util_stopwatch_t *sw,
+        uint32_t max_splits, uint32_t options);
+
+/**
+ * Create a new time split (or lap time)
+ *
+ * @param sw the stopwatch
+ * @retval the relative split time in micro seconds
+ * @retval 0 if no more splits available
+ */
+uint64_t qb_util_stopwatch_split(qb_util_stopwatch_t *sw);
+
+/**
+ * Get the last split index to be used by
+ * qb_util_stopwatch_time_split_get()
+ *
+ * @note this is zero based
+ *
+ * @param sw the stopwatch
+ * @return the last entry index
+ */
+uint32_t
+qb_util_stopwatch_split_last(qb_util_stopwatch_t *sw);
+
+/**
+ * Read the time split (in us) from "receint" to "older".
+ *
+ * If older == receint then the cumulated split will be
+ * returned (from the stopwatch start).
+ *
+ * @param sw the stopwatch
+ * @param receint split
+ * @param older split
+ * @retval the split time in micro seconds
+ * @retval 0 if not a valid split
+ */
+uint64_t
+qb_util_stopwatch_time_split_get(qb_util_stopwatch_t *sw,
+				 uint32_t receint, uint32_t older);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
