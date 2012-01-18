@@ -393,6 +393,41 @@ START_TEST(test_loop_timer_expire_leak)
 }
 END_TEST
 
+static int received_signum = 0;
+
+static int32_t
+sig_handler(int32_t rsignal, void *data)
+{
+	qb_loop_t *l = (qb_loop_t *)data;
+	qb_log(LOG_DEBUG, "caught signal %d", rsignal);
+	received_signum = rsignal;
+	qb_loop_stop(l);
+	return -1;
+}
+
+START_TEST(test_loop_sig_handling)
+{
+	qb_loop_signal_handle handle;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	qb_loop_signal_add(l, QB_LOOP_HIGH, SIGINT,
+			   l, sig_handler, &handle);
+	qb_loop_signal_add(l, QB_LOOP_HIGH, SIGTERM,
+			   l, sig_handler, &handle);
+	qb_loop_signal_add(l, QB_LOOP_HIGH, SIGQUIT,
+			   l, sig_handler, &handle);
+	kill(getpid(), SIGINT);
+	qb_loop_run(l);
+	ck_assert_int_eq(received_signum, SIGINT);
+	kill(getpid(), SIGQUIT);
+	qb_loop_run(l);
+	ck_assert_int_eq(received_signum, SIGQUIT);
+
+	qb_loop_destroy(l);
+}
+END_TEST
+
 static Suite *loop_timer_suite(void)
 {
 	TCase *tc;
@@ -417,6 +452,10 @@ static Suite *loop_timer_suite(void)
 	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("signals");
+	tcase_add_test(tc, test_loop_sig_handling);
+	tcase_set_timeout(tc, 10);
+	suite_add_tcase(s, tc);
 
 	return s;
 }

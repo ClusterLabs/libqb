@@ -121,6 +121,8 @@ qb_loop_run(struct qb_loop *l)
 	int32_t todo = 0;
 	int32_t ms_timeout;
 
+	l->stop_requested = QB_FALSE;
+
 	do {
 		if (p_stop == QB_LOOP_LOW) {
 			p_stop = QB_LOOP_HIGH;
