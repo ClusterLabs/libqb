@@ -162,6 +162,25 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
 ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_ptr,
 			   size_t msg_len, int32_t ms_timeout);
 
+/**
+ * Associate a "user" pointer with this connection.
+ *
+ * @param context the point to associate with this connection.
+ * @param c connection instance
+ * @see qb_ipcc_context_get()
+ */
+void qb_ipcc_context_set(qb_ipcc_connection_t *c, void *context);
+
+/**
+ * Get the context (set previously)
+ *
+ * @param c connection instance
+ * @return the context
+ * @see qb_ipcc_context_set()
+ */
+void *qb_ipcc_context_get(qb_ipcc_connection_t *c);
+
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

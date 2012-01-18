@@ -318,3 +318,20 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 	free(c->receive_buf);
 	free(c);
 }
+
+void
+qb_ipcc_context_set(struct qb_ipcc_connection *c, void *context)
+{
+	if (c == NULL) {
+		return;
+	}
+	c->context = context;
+}
+
+void *qb_ipcc_context_get(struct qb_ipcc_connection *c)
+{
+	if (c == NULL) {
+		return NULL;
+	}
+	return c->context;
+}
