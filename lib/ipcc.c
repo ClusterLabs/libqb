@@ -306,11 +306,26 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 void
 qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
+	struct qb_ipc_one_way *ow = NULL;
+
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 
 	if (c == NULL) {
 		return;
 	}
+
+	if (c->needs_sock_for_poll) {
+		ow = &c->setup;
+	}
+	if (c->type == QB_IPC_SOCKET) {
+		ow = &c->event;
+	}
+	if (ow) {
+		if (qb_ipc_us_recv_ready(ow, 1000) == -ENOTCONN) {
+			c->is_connected = QB_FALSE;
+		}
+	}
+
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);

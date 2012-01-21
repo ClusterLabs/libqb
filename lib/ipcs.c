@@ -467,8 +467,8 @@ qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 		return;
 	}
 	if (c->refcount < 1) {
-		qb_util_log(LOG_ERR, "%s() ref:%d state:%d fd:%d",
-			    __func__, c->refcount, c->state,
+		qb_util_log(LOG_ERR, "ref:%d state:%d fd:%d",
+			    c->refcount, c->state,
 			    c->setup.u.us.sock);
 		assert(0);
 	}

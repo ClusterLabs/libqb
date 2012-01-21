@@ -340,11 +340,14 @@ test_ipc_exit(void)
 	/* kill the server */
 	stop_process(pid);
 
-	/* assertion: we can call send/recv without locking up */
-	rc = send_and_check(100, recv_timeout, QB_FALSE);
-	ck_assert_int_eq(rc, -ENOTCONN);
+	/*
+	 * wait a bit for the server to die.
+	 */
+	sleep(1);
 
-	/* this needs to free up the shared mem */
+	/*
+	 * this needs to free up the shared mem
+	 */
 	qb_ipcc_disconnect(conn);
 }
 
@@ -565,6 +568,7 @@ test_ipc_server_fail(void)
 	sleep(1);
 	/*
 	 * try recv from the exit'ed server
+	 * assertion: we can call recv without locking up
 	 */
 	res = qb_ipcc_recv(conn, &res_header,
 			   sizeof(struct qb_ipc_response_header), 100);
