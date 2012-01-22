@@ -321,7 +321,7 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 		ow = &c->event;
 	}
 	if (ow) {
-		if (qb_ipc_us_recv_ready(ow, 1000) == -ENOTCONN) {
+		if (qb_ipc_us_recv_ready(ow, 0) == -ENOTCONN) {
 			c->is_connected = QB_FALSE;
 		}
 	}
