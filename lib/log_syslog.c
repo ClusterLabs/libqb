@@ -31,8 +31,14 @@ _syslog_logger(int32_t target,
 {
 	char output_buffer[QB_LOG_MAX_LEN];
 	struct qb_log_target *t = qb_log_target_get(target);
-	int32_t final_priority = cs->priority + t->priority_bump;
+	int32_t final_priority = cs->priority;
 
+	if (final_priority > LOG_INFO) {
+		/*
+		 * only bump the priority if it is greater than info.
+		 */
+		final_priority += t->priority_bump;
+	}
 	if (final_priority > LOG_DEBUG) {
 		return;
 	}
