@@ -186,9 +186,6 @@ qb_loop_timer_add(struct qb_loop * l,
 		return -EINVAL;
 	}
 	my_src = (struct qb_timer_source *)l->timer_source;
-	if (timer_handle_out == 0) {
-		return -ENOENT;
-	}
 
 	i = _get_empty_array_position_(my_src);
 	assert(qb_array_index(my_src->timers, i, (void **)&t) >= 0);
@@ -208,7 +205,9 @@ qb_loop_timer_add(struct qb_loop * l,
 		}
 	}
 
-	*timer_handle_out = (((uint64_t) (t->check)) << 32) | t->install_pos;
+	if (timer_handle_out) {
+		*timer_handle_out = (((uint64_t) (t->check)) << 32) | t->install_pos;
+	}
 	return timerlist_add_duration(&my_src->timerlist,
 				      make_job_from_tmo, t,
 				      nsec_duration, &t->timerlist_handle);

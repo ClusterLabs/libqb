@@ -193,8 +193,6 @@ START_TEST(test_loop_timer_input)
 	ck_assert_int_eq(res, -EINVAL);
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, NULL, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, job_1, NULL);
-	ck_assert_int_eq(res, -ENOENT);
 	qb_loop_destroy(l);
 }
 END_TEST

@@ -733,11 +733,6 @@ qb_loop_timer_add(struct qb_loop *l,
 			    "can't add a timer with either (l == NULL || timer_fn == NULL)");
 		return -EINVAL;
 	}
-	if (timer_handle_out == NULL) {
-		qb_util_log(LOG_ERR,
-			    "can't add a timer with (timer_handle_out == NULL)");
-		return -ENOENT;
-	}
 	fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
 	if (fd == -1) {
 		res = -errno;
@@ -771,7 +766,9 @@ qb_loop_timer_add(struct qb_loop *l,
 	pe->type = QB_TIMER;
 	pe->add_to_jobs = _qb_timer_add_to_jobs_;
 
-	*timer_handle_out = (((uint64_t) (pe->check)) << 32) | pe->install_pos;
+	if (timer_handle_out) {
+		*timer_handle_out = (((uint64_t) (pe->check)) << 32) | pe->install_pos;
+	}
 
 	return res;
 
