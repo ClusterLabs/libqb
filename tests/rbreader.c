@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2012 Red Hat, Inc.
+ *
+ * Author: Angus Salkeld <asalkeld@redhat.com>
+ *
+ * libqb is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * libqb is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,6 +26,7 @@
 #include <qb/qbdefs.h>
 #include <qb/qbrb.h>
 #include <qb/qbutil.h>
+#include <qb/qblog.h>
 
 #define BUFFER_CHUNK_SIZE (50*50*10)
 static qb_ringbuffer_t *rb = NULL;
@@ -16,15 +35,8 @@ static int keep_reading = QB_TRUE;
 
 static void sigterm_handler(int32_t num)
 {
-	printf("reader: %s(%d)\n", __func__, num);
+	qb_log(LOG_INFO, "signal %d", num);
 	keep_reading = QB_FALSE;
-}
-
-static void libqb_log_writer(const char *file_name,
-			     int32_t file_line,
-			     int32_t severity, const char *msg)
-{
-	printf("libqb:reader: %s:%d %s\n", file_name, file_line, msg);
 }
 
 int32_t main(int32_t argc, char *argv[])
@@ -34,20 +46,24 @@ int32_t main(int32_t argc, char *argv[])
 
 	signal(SIGINT, sigterm_handler);
 
-	qb_util_set_log_function(libqb_log_writer);
+	qb_log_init("rbreader", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	rb = qb_rb_open("tester", BUFFER_CHUNK_SIZE * 3,
 			QB_RB_FLAG_SHARED_PROCESS | QB_RB_FLAG_CREATE, 0);
 
 	if (rb == NULL) {
-		printf("reader: failed to create ringbuffer\n");
+		qb_perror(LOG_ERR, "failed to create ringbuffer");
 		return -1;
 	}
 	while (keep_reading) {
 		num_read = qb_rb_chunk_read(rb, buffer,
 					    BUFFER_CHUNK_SIZE, 5500);
-		if (num_read == -1) {
-			printf("reader: nothing to read\n");
+		if (num_read < 0) {
+			qb_perror(LOG_ERR, "nothing to read");
 		}
 	}
 	qb_rb_close(rb);

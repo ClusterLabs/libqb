@@ -32,6 +32,7 @@ extern "C" {
 #ifndef S_SPLINT_S
 #include <unistd.h>
 #endif /* S_SPLINT_S */
+#include <qb/qbdefs.h>
 
 /**
  * @file qbutil.h
@@ -88,7 +89,7 @@ typedef void (*qb_util_log_fn_t) (const char *file_name,
 /**
  * Use this function to output libqb internal log message as you wish.
  */
-void qb_util_set_log_function(qb_util_log_fn_t fn);
+void qb_util_set_log_function(qb_util_log_fn_t fn) QB_GNUC_DEPRECATED;
 
 /**
  * Add milliseconds onto the timespec.

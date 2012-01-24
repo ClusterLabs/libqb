@@ -515,20 +515,13 @@ static Suite *log_suite(void)
 	return s;
 }
 
-static void libqb_log_fn(const char *file_name,
-			 int32_t file_line, int32_t severity, const char *msg)
-{
-	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
-}
-
-int32_t main(void)
+int32_t
+main(void)
 {
 	int32_t number_failed;
 
 	Suite *s = log_suite();
 	SRunner *sr = srunner_create(s);
-
-	qb_util_set_log_function(libqb_log_fn);
 
 	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);

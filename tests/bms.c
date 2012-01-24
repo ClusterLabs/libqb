@@ -22,6 +22,7 @@
 #include <signal.h>
 
 #include <qb/qbdefs.h>
+#include <qb/qblog.h>
 #include <qb/qbutil.h>
 #include <qb/qbloop.h>
 #include <qb/qbipcs.h>
@@ -46,12 +47,12 @@ static int32_t s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t
 #if 0
 	if (uid == 0 && gid == 0) {
 		if (verbose) {
-			printf("%s:%d %s authenticated connection\n",
+			qb_log(LOG_INFO, "%s:%d %s authenticated connection\n",
 					__FILE__, __LINE__, __func__);
 		}
 		return 1;
 	}
-	printf("%s:%d %s() BAD user!\n", __FILE__, __LINE__, __func__);
+	qb_log(LOG_INFO, "%s:%d %s() BAD user!\n", __FILE__, __LINE__, __func__);
 	return 0;
 #else
 	return 0;
@@ -64,14 +65,14 @@ static void s1_connection_created_fn(qb_ipcs_connection_t *c)
 	struct qb_ipcs_stats srv_stats;
 
 	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
-	printf("\n Connection created\n > active:%d\n > closed:%d\n\n",
+	qb_log(LOG_NOTICE, "Connection created > active:%d > closed:%d",
 	       srv_stats.active_connections,
 	       srv_stats.closed_connections);
 }
 
 static void s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
 {
-	printf("connection about to be freed\n");
+	qb_log(LOG_INFO, "connection about to be freed\n");
 }
 
 static int32_t s1_connection_closed_fn(qb_ipcs_connection_t *c)
@@ -83,18 +84,18 @@ static int32_t s1_connection_closed_fn(qb_ipcs_connection_t *c)
 
 	qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
 
-	printf("\n Connection to pid:%d destroyed\n > active:%d\n > closed:%d\n\n",
+	qb_log(LOG_INFO, "Connection to pid:%d destroyed > active:%d > closed:%d",
 	       stats.client_pid,
 	       srv_stats.active_connections,
 	       srv_stats.closed_connections);
 
-	printf(" Requests     %"PRIu64"\n", stats.requests);
-	printf(" Responses    %"PRIu64"\n", stats.responses);
-	printf(" Events       %"PRIu64"\n", stats.events);
-	printf(" Send retries %"PRIu64"\n", stats.send_retries);
-	printf(" Recv retries %"PRIu64"\n", stats.recv_retries);
-	printf(" FC state     %d\n", stats.flow_control_state);
-	printf(" FC count     %"PRIu64"\n\n", stats.flow_control_count);
+	qb_log(LOG_INFO, " Requests     %"PRIu64"\n", stats.requests);
+	qb_log(LOG_INFO, " Responses    %"PRIu64"\n", stats.responses);
+	qb_log(LOG_INFO, " Events       %"PRIu64"\n", stats.events);
+	qb_log(LOG_INFO, " Send retries %"PRIu64"\n", stats.send_retries);
+	qb_log(LOG_INFO, " Recv retries %"PRIu64"\n", stats.recv_retries);
+	qb_log(LOG_INFO, " FC state     %d\n", stats.flow_control_state);
+	qb_log(LOG_INFO, " FC count     %"PRIu64"\n\n", stats.flow_control_count);
 	return 0;
 }
 
@@ -105,11 +106,8 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 	struct qb_ipc_response_header response;
 	ssize_t res;
 
-	if (verbose > 2) {
-		printf("%s:%d %s > msg:%d, size:%d\n",
-			__FILE__, __LINE__, __func__,
-			req_pt->id, req_pt->size);
-	}
+	qb_log(LOG_TRACE, "msg:%d, size:%d",
+	       req_pt->id, req_pt->size);
 	response.size = sizeof(struct qb_ipc_response_header);
 	response.id = 13;
 	response.error = 0;
@@ -117,49 +115,43 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 		res = qb_ipcs_response_send(c, &response,
 				sizeof(response));
 		if (res < 0) {
-			perror("qb_ipcs_response_send");
+			qb_perror(LOG_ERR, "qb_ipcs_response_send");
 		}
 	}
 	if (events) {
 		res = qb_ipcs_event_send(c, &response,
 				sizeof(response));
 		if (res < 0) {
-			perror("qb_ipcs_event_send");
+			qb_perror(LOG_ERR, "qb_ipcs_event_send");
 		}
 	}
 	return 0;
 }
 
-static void ipc_log_fn(const char *file_name,
-		       int32_t file_line, int32_t severity, const char *msg)
-{
-	fprintf(stderr, "%s:%d [%d] %s\n", file_name, file_line, severity, msg);
-}
-
 static void sigusr1_handler(int32_t num)
 {
-	printf("%s(%d)\n", __func__, num);
+	qb_log(LOG_INFO, "%s(%d)\n", __func__, num);
 	qb_ipcs_destroy(s1);
 	exit(0);
 }
 
 static void show_usage(const char *name)
 {
-	printf("usage: \n");
-	printf("%s <options>\n", name);
-	printf("\n");
-	printf("  options:\n");
-	printf("\n");
-	printf("  -n             non-blocking ipc (default blocking)\n");
-	printf("  -e             send events back instead for responses\n");
-	printf("  -v             verbose\n");
-	printf("  -h             show this help text\n");
-	printf("  -m             use shared memory\n");
-	printf("  -p             use posix message queues\n");
-	printf("  -s             use sysv message queues\n");
-	printf("  -u             use unix sockets\n");
-	printf("  -g             use glib mainloop\n");
-	printf("\n");
+	qb_log(LOG_INFO, "usage: \n");
+	qb_log(LOG_INFO, "%s <options>\n", name);
+	qb_log(LOG_INFO, "\n");
+	qb_log(LOG_INFO, "  options:\n");
+	qb_log(LOG_INFO, "\n");
+	qb_log(LOG_INFO, "  -n             non-blocking ipc (default blocking)\n");
+	qb_log(LOG_INFO, "  -e             send events back instead for responses\n");
+	qb_log(LOG_INFO, "  -v             verbose\n");
+	qb_log(LOG_INFO, "  -h             show this help text\n");
+	qb_log(LOG_INFO, "  -m             use shared memory\n");
+	qb_log(LOG_INFO, "  -p             use posix message queues\n");
+	qb_log(LOG_INFO, "  -s             use sysv message queues\n");
+	qb_log(LOG_INFO, "  -u             use unix sockets\n");
+	qb_log(LOG_INFO, "  -g             use glib mainloop\n");
+	qb_log(LOG_INFO, "\n");
 }
 
 #ifdef HAVE_GLIB
@@ -323,13 +315,17 @@ int32_t main(int32_t argc, char *argv[])
 	signal(SIGILL, sigusr1_handler);
 	signal(SIGTERM, sigusr1_handler);
 
-	qb_util_set_log_function(ipc_log_fn);
+	qb_log_init("bms", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO + verbose);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	if (!use_glib) {
 		bms_loop = qb_loop_create();
 		s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
 		if (s1 == 0) {
-			perror("qb_ipcs_create");
+			qb_perror(LOG_ERR, "qb_ipcs_create");
 			exit(1);
 		}
 		qb_ipcs_poll_handlers_set(s1, &ph);
@@ -343,7 +339,7 @@ int32_t main(int32_t argc, char *argv[])
 
 		s1 = qb_ipcs_create("bm1", 0, ipc_type, &sh);
 		if (s1 == 0) {
-			perror("qb_ipcs_create");
+			qb_perror(LOG_ERR, "qb_ipcs_create");
 			exit(1);
 		}
 		qb_ipcs_poll_handlers_set(s1, &glib_ph);
@@ -351,7 +347,7 @@ int32_t main(int32_t argc, char *argv[])
 
 		g_main_loop_run(glib_loop);
 #else
-		printf("You don't seem to have glib-devel installed.\n");
+		qb_log(LOG_ERR, "You don't seem to have glib-devel installed.\n");
 #endif
 	}
 	return EXIT_SUCCESS;

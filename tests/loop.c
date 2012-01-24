@@ -19,51 +19,50 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
-#include <signal.h>
-
 #include <sys/poll.h>
 
-#include <qb/qbloop.h>
-#include <qb/qbutil.h>
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
+#include <qb/qblog.h>
+#include <qb/qbloop.h>
 
 static struct qb_loop *l;
 static qb_loop_timer_handle th;
 
-static void job_3_9(void *data) { printf("%s\n", __func__); }
-static void job_1_2(void *data) { printf("%s\n", __func__); }
-static void job_2_4(void *data) { printf("%s\n", __func__); }
-static void job_3_5(void *data) { printf("%s\n", __func__); }
-static void job_3_6(void *data) { printf("%s\n", __func__); }
-static void job_1_1(void *data) { printf("%s\n", __func__); }
-static void job_3_7(void *data) { printf("%s\n", __func__); }
-static void job_2_3(void *data) { printf("%s\n", __func__); }
-static void job_2_8(void *data) { printf("%s\n", __func__); }
-static void job_1_9(void *data) { printf("%s\n", __func__); }
+static void job_3_9(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_1_2(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_2_4(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_3_5(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_3_6(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_1_1(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_3_7(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_2_3(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_2_8(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
+static void job_1_9(void *data) { qb_log(LOG_INFO, "%s\n", __func__); }
 
 static void more_important_jobs(void *data)
 {
-	printf("%s\n", __func__);
+	qb_enter();
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_2);
 	qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_9);
 }
 
 static int32_t handle_reconf_signal(int32_t sig, void *data)
 {
-	printf("%s(%d) \n", __func__, sig);
+	qb_log(LOG_INFO, "signal %d", sig);
 	return 0;
 }
 
 static int32_t handle_exit_signal(int32_t sig, void *data)
 {
-	printf("%s(%d) exiting ... bye\n", __func__, sig);
+	qb_log(LOG_INFO, "exiting (signal %d)... bye", sig);
 	qb_loop_stop(l);
 	return -1;
 }
 
 static void more_jobs(void *data)
 {
-	printf("%s\n", __func__);
+	qb_log(LOG_INFO, "%s\n", __func__);
 	qb_loop_timer_add(l, QB_LOOP_HIGH, 3109*QB_TIME_NS_IN_MSEC, NULL, job_1_1, &th);
 	qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_7);
 	qb_loop_timer_add(l, QB_LOOP_LOW, 1000*QB_TIME_NS_IN_MSEC, NULL, more_important_jobs, &th);
@@ -82,7 +81,7 @@ static int32_t read_stdin(int32_t fd, int32_t revents, void *data)
 	char buf[100];
 	ssize_t len = read(fd, buf, 100);
 	buf[len-1] = '\0';
-	printf("typed > \"%s\"\n", buf);
+	qb_log(LOG_INFO, "typed > \"%s\"\n", buf);
 	if (strcmp(buf, "more") == 0) {
 		more_jobs(NULL);
 	}
@@ -90,17 +89,15 @@ static int32_t read_stdin(int32_t fd, int32_t revents, void *data)
 	return 0;
 }
 
-static void libqb_log_fn(const char *file_name,
-			 int32_t file_line, int32_t severity, const char *msg)
-{
-	printf("libqb: %s:%d %s\n", file_name, file_line, msg);
-}
-
 int main(int argc, char * argv[])
 {
 	qb_loop_signal_handle sh;
 
-	qb_util_set_log_function(libqb_log_fn);
+	qb_log_init("loop", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	l = qb_loop_create();
 

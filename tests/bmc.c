@@ -21,7 +21,7 @@
 #include "os_base.h"
 #include <signal.h>
 
-#include <qb/qbdefs.h>
+#include <qb/qblog.h>
 #include <qb/qbutil.h>
 #include <qb/qbipcc.h>
 
@@ -45,8 +45,8 @@ static void bm_finish(const char *operation, int32_t size)
 	ops_per_sec = ((float)ITERATIONS) / elapsed;
 	mbs_per_sec = ((((float)ITERATIONS) * size) / elapsed) / (1024.0 * 1024.0);
 
-	printf("write size, %d, OPs/sec, %9.3f, ", size, ops_per_sec);
-	printf("MB/sec, %9.3f\n", mbs_per_sec);
+	qb_log(LOG_INFO, "write size, %d, OPs/sec, %9.3f, MB/sec, %9.3f",
+	       size, ops_per_sec, mbs_per_sec);
 }
 
 struct my_req {
@@ -70,11 +70,11 @@ repeat_send:
 		if (res == -EAGAIN) {
 			goto repeat_send;
 		} else if (res == -EINVAL || res == -EINTR || res == -ENOTCONN) {
-			perror("qb_ipcc_send");
+			qb_perror(LOG_ERR, "qb_ipcc_send");
 			return -1;
 		} else {
 			errno = -res;
-			perror("qb_ipcc_send");
+			qb_perror(LOG_ERR, "qb_ipcc_send");
 			goto repeat_send;
 		}
 	}
@@ -87,7 +87,7 @@ repeat_send:
 			return -1;
 		}
 		if (res < 0) {
-			perror("qb_ipcc_recv");
+			qb_perror(LOG_ERR, "qb_ipcc_recv");
 		}
 		assert(res == sizeof(struct qb_ipc_response_header));
 		assert(res_header.id == 13);
@@ -101,7 +101,7 @@ repeat_send:
 			return -1;
 		}
 		if (res < 0) {
-			perror("qb_ipcc_event_recv");
+			qb_perror(LOG_ERR, "qb_ipcc_event_recv");
 		}
 		assert(res == sizeof(struct qb_ipc_response_header));
 		assert(res_header.id == 13);
@@ -114,33 +114,27 @@ struct qb_ipc_request_header *global_zcb_buffer;
 
 static void show_usage(const char *name)
 {
-	printf("usage: \n");
-	printf("%s <options>\n", name);
-	printf("\n");
-	printf("  options:\n");
-	printf("\n");
-	printf("  -n             non-blocking ipc (default blocking)\n");
-	printf("  -e             receive events\n");
-	printf("  -v             verbose\n");
-	printf("  -h             show this help text\n");
-	printf("\n");
+	qb_log(LOG_INFO, "usage: \n");
+	qb_log(LOG_INFO, "%s <options>\n", name);
+	qb_log(LOG_INFO, "\n");
+	qb_log(LOG_INFO, "  options:\n");
+	qb_log(LOG_INFO, "\n");
+	qb_log(LOG_INFO, "  -n             non-blocking ipc (default blocking)\n");
+	qb_log(LOG_INFO, "  -e             receive events\n");
+	qb_log(LOG_INFO, "  -v             verbose\n");
+	qb_log(LOG_INFO, "  -h             show this help text\n");
+	qb_log(LOG_INFO, "\n");
 }
 
 static void sigterm_handler(int32_t num)
 {
-	printf("bmc: %s(%d)\n", __func__, num);
+	qb_log(LOG_INFO, "bmc: %s(%d)\n", __func__, num);
 	qb_ipcc_disconnect(conn);
 	exit(0);
 }
 
-static void libqb_log_writer(const char *file_name,
-			     int32_t file_line,
-			     int32_t severity, const char *msg)
-{
-	printf("libqb: %s:%d [%d] %s\n", file_name, file_line, severity, msg);
-}
-
-int32_t main(int32_t argc, char *argv[])
+int32_t
+main(int32_t argc, char *argv[])
 {
 	const char *options = "nevh";
 	int32_t opt;
@@ -149,7 +143,11 @@ int32_t main(int32_t argc, char *argv[])
 
 	mypid = getpid();
 
-	qb_util_set_log_function(libqb_log_writer);
+	qb_log_init("bmc", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
@@ -175,7 +173,7 @@ int32_t main(int32_t argc, char *argv[])
 	signal(SIGTERM, sigterm_handler);
 	conn = qb_ipcc_connect("bm1", MAX_MSG_SIZE);
 	if (conn == NULL) {
-		perror("qb_ipcc_connect");
+		qb_perror(LOG_ERR, "qb_ipcc_connect");
 		exit(1);
 	}
 

@@ -33,6 +33,7 @@
 #include <qb/qbrb.h>
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
+#include <qb/qblog.h>
 
 static qb_ringbuffer_t *rb = NULL;
 #define ITERATIONS 100000
@@ -52,16 +53,9 @@ do {								\
 
 static void sigterm_handler(int32_t num)
 {
-	printf("writer: %s(%d)\n", __func__, num);
+	qb_log(LOG_INFO, "writer: %s(%d)\n", __func__, num);
 	qb_rb_close(rb);
 	exit(0);
-}
-
-static void libqb_log_writer(const char *file_name,
-			     int32_t file_line,
-			     int32_t severity, const char *msg)
-{
-	printf("libqb:writer: %s:%d %s\n", file_name, file_line, msg);
 }
 
 static void bm_start(void)
@@ -86,8 +80,8 @@ static void bm_finish(const char *operation, int32_t size)
 	     (((float)tv_elapsed.tv_sec) +
 	      (((float)tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 * 1024.0);
 
-	printf("write size %d OPs/sec %9.3f ", size, ops_per_sec);
-	printf("MB/sec %9.3f\n", mbs_per_sec);
+	qb_log(LOG_INFO, "write size %d OPs/sec %9.3f MB/sec %9.3f",
+	       size, ops_per_sec, mbs_per_sec);
 }
 
 static void bmc_connect(void)
@@ -96,7 +90,7 @@ static void bmc_connect(void)
 			QB_RB_FLAG_SHARED_PROCESS, 0);
 
 	if (rb == NULL) {
-		printf("writer: failed to create ringbuffer\n");
+		qb_perror(LOG_ERR, "failed to create ringbuffer");
 		exit(1);
 	}
 
@@ -133,11 +127,12 @@ int32_t main(int32_t argc, char *argv[])
 	int32_t opt;
 	int32_t i, j;
 	int32_t size;
+	int32_t verbose = 0;
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
 		case 'v':
-			qb_util_set_log_function(libqb_log_writer);
+			verbose++;
 			break;
 		case 'h':
 		default:
@@ -148,6 +143,12 @@ int32_t main(int32_t argc, char *argv[])
 	}
 
 	signal(SIGINT, sigterm_handler);
+
+	qb_log_init("rbwriter", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO + verbose);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	bmc_connect();
 
