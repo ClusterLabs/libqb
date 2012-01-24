@@ -128,6 +128,7 @@ qb_log_dcs_get(int32_t * newly_created,
 	assert(rc == 0);
 	if (csl_head->cs &&
 		format == csl_head->cs->format &&
+		priority == csl_head->cs->priority &&
 		strcmp(safe_filename, csl_head->cs->filename) == 0) {
 		return csl_head->cs;
 	}
@@ -145,7 +146,8 @@ qb_log_dcs_get(int32_t * newly_created,
 		for (csl = csl_head; csl; csl = csl->next) {
 			assert(csl->cs->lineno == lineno);
 			if (format == csl->cs->format &&
-				strcmp(safe_filename, csl->cs->filename) == 0) {
+			    priority == csl->cs->priority &&
+			    strcmp(safe_filename, csl->cs->filename) == 0) {
 				cs = csl->cs;
 				break;
 			}

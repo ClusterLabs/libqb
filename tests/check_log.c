@@ -278,6 +278,26 @@ START_TEST(test_log_basic)
 	ck_assert_int_eq(num_msgs, 1);
 	ck_assert_str_eq(test_buf, "same filename/lineno");
 
+	/* check filtering works on same file/lineno but different
+	 * log level.
+	 */
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, __FILE__, LOG_INFO);
+
+	num_msgs = 0;
+	qb_log_from_external_source(__func__, __FILE__,
+				    "same filename/lineno, this level %d",
+				    LOG_INFO, 56, 0, LOG_INFO);
+	ck_assert_int_eq(num_msgs, 1);
+	ck_assert_str_eq(test_buf, "same filename/lineno, this level 6");
+
+	num_msgs = 0;
+	qb_log_from_external_source(__func__, __FILE__,
+				    "same filename/lineno, this level %d",
+				    LOG_DEBUG, 56, 0, LOG_DEBUG);
+	ck_assert_int_eq(num_msgs, 0);
 }
 END_TEST
 
