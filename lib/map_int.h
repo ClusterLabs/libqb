@@ -68,6 +68,7 @@ struct qb_map_notifier {
 	qb_map_notify_fn callback;
 	int32_t events;
 	void *user_data;
+	int32_t refcount;
 };
 
 

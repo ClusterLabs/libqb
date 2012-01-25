@@ -540,6 +540,22 @@ trie_get(struct qb_map *map, const char *key)
 }
 
 static void
+trie_notify_deref(struct qb_map_notifier *f)
+{
+	f->refcount--;
+	if (f->refcount == 0) {
+		qb_list_del(&f->list);
+		free(f);
+	}
+}
+
+static void
+trie_notify_ref(struct qb_map_notifier *f)
+{
+	f->refcount++;
+}
+
+static void
 trie_notify(struct trie_node *n,
 	    uint32_t event, const char *key, void *old_value, void *value)
 {
@@ -549,8 +565,9 @@ trie_notify(struct trie_node *n,
 
 	do {
 		for (list = c->notifier_head.next;
-		     list != &c->notifier_head; list = list->next) {
+		     list != &c->notifier_head; ) {
 			tn = qb_list_entry(list, struct qb_map_notifier, list);
+			trie_notify_ref(tn);
 
 			if ((tn->events & event) &&
 			    ((tn->events & QB_MAP_NOTIFY_RECURSIVE) ||
@@ -564,6 +581,8 @@ trie_notify(struct trie_node *n,
 				tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
 					     old_value, value, tn->user_data);
 			}
+		        list = list->next;
+			trie_notify_deref(tn);
 		}
 		c = c->parent;
 	} while (c);
@@ -611,6 +630,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 		f->events = events;
 		f->user_data = user_data;
 		f->callback = fn;
+		f->refcount = 1;
 		qb_list_init(&f->list);
 		if (key) {
 			if (events & QB_MAP_NOTIFY_RECURSIVE) {
@@ -640,7 +660,6 @@ trie_notify_del(qb_map_t * m, const char *key,
 	struct qb_map_notifier *f;
 	struct trie_node *n;
 	struct qb_list_head *list;
-	struct qb_list_head *next;
 	int32_t found = QB_FALSE;
 
 	if (key) {
@@ -652,21 +671,21 @@ trie_notify_del(qb_map_t * m, const char *key,
 		return -ENOENT;
 	}
 	for (list = n->notifier_head.next;
-	     list != &n->notifier_head; list = next) {
+	     list != &n->notifier_head; ) {
 		f = qb_list_entry(list, struct qb_map_notifier, list);
-		next = list->next;
+		trie_notify_ref(f);
 
 		if (f->events == events && f->callback == fn) {
 			if (cmp_userdata && (f->user_data == user_data)) {
+				trie_notify_deref(f);
 				found = QB_TRUE;
-				qb_list_del(&f->list);
-				free(f);
 			} else if (!cmp_userdata) {
+				trie_notify_deref(f);
 				found = QB_TRUE;
-				qb_list_del(&f->list);
-				free(f);
 			}
 		}
+		list = list->next;
+		trie_notify_deref(f);
 	}
 	if (found) {
 		trie_node_release(t, n);
