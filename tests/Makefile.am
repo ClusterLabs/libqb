@@ -20,6 +20,7 @@
 MAINTAINERCLEANFILES = Makefiles.in
 EXTRA_DIST =
 CLEANFILES =
+AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
 	auto_check_header_qbarray auto_check_header_qbconfig auto_check_header_qbhdb \
@@ -30,11 +31,9 @@ noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
 
 
 bmc_SOURCES = bmc.c $(top_builddir)/include/qb/qbipcc.h
-bmc_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 bmc_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 bmcpt_SOURCES = bmcpt.c $(top_builddir)/include/qb/qbipcc.h
-bmcpt_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 bmcpt_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 bms_SOURCES = bms.c $(top_builddir)/include/qb/qbipcs.h
@@ -42,15 +41,12 @@ bms_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include $(GLIB_CFLAGS)
 bms_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la $(GLIB_LIBS)
 
 rbwriter_SOURCES = rbwriter.c $(top_builddir)/include/qb/qbrb.h
-rbwriter_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 rbwriter_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 rbreader_SOURCES = rbreader.c $(top_builddir)/include/qb/qbrb.h
-rbreader_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 rbreader_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
-loop_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 loop_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 
 public_headers = $(wildcard $(top_srcdir)/include/qb/qb*.h)
