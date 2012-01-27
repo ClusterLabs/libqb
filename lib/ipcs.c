@@ -295,8 +295,8 @@ send_event_notification(int32_t fd, int32_t revents, void *data)
 		return 0;
 	} else {
 		c->outstanding_notifiers = 0;
-		c->poll_events = POLLIN | POLLPRI | POLLNVAL,
-		    (void)_modify_dispatch_descriptor_(c);
+		c->poll_events = POLLIN | POLLPRI | POLLNVAL;
+		(void)_modify_dispatch_descriptor_(c);
 	}
 	return 0;
 }
@@ -329,8 +329,8 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 			 * notify the client later, when we can.
 			 */
 			c->outstanding_notifiers++;
-			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL,
-			    (void)_modify_dispatch_descriptor_(c);
+			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
+			(void)_modify_dispatch_descriptor_(c);
 		}
 	}
 
@@ -374,8 +374,8 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 			 * notify the client later, when we can.
 			 */
 			c->outstanding_notifiers++;
-			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL,
-			    (void)_modify_dispatch_descriptor_(c);
+			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
+			(void)_modify_dispatch_descriptor_(c);
 		}
 	}
 
