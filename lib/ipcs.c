@@ -365,6 +365,10 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 			res2 = qb_ipc_us_send(&c->setup, &res, 1);
 			if (res2 == 1) {
 				goto deref_and_return;
+			} else if (res2 == -EPIPE) {
+				res = -ENOTCONN;
+			} else if (res2 < 0) {
+				res = res2;
 			}
 			/*
 			 * notify the client later, when we can.
