@@ -612,10 +612,14 @@ send_response:
 	}
 
 	if (res == 0) {
+		qb_ipcs_connection_ref(c);
 		if (s->serv_fns.connection_created) {
 			s->serv_fns.connection_created(c);
 		}
-		c->state = QB_IPCS_CONNECTION_ESTABLISHED;
+		if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
+			c->state = QB_IPCS_CONNECTION_ESTABLISHED;
+		}
+		qb_ipcs_connection_unref(c);
 	} else {
 		if (res == -EACCES) {
 			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
