@@ -280,32 +280,57 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 }
 
 static int32_t
-send_event_notification(int32_t fd, int32_t revents, void *data)
+resend_event_notifications(struct qb_ipcs_connection *c)
 {
 	ssize_t res = 0;
-	struct qb_ipcs_connection *c = data;
 
 	if (c->outstanding_notifiers > 0) {
-		res = qb_ipc_us_send(&c->setup, data, c->outstanding_notifiers);
+		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers,
+				     c->outstanding_notifiers);
 	}
 	if (res > 0) {
 		c->outstanding_notifiers -= res;
 	}
-	if (c->outstanding_notifiers > 0) {
-		return 0;
-	} else {
-		c->outstanding_notifiers = 0;
+	assert(c->outstanding_notifiers >= 0);
+	if (c->outstanding_notifiers == 0) {
 		c->poll_events = POLLIN | POLLPRI | POLLNVAL;
 		(void)_modify_dispatch_descriptor_(c);
 	}
-	return 0;
+	return res;
+}
+
+static int32_t
+new_event_notification(struct qb_ipcs_connection * c)
+{
+	ssize_t res = 0;
+
+	if (!c->service->needs_sock_for_poll) {
+		return res;
+	}
+
+	assert(c->outstanding_notifiers >= 0);
+	if (c->outstanding_notifiers > 0) {
+		c->outstanding_notifiers++;
+	} else {
+		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers, 1);
+		if (res == 1) {
+			return res;
+		}
+		/*
+		 * notify the client later, when we can.
+		 */
+		c->outstanding_notifiers++;
+		c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
+		(void)_modify_dispatch_descriptor_(c);
+	}
+	return res;
 }
 
 ssize_t
 qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 {
 	ssize_t res;
-	ssize_t res2 = 0;
+	ssize_t resn;
 
 	if (c == NULL) {
 		return -EINVAL;
@@ -313,31 +338,16 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 	qb_ipcs_connection_ref(c);
 
 	res = c->service->funcs.send(&c->event, data, size);
-	if (res != size) {
-		goto deref_and_return;
-	}
-	c->stats.events++;
-	if (c->service->needs_sock_for_poll) {
-		if (c->outstanding_notifiers > 0) {
-			c->outstanding_notifiers++;
-		} else {
-			res2 = qb_ipc_us_send(&c->setup, data, 1);
-			if (res2 == 1) {
-				goto deref_and_return;
-			}
-			/*
-			 * notify the client later, when we can.
-			 */
-			c->outstanding_notifiers++;
-			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
-			(void)_modify_dispatch_descriptor_(c);
+	if (res == size) {
+		c->stats.events++;
+		resn = new_event_notification(c);
+		if (resn < 0 && resn != -EAGAIN) {
+			errno = -resn;
+			qb_util_perror(LOG_WARNING, "new_event_notification");
 		}
 	}
 
-deref_and_return:
-
 	qb_ipcs_connection_unref(c);
-
 	return res;
 }
 
@@ -346,7 +356,7 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 		    const struct iovec * iov, size_t iov_len)
 {
 	ssize_t res;
-	ssize_t res2;
+	ssize_t resn;
 
 	if (c == NULL) {
 		return -EINVAL;
@@ -354,35 +364,16 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 	qb_ipcs_connection_ref(c);
 
 	res = c->service->funcs.sendv(&c->event, iov, iov_len);
-	if (res < 0) {
-		goto deref_and_return;
-	}
-	c->stats.events++;
-	if (c->service->needs_sock_for_poll) {
-		if (c->outstanding_notifiers > 0) {
-			c->outstanding_notifiers++;
-		} else {
-			res2 = qb_ipc_us_send(&c->setup, &res, 1);
-			if (res2 == 1) {
-				goto deref_and_return;
-			} else if (res2 == -EPIPE) {
-				res = -ENOTCONN;
-			} else if (res2 < 0) {
-				res = res2;
-			}
-			/*
-			 * notify the client later, when we can.
-			 */
-			c->outstanding_notifiers++;
-			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
-			(void)_modify_dispatch_descriptor_(c);
+	if (res > 0) {
+		c->stats.events++;
+		resn = new_event_notification(c);
+		if (resn < 0 && resn != -EAGAIN) {
+			errno = -resn;
+			qb_util_perror(LOG_WARNING, "new_event_notification");
 		}
 	}
 
-deref_and_return:
-
 	qb_ipcs_connection_unref(c);
-
 	return res;
 }
 
@@ -656,17 +647,22 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
 	char bytes[MAX_RECV_MSGS];
 	int32_t res;
+	int32_t res2;
 	int32_t recvd = 0;
 	ssize_t avail;
 
 	if (revents & POLLHUP) {
-		qb_util_log(LOG_DEBUG, "%s HUP conn:%p fd:%d", __func__, c, fd);
+		qb_util_log(LOG_DEBUG, "HUP conn:%p fd:%d", c, fd);
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
 
 	if (revents & POLLOUT) {
-		res = send_event_notification(fd, revents, data);
+		res = resend_event_notifications(c);
+		if (res < 0 && res != -EAGAIN) {
+			errno = -res;
+			qb_util_perror(LOG_WARNING, "resend_event_notifications");
+		}
 		if ((revents & POLLIN) == 0) {
 			return 0;
 		}
@@ -677,7 +673,10 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	avail = _request_q_len_get(c);
 
 	if (c->service->needs_sock_for_poll && avail == 0) {
-		(void)qb_ipc_us_recv(&c->setup, bytes, 1, 0);
+		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
+		qb_util_log(LOG_WARNING,
+			    "conn:%p Nothing in q but got POLLIN on fd:%d (res2:%d)",
+			    c, fd, res2);
 		return 0;
 	}
 
@@ -693,7 +692,11 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	} while (avail > 0 && res > 0 && !c->fc_enabled);
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
-		(void)qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
+		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
+		if (res2 < 0) {
+			errno = -res2;
+			qb_util_perror(LOG_ERR, "error receiving from setup sock");
+		}
 	}
 
 	res = QB_MIN(0, res);
@@ -701,7 +704,8 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		res = 0;
 	}
 	if (res != 0) {
-		qb_util_perror(LOG_DEBUG, "request returned error");
+		errno = -res;
+		qb_util_perror(LOG_ERR, "request returned error");
 		qb_ipcs_connection_unref(c);
 	}
 
