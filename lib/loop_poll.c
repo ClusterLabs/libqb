@@ -816,8 +816,7 @@ qb_loop_timer_del(struct qb_loop * l, qb_loop_timer_handle th)
 #ifdef HAVE_EPOLL
 		if (epoll_ctl(s->epollfd, EPOLL_CTL_DEL, pe->ufd.fd, NULL) ==
 		    -1) {
-			res = -errno;
-			qb_util_perror(LOG_WARNING, "epoll_ctl(del:%d)",
+			qb_util_perror(LOG_DEBUG, "epoll_ctl(del:%d)",
 				       pe->ufd.fd);
 		}
 #else
@@ -996,8 +995,7 @@ _qb_signal_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 
 	res = read(pipe_fds[0], &the_signal, sizeof(int32_t));
 	if (res != sizeof(int32_t)) {
-		res = -errno;
-		qb_util_perror(LOG_ERR, "failed to read pipe");
+		qb_util_perror(LOG_WARNING, "failed to read pipe");
 		return 0;
 	}
 	pe->ufd.revents = 0;

@@ -66,23 +66,39 @@ static void job_1_add_nuts(void *data)
 	qb_loop_t *l = (qb_loop_t *)data;
 	job_1_run_count++;
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_MED, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_MED, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_MED, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_MED, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_LOW, data, job_1);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, QB_LOOP_LOW, data, job_1);
+	ck_assert_int_eq(res, 0);
 	if (job_1_run_count < 500) {
 		res = qb_loop_job_add(l, QB_LOOP_LOW, data, job_1_add_nuts);
+		ck_assert_int_eq(res, 0);
 	} else {
 		res = qb_loop_job_add(l, QB_LOOP_LOW, data, job_stop);
+		ck_assert_int_eq(res, 0);
 	}
 	ck_assert_int_eq(res, 0);
 }

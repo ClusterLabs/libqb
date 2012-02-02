@@ -682,7 +682,6 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 		res = -EIO;
 		goto cleanup_and_return;
 	}
-	res = -EBADMSG;
 
 	/*
 	 * currently support getpeerucred, getpeereid, and SO_PASSCRED credential
@@ -780,7 +779,6 @@ retry_accept:
 		return -1;
 	}
 	if (new_fd == -1) {
-		res = -errno;
 		qb_util_perror(LOG_ERR, "Could not accept client connection");
 		/* This is an error, but -1 would indicate disconnect
 		 * from the poll loop
@@ -801,7 +799,7 @@ retry_accept:
 				       &ugp);
 
 	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
-		res = handle_new_connection(s, res, new_fd, &setup_msg,
+		(void)handle_new_connection(s, res, new_fd, &setup_msg,
 					    sizeof(setup_msg), &ugp);
 	} else if (setup_msg.hdr.id == QB_IPC_MSG_NEW_EVENT_SOCK) {
 		if (res == 0) {

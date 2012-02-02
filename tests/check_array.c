@@ -122,6 +122,7 @@ START_TEST(test_array_static_memory)
 	ck_assert_int_eq(res, 0);
 
 	res = qb_array_index(a, 345, (void**)&st);
+	ck_assert_int_eq(res, 0);
 	st->a = 411;
 
 	/* confirm the pointer is the same after a grow */

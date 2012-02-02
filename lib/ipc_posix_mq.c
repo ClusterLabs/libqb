@@ -167,6 +167,9 @@ qb_ipc_pmq_sendv(struct qb_ipc_one_way *one_way,
 	for (i = 0; i < iov_len; i++) {
 		total_size += iov[i].iov_len;
 	}
+	if (total_size == 0) {
+		return -EINVAL;
+	}
 	data = malloc(total_size);
 	if (data == NULL) {
 		return -ENOMEM;

@@ -87,7 +87,6 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	}
 	fd = open_mmap_file(path, file_flags);
 	if (fd < 0 && !is_absolute) {
-		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't open file %s", path);
 
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);

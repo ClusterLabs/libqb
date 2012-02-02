@@ -680,7 +680,6 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		return 0;
 	}
 
-	res = avail; /* in case error */
 	do {
 		res = _process_request_(c, IPC_REQUEST_TIMEOUT);
 		if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
