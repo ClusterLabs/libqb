@@ -155,6 +155,7 @@ _test_logger(int32_t t,
 	     struct qb_log_callsite *cs,
 	     time_t timestamp, const char *msg)
 {
+	test_buf[0] = '\0';
 	qb_log_target_format(t, cs, timestamp, msg, test_buf);
 	test_priority = cs->priority;
 	num_msgs++;

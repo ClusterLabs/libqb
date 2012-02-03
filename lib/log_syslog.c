@@ -43,6 +43,7 @@ _syslog_logger(int32_t target,
 		return;
 	}
 
+	output_buffer[0] = '\0';
 	qb_log_target_format(target, cs, timestamp, msg, output_buffer);
 
 	if (final_priority < LOG_EMERG) {

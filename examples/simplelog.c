@@ -103,13 +103,14 @@ static const char *my_tags_stringify(uint32_t tags)
 	}
 }
 
-static void 
+static void
 trace_logger(int32_t t,
 	     struct qb_log_callsite *cs,
 	     time_t timestamp,
 	     const char *msg)
 {
 	char output_buffer[QB_LOG_MAX_LEN];
+	output_buffer[0] = '\0';
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 	fprintf(stderr, "%s\n", output_buffer);
 }

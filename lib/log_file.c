@@ -31,6 +31,7 @@ _file_logger(int32_t t,
 	if (f == NULL) {
 		return;
 	}
+	output_buffer[0] = '\0';
 
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
