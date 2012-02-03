@@ -44,6 +44,7 @@ main(int argc, char *argv[])
 	int32_t rc;
 	struct my_req req;
 	struct my_res res;
+	char *newline;
 
 	conn = qb_ipcc_connect("ipcserver", MAX_MSG_SIZE);
 	if (conn == NULL) {
@@ -53,20 +54,23 @@ main(int argc, char *argv[])
 
 	while(1) {
 		printf("SEND (q or Q to quit) : ");
-		if (gets(req.message) == NULL) {
+		if (fgets(req.message, 256, stdin) == NULL) {
 			continue;
 		}
+		newline = strrchr(req.message, '\n');
+		if (newline) {
+			*newline = '\0';
+		}
 
-		if (strcmp(req.message, "q") != 0 &&
-		    strcmp(req.message, "Q") != 0) {
+		if (strcasecmp(req.message, "q") == 0) {
+			break;
+		} else {
 			req.hdr.id = QB_IPC_MSG_USER_START + 3;
 			req.hdr.size = sizeof(struct my_req);
 			rc = qb_ipcc_send(conn, &req, req.hdr.size);
 			if (rc < 0) {
 				perror("qb_ipcc_send");
 			}
-		} else {
-			break;
 		}
 
 		if (rc > 0) {

@@ -29,6 +29,7 @@ main(int argc, char *argv[])
 	int32_t res;
 	char send_data[1024];
 	char recv_data[1024];
+	char *newline;
 	struct sockaddr_in server_addr;
 	struct hostent *host = gethostbyname("127.0.0.1");
 
@@ -50,16 +51,17 @@ main(int argc, char *argv[])
 
 	while(1) {
 		printf("\nSEND (q or Q to quit) : ");
-		if (gets(send_data) == NULL) {
+		if (fgets(send_data, 1024, stdin) == NULL) {
 			continue;
 		}
-
-		if (strcmp(send_data , "q") != 0 &&
-		    strcmp(send_data , "Q") != 0) {
-			res = send(sock, send_data, strlen(send_data), 0);
-		} else {
-			send(sock,send_data, strlen(send_data), 0);
+		newline = strrchr(send_data, '\n');
+		if (newline) {
+			*newline = '\0';
+		}
+		res = send(sock, send_data, strlen(send_data), 0);
+		if (strcasecmp(send_data, "q") == 0) {
 			close(sock);
+			printf("you typed QUIT\n");
 			break;
 		}
 
