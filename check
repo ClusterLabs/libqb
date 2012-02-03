@@ -21,6 +21,7 @@ help_all() {
 	echo "  rpm             Run rpmlint"
 	echo "  mock            Test doing a mock build"
 	echo "  coverity        Run coverity"
+	echo "  clang           Run clang-analyze"
 	echo "  abi             Check abi compatibility"
 	echo "  api_sanity      api sanity test"
 	echo 
@@ -169,6 +170,20 @@ check_coverity() {
 	cov-format-errors --dir cov
 }
 
+check_clang() {
+	if [ ! -f /usr/lib64/clang-analyzer/scan-build/ccc-analyzer ]
+	then
+		echo try installing clang-analyze
+		exit 1
+	fi
+	make clean
+
+	./configure \
+		CC=/usr/lib64/clang-analyzer/scan-build/ccc-analyzer \
+		CXX=/usr/lib64/clang-analyzer/scan-build/c++-analyzer
+	make check
+}
+
 check_abi() {
 	ver1=$1
 	ver2=$2
@@ -270,6 +285,9 @@ case $command in
 	;;
 	coverity)
 		check_coverity
+	;;
+	clang)
+		check_clang
 	;;
 	abi)
 		check_abi $args
