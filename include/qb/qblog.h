@@ -508,7 +508,7 @@ int32_t qb_log_thread_priority_set(int32_t policy, int32_t priority);
 /**
  * Start the logging pthread.
  */
-void qb_log_thread_start(void);
+int32_t qb_log_thread_start(void);
 
 /**
  * Write the blackbox to file.

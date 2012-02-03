@@ -32,8 +32,6 @@ static int wthread_active = 0;
 
 static int wthread_should_exit = 0;
 
-static void wthread_create(void);
-
 static qb_thread_lock_t *logt_wthread_lock = NULL;
 
 static QB_LIST_DECLARE(logt_print_finished_records);
@@ -71,7 +69,6 @@ qb_logt_worker_thread(void *data)
 	 */
 	sem_post(&logt_thread_start);
 	for (;;) {
-		dropped = 0;
 retry_sem_wait:
 		res = sem_wait(&logt_print_finished);
 		if (res == -1 && errno == EINTR) {
@@ -85,9 +82,9 @@ retry_sem_wait:
 
 		(void)qb_thread_lock(logt_wthread_lock);
 		if (wthread_should_exit) {
-			int value;
+			int value = -1;
 
-			res = sem_getvalue(&logt_print_finished, &value);
+			(void)sem_getvalue(&logt_print_finished, &value);
 			if (value == 0) {
 				(void)qb_thread_unlock(logt_wthread_lock);
 				pthread_exit(NULL);
@@ -139,6 +136,9 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 	} else {
 		res = pthread_setschedparam(logt_thread_id, policy,
 					    &logt_sched_param);
+		if (res != 0) {
+			res = -errno;
+		}
 	}
 #endif
 	if (policy == SCHED_OTHER) {
@@ -150,44 +150,45 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 	return res;
 }
 
-static void
-wthread_create(void)
+int32_t
+qb_log_thread_start(void)
 {
 	int res;
 
 	if (wthread_active) {
-		return;
+		return 0;
 	}
 
 	wthread_active = 1;
-
-	/*
-	 * TODO: propagate pthread_create errors back to the caller
-	 */
 	res = pthread_create(&logt_thread_id, NULL,
 			     qb_logt_worker_thread, NULL);
+	if (res != 0) {
+		wthread_active = 0;
+		return -errno;
+	}
 	sem_wait(&logt_thread_start);
 
-	if (res == 0) {
-		if (logt_sched_param_queued) {
-			/*
-			 * TODO: propagate qb_log_thread_priority_set errors back to
-			 * the caller
-			 */
-			res = qb_log_thread_priority_set(logt_sched_policy,
-							 logt_sched_param.sched_priority);
-			logt_sched_param_queued = QB_FALSE;
+	if (logt_sched_param_queued) {
+		res = qb_log_thread_priority_set(logt_sched_policy,
+		                                 logt_sched_param.sched_priority);
+		if (res != 0) {
+			goto cleanup_pthread;
 		}
-	} else {
-		wthread_active = 0;
+		logt_sched_param_queued = QB_FALSE;
 	}
-}
-
-void
-qb_log_thread_start(void)
-{
-	wthread_create();
 	logt_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
+	if (logt_wthread_lock == NULL) {
+		goto cleanup_pthread;
+	}
+
+	return 0;
+
+cleanup_pthread:
+	wthread_should_exit = 1;
+	sem_post(&logt_print_finished);
+	pthread_join(logt_thread_id, NULL);
+
+	return res;
 }
 
 void
