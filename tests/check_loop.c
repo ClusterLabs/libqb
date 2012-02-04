@@ -60,6 +60,7 @@ static void job_1_r(void *data)
 	res = qb_loop_job_add(l, QB_LOOP_MED, data, job_2);
 	ck_assert_int_eq(res, 0);
 }
+
 static void job_1_add_nuts(void *data)
 {
 	int32_t res;
@@ -153,7 +154,6 @@ START_TEST(test_loop_job_4)
 }
 END_TEST
 
-
 START_TEST(test_loop_job_nuts)
 {
 	int32_t res;
@@ -166,6 +166,53 @@ START_TEST(test_loop_job_nuts)
 	qb_loop_run(l);
 	fail_if(job_1_run_count < 500);
 	qb_loop_destroy(l);
+}
+END_TEST
+
+static qb_util_stopwatch_t *rl_sw;
+#define RATE_LIMIT_RUNTIME_SEC 3
+
+static void job_add_self(void *data)
+{
+	int32_t res;
+	uint64_t elapsed1;
+	qb_loop_t *l = (qb_loop_t *)data;
+
+	job_1_run_count++;
+	qb_util_stopwatch_stop(rl_sw);
+	elapsed1 = qb_util_stopwatch_us_elapsed_get(rl_sw);
+	if (elapsed1 > (RATE_LIMIT_RUNTIME_SEC * QB_TIME_US_IN_SEC)) {
+		/* run for 3 seconds */
+		qb_loop_stop(l);
+		return;
+	}
+	res = qb_loop_job_add(l, QB_LOOP_MED, data, job_add_self);
+	ck_assert_int_eq(res, 0);
+}
+
+START_TEST(test_job_rate_limit)
+{
+	int32_t res;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	rl_sw = qb_util_stopwatch_create();
+	fail_if(rl_sw == NULL);
+
+	qb_util_stopwatch_start(rl_sw);
+
+	res = qb_loop_job_add(l, QB_LOOP_MED,  l, job_add_self);
+	ck_assert_int_eq(res, 0);
+
+	qb_loop_run(l);
+	/*
+	 * the test is to confirm that a single job does not run away
+	 * and cause cpu spin. We are going to say that a spin is more than
+	 * one job per 50ms if there is only one job pending in the loop.
+	 */
+	_ck_assert_int(job_1_run_count, <, (RATE_LIMIT_RUNTIME_SEC * (QB_TIME_MS_IN_SEC/50)) + 1);
+	qb_loop_destroy(l);
+	qb_util_stopwatch_free(rl_sw);
 }
 END_TEST
 
@@ -188,6 +235,12 @@ static Suite *loop_job_suite(void)
 
 	tc = tcase_create("run_500");
 	tcase_add_test(tc, test_loop_job_nuts);
+	tcase_set_timeout(tc, 5);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("rate_limit");
+	tcase_add_test(tc, test_job_rate_limit);
+	tcase_set_timeout(tc, 5);
 	suite_add_tcase(s, tc);
 
 	return s;
@@ -465,12 +518,17 @@ static Suite *loop_timer_suite(void)
 	tcase_add_test(tc, test_loop_timer_expire_leak);
 	tcase_set_timeout(tc, 30);
 	suite_add_tcase(s, tc);
+	return s;
+}
 
+static Suite *loop_signal_suite(void)
+{
+	TCase *tc;
+	Suite *s = suite_create("loop_signal_suite");
 	tc = tcase_create("signals");
 	tcase_add_test(tc, test_loop_sig_handling);
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
-
 	return s;
 }
 
@@ -479,6 +537,7 @@ int32_t main(void)
 	int32_t number_failed;
 	SRunner *sr = srunner_create(loop_job_suite());
 	srunner_add_suite (sr, loop_timer_suite());
+	srunner_add_suite (sr, loop_signal_suite());
 
 	qb_log_init("check", LOG_USER, LOG_EMERG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
