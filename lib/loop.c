@@ -117,7 +117,8 @@ qb_loop_run(struct qb_loop *l)
 {
 	int32_t p;
 	int32_t p_stop = QB_LOOP_LOW;
-	int32_t todo = 0;
+	int32_t rc;
+	int32_t remaining_todo = 0;
 	int32_t job_todo;
 	int32_t timer_todo;
 	int32_t ms_timeout;
@@ -131,23 +132,32 @@ qb_loop_run(struct qb_loop *l)
 			p_stop--;
 		}
 
+		job_todo = 0;
 		if (l->job_source && l->job_source->poll) {
-			job_todo = l->job_source->poll(l->job_source, 0);
-		} else {
-			job_todo = 0;
+			rc = l->job_source->poll(l->job_source, 0);
+			if (rc > 0) {
+				job_todo = rc;
+			} else if (rc == -1) {
+				errno = -rc;
+				qb_util_perror(LOG_WARNING, "job->poll");
+			}
 		}
+		timer_todo = 0;
 		if (l->timer_source && l->timer_source->poll) {
-			timer_todo = l->timer_source->poll(l->timer_source, 0);
-		} else {
-			timer_todo = 0;
+			rc = l->timer_source->poll(l->timer_source, 0);
+			if (rc > 0) {
+				timer_todo = rc;
+			} else if (rc == -1) {
+				errno = -rc;
+				qb_util_perror(LOG_WARNING, "timer->poll");
+			}
 		}
-		if (todo > 0 || timer_todo > 0) {
+		if (remaining_todo > 0 || timer_todo > 0) {
 			/*
-			 * if there are old todos or timer todos then don't wait.
+			 * if there are remaining todos or timer todos then don't wait.
 			 */
 			ms_timeout = 0;
 		} else if (job_todo > 0) {
-			todo = 0;
 			/*
 			 * if we only have jobs to do (not timers or old todos)
 			 * then set a non-zero timeout. Jobs can spin out of
@@ -161,9 +171,13 @@ qb_loop_run(struct qb_loop *l)
 				ms_timeout = -1;
 			}
 		}
-		(void)l->fd_source->poll(l->fd_source, ms_timeout);
+		rc = l->fd_source->poll(l->fd_source, ms_timeout);
+		if (rc < 0) {
+			errno = -rc;
+			qb_util_perror(LOG_WARNING, "fd->poll");
+		}
 
-		todo = 0;
+		remaining_todo = 0;
 		for (p = QB_LOOP_HIGH; p >= QB_LOOP_LOW; p--) {
 			if (p >= p_stop) {
 				qb_loop_run_level(&l->level[p]);
@@ -171,7 +185,7 @@ qb_loop_run(struct qb_loop *l)
 					return;
 				}
 			}
-			todo += l->level[p].todo;
+			remaining_todo += l->level[p].todo;
 		}
 	} while (!l->stop_requested);
 }
