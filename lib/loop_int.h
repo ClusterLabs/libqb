@@ -27,10 +27,18 @@
 struct qb_loop;
 struct qb_loop_item;
 
+enum qb_loop_type {
+	QB_LOOP_FD,
+	QB_LOOP_JOB,
+	QB_LOOP_TIMER,
+	QB_LOOP_SIG,
+};
+
 struct qb_loop_item {
 	struct qb_list_head list;
 	struct qb_loop_source *source;
 	void *user_data;
+	enum qb_loop_type type;
 };
 
 struct qb_loop_level {

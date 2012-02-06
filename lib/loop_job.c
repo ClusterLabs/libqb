@@ -107,6 +107,7 @@ qb_loop_job_add(struct qb_loop *l,
 	job->dispatch_fn = dispatch_fn;
 	job->item.user_data = data;
 	job->item.source = l->job_source;
+	job->item.type = QB_LOOP_JOB;
 
 	qb_list_init(&job->item.list);
 	qb_list_add_tail(&job->item.list, &l->level[p].wait_head);

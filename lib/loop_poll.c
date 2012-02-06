@@ -56,14 +56,6 @@ int epoll_create1(int flags);
 /* logs, std(in|out|err), pipe */
 #define POLL_FDS_USED_MISC 50
 
-enum qb_poll_type {
-	QB_UNKNOWN,
-	QB_JOB,
-	QB_POLL,
-	QB_SIGNAL,
-	QB_TIMER,
-};
-
 struct qb_poll_entry;
 
 typedef int32_t(*qb_poll_add_to_jobs_fn) (struct qb_loop * l,
@@ -71,7 +63,6 @@ typedef int32_t(*qb_poll_add_to_jobs_fn) (struct qb_loop * l,
 
 struct qb_poll_entry {
 	struct qb_loop_item item;
-	enum qb_poll_type type;
 	qb_loop_poll_dispatch_fn poll_dispatch_fn;
 	qb_loop_timer_dispatch_fn timer_dispatch_fn;
 	enum qb_loop_priority p;
@@ -204,7 +195,7 @@ _poll_dispatch_and_take_back_(struct qb_loop_item *item,
 
 	assert(pe->state == QB_POLL_ENTRY_JOBLIST);
 
-	if (pe->type == QB_POLL) {
+	if (pe->item.type == QB_LOOP_FD) {
 		res = pe->poll_dispatch_fn(pe->ufd.fd,
 					   pe->ufd.revents,
 					   pe->item.user_data);
@@ -214,12 +205,12 @@ _poll_dispatch_and_take_back_(struct qb_loop_item *item,
 			pe->state = QB_POLL_ENTRY_ACTIVE;
 			pe->ufd.revents = 0;
 		}
-	} else if (pe->type == QB_TIMER) {
+	} else if (pe->item.type == QB_LOOP_TIMER) {
 		_poll_entry_mark_deleted_(pe);
 		pe->timer_dispatch_fn(pe->item.user_data);
 	} else {
 		qb_util_log(LOG_WARNING,
-			    "poll entry of unknown type:%d state:%d", pe->type,
+			    "poll entry of unknown type:%d state:%d", pe->item.type,
 			    pe->state);
 		return;
 	}
@@ -234,14 +225,14 @@ _poll_dispatch_and_take_back_(struct qb_loop_item *item,
 			log_warn = QB_TRUE;
 		}
 
-		if (log_warn && pe->type == QB_POLL) {
+		if (log_warn && pe->item.type == QB_LOOP_FD) {
 			qb_util_log(LOG_INFO,
 				    "[fd:%d] dispatch:%p runs:%d duration:%d ms",
 				    pe->ufd.fd, pe->poll_dispatch_fn,
 				    pe->runs,
 				    (int32_t) ((stop -
 						start) / QB_TIME_NS_IN_MSEC));
-		} else if (log_warn && pe->type == QB_TIMER) {
+		} else if (log_warn && pe->item.type == QB_LOOP_TIMER) {
 			qb_util_log(LOG_INFO,
 				    "[timer] dispatch:%p runs:%d duration:%d ms",
 				    pe->timer_dispatch_fn,
@@ -552,7 +543,7 @@ _poll_add_(struct qb_loop *l,
 static int32_t
 _qb_poll_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 {
-	assert(pe->type == QB_POLL);
+	assert(pe->item.type == QB_LOOP_FD);
 	qb_loop_level_item_add(&l->level[pe->p], &pe->item);
 	pe->state = QB_POLL_ENTRY_JOBLIST;
 	return 1;
@@ -575,7 +566,7 @@ qb_loop_poll_add(struct qb_loop * l,
 	new_size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
 
 	pe->poll_dispatch_fn = dispatch_fn;
-	pe->type = QB_POLL;
+	pe->item.type = QB_LOOP_FD;
 	pe->add_to_jobs = _qb_poll_add_to_jobs_;
 
 	if (new_size > size) {
@@ -644,7 +635,7 @@ qb_loop_poll_del(struct qb_loop * l, int32_t fd)
 
 	for (i = 0; i < s->poll_entry_count; i++) {
 		assert(qb_array_index(s->poll_entries, i, (void **)&pe) == 0);
-		if (pe->ufd.fd != fd || pe->type != QB_POLL) {
+		if (pe->ufd.fd != fd || pe->item.type != QB_LOOP_FD) {
 			continue;
 		}
 		if (pe->state == QB_POLL_ENTRY_DELETED ||
@@ -678,7 +669,7 @@ _qb_timer_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 	uint64_t expired = 0;
 	ssize_t bytes = 0;
 
-	assert(pe->type == QB_TIMER);
+	assert(pe->item.type == QB_LOOP_TIMER);
 	if (pe->ufd.revents == POLLIN) {
 		bytes = read(pe->ufd.fd, &expired, sizeof(expired));
 		if (bytes != sizeof(expired)) {
@@ -763,7 +754,7 @@ qb_loop_timer_add(struct qb_loop *l,
 			    new_size, fd);
 	}
 	pe->timer_dispatch_fn = timer_fn;
-	pe->type = QB_TIMER;
+	pe->item.type = QB_LOOP_TIMER;
 	pe->add_to_jobs = _qb_timer_add_to_jobs_;
 
 	if (timer_handle_out) {
@@ -793,10 +784,10 @@ qb_loop_timer_del(struct qb_loop * l, qb_loop_timer_handle th)
 		return res;
 	}
 
-	if (pe->type != QB_TIMER) {
+	if (pe->item.type != QB_LOOP_TIMER) {
 		qb_util_log(LOG_WARNING,
 			    "trying to delete timer but handle points to type:%d",
-			    pe->type);
+			    pe->item.type);
 		return -EINVAL;
 	}
 	if (pe->state == QB_POLL_ENTRY_DELETED) {
@@ -935,7 +926,7 @@ qb_loop_signals_create(struct qb_loop *l)
 				 pipe_fds[0], POLLIN, NULL, &pe);
 		if (res == 0) {
 			pe->poll_dispatch_fn = NULL;
-			pe->type = QB_SIGNAL;
+			pe->item.type = QB_LOOP_SIG;
 			pe->add_to_jobs = _qb_signal_add_to_jobs_;
 		} else {
 			qb_util_perror(LOG_ERR, "Can't smoke pipe");
