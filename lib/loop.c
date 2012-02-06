@@ -26,7 +26,7 @@
 #include "loop_int.h"
 #include "util_int.h"
 
-static int32_t
+static void
 qb_loop_run_level(struct qb_loop_level *level)
 {
 	struct qb_loop_item *job;
@@ -44,13 +44,12 @@ Ill_have_another:
 		level->todo--;
 		processed++;
 		if (level->l->stop_requested) {
-			return processed;
+			return;
 		}
 		if (processed < level->to_process) {
 			goto Ill_have_another;
 		}
 	}
-	return processed;
 }
 
 void
@@ -156,20 +155,23 @@ qb_loop_run(struct qb_loop *l)
 			 */
 			ms_timeout = 50;
 		} else {
-			todo = 0;
 			if (l->timer_source) {
 				ms_timeout = qb_loop_timer_msec_duration_to_expire(l->timer_source);
 			} else {
 				ms_timeout = -1;
 			}
 		}
-		todo += l->fd_source->poll(l->fd_source, ms_timeout);
+		(void)l->fd_source->poll(l->fd_source, ms_timeout);
 
-		for (p = QB_LOOP_HIGH; p >= p_stop; p--) {
-			todo -= qb_loop_run_level(&l->level[p]);
-			if (l->stop_requested) {
-				return;
+		todo = 0;
+		for (p = QB_LOOP_HIGH; p >= QB_LOOP_LOW; p--) {
+			if (p >= p_stop) {
+				qb_loop_run_level(&l->level[p]);
+				if (l->stop_requested) {
+					return;
+				}
 			}
+			todo += l->level[p].todo;
 		}
 	} while (!l->stop_requested);
 }
