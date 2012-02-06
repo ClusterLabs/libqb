@@ -119,6 +119,8 @@ qb_loop_run(struct qb_loop *l)
 	int32_t p;
 	int32_t p_stop = QB_LOOP_LOW;
 	int32_t todo = 0;
+	int32_t job_todo;
+	int32_t timer_todo;
 	int32_t ms_timeout;
 
 	l->stop_requested = QB_FALSE;
@@ -131,13 +133,28 @@ qb_loop_run(struct qb_loop *l)
 		}
 
 		if (l->job_source && l->job_source->poll) {
-			todo += l->job_source->poll(l->job_source, 0);
+			job_todo = l->job_source->poll(l->job_source, 0);
+		} else {
+			job_todo = 0;
 		}
 		if (l->timer_source && l->timer_source->poll) {
-			todo += l->timer_source->poll(l->timer_source, 0);
+			timer_todo = l->timer_source->poll(l->timer_source, 0);
+		} else {
+			timer_todo = 0;
 		}
-		if (todo > 0) {
+		if (todo > 0 || timer_todo > 0) {
+			/*
+			 * if there are old todos or timer todos then don't wait.
+			 */
 			ms_timeout = 0;
+		} else if (job_todo > 0) {
+			todo = 0;
+			/*
+			 * if we only have jobs to do (not timers or old todos)
+			 * then set a non-zero timeout. Jobs can spin out of
+			 * control if someone keeps adding them.
+			 */
+			ms_timeout = 50;
 		} else {
 			todo = 0;
 			if (l->timer_source) {
