@@ -37,7 +37,7 @@ noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h log_i
 lib_LTLIBRARIES		= libqb.la
 
 libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
-libqb_la_LDFLAGS	= -version-info 9:0:9
+libqb_la_LDFLAGS	= -version-info 10:0:10
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  loop.c loop_poll.c loop_job.c \
 			  ipcc.c ipcs.c ipc_shm.c ipc_us.c \
