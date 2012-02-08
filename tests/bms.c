@@ -157,7 +157,7 @@ static void show_usage(const char *name)
 #ifdef HAVE_GLIB
 
 struct gio_to_qb_poll {
-	int32_t is_used;
+	gboolean is_used;
 	GIOChannel *channel;
 	int32_t events;
 	void * data;
@@ -204,7 +204,7 @@ static int32_t my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t ev
 	adaptor->events = evts;
 	adaptor->data = data;
 	adaptor->p = p;
-	adaptor->is_used = QB_TRUE;
+	adaptor->is_used = TRUE;
 
 	g_io_add_watch(channel, evts, gio_read_socket, adaptor);
 	return 0;
@@ -221,7 +221,7 @@ static int32_t my_g_dispatch_del(int32_t fd)
 	struct gio_to_qb_poll *adaptor;
 	if (qb_array_index(gio_map, fd, (void**)&adaptor) == 0) {
 		g_io_channel_unref(adaptor->channel);
-		adaptor->is_used = QB_FALSE;
+		adaptor->is_used = FALSE;
 	}
 	return 0;
 }
