@@ -45,20 +45,6 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 #endif /* QB_LINUX */
 }
 
-#ifndef HAVE_STRCHRNUL
-/* Find the first occurrence of C in S or the final NUL byte.
- */
-char *
-qb_sys_strchrnul(const char *s, int c_in)
-{
-	char c = c_in;
-	while (*s && (*s != c))
-		s++;
-
-	return (char *) s;
-}
-#endif /* HAVE_STRCHRNUL */
-
 static int32_t
 open_mmap_file(char *path, uint32_t file_flags)
 {
@@ -81,7 +67,7 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	char *is_absolute = strchr(file, '/');;
 
 	if (is_absolute) {
-		strcpy(path, file);
+		(void)strlcpy(path, file, PATH_MAX);
 	} else {
 		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
 	}

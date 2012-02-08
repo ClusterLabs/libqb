@@ -88,7 +88,7 @@ posix_mq_open(struct qb_ipc_one_way *one_way, const char *name, size_t q_len)
 		perror("mq_open");
 		return res;
 	}
-	strcpy(one_way->u.pmq.name, name);
+	(void)strlcpy(one_way->u.pmq.name, name, NAME_MAX);
 	q_space_used += one_way->max_msg_size * q_len;
 	return 0;
 }
@@ -130,7 +130,7 @@ try_smaller:
 	q_space_used += max_msg_size * q_len;
 	one_way->max_msg_size = max_msg_size;
 	one_way->u.pmq.q = q;
-	strcpy(one_way->u.pmq.name, name);
+	(void)strlcpy(one_way->u.pmq.name, name, NAME_MAX);
 
 	res = fchown((int)q, c->euid, c->egid);
 	if (res == -1) {

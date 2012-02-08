@@ -381,7 +381,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 		qb_util_perror(LOG_ERR, "couldn't open file for mmap");
 		return res;
 	}
-	strcpy(c->request.u.us.shared_file_name, r->request);
+	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
 	c->request.u.us.shared_data = mmap(0,
 					   sizeof(struct ipc_us_control),
 					   PROT_READ | PROT_WRITE, MAP_SHARED,
@@ -837,8 +837,8 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 		qb_util_perror(LOG_ERR, "couldn't create file for mmap");
 		return res;
 	}
-	strcpy(r->request, path);
-	strcpy(c->request.u.us.shared_file_name, r->request);
+	(void)strlcpy(r->request, path, PATH_MAX);
+	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
 
 	c->request.u.us.shared_data = mmap(0,
 					   sizeof(struct ipc_us_control),

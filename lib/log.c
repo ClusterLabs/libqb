@@ -670,7 +670,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		conf[i].pos = i;
 		conf[i].debug = QB_FALSE;
 		conf[i].state = QB_LOG_STATE_UNUSED;
-		strncpy(conf[i].name, name, PATH_MAX);
+		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
 		qb_list_init(&conf[i].filter_head);
 		qb_log_format_set(i, NULL);
@@ -945,9 +945,9 @@ qb_log_format_set(int32_t t, const char *format)
 		len += strlen(conf[t].name);
 		conf[t].format = calloc(len + 1, sizeof(char));
 		strncpy(conf[t].format, format, ptr - format);
-		strcat(conf[t].format, conf[t].name);
+		(void)strlcat(conf[t].format, conf[t].name, len);
 		ptr += 2;
-		strcat(conf[t].format, ptr);
+		(void)strlcat(conf[t].format, ptr, len);
 	} else {
 		conf[t].format = strdup(format ? format : "[%p] %b");
 	}

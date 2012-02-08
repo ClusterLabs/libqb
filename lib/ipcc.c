@@ -41,7 +41,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	}
 
 	c->setup.max_msg_size = max_msg_size;
-	strcpy(c->name, name);
+	(void)strlcpy(c->name, name, NAME_MAX);
 	res = qb_ipcc_us_setup_connect(c, &response);
 	if (res < 0) {
 		goto disconnect_and_cleanup;

@@ -83,8 +83,4 @@ int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes);
  */
 int32_t qb_sys_fd_nonblock_cloexec_set(int32_t fd);
 
-#ifndef HAVE_STRCHRNUL
-#define strchrnul(s, c_in) qb_sys_strchrnul(s, c_in)
-char * qb_sys_strchrnul(const char *s, int c_in);
-#endif /* !HAVE_STRCHRNUL */
 #endif /* QB_UTIL_INT_H_DEFINED */

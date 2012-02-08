@@ -129,8 +129,16 @@
 #endif /* _POSIX_THREAD_PROCESS_SHARED */
 #endif /* DISABLE_POSIX_THREAD_PROCESS_SHARED */
 
-#ifdef QB_DARWIN
+#ifndef HAVE_STRCHRNUL
 char *strchrnul (const char *s, int c_in);
+#endif
+
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char *dest, const char *src, size_t maxlen);
+#endif
+
+#ifndef HAVE_STRLCAT
+size_t strlcat(char *dest, const char *src, size_t maxlen);
 #endif
 
 #endif /* QB_OS_BASE_H_DEFINED */

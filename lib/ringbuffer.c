@@ -149,7 +149,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		rb->shared_hdr->size = real_size / sizeof(uint32_t);
 		rb->shared_hdr->write_pt = 0;
 		rb->shared_hdr->read_pt = 0;
-		strncpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
+		(void)strlcpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
 	}
 	error = qb_rb_sem_create(rb, flags);
 	if (error < 0) {
@@ -165,7 +165,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		fd_data = qb_sys_mmap_file_open(path,
 						filename,
 						real_size, file_flags);
-		strncpy(rb->shared_hdr->data_path, path, PATH_MAX);
+		(void)strlcpy(rb->shared_hdr->data_path, path, PATH_MAX);
 	} else {
 		fd_data = qb_sys_mmap_file_open(path,
 						rb->shared_hdr->data_path,

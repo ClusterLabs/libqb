@@ -50,7 +50,7 @@ qb_ipcs_create(const char *name,
 	s->ref_count = 1;
 
 	s->service_id = service_id;
-	strncpy(s->name, name, NAME_MAX);
+	(void)strlcpy(s->name, name, NAME_MAX);
 
 	s->serv_fns.connection_accept = handlers->connection_accept;
 	s->serv_fns.connection_created = handlers->connection_created;

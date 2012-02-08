@@ -46,6 +46,7 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  map.c skiplist.c hashtable.c trie.c
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
+libqb_la_LIBADD	        = @LTLIBOBJS@
 
 if HAVE_SYSV_MQ
   libqb_la_SOURCES+=ipc_sysv_mq.c
