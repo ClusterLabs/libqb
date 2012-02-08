@@ -49,7 +49,10 @@ static int32_t
 open_mmap_file(char *path, uint32_t file_flags)
 {
 	if (strstr(path, "XXXXXX") != NULL) {
-		return mkstemp(path);
+		mode_t old_mode = umask(077);
+		int32_t temp_fd = mkstemp(path);
+		(void)umask(old_mode);
+		return temp_fd;
 	}
 
 	return open(path, file_flags, 0600);
