@@ -652,9 +652,13 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	size_t total_read = 0;
 	uint32_t read_pt;
 	uint32_t write_pt;
-	qb_ringbuffer_t *rb = calloc(1, sizeof(qb_ringbuffer_t));
+	qb_ringbuffer_t *rb;
 
-	if (rb == NULL || fd < 0) {
+	if (fd < 0) {
+		return NULL;
+	}
+	rb = calloc(1, sizeof(qb_ringbuffer_t));
+	if (rb == NULL) {
 		return NULL;
 	}
 	rb->shared_hdr = calloc(1, sizeof(struct qb_ringbuffer_shared_s));
