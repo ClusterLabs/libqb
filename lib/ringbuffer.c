@@ -82,7 +82,7 @@ do {							\
 } while (0)
 #endif
 
-static void qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer);
+static void qb_rb_chunk_check(struct qb_ringbuffer_s * rb, uint32_t pointer);
 
 qb_ringbuffer_t *
 qb_rb_open(const char *name, size_t size, uint32_t flags,
@@ -224,7 +224,7 @@ cleanup_hdr:
 }
 
 void
-qb_rb_close(qb_ringbuffer_t * rb)
+qb_rb_close(struct qb_ringbuffer_s * rb)
 {
 	if (rb == NULL) {
 		return;
@@ -248,7 +248,7 @@ qb_rb_close(qb_ringbuffer_t * rb)
 }
 
 void
-qb_rb_force_close(qb_ringbuffer_t * rb)
+qb_rb_force_close(struct qb_ringbuffer_s * rb)
 {
 	if (rb == NULL) {
 		return;
@@ -266,7 +266,7 @@ qb_rb_force_close(qb_ringbuffer_t * rb)
 }
 
 char *
-qb_rb_name_get(qb_ringbuffer_t * rb)
+qb_rb_name_get(struct qb_ringbuffer_s * rb)
 {
 	if (rb == NULL) {
 		return NULL;
@@ -275,7 +275,7 @@ qb_rb_name_get(qb_ringbuffer_t * rb)
 }
 
 void *
-qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
+qb_rb_shared_user_data_get(struct qb_ringbuffer_s * rb)
 {
 	if (rb == NULL) {
 		return NULL;
@@ -284,7 +284,7 @@ qb_rb_shared_user_data_get(qb_ringbuffer_t * rb)
 }
 
 int32_t
-qb_rb_refcount_get(qb_ringbuffer_t * rb)
+qb_rb_refcount_get(struct qb_ringbuffer_s * rb)
 {
 	if (rb == NULL) {
 		return -EINVAL;
@@ -293,7 +293,7 @@ qb_rb_refcount_get(qb_ringbuffer_t * rb)
 }
 
 ssize_t
-qb_rb_space_free(qb_ringbuffer_t * rb)
+qb_rb_space_free(struct qb_ringbuffer_s * rb)
 {
 	uint32_t write_size;
 	uint32_t read_size;
@@ -322,7 +322,7 @@ qb_rb_space_free(qb_ringbuffer_t * rb)
 }
 
 ssize_t
-qb_rb_space_used(qb_ringbuffer_t * rb)
+qb_rb_space_used(struct qb_ringbuffer_s * rb)
 {
 	uint32_t write_size;
 	uint32_t read_size;
@@ -356,7 +356,7 @@ qb_rb_chunks_used(struct qb_ringbuffer_s *rb)
 }
 
 void *
-qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
+qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 {
 	uint32_t write_pt;
 
@@ -395,7 +395,7 @@ qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len)
 }
 
 static uint32_t
-qb_rb_chunk_step(qb_ringbuffer_t * rb, uint32_t pointer)
+qb_rb_chunk_step(struct qb_ringbuffer_s * rb, uint32_t pointer)
 {
 	uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
 	/*
@@ -418,7 +418,7 @@ qb_rb_chunk_step(qb_ringbuffer_t * rb, uint32_t pointer)
 }
 
 int32_t
-qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
+qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 {
 	uint32_t old_write_pt;
 
@@ -448,7 +448,7 @@ qb_rb_chunk_commit(qb_ringbuffer_t * rb, size_t len)
 }
 
 ssize_t
-qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
+qb_rb_chunk_write(struct qb_ringbuffer_s * rb, const void *data, size_t len)
 {
 	char *dest = qb_rb_chunk_alloc(rb, len);
 	int32_t res = 0;
@@ -472,7 +472,7 @@ qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len)
 }
 
 void
-qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
+qb_rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 {
 	uint32_t old_read_pt;
 
@@ -496,7 +496,7 @@ qb_rb_chunk_reclaim(qb_ringbuffer_t * rb)
 }
 
 ssize_t
-qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
+qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
@@ -527,7 +527,7 @@ qb_rb_chunk_peek(qb_ringbuffer_t * rb, void **data_out, int32_t timeout)
 }
 
 ssize_t
-qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
+qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		 int32_t timeout)
 {
 	uint32_t read_pt;
@@ -569,7 +569,7 @@ qb_rb_chunk_read(qb_ringbuffer_t * rb, void *data_out, size_t len,
 }
 
 static void
-print_header(qb_ringbuffer_t * rb)
+print_header(struct qb_ringbuffer_s * rb)
 {
 	printf("Ringbuffer: \n");
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
@@ -587,7 +587,7 @@ print_header(qb_ringbuffer_t * rb)
 }
 
 static void
-qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer)
+qb_rb_chunk_check(struct qb_ringbuffer_s * rb, uint32_t pointer)
 {
 	uint32_t chunk_size;
 	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, pointer);
@@ -602,7 +602,7 @@ qb_rb_chunk_check(qb_ringbuffer_t * rb, uint32_t pointer)
 }
 
 ssize_t
-qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd)
+qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 {
 	ssize_t result;
 	ssize_t written_size = 0;
@@ -652,12 +652,12 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	size_t total_read = 0;
 	uint32_t read_pt;
 	uint32_t write_pt;
-	qb_ringbuffer_t *rb;
+	struct qb_ringbuffer_s *rb;
 
 	if (fd < 0) {
 		return NULL;
 	}
-	rb = calloc(1, sizeof(qb_ringbuffer_t));
+	rb = calloc(1, sizeof(struct qb_ringbuffer_s));
 	if (rb == NULL) {
 		return NULL;
 	}
@@ -718,7 +718,7 @@ cleanup_fail2:
 }
 
 int32_t
-qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group)
+qb_rb_chown(struct qb_ringbuffer_s * rb, uid_t owner, gid_t group)
 {
 	int32_t res;
 
