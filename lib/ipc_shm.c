@@ -217,12 +217,6 @@ return_error:
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
-	struct qb_ipc_response_header msg;
-
-	msg.id = QB_IPC_MSG_DISCONNECT;
-	msg.size = sizeof(msg);
-	msg.error = 0;
-
 	if (c->response.u.shm.rb) {
 		qb_rb_close(c->response.u.shm.rb);
 		c->response.u.shm.rb = NULL;

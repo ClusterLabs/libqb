@@ -39,7 +39,6 @@
 #include "util_int.h"
 
 static struct qb_log_target conf[QB_LOG_TARGET_MAX];
-static uint32_t conf_used_max = 0;
 static uint32_t conf_active_max = 0;
 static int32_t in_logger = QB_FALSE;
 static int32_t logger_inited = QB_FALSE;
@@ -653,7 +652,6 @@ _log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
 		}
 		if (!u_set && conf[i].state != QB_LOG_STATE_UNUSED) {
 			u_set = QB_TRUE;
-			conf_used_max = i;
 		}
 	}
 }

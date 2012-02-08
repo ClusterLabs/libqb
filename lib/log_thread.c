@@ -52,8 +52,6 @@ static int logt_sched_policy;
 static struct sched_param logt_sched_param;
 #endif /* HAVE_PTHREAD_SETSCHEDPARAM && HAVE_SCHED_GET_PRIORITY_MAX */
 
-static int logt_after_log_ops_yield = 10;
-
 static pthread_t logt_thread_id = 0;
 
 static void *qb_logt_worker_thread(void *data) __attribute__ ((noreturn));
@@ -141,12 +139,6 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 		}
 	}
 #endif
-	if (policy == SCHED_OTHER) {
-		logt_after_log_ops_yield = 1;
-	} else {
-		logt_after_log_ops_yield = 10;
-	}
-
 	return res;
 }
 
