@@ -73,7 +73,7 @@ skiplist_level_generate(void)
 	enum { P_CEIL = UINT16_MAX / P_INVERSE };
 	int8_t level = SKIPLIST_LEVEL_MIN;
 
-	while ((uint16_t) (rand()) < P_CEIL)
+	while ((uint16_t) (random()) < P_CEIL)
 		level++;
 
 	if (level < SKIPLIST_LEVEL_MAX)

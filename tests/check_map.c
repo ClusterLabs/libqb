@@ -455,7 +455,7 @@ test_map_traverse_ordered(qb_map_t *m)
 static int32_t
 traverse_and_remove_func(const char *key, void *value, void *data)
 {
-	int kk = rand() % 30;
+	int kk = random() % 30;
 	qb_map_t *m = (qb_map_t *)data;
 	qb_map_rm(m, chars[kk]);
 	qb_map_put(m, chars[kk+30], key);
