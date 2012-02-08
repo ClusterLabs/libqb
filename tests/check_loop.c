@@ -210,7 +210,7 @@ START_TEST(test_job_rate_limit)
 	 * and cause cpu spin. We are going to say that a spin is more than
 	 * one job per 50ms if there is only one job pending in the loop.
 	 */
-	_ck_assert_int(job_1_run_count, <, (RATE_LIMIT_RUNTIME_SEC * (QB_TIME_MS_IN_SEC/50)) + 1);
+	_ck_assert_int(job_1_run_count, <, (RATE_LIMIT_RUNTIME_SEC * (QB_TIME_MS_IN_SEC/50)) + 10);
 	qb_loop_destroy(l);
 	qb_util_stopwatch_free(rl_sw);
 }
