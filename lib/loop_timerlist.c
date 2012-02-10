@@ -171,7 +171,7 @@ _get_empty_array_position_(struct qb_timer_source *s)
 }
 
 int32_t
-qb_loop_timer_add(struct qb_loop * l,
+qb_loop_timer_add(struct qb_loop * lp,
 		  enum qb_loop_priority p,
 		  uint64_t nsec_duration,
 		  void *data,
@@ -181,6 +181,11 @@ qb_loop_timer_add(struct qb_loop * l,
 	struct qb_loop_timer *t;
 	struct qb_timer_source *my_src;
 	int32_t i;
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 
 	if (l == NULL || timer_fn == NULL) {
 		return -EINVAL;
@@ -214,11 +219,17 @@ qb_loop_timer_add(struct qb_loop * l,
 }
 
 int32_t
-qb_loop_timer_del(struct qb_loop * l, qb_loop_timer_handle th)
+qb_loop_timer_del(struct qb_loop * lp, qb_loop_timer_handle th)
 {
-	struct qb_timer_source *s = (struct qb_timer_source *)l->timer_source;
+	struct qb_timer_source *s;
 	struct qb_loop_timer *t;
 	int32_t res;
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
+	s = (struct qb_timer_source *)l->timer_source;
 
 	res = _timer_from_handle_(s, th, &t);
 	if (res != 0) {
@@ -243,11 +254,17 @@ qb_loop_timer_del(struct qb_loop * l, qb_loop_timer_handle th)
 }
 
 uint64_t
-qb_loop_timer_expire_time_get(struct qb_loop * l, qb_loop_timer_handle th)
+qb_loop_timer_expire_time_get(struct qb_loop * lp, qb_loop_timer_handle th)
 {
-	struct qb_timer_source *s = (struct qb_timer_source *)l->timer_source;
+	struct qb_timer_source *s;
 	struct qb_loop_timer *t;
 	int32_t res;
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
+	s = (struct qb_timer_source *)l->timer_source;
 
 	res = _timer_from_handle_(s, th, &t);
 	if (res != 0) {

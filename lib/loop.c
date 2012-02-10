@@ -26,6 +26,8 @@
 #include "loop_int.h"
 #include "util_int.h"
 
+static struct qb_loop *default_intance = NULL;
+
 static void
 qb_loop_run_level(struct qb_loop_level *level)
 {
@@ -69,6 +71,12 @@ qb_loop_level_item_del(struct qb_loop_level *level, struct qb_loop_item *job)
 }
 
 struct qb_loop *
+qb_loop_default_get(void)
+{
+	return default_intance;
+}
+
+struct qb_loop *
 qb_loop_create(void)
 {
 	struct qb_loop *l = malloc(sizeof(struct qb_loop));
@@ -93,6 +101,9 @@ qb_loop_create(void)
 	l->fd_source = qb_loop_poll_create(l);
 	l->signal_source = qb_loop_signals_create(l);
 
+	if (default_intance == NULL) {
+		default_intance = l;
+	}
 	return l;
 }
 
@@ -103,6 +114,10 @@ qb_loop_destroy(struct qb_loop *l)
 	qb_loop_jobs_destroy(l);
 	qb_loop_poll_destroy(l);
 	qb_loop_signals_destroy(l);
+
+	if (default_intance == l) {
+		default_intance = NULL;
+	}
 	free(l);
 }
 

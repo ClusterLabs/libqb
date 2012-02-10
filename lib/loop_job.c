@@ -87,12 +87,16 @@ qb_loop_jobs_destroy(struct qb_loop *l)
 }
 
 int32_t
-qb_loop_job_add(struct qb_loop *l,
+qb_loop_job_add(struct qb_loop *lp,
 		enum qb_loop_priority p,
 		void *data, qb_loop_job_dispatch_fn dispatch_fn)
 {
 	struct qb_loop_job *job;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	if (l == NULL || dispatch_fn == NULL) {
 		return -EINVAL;
 	}

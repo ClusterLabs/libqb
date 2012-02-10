@@ -107,11 +107,16 @@ static void job_1_add_nuts(void *data)
 START_TEST(test_loop_job_input)
 {
 	int32_t res;
-	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	qb_loop_t *l;
 
 	res = qb_loop_job_add(NULL, QB_LOOP_LOW,  NULL, job_2);
 	ck_assert_int_eq(res, -EINVAL);
+
+	l = qb_loop_create();
+	fail_if(l == NULL);
+
+	res = qb_loop_job_add(NULL, QB_LOOP_LOW,  NULL, job_2);
+	ck_assert_int_eq(res, 0);
 	res = qb_loop_job_add(l, 89,  NULL, job_2);
 	ck_assert_int_eq(res, -EINVAL);
 	res = qb_loop_job_add(l, QB_LOOP_LOW,  NULL, NULL);
@@ -255,11 +260,17 @@ static qb_loop_timer_handle test_th;
 START_TEST(test_loop_timer_input)
 {
 	int32_t res;
-	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	qb_loop_t *l;
 
 	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, NULL, job_2, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
+
+	l = qb_loop_create();
+	fail_if(l == NULL);
+
+	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, NULL, job_2, &test_th);
+	ck_assert_int_eq(res, 0);
+
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, NULL, &test_th);
 	ck_assert_int_eq(res, -EINVAL);
 	qb_loop_destroy(l);

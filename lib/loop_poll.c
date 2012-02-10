@@ -550,7 +550,7 @@ _qb_poll_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 }
 
 int32_t
-qb_loop_poll_add(struct qb_loop * l,
+qb_loop_poll_add(struct qb_loop * lp,
 		 enum qb_loop_priority p,
 		 int32_t fd,
 		 int32_t events,
@@ -560,6 +560,11 @@ qb_loop_poll_add(struct qb_loop * l,
 	int32_t size;
 	int32_t new_size;
 	int32_t res;
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 
 	size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
 	res = _poll_add_(l, p, fd, events, data, &pe);
@@ -578,7 +583,7 @@ qb_loop_poll_add(struct qb_loop * l,
 }
 
 int32_t
-qb_loop_poll_mod(struct qb_loop * l,
+qb_loop_poll_mod(struct qb_loop * lp,
 		 enum qb_loop_priority p,
 		 int32_t fd,
 		 int32_t events,
@@ -587,10 +592,16 @@ qb_loop_poll_mod(struct qb_loop * l,
 	uint32_t i;
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
-	struct qb_poll_source *s = (struct qb_poll_source *)l->fd_source;
+	struct qb_poll_source *s;
 #ifdef HAVE_EPOLL
 	struct epoll_event ev;
 #endif /* HAVE_EPOLL */
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
+	s = (struct qb_poll_source *)l->fd_source;
 
 	/*
 	 * Find file descriptor to modify events and dispatch function
@@ -626,13 +637,18 @@ qb_loop_poll_mod(struct qb_loop * l,
 }
 
 int32_t
-qb_loop_poll_del(struct qb_loop * l, int32_t fd)
+qb_loop_poll_del(struct qb_loop * lp, int32_t fd)
 {
 	int32_t i;
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
-	struct qb_poll_source *s = (struct qb_poll_source *)l->fd_source;
+	struct qb_poll_source *s;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
+	s = (struct qb_poll_source *)l->fd_source;
 	for (i = 0; i < s->poll_entry_count; i++) {
 		assert(qb_array_index(s->poll_entries, i, (void **)&pe) == 0);
 		if (pe->ufd.fd != fd || pe->item.type != QB_LOOP_FD) {
@@ -706,7 +722,7 @@ qb_loop_timer_destroy(struct qb_loop *l)
 }
 
 int32_t
-qb_loop_timer_add(struct qb_loop *l,
+qb_loop_timer_add(struct qb_loop *lp,
 		  enum qb_loop_priority p,
 		  uint64_t nsec_duration,
 		  void *data,
@@ -718,7 +734,11 @@ qb_loop_timer_add(struct qb_loop *l,
 	int32_t res;
 	int32_t size, new_size;
 	struct itimerspec its;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	if (l == NULL || timer_fn == NULL) {
 		qb_util_log(LOG_ERR,
 			    "can't add a timer with either (l == NULL || timer_fn == NULL)");
@@ -769,12 +789,16 @@ close_and_return:
 }
 
 int32_t
-qb_loop_timer_del(struct qb_loop * l, qb_loop_timer_handle th)
+qb_loop_timer_del(struct qb_loop * lp, qb_loop_timer_handle th)
 {
 	struct qb_poll_entry *pe;
 	struct qb_poll_source *s;
 	int32_t res;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	if (l == NULL || th == 0) {
 		return -EINVAL;
 	}
@@ -823,13 +847,17 @@ qb_loop_timer_del(struct qb_loop * l, qb_loop_timer_handle th)
 }
 
 uint64_t
-qb_loop_timer_expire_time_get(struct qb_loop * l, qb_loop_timer_handle th)
+qb_loop_timer_expire_time_get(struct qb_loop * lp, qb_loop_timer_handle th)
 {
 	struct qb_poll_entry *pe;
 	struct qb_poll_source *s;
 	int32_t res = 0;
 	struct itimerspec its;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	if (l == NULL || th == 0) {
 		return 0;
 	}
@@ -1044,7 +1072,7 @@ _adjust_sigactions_(struct qb_signal_source *s)
 }
 
 int32_t
-qb_loop_signal_add(qb_loop_t * l,
+qb_loop_signal_add(qb_loop_t * lp,
 		   enum qb_loop_priority p,
 		   int32_t the_sig,
 		   void *data,
@@ -1053,7 +1081,11 @@ qb_loop_signal_add(qb_loop_t * l,
 {
 	struct qb_loop_sig *sig;
 	struct qb_signal_source *s;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	if (l == NULL || dispatch_fn == NULL) {
 		return -EINVAL;
 	}
@@ -1086,7 +1118,7 @@ qb_loop_signal_add(qb_loop_t * l,
 }
 
 int32_t
-qb_loop_signal_mod(qb_loop_t * l,
+qb_loop_signal_mod(qb_loop_t * lp,
 		   enum qb_loop_priority p,
 		   int32_t the_sig,
 		   void *data,
@@ -1095,7 +1127,11 @@ qb_loop_signal_mod(qb_loop_t * l,
 {
 	struct qb_signal_source *s;
 	struct qb_loop_sig *sig = (struct qb_loop_sig *)handle;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	if (l == NULL || dispatch_fn == NULL || handle == NULL) {
 		return -EINVAL;
 	}
@@ -1117,10 +1153,14 @@ qb_loop_signal_mod(qb_loop_t * l,
 }
 
 int32_t
-qb_loop_signal_del(qb_loop_t * l, qb_loop_signal_handle handle)
+qb_loop_signal_del(qb_loop_t * lp, qb_loop_signal_handle handle)
 {
 	struct qb_loop_sig *sig = (struct qb_loop_sig *)handle;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
 	qb_list_del(&sig->item.list);
 	free(sig);
 	return 0;

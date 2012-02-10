@@ -66,6 +66,9 @@ struct qb_loop {
 	struct qb_loop_source * signal_source;
 };
 
+struct qb_loop *
+qb_loop_default_get(void);
+
 struct qb_loop_source *
 qb_loop_jobs_create(struct qb_loop *l);
 
