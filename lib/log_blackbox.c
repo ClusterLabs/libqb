@@ -21,6 +21,7 @@
 #include "os_base.h"
 
 #include <qb/qbrb.h>
+#include "util_int.h"
 #include "log_int.h"
 
 static void
@@ -147,7 +148,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 
 	fd = open(bb_filename, 0);
 	if (fd < 0) {
-		qb_perror(LOG_ERR, "qb_log_blackbox_print_from_file");
+		qb_util_perror(LOG_ERR, "qb_log_blackbox_print_from_file");
 		return;
 	}
 	instance = qb_rb_create_from_file(fd, 0);

@@ -169,11 +169,13 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 		return -errno;
 	}
 
-	c->request.u.shm.rb =
-	    qb_rb_open(response->request, c->request.max_msg_size,
-		       QB_RB_FLAG_SHARED_PROCESS, sizeof(int32_t));
+	c->request.u.shm.rb = qb_rb_open(response->request,
+					 c->request.max_msg_size,
+					 QB_RB_FLAG_SHARED_PROCESS,
+					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
+		qb_util_perror(LOG_ERR, "qb_rb_open:REQUEST");
 		goto return_error;
 	}
 	c->response.u.shm.rb = qb_rb_open(response->response,
@@ -182,7 +184,7 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 
 	if (c->response.u.shm.rb == NULL) {
 		res = -errno;
-		perror("qb_rb_open:RESPONSE");
+		qb_util_perror(LOG_ERR, "qb_rb_open:RESPONSE");
 		goto cleanup_request;
 	}
 	c->event.u.shm.rb = qb_rb_open(response->event,
@@ -191,7 +193,7 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
-		perror("qb_rb_open:EVENT");
+		qb_util_perror(LOG_ERR, "qb_rb_open:EVENT");
 		goto cleanup_request_response;
 	}
 	return 0;
@@ -254,12 +256,12 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
-		perror("qb_rb_open:REQUEST");
+		qb_util_perror(LOG_ERR, "qb_rb_open:REQUEST");
 		goto cleanup;
 	}
 	res = qb_rb_chown(c->request.u.shm.rb, c->euid, c->egid);
 	if (res != 0) {
-		qb_perror(LOG_ERR, "qb_rb_chown:REQUEST");
+		qb_util_perror(LOG_ERR, "qb_rb_chown:REQUEST");
 		goto cleanup;
 	}
 
@@ -269,12 +271,12 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 					  QB_RB_FLAG_SHARED_PROCESS, 0);
 	if (c->response.u.shm.rb == NULL) {
 		res = -errno;
-		qb_perror(LOG_ERR, "qb_rb_open:RESPONSE");
+		qb_util_perror(LOG_ERR, "qb_rb_open:RESPONSE");
 		goto cleanup_request;
 	}
 	res = qb_rb_chown(c->response.u.shm.rb, c->euid, c->egid);
 	if (res != 0) {
-		qb_perror(LOG_ERR, "qb_rb_chown:RESPONSE");
+		qb_util_perror(LOG_ERR, "qb_rb_chown:RESPONSE");
 		goto cleanup_request;
 	}
 
@@ -285,12 +287,12 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
-		qb_perror(LOG_ERR, "qb_rb_open:EVENT");
+		qb_util_perror(LOG_ERR, "qb_rb_open:EVENT");
 		goto cleanup_request_response;
 	}
 	res = qb_rb_chown(c->event.u.shm.rb, c->euid, c->egid);
 	if (res != 0) {
-		qb_perror(LOG_ERR, "qb_rb_chown:EVENT");
+		qb_util_perror(LOG_ERR, "qb_rb_chown:EVENT");
 		goto cleanup_all;
 	}
 
