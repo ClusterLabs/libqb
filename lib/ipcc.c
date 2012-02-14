@@ -220,6 +220,8 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 		   void *res_msg, size_t res_len, int32_t ms_timeout)
 {
 	ssize_t res = 0;
+	int32_t timeout_now;
+	int32_t timeout_rem = ms_timeout;
 
 	if (c == NULL) {
 		return -EINVAL;
@@ -243,7 +245,32 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 		return res;
 	}
 
-	return qb_ipcc_recv(c, res_msg, res_len, ms_timeout);
+	do {
+		if (timeout_rem > QB_IPC_MAX_WAIT_MS || ms_timeout == -1) {
+			timeout_now = QB_IPC_MAX_WAIT_MS;
+		} else {
+			timeout_now = timeout_rem;
+		}
+
+		res = qb_ipcc_recv(c, res_msg, res_len, timeout_now);
+		if (res == -ETIMEDOUT) {
+			if (ms_timeout < 0) {
+				res = -EAGAIN;
+			} else {
+				timeout_rem -= timeout_now;
+				if (timeout_rem > 0) {
+					res = -EAGAIN;
+				}
+			}
+		} else	if (res < 0 && res != -EAGAIN) {
+			errno = -res;
+			qb_util_perror(LOG_DEBUG,
+				       "qb_ipcc_recv %d timeout:(%d/%d)",
+				       res, timeout_now, timeout_rem);
+		}
+	} while (res == -EAGAIN && c->is_connected);
+
+	return res;
 }
 
 int32_t
