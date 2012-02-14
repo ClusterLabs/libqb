@@ -556,6 +556,9 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 
 	if (len < chunk_size) {
+		qb_util_log(LOG_ERR,
+			    "trying to recv chunk of size %d but %d available",
+			    len, chunk_size);
 		return -ENOBUFS;
 	}
 
