@@ -526,7 +526,6 @@ test_ipc_server_fail(void)
 	struct qb_ipc_response_header res_header;
 	struct iovec iov[1];
 	int32_t res;
-	int32_t try_times = 0;
 	int32_t j;
 	int32_t c = 0;
 	pid_t pid;

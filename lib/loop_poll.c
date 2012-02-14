@@ -1156,11 +1156,13 @@ int32_t
 qb_loop_signal_del(qb_loop_t * lp, qb_loop_signal_handle handle)
 {
 	struct qb_loop_sig *sig = (struct qb_loop_sig *)handle;
+#if 0
 	struct qb_loop *l = lp;
 
 	if (l == NULL) {
 		l = qb_loop_default_get();
 	}
+#endif
 	qb_list_del(&sig->item.list);
 	free(sig);
 	return 0;
