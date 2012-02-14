@@ -33,10 +33,10 @@ noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h log_i
 # If any interfaces have been added since the last public release, then increment age.
 # If any interfaces have been removed since the last public release, then set age to 0.
 #
+AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-libqb_la_CPPFLAGS	= -I$(top_builddir)/include -I$(top_srcdir)/include
 libqb_la_LDFLAGS	= -version-info 10:1:10
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
 			  loop.c loop_poll.c loop_job.c \
@@ -68,7 +68,7 @@ check_SCRIPTS = run_splint.sh
 TESTS = $(check_SCRIPTS)
 
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) \
+		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
 		 $(LINT_FLAGS)
 
 run_splint.sh: $(top_srcdir)/configure.ac
