@@ -113,7 +113,6 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			qb_perror(LOG_INFO, "qb_ipcs_event_send");
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
-		qb_ipcs_destroy(s1);
 		exit(0);
 	}
 	return 0;
@@ -525,6 +524,7 @@ test_ipc_server_fail(void)
 {
 	struct qb_ipc_request_header req_header;
 	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
 	int32_t res;
 	int32_t try_times = 0;
 	int32_t j;
@@ -552,26 +552,12 @@ test_ipc_server_fail(void)
 	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
- repeat_send:
-	res = qb_ipcc_send(conn, &req_header, req_header.size);
-	try_times++;
-	if (res < 0) {
-		if (res == -EAGAIN && try_times < 10) {
-			goto repeat_send;
-		}
-		ck_assert_int_eq(res, 0);
-	}
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
 
-	/*
-	 * wait a bit for the server to die.
-	 */
-	sleep(1);
-	/*
-	 * try recv from the exit'ed server
-	 * assertion: we can call recv without locking up
-	 */
-	res = qb_ipcc_recv(conn, &res_header,
-			   sizeof(struct qb_ipc_response_header), 100);
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), -1);
 	/*
 	 * confirm we get -ENOTCONN
 	 */
