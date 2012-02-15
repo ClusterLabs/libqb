@@ -186,6 +186,53 @@ static void log_it_please(void)
 	qb_leave();
 }
 
+
+static int32_t _cust_t = -1;
+static void
+m_filter(struct qb_log_callsite *cs)
+{
+	if ((cs->priority >= LOG_ALERT &&
+	     cs->priority <= LOG_INFO) ||
+	    cs->tags > 0) {
+		qb_bit_set(cs->targets, _cust_t);
+	} else {
+		qb_bit_clear(cs->targets, _cust_t);
+	}
+}
+
+
+START_TEST(test_log_filter_fn)
+{
+	int32_t rc;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	_cust_t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	_ck_assert_int(_cust_t, >, QB_LOG_BLACKBOX);
+	rc = qb_log_ctl(_cust_t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	/*
+	 * test the custom filter function.
+	 * make sure qb_log, and qb_log_from_external_source are filtered.
+	 */
+	qb_log_filter_fn_set(m_filter);
+	num_msgs = 0;
+
+	qb_log(LOG_NOTICE, "qb_log_filter_fn_set good");
+	qb_log_from_external_source(__func__, __FILE__, "%s", LOG_INFO,
+				    __LINE__, 0, "qb_log_filter_fn_set good");
+	qb_log(LOG_TRACE, "qb_log_filter_fn_set bad");
+	qb_log_from_external_source(__func__, __FILE__, "%s", LOG_DEBUG,
+				    __LINE__, 44, "qb_log_filter_fn_set woot");
+	qb_log_from_external_source(__func__, __FILE__, "%s", LOG_DEBUG,
+				    __LINE__, 0, "qb_log_filter_fn_set bad");
+
+	ck_assert_int_eq(num_msgs, 3);
+}
+END_TEST
+
 START_TEST(test_log_basic)
 {
 	int32_t t;
@@ -531,6 +578,10 @@ static Suite *log_suite(void)
 
 	tc = tcase_create("long_msg");
 	tcase_add_test(tc, test_log_long_msg);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("filter_ft");
+	tcase_add_test(tc, test_log_filter_fn);
 	suite_add_tcase(s, tc);
 
 	return s;

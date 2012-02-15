@@ -237,6 +237,8 @@ struct qb_log_callsite {
 	uint32_t tags;
 } __attribute__((aligned(8)));
 
+typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
+
 /* will be assigned by ld linker magic */
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 extern struct qb_log_callsite __start___verbose[];
@@ -461,6 +463,28 @@ int32_t qb_log_filter_ctl(int32_t value, enum qb_log_filter_conf c,
 int32_t qb_log_filter_ctl2(int32_t value, enum qb_log_filter_conf c,
 			  enum qb_log_filter_type type, const char * text,
 			  uint8_t high_priority, uint8_t low_priority);
+
+
+/**
+ * Instead of using the qb_log_filter_ctl() functions you
+ * can apply the filters manually by defining a callback
+ * and setting the targets field using qb_bit_set() and
+ * qb_bit_clear() like the following below.
+ * @code
+ * static void
+ * m_filter(struct qb_log_callsite *cs)
+ * {
+ * 	if ((cs->priority >= LOG_ALERT &&
+ * 	     cs->priority <= LOG_DEBUG) &&
+ * 	     strcmp(cs->filename, "my_c_file.c") == 0) {
+ * 		qb_bit_set(cs->targets, QB_LOG_SYSLOG);
+ * 	} else {
+ * 		qb_bit_clear(cs->targets, QB_LOG_SYSLOG);
+ * 	}
+ * }
+ * @endcode
+ */
+int32_t qb_log_filter_fn_set(qb_log_filter_fn fn);
 
 /**
  * Set the callback to map the 'tags' bit map to a string.

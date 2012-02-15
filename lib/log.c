@@ -43,6 +43,7 @@ static uint32_t conf_active_max = 0;
 static int32_t in_logger = QB_FALSE;
 static int32_t logger_inited = QB_FALSE;
 static pthread_rwlock_t _listlock;
+static qb_log_filter_fn _custom_filter_fn = NULL;
 
 static QB_LIST_DECLARE(tags_head);
 static QB_LIST_DECLARE(callsite_sections);
@@ -268,7 +269,7 @@ qb_log_from_external_source_va(const char *function,
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, t->pos, flt->conf, flt->type,
 							flt->text, flt->high_priority,
-						       	flt->low_priority);
+							flt->low_priority);
 			}
 		}
 		if (tags == 0) {
@@ -276,10 +277,13 @@ qb_log_from_external_source_va(const char *function,
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, flt->new_value, flt->conf, flt->type,
 							flt->text, flt->high_priority,
-						       	flt->low_priority);
+							flt->low_priority);
 			}
 		} else {
 			cs->tags = tags;
+		}
+		if (_custom_filter_fn) {
+			_custom_filter_fn(cs);
 		}
 		pthread_rwlock_unlock(&_listlock);
 	}
@@ -306,6 +310,7 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 			  struct qb_log_callsite *_stop)
 {
 	struct callsite_section *sect;
+	struct qb_log_callsite *cs;
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
 	int32_t pos;
@@ -354,6 +359,14 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 				  flt->high_priority, flt->low_priority);
 	}
 	pthread_rwlock_unlock(&_listlock);
+	if (_custom_filter_fn) {
+		for (cs = sect->start; cs < sect->stop; cs++) {
+			if (cs->lineno == 0) {
+				break;
+			}
+			_custom_filter_fn(cs);
+		}
+	}
 
 	return 0;
 }
@@ -584,6 +597,31 @@ qb_log_filter_ctl2(int32_t t, enum qb_log_filter_conf c,
 		_log_filter_apply(sect, t, c, type, text, high_priority, low_priority);
 	}
 	pthread_rwlock_unlock(&_listlock);
+	return 0;
+}
+
+int32_t
+qb_log_filter_fn_set(qb_log_filter_fn fn)
+{
+	struct callsite_section *sect;
+	struct qb_log_callsite *cs;
+
+	if (!logger_inited) {
+		return -EINVAL;
+	}
+	_custom_filter_fn = fn;
+	if (_custom_filter_fn == NULL) {
+		return 0;
+	}
+
+	qb_list_for_each_entry(sect, &callsite_sections, list) {
+		for (cs = sect->start; cs < sect->stop; cs++) {
+			if (cs->lineno == 0) {
+				break;
+			}
+			_custom_filter_fn(cs);
+		}
+	}
 	return 0;
 }
 

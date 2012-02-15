@@ -29,6 +29,8 @@
 #define MY_TAG_TWO   (1 << 1)
 #define MY_TAG_THREE (1 << 2)
 
+static int32_t _log_priority = LOG_WARNING;
+
 static void func_one(void)
 {
 	FILE* fd;
@@ -115,12 +117,23 @@ trace_logger(int32_t t,
 	fprintf(stderr, "%s\n", output_buffer);
 }
 
+static void
+m_filter(struct qb_log_callsite *cs)
+{
+	if ((cs->priority >= LOG_ALERT &&
+	     cs->priority <= _log_priority) &&
+	     strcmp(cs->filename, __FILE__) == 0) {
+		qb_bit_set(cs->targets, QB_LOG_STDERR);
+	} else {
+		qb_bit_clear(cs->targets, QB_LOG_STDERR);
+	}
+}
+
 int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "vhtebdf:";
 	int32_t opt;
 	int32_t tracer;
-	int32_t priority = LOG_WARNING;
 	int32_t do_stderr = QB_FALSE;
 	int32_t do_dump_blackbox = QB_FALSE;
 	char *logfile = NULL;
@@ -144,7 +157,7 @@ int32_t main(int32_t argc, char *argv[])
 			logfile = optarg;
 			break;
 		case 'v':
-			priority++;
+			_log_priority++;
 			break;
 		case 'h':
 		default:
@@ -168,10 +181,8 @@ int32_t main(int32_t argc, char *argv[])
 	tracer = qb_log_custom_open(trace_logger, NULL, NULL, NULL);
 
 	if (do_stderr) {
-		qb_log_filter_ctl2(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-				   QB_LOG_FILTER_FILE, __FILE__,
-				   LOG_ALERT, QB_MIN(LOG_DEBUG, priority));
-		qb_log_format_set(QB_LOG_STDERR, "%4g: %f:%l [%p] %b");
+		qb_log_filter_fn_set(m_filter);
+		qb_log_format_set(QB_LOG_STDERR, "[%p] %4g: %f:%l %b");
 		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 		qb_log_ctl(tracer, QB_LOG_CONF_ENABLED, QB_TRUE);
@@ -190,7 +201,7 @@ int32_t main(int32_t argc, char *argv[])
 	if (logfile) {
 		log_fd = qb_log_file_open(logfile);
 		qb_log_filter_ctl(log_fd, QB_LOG_FILTER_ADD,
-				  QB_LOG_FILTER_FILE, __FILE__, priority);
+				  QB_LOG_FILTER_FILE, __FILE__, _log_priority);
 		qb_log_format_set(log_fd, "[%N] %t %n() [%p] %b");
 		qb_log_ctl(log_fd, QB_LOG_CONF_THREADED, do_threaded);
 		qb_log_ctl(log_fd, QB_LOG_CONF_ENABLED, QB_TRUE);
