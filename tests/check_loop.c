@@ -221,6 +221,44 @@ START_TEST(test_job_rate_limit)
 }
 END_TEST
 
+static void job_stop_and_del_1(void *data)
+{
+	int32_t res;
+	qb_loop_t *l = (qb_loop_t *)data;
+	job_3_run_count++;
+	res = qb_loop_job_del(l, QB_LOOP_MED, l, job_1);
+	ck_assert_int_eq(res, 0);
+	qb_loop_stop(l);
+}
+
+START_TEST(test_job_add_del)
+{
+	int32_t res;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	res = qb_loop_job_add(l, QB_LOOP_MED, l, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_del(l, QB_LOOP_MED, l, job_1);
+	ck_assert_int_eq(res, 0);
+
+	job_1_run_count = 0;
+	job_3_run_count = 0;
+
+	res = qb_loop_job_add(l, QB_LOOP_MED, l, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_HIGH, l, job_stop_and_del_1);
+	ck_assert_int_eq(res, 0);
+
+	qb_loop_run(l);
+	ck_assert_int_eq(job_1_run_count, 0);
+	ck_assert_int_eq(job_3_run_count, 1);
+
+	qb_loop_destroy(l);
+}
+END_TEST
+
+
 static Suite *loop_job_suite(void)
 {
 	TCase *tc;
@@ -246,6 +284,10 @@ static Suite *loop_job_suite(void)
 	tc = tcase_create("rate_limit");
 	tcase_add_test(tc, test_job_rate_limit);
 	tcase_set_timeout(tc, 5);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("add_del");
+	tcase_add_test(tc, test_job_add_del);
 	suite_add_tcase(s, tc);
 
 	return s;

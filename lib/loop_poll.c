@@ -819,7 +819,7 @@ qb_loop_timer_del(struct qb_loop * lp, qb_loop_timer_handle th)
 	}
 	if (pe->state == QB_POLL_ENTRY_JOBLIST) {
 		qb_loop_level_item_del(&l->level[pe->p], &pe->item);
-		qb_util_log(LOG_DEBUG, "trying to delete timer in JOBLIST");
+		qb_util_log(LOG_DEBUG, "deleting timer in JOBLIST");
 	}
 	if (pe->state != QB_POLL_ENTRY_ACTIVE &&
 	    pe->state != QB_POLL_ENTRY_JOBLIST) {

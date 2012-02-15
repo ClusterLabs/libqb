@@ -107,6 +107,26 @@ int32_t qb_loop_job_add(qb_loop_t *l,
 			void *data,
 			qb_loop_job_dispatch_fn dispatch_fn);
 
+
+/**
+ * Delete a job from the mainloop.
+ *
+ * This will try to delete the job if it hasn't run yet.
+ *
+ * @note this will remove the first job that matches the
+ * paramaters (priority, data, dispatch_fn).
+ *
+ * @param l pointer to the loop instance
+ * @param p the priority
+ * @param data user data passed into the dispatch function
+ * @param dispatch_fn callback function
+ * @return status (0 == ok, -errno == failure)
+ */
+int32_t qb_loop_job_del(struct qb_loop *lp,
+			enum qb_loop_priority p,
+			void *data,
+			qb_loop_job_dispatch_fn dispatch_fn);
+
 /**
  * Add a timer to the mainloop.
  * @note it is a one-shot job.

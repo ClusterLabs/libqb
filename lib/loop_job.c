@@ -24,6 +24,7 @@
 #include <qb/qblist.h>
 #include <qb/qbloop.h>
 #include "loop_int.h"
+#include "util_int.h"
 
 struct qb_loop_job {
 	struct qb_loop_item item;
@@ -117,4 +118,51 @@ qb_loop_job_add(struct qb_loop *lp,
 	qb_list_add_tail(&job->item.list, &l->level[p].wait_head);
 
 	return 0;
+}
+
+int32_t
+qb_loop_job_del(struct qb_loop *lp,
+		enum qb_loop_priority p,
+		void *data, qb_loop_job_dispatch_fn dispatch_fn)
+{
+	struct qb_loop_job *job;
+	struct qb_loop_item *item;
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
+	if (l == NULL || dispatch_fn == NULL) {
+		return -EINVAL;
+	}
+	if (p > QB_LOOP_HIGH) {
+		return -EINVAL;
+	}
+
+	qb_list_for_each_entry(item, &l->level[p].wait_head, list) {
+		job = (struct qb_loop_job *)item;
+		if (job->dispatch_fn == dispatch_fn &&
+		    job->item.user_data == data &&
+		    job->item.type == QB_LOOP_JOB) {
+			qb_list_del(&job->item.list);
+			free(job);
+			return 0;
+		}
+	}
+
+	qb_list_for_each_entry(item, &l->level[p].job_head, list) {
+
+		if (item->type != QB_LOOP_JOB) {
+			continue;
+		}
+		job = (struct qb_loop_job *)item;
+		if (job->dispatch_fn == dispatch_fn &&
+		    job->item.user_data == data) {
+			qb_loop_level_item_del(&l->level[p], item);
+			qb_util_log(LOG_DEBUG, "deleting job in JOBLIST");
+			return 0;
+		}
+	}
+
+	return -ENOENT;
 }
