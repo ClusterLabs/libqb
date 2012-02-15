@@ -96,5 +96,7 @@ struct qb_log_callsite *qb_log_dcs_get(int32_t *newly_created,
 size_t qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap);
 size_t qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf);
 
+void qb_log_target_format_static(int32_t target, const char * format, char *output_buffer);
+
 #endif /* _QB_LOG_INT_H_ */
 

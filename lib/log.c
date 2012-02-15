@@ -968,24 +968,16 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 void
 qb_log_format_set(int32_t t, const char *format)
 {
-	char* ptr = NULL;
-	size_t len = 0;
-
-	if (format) {
-		ptr = strstr(format, "%N");
-		len = strlen(format);
-	}
+	char modified_format[256];
 	free(conf[t].format);
 
-	if (ptr) {
-		len += strlen(conf[t].name);
-		conf[t].format = calloc(len + 1, sizeof(char));
-		strncpy(conf[t].format, format, ptr - format);
-		(void)strlcat(conf[t].format, conf[t].name, len);
-		ptr += 2;
-		(void)strlcat(conf[t].format, ptr, len);
+	if (format) {
+		printf("B %s\n", format);
+		qb_log_target_format_static(t, format, modified_format);
+		printf("A %s\n", modified_format);
+		conf[t].format = strdup(modified_format);
 	} else {
-		conf[t].format = strdup(format ? format : "[%p] %b");
+		conf[t].format = strdup("[%p] %b");
 	}
 	assert(conf[t].format != NULL);
 }

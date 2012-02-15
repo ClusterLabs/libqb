@@ -147,6 +147,96 @@ _strcpy_cutoff(char *dest, const char *src, size_t cutoff, int ralign,
 }
 
 /*
+ * This function will do static formatting (for things that don't
+ * change on each log message).
+ *
+ * %P PID
+ * %N name passed into qb_log_init
+ * %H hostname
+ *
+ * any number between % and character specify field length to pad or chop
+ */
+void
+qb_log_target_format_static(int32_t target, const char * format,
+			    char *output_buffer)
+{
+	char tmp_buf[255];
+	unsigned int format_buffer_idx = 0;
+	unsigned int output_buffer_idx = 0;
+	size_t cutoff;
+	uint32_t len;
+	int ralign;
+	int c;
+	struct qb_log_target *t = qb_log_target_get(target);
+
+	if (format == NULL) {
+		return;
+	}
+
+	while ((c = format[format_buffer_idx])) {
+		cutoff = 0;
+		ralign = 0;
+		if (c != '%') {
+			output_buffer[output_buffer_idx++] = c;
+			format_buffer_idx++;
+		} else {
+			const char *p;
+			unsigned int percent_buffer_idx = format_buffer_idx;
+
+			format_buffer_idx += 1;
+			if (format[format_buffer_idx] == '-') {
+				ralign = 1;
+				format_buffer_idx += 1;
+			}
+
+			if (isdigit(format[format_buffer_idx])) {
+				cutoff = atoi(&format[format_buffer_idx]);
+			}
+			while (isdigit(format[format_buffer_idx])) {
+				format_buffer_idx += 1;
+			}
+
+			switch (format[format_buffer_idx]) {
+			case 'P':
+				snprintf(tmp_buf, 30, "%d", getpid());
+				p = tmp_buf;
+				break;
+
+			case 'N':
+				p = t->name;
+				break;
+
+			case 'H':
+				if (gethostname(tmp_buf, 255) == 0) {
+					tmp_buf[254] = '\0';
+				} else {
+					(void)strlcpy(tmp_buf, "localhost", 255);
+				}
+				p = tmp_buf;
+				break;
+
+			default:
+				p = &format[percent_buffer_idx];
+				cutoff = (format_buffer_idx - percent_buffer_idx + 1);
+				ralign = 0;
+				break;
+			}
+			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
+					     p, cutoff, ralign,
+					     (QB_LOG_MAX_LEN -
+					      output_buffer_idx));
+			output_buffer_idx += len;
+			format_buffer_idx += 1;
+		}
+		if (output_buffer_idx >= QB_LOG_MAX_LEN - 1) {
+			break;
+		}
+	}
+
+	output_buffer[output_buffer_idx] = '\0';
+}
+
+/*
  * %n FUNCTION NAME
  * %f FILENAME
  * %l FILELINE
@@ -163,9 +253,8 @@ qb_log_target_format(int32_t target,
 		     time_t current_time,
 		     const char *formatted_message, char *output_buffer)
 {
-	char char_time[128];
+	char tmp_buf[128];
 	struct tm tm_res;
-	char line_no[30];
 	unsigned int format_buffer_idx = 0;
 	unsigned int output_buffer_idx = 0;
 	size_t cutoff;
@@ -227,18 +316,18 @@ qb_log_target_format(int32_t target,
 				break;
 
 			case 'l':
-				snprintf(line_no, 30, "%d", cs->lineno);
-				p = line_no;
+				snprintf(tmp_buf, 30, "%d", cs->lineno);
+				p = tmp_buf;
 				break;
 
 			case 't':
 				(void)localtime_r(&current_time, &tm_res);
-				snprintf(char_time, TIME_STRING_SIZE,
+				snprintf(tmp_buf, TIME_STRING_SIZE,
 					 "%s %02d %02d:%02d:%02d",
 					 log_month_name[tm_res.tm_mon],
 					 tm_res.tm_mday, tm_res.tm_hour,
 					 tm_res.tm_min, tm_res.tm_sec);
-				p = char_time;
+				p = tmp_buf;
 				break;
 
 			case 'b':
@@ -251,11 +340,6 @@ qb_log_target_format(int32_t target,
 				} else {
 					p = prioritynames[cs->priority].c_name;
 				}
-				break;
-
-			case 'P':
-				snprintf(line_no, 30, "%d", getpid());
-				p = line_no;
 				break;
 
 			default:
