@@ -274,8 +274,10 @@ void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
  * @param format format string
  * @param priority this takes syslog priorities.
  * @param lineno file line number
- * @param tags This MUST have QB_LOG_EXTERNAL_TAG or'ed in
- *             so that it gets free'ed.
+ * @param tags this is a uint32_t that you can use with
+ *             qb_log_tags_stringify_fn_set() to "tag" a log message
+ *             with a feature or sub-system then you can use "%g"
+ *             in the format specifer to print it out.
  */
 void qb_log_from_external_source(const char *function,
 				 const char *filename,
