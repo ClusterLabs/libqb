@@ -972,9 +972,7 @@ qb_log_format_set(int32_t t, const char *format)
 	free(conf[t].format);
 
 	if (format) {
-		printf("B %s\n", format);
 		qb_log_target_format_static(t, format, modified_format);
-		printf("A %s\n", modified_format);
 		conf[t].format = strdup(modified_format);
 	} else {
 		conf[t].format = strdup("[%p] %b");
