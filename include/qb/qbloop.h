@@ -122,7 +122,7 @@ int32_t qb_loop_job_add(qb_loop_t *l,
  * @param dispatch_fn callback function
  * @return status (0 == ok, -errno == failure)
  */
-int32_t qb_loop_job_del(struct qb_loop *lp,
+int32_t qb_loop_job_del(struct qb_loop *l,
 			enum qb_loop_priority p,
 			void *data,
 			qb_loop_job_dispatch_fn dispatch_fn);
