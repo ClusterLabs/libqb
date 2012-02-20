@@ -720,6 +720,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 
 	conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
 	conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
+	conf[QB_LOG_STDOUT].state = QB_LOG_STATE_DISABLED;
 
 	logger_inited = QB_TRUE;
 	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
@@ -881,7 +882,8 @@ _log_target_enable(struct qb_log_target *t)
 	if (t->state == QB_LOG_STATE_ENABLED) {
 		return 0;
 	}
-	if (t->pos == QB_LOG_STDERR) {
+	if (t->pos == QB_LOG_STDERR ||
+	    t->pos == QB_LOG_STDOUT) {
 		rc = qb_log_stderr_open(t);
 	} else if (t->pos == QB_LOG_SYSLOG) {
 		rc = qb_log_syslog_open(t);

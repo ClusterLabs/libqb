@@ -67,8 +67,13 @@ qb_log_stderr_open(struct qb_log_target *t)
 	t->logger = _file_logger;
 	t->reload = NULL;
 	t->close = NULL;
-	(void)strlcpy(t->filename, "stderr", PATH_MAX);
-	t->instance = stderr;
+	if (t->pos == QB_LOG_STDERR) {
+		(void)strlcpy(t->filename, "stderr", PATH_MAX);
+		t->instance = stderr;
+	} else {
+		(void)strlcpy(t->filename, "stdout", PATH_MAX);
+		t->instance = stdout;
+	}
 	return 0;
 }
 

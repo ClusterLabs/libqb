@@ -353,6 +353,7 @@ void qb_log_from_external_source_va(const char *function,
 #define QB_LOG_SYSLOG 0
 #define QB_LOG_STDERR 1
 #define QB_LOG_BLACKBOX 2
+#define QB_LOG_STDOUT 3
 
 #define QB_LOG_TARGET_MAX 32
 

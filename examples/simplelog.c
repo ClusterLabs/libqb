@@ -131,10 +131,11 @@ m_filter(struct qb_log_callsite *cs)
 
 int32_t main(int32_t argc, char *argv[])
 {
-	const char *options = "vhtebdf:";
+	const char *options = "vhteobdf:";
 	int32_t opt;
 	int32_t tracer;
 	int32_t do_stderr = QB_FALSE;
+	int32_t do_stdout = QB_FALSE;
 	int32_t do_dump_blackbox = QB_FALSE;
 	char *logfile = NULL;
 	int32_t log_fd = -1;
@@ -149,6 +150,9 @@ int32_t main(int32_t argc, char *argv[])
 			break;
 		case 'e':
 			do_stderr = QB_TRUE;
+			break;
+		case 'o':
+			do_stdout = QB_TRUE;
 			break;
 		case 'b':
 			do_blackbox = QB_TRUE;
@@ -178,18 +182,25 @@ int32_t main(int32_t argc, char *argv[])
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, do_threaded);
 	qb_log_tags_stringify_fn_set(my_tags_stringify);
 
-	tracer = qb_log_custom_open(trace_logger, NULL, NULL, NULL);
 
 	if (do_stderr) {
 		qb_log_filter_fn_set(m_filter);
 		qb_log_format_set(QB_LOG_STDERR, "[%p] %4g: %f:%l %b");
 		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
+		tracer = qb_log_custom_open(trace_logger, NULL, NULL, NULL);
 		qb_log_ctl(tracer, QB_LOG_CONF_ENABLED, QB_TRUE);
 		qb_log_format_set(tracer, "%4g: %n() %b");
 		qb_log_filter_ctl2(tracer, QB_LOG_FILTER_ADD,
 				   QB_LOG_FILTER_FILE, __FILE__,
 				   LOG_TRACE, 200);
+	}
+	if (do_stdout) {
+		qb_log_filter_ctl2(QB_LOG_STDOUT, QB_LOG_FILTER_ADD,
+				   QB_LOG_FILTER_FILE, __FILE__,
+				   LOG_ALERT, QB_MIN(LOG_DEBUG, _log_priority));
+		qb_log_format_set(QB_LOG_STDOUT, "[%p] %4g: %f:%l %b");
+		qb_log_ctl(QB_LOG_STDOUT, QB_LOG_CONF_ENABLED, QB_TRUE);
 	}
 	if (do_blackbox) {
 		qb_log_filter_ctl(QB_LOG_BLACKBOX, QB_LOG_FILTER_ADD,
