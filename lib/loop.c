@@ -124,11 +124,15 @@ qb_loop_destroy(struct qb_loop *l)
 void
 qb_loop_stop(struct qb_loop *l)
 {
-	l->stop_requested = QB_TRUE;
+	if (l == NULL) {
+		default_intance->stop_requested = QB_TRUE;
+	} else {
+		l->stop_requested = QB_TRUE;
+	}
 }
 
 void
-qb_loop_run(struct qb_loop *l)
+qb_loop_run(struct qb_loop *lp)
 {
 	int32_t p;
 	int32_t p_stop = QB_LOOP_LOW;
@@ -137,7 +141,11 @@ qb_loop_run(struct qb_loop *l)
 	int32_t job_todo;
 	int32_t timer_todo;
 	int32_t ms_timeout;
+	struct qb_loop *l = lp;
 
+	if (l == NULL) {
+		l = default_intance;
+	}
 	l->stop_requested = QB_FALSE;
 
 	do {
