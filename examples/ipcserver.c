@@ -316,7 +316,7 @@ main(int32_t argc, char *argv[])
 	} else {
 #ifdef HAVE_GLIB
 		glib_loop = g_main_loop_new(NULL, FALSE);
-		gio_map = qb_array_create_2(64, sizeof(struct gio_to_qb_poll), 1);
+		gio_map = qb_array_create_2(16, sizeof(struct gio_to_qb_poll), 1);
 		qb_ipcs_poll_handlers_set(s1, &glib_ph);
 		qb_ipcs_run(s1);
 		g_main_loop_run(glib_loop);

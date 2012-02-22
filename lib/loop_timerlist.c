@@ -102,7 +102,7 @@ qb_loop_timer_create(struct qb_loop *l)
 	my_src->s.poll = expire_the_timers;
 
 	timerlist_init(&my_src->timerlist);
-	my_src->timers = qb_array_create(64, sizeof(struct qb_loop_timer));
+	my_src->timers = qb_array_create_2(16, sizeof(struct qb_loop_timer), 16);
 	my_src->timer_entry_count = 0;
 
 	return (struct qb_loop_source *)my_src;

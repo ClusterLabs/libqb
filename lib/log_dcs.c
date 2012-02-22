@@ -176,8 +176,8 @@ cleanup:
 void
 qb_log_dcs_init(void)
 {
-	lookup_arr = qb_array_create_2(256, sizeof(struct callsite_list), 256);
-	callsite_arr = qb_array_create_2(256, sizeof(struct qb_log_callsite), 256);
+	lookup_arr = qb_array_create_2(16, sizeof(struct callsite_list), 16);
+	callsite_arr = qb_array_create_2(16, sizeof(struct qb_log_callsite), 16);
 
 	arr_next_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 

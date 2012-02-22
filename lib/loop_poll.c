@@ -412,7 +412,7 @@ qb_loop_poll_create(struct qb_loop *l)
 	s->s.dispatch_and_take_back = _poll_dispatch_and_take_back_;
 	s->s.poll = _poll_and_add_to_jobs_;
 
-	s->poll_entries = qb_array_create(128, sizeof(struct qb_poll_entry));
+	s->poll_entries = qb_array_create_2(16, sizeof(struct qb_poll_entry), 16);
 	s->poll_entry_count = 0;
 	s->low_fds_event_fn = NULL;
 	s->not_enough_fds = 0;
