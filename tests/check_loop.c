@@ -319,7 +319,7 @@ START_TEST(test_loop_timer_input)
 }
 END_TEST
 
-static void one_shot_tmo(void*data)
+static void one_shot_tmo(void * data)
 {
 	static int32_t been_here = QB_FALSE;
 	ck_assert_int_eq(been_here, QB_FALSE);
@@ -335,6 +335,8 @@ static void reset_one_shot_tmo(void*data)
 	if (reset_timer_step == 0) {
 		res = qb_loop_timer_del(l, reset_th);
 		ck_assert_int_eq(res, -EINVAL);
+		res = qb_loop_timer_is_running(l, reset_th);
+		ck_assert_int_eq(res, QB_FALSE);
 		res = qb_loop_timer_add(l, QB_LOOP_LOW, 8*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
 		ck_assert_int_eq(res, 0);
 	}
@@ -350,6 +352,9 @@ START_TEST(test_loop_timer_basic)
 
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, one_shot_tmo, &test_th);
 	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_is_running(l, test_th);
+	ck_assert_int_eq(res, QB_TRUE);
 
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
 	ck_assert_int_eq(res, 0);

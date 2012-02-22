@@ -875,6 +875,12 @@ qb_loop_timer_expire_time_get(struct qb_loop * lp, qb_loop_timer_handle th)
 
 #endif /* HAVE_TIMERFD */
 
+int32_t
+qb_loop_timer_is_running(qb_loop_t *l, qb_loop_timer_handle th)
+{
+	return (qb_loop_timer_expire_time_get(l, th) > 0);
+}
+
 static int32_t pipe_fds[2] = { -1, -1 };
 
 struct qb_signal_source {

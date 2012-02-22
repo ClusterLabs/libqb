@@ -156,6 +156,16 @@ int32_t qb_loop_timer_add(qb_loop_t *l,
 int32_t qb_loop_timer_del(qb_loop_t *l, qb_loop_timer_handle th);
 
 /**
+ * Check to see if a timer that is still outstanding.
+ *
+ * @param l pointer to the loop instance
+ * @param th handle to delete the timer if needed.
+ * @retval QB_TRUE yes this timer is outstanding
+ * @retval QB_FALSE this timer does not exist or has expired
+ */
+int32_t qb_loop_timer_is_running(qb_loop_t *l, qb_loop_timer_handle th);
+
+/**
  * Get the time remaining before it expires.
  *
  * @note if the timer has already expired it will return 0
