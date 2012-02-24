@@ -125,7 +125,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 {
 	int32_t found_threaded;
 	struct qb_log_target *t;
-	struct timeval tv;
+	struct timespec tv;
 	int32_t pos;
 	int len;
 	int32_t formatted = QB_FALSE;
@@ -152,7 +152,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 		}
 	}
 
-	gettimeofday(&tv, NULL);
+	qb_util_timespec_from_epoch_get(&tv);
 
 	/*
 	 * 1 if we can find a threaded target that needs this log then post it
