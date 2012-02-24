@@ -142,11 +142,7 @@ qb_util_nano_current_get(void)
 	uint64_t nano_monotonic;
 	struct timespec ts;
 
-#ifdef CLOCK_MONOTONIC_COARSE
-	clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
-#else
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-#endif
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
@@ -173,11 +169,7 @@ qb_util_nano_monotonic_hz(void)
 	uint64_t nano_monotonic_hz;
 	struct timespec ts;
 
-#ifdef CLOCK_MONOTONIC_COARSE
-	clock_getres(CLOCK_MONOTONIC_COARSE, &ts);
-#else
 	clock_getres(CLOCK_MONOTONIC, &ts);
-#endif
 
 	nano_monotonic_hz =
 	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) + ts.tv_nsec);
