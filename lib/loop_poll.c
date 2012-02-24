@@ -34,9 +34,6 @@ int epoll_create1(int flags);
 #include <sys/poll.h>
 #endif /* HAVE_SYS_POLL_H */
 #ifndef S_SPLINT_S
-#ifdef HAVE_SYS_TIMERFD_H
-#include <sys/timerfd.h>
-#endif /* HAVE_SYS_TIMERFD_H */
 #endif /* S_SPLINT_S */
 #include <signal.h>
 
@@ -142,7 +139,7 @@ _poll_entry_check_generate_(struct qb_poll_entry *pe)
 	}
 }
 
-#if defined(HAVE_TIMERFD) || defined(HAVE_EPOLL)
+#if defined(HAVE_EPOLL)
 static int32_t
 _poll_entry_from_handle_(struct qb_poll_source *s,
 			 uint64_t handle_in, struct qb_poll_entry **pe_pt)
@@ -162,7 +159,7 @@ _poll_entry_from_handle_(struct qb_poll_source *s,
 	*pe_pt = pe;
 	return 0;
 }
-#endif /* HAVE_TIMERFD or HAVE_EPOLL */
+#endif /* HAVE_EPOLL */
 
 static void
 _poll_entry_mark_deleted_(struct qb_poll_entry *pe)
@@ -676,209 +673,6 @@ qb_loop_poll_del(struct qb_loop * lp, int32_t fd)
 	}
 
 	return -EBADF;
-}
-
-#ifdef HAVE_TIMERFD
-static int32_t
-_qb_timer_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
-{
-	uint64_t expired = 0;
-	ssize_t bytes = 0;
-
-	assert(pe->item.type == QB_LOOP_TIMER);
-	if (pe->ufd.revents == POLLIN) {
-		bytes = read(pe->ufd.fd, &expired, sizeof(expired));
-		if (bytes != sizeof(expired)) {
-			qb_util_perror(LOG_WARNING,
-				       "couldn't read from timer fd %zd",
-				       bytes);
-		}
-		qb_loop_level_item_add(&l->level[pe->p], &pe->item);
-	} else {
-		qb_util_log(LOG_ERR, "timer revents: %d expected %d",
-			    pe->ufd.revents, POLLIN);
-	}
-	close(pe->ufd.fd);
-	pe->ufd.fd = -1;
-	pe->state = QB_POLL_ENTRY_JOBLIST;
-	return 1;
-}
-
-int32_t
-qb_loop_timer_msec_duration_to_expire(struct qb_loop_source * timer_source)
-{
-	return -1;
-}
-
-struct qb_loop_source *
-qb_loop_timer_create(struct qb_loop *l)
-{
-	return NULL;
-}
-
-void
-qb_loop_timer_destroy(struct qb_loop *l)
-{
-}
-
-int32_t
-qb_loop_timer_add(struct qb_loop *lp,
-		  enum qb_loop_priority p,
-		  uint64_t nsec_duration,
-		  void *data,
-		  qb_loop_timer_dispatch_fn timer_fn,
-		  qb_loop_timer_handle * timer_handle_out)
-{
-	struct qb_poll_entry *pe;
-	int32_t fd;
-	int32_t res;
-	int32_t size, new_size;
-	struct itimerspec its;
-	struct qb_loop *l = lp;
-
-	if (l == NULL) {
-		l = qb_loop_default_get();
-	}
-	if (l == NULL || timer_fn == NULL) {
-		qb_util_log(LOG_ERR,
-			    "can't add a timer with either (l == NULL || timer_fn == NULL)");
-		return -EINVAL;
-	}
-	fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
-	if (fd == -1) {
-		res = -errno;
-		qb_util_perror(LOG_ERR, "failed to create timer");
-		return res;
-	}
-
-	its.it_interval.tv_sec = 0;
-	its.it_interval.tv_nsec = 0;
-	its.it_value.tv_sec = nsec_duration / QB_TIME_NS_IN_SEC;
-	its.it_value.tv_nsec = nsec_duration % QB_TIME_NS_IN_SEC;
-
-	res = timerfd_settime(fd, 0, &its, NULL);
-	if (res == -1) {
-		res = -errno;
-		qb_util_perror(LOG_ERR, "failed to set time on timer");
-		goto close_and_return;
-	}
-
-	size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
-	res = _poll_add_(l, p, fd, POLLIN, data, &pe);
-	if (res != 0) {
-		goto close_and_return;
-	}
-	new_size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
-	if (new_size > size) {
-		qb_util_log(LOG_TRACE, "grown poll array to %d for timer %d",
-			    new_size, fd);
-	}
-	pe->timer_dispatch_fn = timer_fn;
-	pe->item.type = QB_LOOP_TIMER;
-	pe->add_to_jobs = _qb_timer_add_to_jobs_;
-
-	if (timer_handle_out) {
-		*timer_handle_out = (((uint64_t) (pe->check)) << 32) | pe->install_pos;
-	}
-
-	return res;
-
-close_and_return:
-	close(fd);
-	return res;
-}
-
-int32_t
-qb_loop_timer_del(struct qb_loop * lp, qb_loop_timer_handle th)
-{
-	struct qb_poll_entry *pe;
-	struct qb_poll_source *s;
-	int32_t res;
-	struct qb_loop *l = lp;
-
-	if (l == NULL) {
-		l = qb_loop_default_get();
-	}
-	if (l == NULL || th == 0) {
-		return -EINVAL;
-	}
-	s = (struct qb_poll_source *)l->fd_source;
-	res = _poll_entry_from_handle_(s, th, &pe);
-	if (res != 0) {
-		return res;
-	}
-
-	if (pe->item.type != QB_LOOP_TIMER) {
-		qb_util_log(LOG_WARNING,
-			    "trying to delete timer but handle points to type:%d",
-			    pe->item.type);
-		return -EINVAL;
-	}
-	if (pe->state == QB_POLL_ENTRY_DELETED) {
-		return 0;
-	}
-	if (pe->state == QB_POLL_ENTRY_JOBLIST) {
-		qb_loop_level_item_del(&l->level[pe->p], &pe->item);
-		qb_util_log(LOG_DEBUG, "deleting timer in JOBLIST");
-	}
-	if (pe->state != QB_POLL_ENTRY_ACTIVE &&
-	    pe->state != QB_POLL_ENTRY_JOBLIST) {
-		qb_util_log(LOG_WARNING, "trying to delete timer with state:%d",
-			    pe->state);
-		return -EINVAL;
-	}
-	if (pe->ufd.fd != -1) {
-#ifdef HAVE_EPOLL
-		if (epoll_ctl(s->epollfd, EPOLL_CTL_DEL, pe->ufd.fd, NULL) ==
-		    -1) {
-			qb_util_perror(LOG_DEBUG, "epoll_ctl(del:%d)",
-				       pe->ufd.fd);
-		}
-#else
-		s->ufds[pe->install_pos].fd = -1;
-		s->ufds[pe->install_pos].events = 0;
-		s->ufds[pe->install_pos].revents = 0;
-#endif /* HAVE_EPOLL */
-		close(pe->ufd.fd);
-	}
-	_poll_entry_mark_deleted_(pe);
-
-	return 0;
-}
-
-uint64_t
-qb_loop_timer_expire_time_get(struct qb_loop * lp, qb_loop_timer_handle th)
-{
-	struct qb_poll_entry *pe;
-	struct qb_poll_source *s;
-	int32_t res = 0;
-	struct itimerspec its;
-	struct qb_loop *l = lp;
-
-	if (l == NULL) {
-		l = qb_loop_default_get();
-	}
-	if (l == NULL || th == 0) {
-		return 0;
-	}
-	s = (struct qb_poll_source *)l->fd_source;
-	res = _poll_entry_from_handle_(s, th, &pe);
-	if (res != 0) {
-		return 0;
-	}
-
-	if (timerfd_gettime(pe->ufd.fd, &its) == -1) {
-		return 0;
-	}
-	return (its.it_value.tv_sec * QB_TIME_NS_IN_SEC) + its.it_value.tv_nsec;
-}
-
-#endif /* HAVE_TIMERFD */
-
-int32_t
-qb_loop_timer_is_running(qb_loop_t *l, qb_loop_timer_handle th)
-{
-	return (qb_loop_timer_expire_time_get(l, th) > 0);
 }
 
 static int32_t pipe_fds[2] = { -1, -1 };

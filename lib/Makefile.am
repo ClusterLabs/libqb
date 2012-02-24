@@ -39,7 +39,7 @@ lib_LTLIBRARIES		= libqb.la
 
 libqb_la_LDFLAGS	= -version-info 10:1:10
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c array.c \
-			  loop.c loop_poll.c loop_job.c \
+			  loop.c loop_poll.c loop_job.c loop_timerlist.c \
 			  ipcc.c ipcs.c ipc_shm.c ipc_us.c \
 			  log.c log_thread.c log_blackbox.c log_file.c \
 			  log_syslog.c log_dcs.c log_format.c \
@@ -56,10 +56,6 @@ if HAVE_POSIX_MQ
   libqb_la_SOURCES+=ipc_posix_mq.c
 endif
 
-if USE_TIMERFD
-else
-libqb_la_SOURCES+=loop_timerlist.c
-endif
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libqb.pc
 

@@ -277,3 +277,9 @@ qb_loop_timer_expire_time_get(struct qb_loop * lp, qb_loop_timer_handle th)
 
 	return timerlist_expire_time(&s->timerlist, t->timerlist_handle);
 }
+
+int32_t
+qb_loop_timer_is_running(qb_loop_t *l, qb_loop_timer_handle th)
+{
+	return (qb_loop_timer_expire_time_get(l, th) > 0);
+}

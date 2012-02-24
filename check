@@ -14,7 +14,6 @@ help_all() {
 	echo "  nosection       Check without gcc __attribute__(section)"
 	echo "  noepoll         Check using poll (not epoll)"
 	echo "  nogettime       Check without gettime()"
-	echo "  notimerfd       Check without timerfd"
 	echo "  bsd             Check with a bsd-like config"
 	echo "  mac             Check with a mac/darwin-like config"
 	echo "  dist            do make distcheck"
@@ -94,11 +93,6 @@ check_sysv() {
 	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED"
 	check
 	export CFLAGS=$ORIG_CFLAGS
-}
-
-check_notimerfd() {
-	# no timerfd
-	check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no"
 }
 
 check_nogettime() {
@@ -285,9 +279,6 @@ case $command in
 	;;
 	dist)
 		check_dist
-	;;
-	notimerfd)
-		check_notimerfd
 	;;
 	coverity)
 		check_coverity

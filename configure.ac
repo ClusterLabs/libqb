@@ -118,7 +118,7 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h stdint.h \
 		  dlfcn.h time.h sys/time.h stdlib.h string.h strings.h sys/types.h sys/stat.h \
-		  sys/param.h sys/socket.h sys/time.h sys/timerfd.h sys/poll.h sys/epoll.h sys/uio.h \
+		  sys/param.h sys/socket.h sys/time.h sys/poll.h sys/epoll.h sys/uio.h \
 		  sys/sockio.h sys/un.h sys/resource.h syslog.h errno.h unistd.h sys/mman.h \
 		  sys/sem.h sys/ipc.h sys/msg.h mqueue.h])
 
@@ -143,7 +143,7 @@ AC_FUNC_MMAP
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r \
 		memset munmap socket strchr strrchr strdup strerror strstr \
 		poll epoll_create epoll_create1 random rand getrlimit sysconf \
-		pthread_spin_lock timerfd_create pthread_setschedparam \
+		pthread_spin_lock pthread_setschedparam \
 		sched_get_priority_max sched_setscheduler])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
@@ -434,9 +434,6 @@ if test "x${supports_posix_mq}" = xyes ; then
 	AC_MSG_NOTICE([Enabling POSIX Message Queues])
 fi
 AM_CONDITIONAL(HAVE_POSIX_MQ, [test "x${supports_posix_mq}" = xyes])
-
-
-AM_CONDITIONAL(USE_TIMERFD, [test "x$ac_cv_func_timerfd_create" = xyes])
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
