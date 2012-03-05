@@ -269,7 +269,7 @@ START_TEST(test_log_basic)
 	 * test filtering by function
 	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
-			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
 
@@ -290,7 +290,7 @@ START_TEST(test_log_basic)
 	ck_assert_int_eq(num_msgs, 1);
 
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
-			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FUNCTION,
 			  "log_also,log_and_this_too",
@@ -301,7 +301,7 @@ START_TEST(test_log_basic)
 	ck_assert_int_eq(num_msgs, 2);
 
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
-			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FILE, __FILE__, LOG_DEBUG);
 	/*
@@ -330,7 +330,7 @@ START_TEST(test_log_basic)
 	 * log level.
 	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
-			  QB_LOG_FILTER_FILE, "*", LOG_DEBUG);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FILE, __FILE__, LOG_INFO);
 
