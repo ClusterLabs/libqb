@@ -55,7 +55,7 @@ CLEANFILES += $(auto_c_files)
 MAINTAINERCLEANFILES += $(auto_c_files)
 
 $(builddir)/auto_check_header_%.c: $(top_srcdir)/include/qb/%.h
-	@name=$$(echo "$<" | sed "s|.*qb\([a-z_]\+\).h|\1|") ;\
+	@name=$$(echo "$<" | sed  "s|.*qb/qb||" | sed "s|\.h||") ;\
 	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
 	echo "#include <qb/qb$$name.h>" > $@_ ;\
 	echo "#ifndef QB_$${NAME}_H_DEFINED" >> $@_ ;\
