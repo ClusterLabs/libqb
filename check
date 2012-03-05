@@ -60,10 +60,10 @@ then
 fi
 
 check() {
-	echo "./configure $1 --enable-fatal-warnings --quiet"
+	echo "./configure $1 --enable-debug --enable-fatal-warnings --quiet"
 	echo "ENV CFLAGS=\"$CFLAGS\""
 	echo "ENV MAKEFLAGS=\"$MAKEFLAGS\""
-	( ./configure $1 --enable-fatal-warnings --quiet )
+	( ./configure $1 --enable-debug --enable-fatal-warnings --quiet )
 	make check
 	if [ $? -ne 0 ]
 	then
@@ -79,16 +79,22 @@ check() {
 }
 
 check_ansi() {
+	echo "checking ansi"
+	echo "==============="
 	check "--enable-ansi"
 }
 
 check_nosection() {
+	echo "checking nosection"
+	echo "======================="
 	# no __attribute__((section))
 	check "ac_cv_link_attribute_section=no"
 }
 
 check_sysv() {
 	# use sys-v semaphores
+	echo "checking sysv"
+	echo "======================="
 	ORIG_CFLAGS=$CFLAGS
 	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED"
 	check
@@ -97,30 +103,40 @@ check_sysv() {
 
 check_nogettime() {
 	# no clock_gettime
+	echo "checking nogettime"
+	echo "======================="
 	check "ac_cv_func_clock_gettime=no"
 }
 
 check_noepoll() {
 	# no epoll
+	echo "checking noepoll"
+	echo "======================="
 	check "ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
 }
 
 check_bsd() {
 	# bsd-like
-	check "ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+	echo "checking bed"
+	echo "======================="
+	check "ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
 }
 
 check_mac() {
 	# mac-like
+	echo "checking mac"
+	echo "======================="
 	ORIG_CFLAGS=$CFLAGS
 	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED"
-	check "ac_cv_supports_sysv_mq=no ac_cv_supports_posix_mq=no ac_cv_func_timerfd_create=no ac_cv_header_sys_timerfd_h=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no ac_cv_link_attribute_section=no"
+	check "ac_cv_supports_sysv_mq=no ac_cv_supports_posix_mq=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no ac_cv_link_attribute_section=no"
 	export CFLAGS=$ORIG_CFLAGS
 
 }
 
 check_dist() {
 	# normal configure with distcheck
+	echo "checking dist"
+	echo "======================"
 	set +e
 	./configure --quiet
 	make distcheck
@@ -129,6 +145,7 @@ check_dist() {
 
 check_rpm() {
 	echo "checking rpm building"
+	echo "======================"
 	set +e
 	make maintainer-clean
 	./autogen.sh
@@ -148,6 +165,7 @@ check_rpm() {
 
 check_mock() {
 	echo "checking mock building"
+	echo "======================"
 	set +e
 	make maintainer-clean
 	rm -f *.rpm
@@ -158,6 +176,8 @@ check_mock() {
 }
 
 check_coverity() {
+	echo "checking coverity"
+	echo "======================"
 	make clean
 	cov-build --dir=cov make
 	cov-analyze --dir cov \
@@ -176,6 +196,8 @@ check_clang() {
 		echo try installing clang-analyze
 		exit 1
 	fi
+	echo "checking clang"
+	echo "===================="
 	make clean
 
 	./configure \
@@ -234,15 +256,14 @@ check_api_sanity() {
 }
 
 check_all() {
-		check_ansi
-		check_nosection
-		check_sysv
-		check_noepoll
-		check_nogettime
-		check_notimerfd
-		check_bsd
-		check_dist
-		check_rpm
+	check_ansi
+	check_nosection
+	check_sysv
+	check_noepoll
+	check_nogettime
+	check_bsd
+	check_dist
+	check_rpm
 }
 
 
