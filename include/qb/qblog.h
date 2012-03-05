@@ -228,11 +228,11 @@ typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
  * the special section is treated as an array of these.
  */
 struct qb_log_callsite {
-        const char *function;
-        const char *filename;
-        const char *format;
+	const char *function;
+	const char *filename;
+	const char *format;
 	uint8_t priority;
-        uint32_t lineno;
+	uint32_t lineno;
 	uint32_t targets;
 	uint32_t tags;
 } __attribute__((aligned(8)));
@@ -287,13 +287,32 @@ void qb_log_from_external_source(const char *function,
 				 uint32_t tags,
 				 ...);
 
+/**
+ * Get or create a callsite at the give position.
+ *
+ * The result can then be passed into qb_log_real_()
+ *
+ * @param function originating function name
+ * @param filename originating filename
+ * @param format format string
+ * @param priority this takes syslog priorities.
+ * @param lineno file line number
+ * @param tags the tag
+ */
+struct qb_log_callsite* qb_log_callsite_get(const char *function,
+					    const char *filename,
+					    const char *format,
+					    uint8_t priority,
+					    uint32_t lineno,
+					    uint32_t tags);
+
 void qb_log_from_external_source_va(const char *function,
-				 const char *filename,
-				 const char *format,
-				 uint8_t priority,
-				 uint32_t lineno,
-				 uint32_t tags,
-				 va_list ap);
+				    const char *filename,
+				    const char *format,
+				    uint8_t priority,
+				    uint32_t lineno,
+				    uint32_t tags,
+				    va_list ap);
 
 /**
  * This is the function to generate a log message if you want to
@@ -315,11 +334,14 @@ void qb_log_from_external_source_va(const char *function,
 	qb_log_real_(&descriptor, ##args);				\
     } while(0)
 #else
-#define qb_logt(priority, tags, fmt, args...) do { 			\
-	qb_log_from_external_source(__func__, __FILE__, fmt, priority, 	\
-				    __LINE__, tags, ##args); 		\
+#define qb_logt(priority, tags, fmt, args...) do {	\
+	struct qb_log_callsite* descriptor_pt =		\
+	qb_log_callsite_get(__func__, __FILE__, fmt,	\
+			    priority, __LINE__, tags);	\
+	qb_log_real_(descriptor_pt, ##args);		\
     } while(0)
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
+
 
 /**
  * This is the main function to generate a log message.

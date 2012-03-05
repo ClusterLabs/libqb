@@ -133,7 +133,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	char *str = buf;
 	va_list ap_copy;
 
-	if (in_logger) {
+	if (in_logger || cs == NULL) {
 		return;
 	}
 	in_logger = QB_TRUE;
@@ -234,12 +234,13 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 	}
 }
 
-void
-qb_log_from_external_source_va(const char *function,
-			       const char *filename,
-			       const char *format,
-			       uint8_t priority,
-			       uint32_t lineno, uint32_t tags, va_list ap)
+struct qb_log_callsite*
+qb_log_callsite_get(const char *function,
+		    const char *filename,
+		    const char *format,
+		    uint8_t priority,
+		    uint32_t lineno,
+		    uint32_t tags)
 {
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
@@ -249,13 +250,13 @@ qb_log_from_external_source_va(const char *function,
 	int32_t pos;
 
 	if (!logger_inited) {
-		return;
+		return NULL;
 	}
 
 	cs = qb_log_dcs_get(&new_dcs, function, filename,
 			    format, priority, lineno, tags);
 	if (cs == NULL) {
-		return;
+		return NULL;
 	}
 
 	if (new_dcs) {
@@ -287,6 +288,24 @@ qb_log_from_external_source_va(const char *function,
 		}
 		pthread_rwlock_unlock(&_listlock);
 	}
+	return cs;
+}
+
+void
+qb_log_from_external_source_va(const char *function,
+			       const char *filename,
+			       const char *format,
+			       uint8_t priority,
+			       uint32_t lineno, uint32_t tags, va_list ap)
+{
+	struct qb_log_callsite *cs;
+
+	if (!logger_inited) {
+		return;
+	}
+
+	cs = qb_log_callsite_get(function, filename,
+				 format, priority, lineno, tags);
 	qb_log_real_va_(cs, ap);
 }
 
@@ -297,11 +316,17 @@ qb_log_from_external_source(const char *function,
 			    uint8_t priority,
 			    uint32_t lineno, uint32_t tags, ...)
 {
+	struct qb_log_callsite *cs;
 	va_list ap;
 
+	if (!logger_inited) {
+		return;
+	}
+
+	cs = qb_log_callsite_get(function, filename,
+				 format, priority, lineno, tags);
 	va_start(ap, tags);
-	qb_log_from_external_source_va(function, filename, format, priority,
-		lineno, tags, ap);
+	qb_log_real_va_(cs, ap);
 	va_end(ap);
 }
 
