@@ -707,6 +707,7 @@ try_again:
 				    "failed to write signal to pipe [%d]", res);
 		}
 	}
+	qb_util_log(LOG_TRACE, "got real signal [%d] sent to pipe", sig);
 }
 
 static void
@@ -718,8 +719,8 @@ _signal_dispatch_and_take_back_(struct qb_loop_item *item,
 
 	res = sig->dispatch_fn(sig->signal, sig->item.user_data);
 	if (res != 0) {
-		qb_list_del(&sig->cloned_from->item.list);
-		free(sig->cloned_from);
+		(void)qb_loop_signal_del(sig->cloned_from->item.source->l,
+				   sig->cloned_from);
 	}
 	free(sig);
 }
@@ -829,6 +830,10 @@ _qb_signal_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 			}
 			memcpy(new_sig_job, sig, sizeof(struct qb_loop_sig));
 
+			qb_util_log(LOG_TRACE,
+				    "adding signal [%d] to job queue %p",
+				    the_signal, sig);
+
 			new_sig_job->cloned_from = sig;
 			qb_loop_level_item_add(&l->level[sig->p],
 					       &new_sig_job->item);
@@ -903,6 +908,7 @@ qb_loop_signal_add(qb_loop_t * lp,
 	sig->signal = the_sig;
 	sig->item.user_data = data;
 	sig->item.source = l->signal_source;
+	sig->item.type = QB_LOOP_SIG;
 
 	qb_list_init(&sig->item.list);
 	qb_list_add_tail(&sig->item.list, &s->sig_head);
@@ -941,6 +947,7 @@ qb_loop_signal_mod(qb_loop_t * lp,
 	s = (struct qb_signal_source *)l->signal_source;
 
 	sig->item.user_data = data;
+	sig->item.type = QB_LOOP_SIG;
 	sig->dispatch_fn = dispatch_fn;
 	sig->p = p;
 
@@ -955,15 +962,47 @@ qb_loop_signal_mod(qb_loop_t * lp,
 int32_t
 qb_loop_signal_del(qb_loop_t * lp, qb_loop_signal_handle handle)
 {
+	struct qb_signal_source *s;
 	struct qb_loop_sig *sig = (struct qb_loop_sig *)handle;
-#if 0
+	struct qb_loop_sig *sig_clone;
 	struct qb_loop *l = lp;
+	struct qb_loop_item *item;
 
 	if (l == NULL) {
 		l = qb_loop_default_get();
 	}
-#endif
+	if (l == NULL || handle == NULL) {
+		return -EINVAL;
+	}
+	s = (struct qb_signal_source *)l->signal_source;
+
+	qb_list_for_each_entry(item, &l->level[sig->p].wait_head, list) {
+		if (item->type != QB_LOOP_SIG) {
+			continue;
+		}
+		sig_clone = (struct qb_loop_sig *)item;
+		if (sig_clone->cloned_from == sig) {
+			qb_util_log(LOG_TRACE, "deleting sig in WAITLIST");
+			qb_list_del(&sig_clone->item.list);
+			free(sig_clone);
+			break;
+		}
+	}
+
+	qb_list_for_each_entry(item, &l->level[sig->p].job_head, list) {
+		if (item->type != QB_LOOP_SIG) {
+			continue;
+		}
+		sig_clone = (struct qb_loop_sig *)item;
+		if (sig_clone->cloned_from == sig) {
+			qb_loop_level_item_del(&l->level[sig->p], item);
+			qb_util_log(LOG_TRACE, "deleting sig in JOBLIST");
+			break;
+		}
+	}
+
 	qb_list_del(&sig->item.list);
 	free(sig);
+	_adjust_sigactions_(s);
 	return 0;
 }
