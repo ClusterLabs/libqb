@@ -44,6 +44,7 @@ static void job_stop(void *data)
 	job_3_run_count++;
 	qb_loop_stop(l);
 }
+
 static void job_2(void *data)
 {
 	int32_t res;
@@ -52,6 +53,7 @@ static void job_2(void *data)
 	res = qb_loop_job_add(l, QB_LOOP_HIGH, data, job_stop);
 	ck_assert_int_eq(res, 0);
 }
+
 static void job_1_r(void *data)
 {
 	int32_t res;
@@ -519,6 +521,7 @@ START_TEST(test_loop_timer_expire_leak)
 END_TEST
 
 static int received_signum = 0;
+static int received_sigs = 0;
 
 static int32_t
 sig_handler(int32_t rsignal, void *data)
@@ -526,8 +529,9 @@ sig_handler(int32_t rsignal, void *data)
 	qb_loop_t *l = (qb_loop_t *)data;
 	qb_log(LOG_DEBUG, "caught signal %d", rsignal);
 	received_signum = rsignal;
-	qb_loop_stop(l);
-	return -1;
+	received_sigs++;
+	qb_loop_job_add(l, QB_LOOP_LOW, NULL, job_stop);
+	return 0;
 }
 
 START_TEST(test_loop_sig_handling)
@@ -553,7 +557,86 @@ START_TEST(test_loop_sig_handling)
 }
 END_TEST
 
-static Suite *loop_timer_suite(void)
+START_TEST(test_loop_sig_only_get_one)
+{
+	int res;
+	qb_loop_signal_handle handle;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	/* make sure we only get one call to the handler
+	 * don't assume we are going to exit the loop.
+	 */
+	received_sigs = 0;
+	qb_loop_signal_add(l, QB_LOOP_LOW, SIGINT,
+			   l, sig_handler, &handle);
+
+	res = qb_loop_job_add(l, QB_LOOP_MED, NULL, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, NULL, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, NULL, job_1);
+	ck_assert_int_eq(res, 0);
+
+	kill(getpid(), SIGINT);
+	qb_loop_run(l);
+
+	ck_assert_int_eq(received_signum, SIGINT);
+	ck_assert_int_eq(received_sigs, 1);
+
+	qb_loop_destroy(l);
+}
+END_TEST
+
+static qb_loop_signal_handle sig_hdl;
+
+static void
+job_rm_sig_handler(void *data)
+{
+	int res;
+	qb_loop_t *l = (qb_loop_t *)data;
+	res = qb_loop_signal_del(l, sig_hdl);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_LOW, NULL, job_stop);
+	ck_assert_int_eq(res, 0);
+}
+
+START_TEST(test_loop_sig_delete)
+{
+	int res;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	/* make sure we can remove a signal job from the job queue.
+	 */
+	received_sigs = 0;
+	received_signum = 0;
+	res = qb_loop_signal_add(l, QB_LOOP_MED, SIGINT,
+				 l, sig_handler, &sig_hdl);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_job_add(l, QB_LOOP_HIGH, NULL,
+			      job_rm_sig_handler);
+	ck_assert_int_eq(res, 0);
+
+	kill(getpid(), SIGINT);
+	qb_loop_run(l);
+
+	ck_assert_int_eq(received_sigs, 0);
+	ck_assert_int_eq(received_signum, 0);
+
+	qb_loop_destroy(l);
+}
+END_TEST
+
+static Suite *
+loop_timer_suite(void)
 {
 	TCase *tc;
 	Suite *s = suite_create("loop_timers");
@@ -579,18 +662,30 @@ static Suite *loop_timer_suite(void)
 	return s;
 }
 
-static Suite *loop_signal_suite(void)
+static Suite *
+loop_signal_suite(void)
 {
 	TCase *tc;
 	Suite *s = suite_create("loop_signal_suite");
+
 	tc = tcase_create("signals");
 	tcase_add_test(tc, test_loop_sig_handling);
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
+
+	tc = tcase_create("sig_only_one");
+	tcase_add_test(tc, test_loop_sig_only_get_one);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("sig_delete");
+	tcase_add_test(tc, test_loop_sig_delete);
+	suite_add_tcase(s, tc);
+
 	return s;
 }
 
-int32_t main(void)
+int32_t
+main(void)
 {
 	int32_t number_failed;
 	SRunner *sr = srunner_create(loop_job_suite());
