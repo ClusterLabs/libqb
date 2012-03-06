@@ -830,7 +830,7 @@ _qb_signal_add_to_jobs_(struct qb_loop *l, struct qb_poll_entry *pe)
 			memcpy(new_sig_job, sig, sizeof(struct qb_loop_sig));
 
 			new_sig_job->cloned_from = sig;
-			qb_loop_level_item_add(&l->level[pe->p],
+			qb_loop_level_item_add(&l->level[sig->p],
 					       &new_sig_job->item);
 			jobs_added++;
 		}
