@@ -51,7 +51,7 @@ typedef int32_t(*qb_rb_sem_destroy_fn_t) (struct qb_ringbuffer_s * rb);
 struct qb_ringbuffer_shared_s {
 	volatile uint32_t write_pt;
 	volatile uint32_t read_pt;
-	uint32_t size;
+	uint32_t word_size;
 	char hdr_path[PATH_MAX];
 	char data_path[PATH_MAX];
 	int32_t ref_count;

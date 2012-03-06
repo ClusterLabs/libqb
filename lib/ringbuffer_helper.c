@@ -218,7 +218,7 @@ my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
 	int32_t res;
 	key_t sem_key;
 
-	sem_key = ftok(rb->shared_hdr->hdr_path, (rb->shared_hdr->size + 1));
+	sem_key = ftok(rb->shared_hdr->hdr_path, (rb->shared_hdr->word_size + 1));
 
 	if (sem_key == -1) {
 		res = -errno;

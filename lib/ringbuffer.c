@@ -44,15 +44,15 @@ do {				\
 #define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
 	rb->shared_data[pointer]
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
-	rb->shared_data[(pointer + 1) % rb->shared_hdr->size]
+	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size]
 
-#define QB_RB_WRITE_PT_INDEX (rb->shared_hdr->size)
-#define QB_RB_READ_PT_INDEX (rb->shared_hdr->size + 1)
+#define QB_RB_WRITE_PT_INDEX (rb->shared_hdr->word_size)
+#define QB_RB_READ_PT_INDEX (rb->shared_hdr->word_size + 1)
 
 #define idx_step(idx)					\
 do {							\
-	if (idx > (rb->shared_hdr->size - 1)) {		\
-		idx = ((idx) % (rb->shared_hdr->size));	\
+	if (idx > (rb->shared_hdr->word_size - 1)) {		\
+		idx = ((idx) % (rb->shared_hdr->word_size));	\
 	}						\
 } while (0)
 
@@ -69,15 +69,15 @@ do {					\
 	if (idx % 8) {			\
 		idx += (8 - (idx % 8));	\
 	}				\
-	if (idx > (rb->shared_hdr->size - 1)) {		\
-		idx = ((idx) % (rb->shared_hdr->size));	\
+	if (idx > (rb->shared_hdr->word_size - 1)) {		\
+		idx = ((idx) % (rb->shared_hdr->word_size));	\
 	}						\
 } while (0)
 #else
 #define idx_cache_line_step(idx)			\
 do {							\
-	if (idx > (rb->shared_hdr->size - 1)) {		\
-		idx = ((idx) % (rb->shared_hdr->size));	\
+	if (idx > (rb->shared_hdr->word_size - 1)) {		\
+		idx = ((idx) % (rb->shared_hdr->word_size));	\
 	}						\
 } while (0)
 #endif
@@ -145,8 +145,8 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
 		rb->shared_data = NULL;
-		/* rb->shared_hdr->size tracks data by ints and not bytes/chars. */
-		rb->shared_hdr->size = real_size / sizeof(uint32_t);
+		/* rb->shared_hdr->word_size tracks data by ints and not bytes/chars. */
+		rb->shared_hdr->word_size = real_size / sizeof(uint32_t);
 		rb->shared_hdr->write_pt = 0;
 		rb->shared_hdr->read_pt = 0;
 		(void)strlcpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
@@ -178,8 +178,8 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	}
 
 	qb_util_log(LOG_DEBUG,
-		    "shm size:%zd; real_size:%zd; rb->size:%d", size,
-		    real_size, rb->shared_hdr->size);
+		    "shm size:%zd; real_size:%zd; rb->word_size:%d", size,
+		    real_size, rb->shared_hdr->word_size);
 
 	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size);
 	rb->shared_data = shm_addr;
@@ -191,7 +191,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 
 	if (flags & QB_RB_FLAG_CREATE) {
 		memset(rb->shared_data, 0, real_size);
-		rb->shared_data[rb->shared_hdr->size] = 5;
+		rb->shared_data[rb->shared_hdr->word_size] = 5;
 		rb->shared_hdr->ref_count = 1;
 	} else {
 		qb_atomic_int_inc(&rb->shared_hdr->ref_count);
@@ -242,7 +242,7 @@ qb_rb_close(struct qb_ringbuffer_s * rb)
 		qb_util_log(LOG_DEBUG,
 			    "Closing ringbuffer: %s", rb->shared_hdr->hdr_path);
 	}
-	munmap(rb->shared_data, (rb->shared_hdr->size * sizeof(uint32_t)) << 1);
+	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
 	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
 	free(rb);
 }
@@ -260,7 +260,7 @@ qb_rb_force_close(struct qb_ringbuffer_s * rb)
 	qb_util_log(LOG_DEBUG,
 		    "Force free'ing ringbuffer: %s",
 		    rb->shared_hdr->hdr_path);
-	munmap(rb->shared_data, (rb->shared_hdr->size * sizeof(uint32_t)) << 1);
+	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
 	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
 	free(rb);
 }
@@ -310,11 +310,11 @@ qb_rb_space_free(struct qb_ringbuffer_s * rb)
 
 	if (write_size > read_size) {
 		space_free =
-		    (read_size - write_size + rb->shared_hdr->size) - 1;
+		    (read_size - write_size + rb->shared_hdr->word_size) - 1;
 	} else if (write_size < read_size) {
 		space_free = (read_size - write_size) - 1;
 	} else {
-		space_free = rb->shared_hdr->size;
+		space_free = rb->shared_hdr->word_size;
 	}
 
 	/* word -> bytes */
@@ -338,7 +338,7 @@ qb_rb_space_used(struct qb_ringbuffer_s * rb)
 		space_used = write_size - read_size;
 	} else if (write_size < read_size) {
 		space_used =
-		    (write_size - read_size + rb->shared_hdr->size) - 1;
+		    (write_size - read_size + rb->shared_hdr->word_size) - 1;
 	} else {
 		space_used = 0;
 	}
@@ -582,7 +582,7 @@ print_header(struct qb_ringbuffer_s * rb)
 	}
 	printf(" ->write_pt [%d]\n", rb->shared_hdr->write_pt);
 	printf(" ->read_pt [%d]\n", rb->shared_hdr->read_pt);
-	printf(" ->size [%d words]\n", rb->shared_hdr->size);
+	printf(" ->size [%d words]\n", rb->shared_hdr->word_size);
 #ifndef S_SPLINT_S
 	printf(" =>free [%zu bytes]\n", qb_rb_space_free(rb));
 	printf(" =>used [%zu bytes]\n", qb_rb_space_used(rb));
@@ -615,15 +615,15 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	}
 	print_header(rb);
 
-	result = write(fd, &rb->shared_hdr->size, sizeof(uint32_t));
+	result = write(fd, &rb->shared_hdr->word_size, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
 
 	result = write(fd, rb->shared_data,
-		       rb->shared_hdr->size * sizeof(uint32_t));
-	if (result != rb->shared_hdr->size * sizeof(uint32_t)) {
+		       rb->shared_hdr->word_size * sizeof(uint32_t));
+	if (result != rb->shared_hdr->word_size * sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
@@ -672,14 +672,14 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	rb->flags = flags;
 
 	n_required = sizeof(uint32_t);
-	n_read = read(fd, &rb->shared_hdr->size, n_required);
+	n_read = read(fd, &rb->shared_hdr->word_size, n_required);
 	if (n_read != n_required) {
 		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
 		goto cleanup_fail;
 	}
 	total_read += n_read;
 
-	n_required = (rb->shared_hdr->size * sizeof(uint32_t));
+	n_required = (rb->shared_hdr->word_size * sizeof(uint32_t));
 
 	if ((rb->shared_data = malloc(n_required)) == NULL) {
 		qb_util_perror(LOG_ERR, "exhausted virtual memory");
