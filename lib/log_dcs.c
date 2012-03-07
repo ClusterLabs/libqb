@@ -78,6 +78,8 @@ _log_dcs_new_cs(const char *function,
 	int32_t call_register = QB_FALSE;
 
 	if (qb_array_index(callsite_arr, callsite_arr_next, (void **)&cs) < 0) {
+		rc = qb_array_grow(callsite_arr, callsite_arr_next + 255);
+		assert(rc == 0);
 		rc = qb_array_index(callsite_arr, callsite_arr_next,
 				    (void **)&cs);
 		assert(rc == 0);
@@ -125,8 +127,7 @@ qb_log_dcs_get(int32_t * newly_created,
 	 * try the fastest access first (no locking needed)
 	 */
 	rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
-	assert(rc == 0);
-	if (csl_head->cs &&
+	if (rc == 0 && csl_head->cs &&
 		format == csl_head->cs->format &&
 		priority == csl_head->cs->priority &&
 		strcmp(safe_filename, csl_head->cs->filename) == 0) {
@@ -136,6 +137,12 @@ qb_log_dcs_get(int32_t * newly_created,
 	 * so we will either have to create it or go through a list, so lock it.
 	 */
 	(void)qb_thread_lock(arr_next_lock);
+	if (rc < 0) {
+		rc = qb_array_grow(lookup_arr, lineno + 255);
+		assert(rc == 0);
+		rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
+		assert(rc == 0);
+	}
 	if (csl_head->cs == NULL) {
 		csl_head->cs = _log_dcs_new_cs(safe_function, safe_filename, format,
 					       priority, lineno, tags);
@@ -176,8 +183,8 @@ cleanup:
 void
 qb_log_dcs_init(void)
 {
-	lookup_arr = qb_array_create_2(16, sizeof(struct callsite_list), 16);
-	callsite_arr = qb_array_create_2(16, sizeof(struct qb_log_callsite), 16);
+	lookup_arr = qb_array_create(16, sizeof(struct callsite_list));
+	callsite_arr = qb_array_create(16, sizeof(struct qb_log_callsite));
 
 	arr_next_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 
