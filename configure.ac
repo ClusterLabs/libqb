@@ -177,6 +177,7 @@ case $host_cpu in
 	powerpc*)
 		AC_MSG_RESULT([powerpc])
 		AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
+		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		arch_force_shmlba=yes
 		;;
