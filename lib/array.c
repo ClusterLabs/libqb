@@ -45,12 +45,9 @@ qb_array_create(size_t max_elements, size_t element_size)
 static int32_t
 _grow_bin_array(struct qb_array * a, int32_t new_bin_size)
 {
-	void *p[1];
 	int32_t b;
 
-	p[0] = NULL;
-
-	a->bin = realloc(a->bin, sizeof(p) * new_bin_size);
+	a->bin = realloc(a->bin, sizeof(void*) * new_bin_size);
 	if (a->bin == NULL) {
 		return -ENOMEM;
 	}
