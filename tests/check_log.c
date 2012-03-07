@@ -144,7 +144,7 @@ START_TEST(test_log_stupid_inputs)
 END_TEST
 
 static char test_buf[QB_LOG_MAX_LEN];
-static int32_t test_priority;
+static uint8_t test_priority;
 static int32_t num_msgs;
 
 /*
