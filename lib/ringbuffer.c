@@ -40,6 +40,14 @@ do {				\
  */
 #define QB_RB_CHUNK_HEADER_WORDS 2
 #define QB_RB_CHUNK_HEADER_SIZE (sizeof(uint32_t) * QB_RB_CHUNK_HEADER_WORDS)
+/*
+ * margin is the gap we leave when checking to see if we have enough
+ * space for a new chunk.
+ * So:
+ * qb_rb_space_free() >= QB_RB_CHUNK_MARGIN + new data chunk
+ * The extra word size is to allow for non word sized data chunks.
+ */
+#define QB_RB_CHUNK_MARGIN (sizeof(uint32_t) * (QB_RB_CHUNK_HEADER_WORDS + 1))
 #define QB_RB_CHUNK_MAGIC		0xAAAAAAAA
 #define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
 	rb->shared_data[pointer]
@@ -367,12 +375,11 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	 * Reclaim data if we are over writing and we need space
 	 */
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
-		while (qb_rb_space_free(rb) <
-		       (len + QB_RB_CHUNK_HEADER_SIZE + 4)) {
+		while (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
 			qb_rb_chunk_reclaim(rb);
 		}
 	} else {
-		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_HEADER_SIZE + 4)) {
+		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
 			errno = EAGAIN;
 			return NULL;
 		}
