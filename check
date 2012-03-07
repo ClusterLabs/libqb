@@ -60,10 +60,11 @@ then
 fi
 
 check() {
-	echo "./configure $1 --enable-debug --enable-fatal-warnings --quiet"
+	options="$1 --enable-debug --enable-slow-tests --enable-fatal-warnings --quiet"
+	echo "./configure $options"
 	echo "ENV CFLAGS=\"$CFLAGS\""
 	echo "ENV MAKEFLAGS=\"$MAKEFLAGS\""
-	( ./configure $1 --enable-debug --enable-fatal-warnings --quiet )
+	( ./configure $options )
 	make check
 	if [ $? -ne 0 ]
 	then

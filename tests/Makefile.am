@@ -89,12 +89,17 @@ bench_log_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
 if HAVE_CHECK
 EXTRA_DIST += resources.test
 
-TESTS = array.test map.test util.test rb.test log.test loop.test ipc.test resources.test
+TESTS = array.test map.test rb.test log.test loop.test ipc.test resources.test
 
 resources.log: rb.log log.log ipc.log
 
 check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test
 check_SCRIPTS = resources.test
+
+if HAVE_SLOW_TESTS
+TESTS += util.test
+check_PROGRAMS += util.test
+endif
 
 array_test_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
 array_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
