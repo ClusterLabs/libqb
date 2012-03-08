@@ -262,7 +262,6 @@ qb_ipcc_smq_connect(struct qb_ipcc_connection *c,
 	c->funcs.recv = qb_ipc_smq_recv;
 	c->funcs.fc_get = NULL;
 	c->funcs.disconnect = qb_ipcc_smq_disconnect;
-	c->type = QB_IPC_SYSV_MQ;
 	c->needs_sock_for_poll = QB_TRUE;
 
 	if (strlen(c->name) > (NAME_MAX - 20)) {

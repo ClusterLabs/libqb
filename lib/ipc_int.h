@@ -73,6 +73,7 @@ struct qb_ipcc_connection;
 
 struct qb_ipc_one_way {
 	size_t max_msg_size;
+	enum qb_ipc_type type;
 	union {
 		struct {
 			int32_t sock;
@@ -105,7 +106,6 @@ struct qb_ipcc_funcs {
 
 struct qb_ipcc_connection {
 	char name[NAME_MAX];
-	enum qb_ipc_type type;
 	int32_t needs_sock_for_poll;
 	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;

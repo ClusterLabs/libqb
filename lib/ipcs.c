@@ -442,6 +442,12 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->fc_enabled = QB_FALSE;
 	c->state = QB_IPCS_CONNECTION_INACTIVE;
 	c->poll_events = POLLIN | POLLPRI | POLLNVAL;
+
+	c->setup.type = s->type;
+	c->request.type = s->type;
+	c->response.type = s->type;
+	c->event.type = s->type;
+
 	return c;
 }
 

@@ -89,8 +89,7 @@ qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 	struct iovec iov_send;
 	char *rbuf = (char *)msg;
 	int32_t processed = 0;
-	struct ipc_us_control *ctl =
-	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	struct ipc_us_control *ctl = NULL;
 
 	msg_send.msg_iov = &iov_send;
 	msg_send.msg_iovlen = 1;
@@ -119,8 +118,11 @@ retry_send:
 	if (processed != len) {
 		goto retry_send;
 	}
-	if (ctl) {
-		qb_atomic_int_inc(&ctl->sent);
+	if (one_way->type == QB_IPC_SOCKET) {
+		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+		if (ctl) {
+			qb_atomic_int_inc(&ctl->sent);
+		}
 	}
 	return processed;
 }
@@ -134,8 +136,7 @@ qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 	int32_t processed = 0;
 	size_t len = 0;
 	int32_t i;
-	struct ipc_us_control *ctl =
-	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	struct ipc_us_control *ctl = NULL;
 
 	for (i = 0; i < iov_len; i++) {
 		len += iov[i].iov_len;
@@ -164,8 +165,11 @@ retry_send:
 	if (processed != len) {
 		goto retry_send;
 	}
-	if (ctl) {
-		qb_atomic_int_inc(&ctl->sent);
+	if (one_way->type == QB_IPC_SOCKET) {
+		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+		if (ctl) {
+			qb_atomic_int_inc(&ctl->sent);
+		}
 	}
 	return processed;
 }
@@ -231,8 +235,7 @@ qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
-	struct ipc_us_control *ctl =
-	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	struct ipc_us_control *ctl = NULL;
 
 retry_recv:
 	result = recv(one_way->u.us.sock, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
@@ -245,8 +248,11 @@ retry_recv:
 	if (result == 0) {
 		return -ENOTCONN;
 	}
-	if (ctl) {
-		(void)qb_atomic_int_dec_and_test(&ctl->sent);
+	if (one_way->type == QB_IPC_SOCKET) {
+		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+		if (ctl) {
+			(void)qb_atomic_int_dec_and_test(&ctl->sent);
+		}
 	}
 	return result;
 

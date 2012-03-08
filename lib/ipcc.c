@@ -46,7 +46,11 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	if (res < 0) {
 		goto disconnect_and_cleanup;
 	}
-	c->type = response.connection_type;
+	c->response.type = response.connection_type;
+	c->request.type = response.connection_type;
+	c->event.type = response.connection_type;
+	c->setup.type = response.connection_type;
+
 	c->response.max_msg_size = response.max_msg_size;
 	c->request.max_msg_size = response.max_msg_size;
 	c->event.max_msg_size = response.max_msg_size;
@@ -57,7 +61,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 		goto disconnect_and_cleanup;
 	}
 
-	switch (c->type) {
+	switch (c->request.type) {
 	case QB_IPC_SHM:
 		res = qb_ipcc_shm_connect(c, &response);
 		break;
@@ -279,7 +283,7 @@ qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 	if (c == NULL) {
 		return -EINVAL;
 	}
-	if (c->type == QB_IPC_SOCKET) {
+	if (c->event.type == QB_IPC_SOCKET) {
 		*fd = c->event.u.us.sock;
 	} else {
 		*fd = c->setup.u.us.sock;
@@ -302,7 +306,7 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	if (c->needs_sock_for_poll) {
 		ow = &c->setup;
 	}
-	if (c->type == QB_IPC_SOCKET) {
+	if (c->event.type == QB_IPC_SOCKET) {
 		ow = &c->event;
 	}
 	if (ow) {
@@ -344,7 +348,7 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 	if (c->needs_sock_for_poll) {
 		ow = &c->setup;
 	}
-	if (c->type == QB_IPC_SOCKET) {
+	if (c->event.type == QB_IPC_SOCKET) {
 		ow = &c->event;
 	}
 	if (ow) {
