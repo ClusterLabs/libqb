@@ -230,23 +230,36 @@ qb_ipc_us_recv_ready(struct qb_ipc_one_way * one_way, int32_t ms_timeout)
 	return 0;
 }
 
+/*
+ * recv an entire message - and try hard to get all of it.
+ */
 ssize_t
 qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
+	int32_t processed = 0;
+	int32_t to_recv = len;
+	char *data = msg;
 	struct ipc_us_control *ctl = NULL;
 
 retry_recv:
-	result = recv(one_way->u.us.sock, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
-	if (timeout == -1 && result == -1 && errno == EAGAIN) {
-		goto retry_recv;
+	result = recv(one_way->u.us.sock, &data[processed], to_recv, MSG_NOSIGNAL | MSG_WAITALL);
+	if (timeout == -1) {
+		if (result == -1 && errno == EAGAIN) {
+			goto retry_recv;
+		}
+	}
+	if (result == 0) {
+		return -ENOTCONN;
 	}
 	if (result == -1) {
 		return -errno;
 	}
-	if (result == 0) {
-		return -ENOTCONN;
+	processed += result;
+	to_recv -= result;
+	if (processed != len) {
+		goto retry_recv;
 	}
 	if (one_way->type == QB_IPC_SOCKET) {
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
@@ -254,9 +267,40 @@ retry_recv:
 			(void)qb_atomic_int_dec_and_test(&ctl->sent);
 		}
 	}
-	return result;
-
+	return processed;
 }
+
+/*
+ * recv a message of unknow size.
+ * (could use MSG_PEEK here)
+ */
+static ssize_t
+qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
+	       void *msg, size_t len, int32_t timeout)
+{
+	int32_t result;
+	struct ipc_us_control *ctl = NULL;
+
+retry_recv:
+	result = recv(one_way->u.us.sock, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
+	if (timeout == -1) {
+		if (result == -1 && errno == EAGAIN) {
+			goto retry_recv;
+		}
+	}
+	if (result == 0) {
+		return -ENOTCONN;
+	}
+	if (result == -1) {
+		return -errno;
+	}
+	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
+	if (ctl) {
+		(void)qb_atomic_int_dec_and_test(&ctl->sent);
+	}
+	return result;
+}
+
 
 static int32_t
 qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
@@ -372,7 +416,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	c->needs_sock_for_poll = QB_FALSE;
 	c->funcs.send = qb_ipc_us_send;
 	c->funcs.sendv = qb_ipc_us_sendv;
-	c->funcs.recv = qb_ipc_us_recv;
+	c->funcs.recv = qb_ipc_us_recv_at_most;
 	c->funcs.fc_get = qb_ipc_us_fc_get;
 	c->funcs.disconnect = qb_ipcc_us_disconnect;
 
@@ -914,7 +958,7 @@ qb_ipcs_us_init(struct qb_ipcs_service *s)
 	s->funcs.connect = qb_ipcs_us_connect;
 	s->funcs.disconnect = qb_ipcs_us_disconnect;
 
-	s->funcs.recv = qb_ipc_us_recv;
+	s->funcs.recv = qb_ipc_us_recv_at_most;
 	s->funcs.peek = NULL;
 	s->funcs.reclaim = NULL;
 	s->funcs.send = qb_ipc_us_send;
