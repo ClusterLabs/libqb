@@ -632,15 +632,16 @@ _request_q_len_get(struct qb_ipcs_connection *c)
 	ssize_t q_len;
 	if (c->service->funcs.q_len_get) {
 		q_len = c->service->funcs.q_len_get(&c->request);
-		if (q_len < 0) {
+		if (q_len <= 0) {
 			return q_len;
 		}
-		q_len = QB_MIN(q_len, MAX_RECV_MSGS);
-		if (c->service->poll_priority == QB_LOOP_MED)
+		if (c->service->poll_priority == QB_LOOP_MED) {
 			q_len = QB_MIN(q_len, 5);
-		if (c->service->poll_priority == QB_LOOP_LOW)
+		} else if (c->service->poll_priority == QB_LOOP_LOW) {
 			q_len = 1;
-
+		} else {
+			q_len = QB_MIN(q_len, MAX_RECV_MSGS);
+		}
 	} else {
 		q_len = 1;
 	}
