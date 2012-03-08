@@ -248,7 +248,9 @@ qb_loop_timer_del(struct qb_loop * lp, qb_loop_timer_handle th)
 		qb_loop_level_item_del(&l->level[t->p], &t->item);
 	}
 
-	timerlist_del(&s->timerlist, t->timerlist_handle);
+	if (t->timerlist_handle) {
+		timerlist_del(&s->timerlist, t->timerlist_handle);
+	}
 	t->state = QB_POLL_ENTRY_EMPTY;
 	return 0;
 }
