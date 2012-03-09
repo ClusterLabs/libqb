@@ -33,9 +33,41 @@ static int32_t job_1_run_count = 0;
 static int32_t job_2_run_count = 0;
 static int32_t job_3_run_count = 0;
 
+
+static int32_t job_order_1 = 1;
+static int32_t job_order_2 = 2;
+static int32_t job_order_3 = 3;
+static int32_t job_order_4 = 4;
+static int32_t job_order_5 = 5;
+static int32_t job_order_6 = 6;
+static int32_t job_order_7 = 7;
+static int32_t job_order_8 = 8;
+static int32_t job_order_9 = 9;
+static int32_t job_order_10 = 10;
+static int32_t job_order_11 = 11;
+static int32_t job_order_12 = 12;
+static int32_t job_order_13 = 13;
+
+
 static void job_1(void *data)
 {
 	job_1_run_count++;
+}
+
+static void job_order_check(void *data)
+{
+	int32_t * order = (int32_t *)data;
+	job_1_run_count++;
+	ck_assert_int_eq(job_1_run_count, *order);
+
+	if (job_1_run_count == 1) {
+		qb_loop_job_add(NULL, QB_LOOP_MED, &job_order_10, job_order_check);
+		qb_loop_job_add(NULL, QB_LOOP_MED, &job_order_11, job_order_check);
+		qb_loop_job_add(NULL, QB_LOOP_MED, &job_order_12, job_order_check);
+		qb_loop_job_add(NULL, QB_LOOP_MED, &job_order_13, job_order_check);
+	} else if (job_1_run_count >= 13) {
+		qb_loop_stop(NULL);
+	}
 }
 
 static void job_stop(void *data)
@@ -176,6 +208,39 @@ START_TEST(test_loop_job_nuts)
 }
 END_TEST
 
+START_TEST(test_loop_job_order)
+{
+	int32_t res;
+	qb_loop_t *l = qb_loop_create();
+	fail_if(l == NULL);
+
+	job_1_run_count = 0;
+
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_1, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_2, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_3, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_4, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_5, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_6, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_7, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_8, job_order_check);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_job_add(l, QB_LOOP_MED, &job_order_9, job_order_check);
+	ck_assert_int_eq(res, 0);
+
+	qb_loop_run(l);
+	qb_loop_destroy(l);
+}
+END_TEST
+
+
 static qb_util_stopwatch_t *rl_sw;
 #define RATE_LIMIT_RUNTIME_SEC 3
 
@@ -290,6 +355,10 @@ static Suite *loop_job_suite(void)
 
 	tc = tcase_create("add_del");
 	tcase_add_test(tc, test_job_add_del);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("order");
+	tcase_add_test(tc, test_loop_job_order);
 	suite_add_tcase(s, tc);
 
 	return s;
