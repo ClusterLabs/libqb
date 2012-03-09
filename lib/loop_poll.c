@@ -61,7 +61,6 @@ typedef int32_t(*qb_poll_add_to_jobs_fn) (struct qb_loop * l,
 struct qb_poll_entry {
 	struct qb_loop_item item;
 	qb_loop_poll_dispatch_fn poll_dispatch_fn;
-	qb_loop_timer_dispatch_fn timer_dispatch_fn;
 	enum qb_loop_priority p;
 	uint32_t install_pos;
 	struct pollfd ufd;
@@ -191,28 +190,19 @@ _poll_dispatch_and_take_back_(struct qb_loop_item *item,
 #endif /* DEBUG_DISPATCH_TIME */
 
 	assert(pe->state == QB_POLL_ENTRY_JOBLIST);
+	assert(pe->item.type == QB_LOOP_FD);
 
-	if (pe->item.type == QB_LOOP_FD) {
-		res = pe->poll_dispatch_fn(pe->ufd.fd,
-					   pe->ufd.revents,
-					   pe->item.user_data);
-		if (res < 0) {
-			_poll_entry_mark_deleted_(pe);
-		} else {
-			pe->state = QB_POLL_ENTRY_ACTIVE;
-			pe->ufd.revents = 0;
-		}
-	} else if (pe->item.type == QB_LOOP_TIMER) {
+	res = pe->poll_dispatch_fn(pe->ufd.fd,
+				   pe->ufd.revents,
+				   pe->item.user_data);
+	if (res < 0) {
 		_poll_entry_mark_deleted_(pe);
-		pe->timer_dispatch_fn(pe->item.user_data);
 	} else {
-		qb_util_log(LOG_WARNING,
-			    "poll entry of unknown type:%d state:%d", pe->item.type,
-			    pe->state);
-		return;
+		pe->state = QB_POLL_ENTRY_ACTIVE;
+		pe->ufd.revents = 0;
 	}
-	if (pe->state == QB_POLL_ENTRY_ACTIVE) {
 #ifdef DEBUG_DISPATCH_TIME
+	if (pe->state == QB_POLL_ENTRY_ACTIVE) {
 		pe->runs++;
 		if ((pe->runs % 50) == 0) {
 			log_warn = QB_TRUE;
@@ -229,16 +219,9 @@ _poll_dispatch_and_take_back_(struct qb_loop_item *item,
 				    pe->runs,
 				    (int32_t) ((stop -
 						start) / QB_TIME_NS_IN_MSEC));
-		} else if (log_warn && pe->item.type == QB_LOOP_TIMER) {
-			qb_util_log(LOG_INFO,
-				    "[timer] dispatch:%p runs:%d duration:%d ms",
-				    pe->timer_dispatch_fn,
-				    pe->runs,
-				    (int32_t) ((stop -
-						start) / QB_TIME_NS_IN_MSEC));
 		}
-#endif /* DEBUG_DISPATCH_TIME */
 	}
+#endif /* DEBUG_DISPATCH_TIME */
 }
 
 static void
@@ -720,7 +703,7 @@ _signal_dispatch_and_take_back_(struct qb_loop_item *item,
 	res = sig->dispatch_fn(sig->signal, sig->item.user_data);
 	if (res != 0) {
 		(void)qb_loop_signal_del(sig->cloned_from->item.source->l,
-				   sig->cloned_from);
+					 sig->cloned_from);
 	}
 	free(sig);
 }
