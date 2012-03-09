@@ -21,6 +21,7 @@
 #include "os_base.h"
 
 #include <qb/qbarray.h>
+#include <qb/qbutil.h>
 
 #define MAX_ELEMENTS_PER_BIN 16
 #define MAX_BINS 4096
@@ -34,6 +35,7 @@ struct qb_array {
 	size_t element_size;
 	size_t num_bins;
 	size_t autogrow_elements;
+	qb_thread_lock_t *grow_lock;
 };
 
 qb_array_t *
@@ -91,6 +93,7 @@ qb_array_create_2(size_t max_elements, size_t element_size,
 		free(a);
 		return NULL;
 	}
+	a->grow_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
 	return a;
 }
 
@@ -100,6 +103,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 	int32_t b;
 	int32_t elem;
 	char *bin;
+	int32_t rc;
 
 	if (a == NULL || element_out == NULL) {
 		return -EINVAL;
@@ -111,7 +115,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 		if (a->autogrow_elements == 0) {
 			return -ERANGE;
 		} else {
-			int32_t rc = qb_array_grow(a, idx + 1);
+			rc = qb_array_grow(a, idx + 1);
 			if (rc != 0) {
 				return rc;
 			}
@@ -119,20 +123,39 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 	}
 	b = BIN_NUM_GET(idx);
 	assert(b < MAX_BINS);
-	if (b >= a->num_bins) {
-		if (_grow_bin_array(a, b) < 0) {
-			return -ENOMEM;
+
+	if (b >= a->num_bins || a->bin[b] == NULL) {
+
+		(void)qb_thread_lock(a->grow_lock);
+
+		if (b >= a->num_bins) {
+			rc = _grow_bin_array(a, b + 1);
+			if (rc < 0) {
+				goto unlock_error;
+			}
 		}
+		if (a->bin[b] == NULL) {
+			a->bin[b] = calloc(MAX_ELEMENTS_PER_BIN, a->element_size);
+			if (a->bin[b] == NULL) {
+				goto unlock_error;
+			}
+		}
+
+		(void)qb_thread_unlock(a->grow_lock);
 	}
-	if (a->bin[b] == NULL) {
-		a->bin[b] = calloc(MAX_ELEMENTS_PER_BIN, a->element_size);
-	}
+
 	elem = ELEM_NUM_GET(idx);
 	assert(elem < MAX_ELEMENTS_PER_BIN);
 
 	bin = a->bin[b];
 	*element_out = (bin + (a->element_size * elem));
+
 	return 0;
+
+unlock_error:
+
+	(void)qb_thread_unlock(a->grow_lock);
+	return rc;
 }
 
 size_t
@@ -157,6 +180,8 @@ int32_t
 qb_array_grow(struct qb_array * a, size_t max_elements)
 {
 	int32_t b;
+	int32_t rc = 0;
+
 	if (a == NULL || max_elements > (MAX_ELEMENTS_PER_BIN * MAX_BINS)) {
 		return -EINVAL;
 	}
@@ -166,11 +191,13 @@ qb_array_grow(struct qb_array * a, size_t max_elements)
 	a->max_elements = max_elements;
 	b = QB_MIN((max_elements / MAX_ELEMENTS_PER_BIN) + 1, MAX_BINS);
 	if (b > a->num_bins) {
-		if (_grow_bin_array(a, b) < 0) {
-			return -ENOMEM;
+		(void)qb_thread_lock(a->grow_lock);
+		if (b >= a->num_bins) {
+			rc = _grow_bin_array(a, b + 1);
 		}
+		(void)qb_thread_unlock(a->grow_lock);
 	}
-	return 0;
+	return rc;
 }
 
 void
@@ -180,5 +207,6 @@ qb_array_free(struct qb_array *a)
 	for (i = 0; i < a->num_bins; i++) {
 		free(a->bin[i]);
 	}
+	(void)qb_thread_lock_destroy(a->grow_lock);
 	free(a);
 }
