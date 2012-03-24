@@ -35,10 +35,6 @@
 #include <qb/qbipc_common.h>
 #include <qb/qbrb.h>
 
-#ifdef HAVE_POSIX_SHARED_SEMAPHORE
-#include <semaphore.h>
-#endif /* HAVE_POSIX_SHARED_SEMAPHORE */
-
 #define QB_IPC_MAX_WAIT_MS 2000
 
 /*

@@ -47,6 +47,7 @@ enum qb_ipc_type {
 	QB_IPC_SHM,
 	QB_IPC_POSIX_MQ,
 	QB_IPC_SYSV_MQ,
+	QB_IPC_NATIVE,
 };
 
 

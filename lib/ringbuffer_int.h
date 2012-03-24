@@ -32,9 +32,7 @@
 #ifdef HAVE_SYS_IPC_H
 #include <sys/ipc.h>
 #endif
-#include <pthread.h>
-#include <semaphore.h>
-
+#include "rpl_sem.h"
 #include "util_int.h"
 #include <qb/qbutil.h>
 #include <qb/qbrb.h>
@@ -55,7 +53,7 @@ struct qb_ringbuffer_shared_s {
 	char hdr_path[PATH_MAX];
 	char data_path[PATH_MAX];
 	int32_t ref_count;
-	sem_t posix_sem;
+	rpl_sem_t posix_sem;
 	char user_data[1];
 };
 

@@ -120,7 +120,7 @@ check_bsd() {
 	# bsd-like
 	echo "checking bed"
 	echo "======================="
-	check "ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+	check "ac_cv_func_sem_timedwait=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
 }
 
 check_mac() {

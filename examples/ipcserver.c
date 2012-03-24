@@ -247,7 +247,7 @@ main(int32_t argc, char *argv[])
 {
 	const char *options = "mpsugh";
 	int32_t opt;
-	enum qb_ipc_type ipc_type = QB_IPC_SHM;
+	enum qb_ipc_type ipc_type = QB_IPC_NATIVE;
 	struct qb_ipcs_service_handlers sh = {
 		.connection_accept = s1_connection_accept_fn,
 		.connection_created = s1_connection_created_fn,

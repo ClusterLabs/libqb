@@ -143,8 +143,11 @@ AC_FUNC_MMAP
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r \
 		memset munmap socket strchr strrchr strdup strerror strstr \
 		poll epoll_create epoll_create1 random rand getrlimit sysconf \
-		pthread_spin_lock pthread_setschedparam \
+		pthread_spin_lock pthread_setschedparam sem_timedwait \
 		sched_get_priority_max sched_setscheduler])
+
+AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
+	       [test "x$ac_cv_func_sem_timedwait" = xyes])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
 AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
@@ -152,9 +155,6 @@ AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
 ## local defines
 PACKAGE_FEATURES=""
 
-if test x$ac_cv_func_timerfd_create = xyes; then
-	PACKAGE_FEATURES="$PACKAGE_FEATURES timerfd"
-fi
 if test x$ac_cv_func_epoll_create = xyes; then
 	PACKAGE_FEATURES="$PACKAGE_FEATURES epoll"
 fi
@@ -243,7 +243,7 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
 				   [Compiling for BSD platform])
 		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
-				   [Shared memory define for Darwin platform])
+				   [Shared memory define for BSD platform])
 		case "$host_os" in
 			*freebsd[[234567]]*)
 			;;

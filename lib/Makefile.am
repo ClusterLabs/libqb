@@ -56,6 +56,11 @@ if HAVE_POSIX_MQ
   libqb_la_SOURCES+=ipc_posix_mq.c
 endif
 
+if HAVE_SEM_TIMEDWAIT
+else
+  libqb_la_SOURCES+=rpl_sem.c
+endif
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libqb.pc
 

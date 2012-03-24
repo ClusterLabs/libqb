@@ -21,12 +21,8 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
+#include "os_base.h"
 #include <sys/wait.h>
-#include <errno.h>
 #include <signal.h>
 #include <check.h>
 
@@ -312,9 +308,12 @@ test_ipc_txrx(void)
 static void
 test_ipc_exit(void)
 {
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
+	int32_t res;
 	int32_t c = 0;
 	int32_t j = 0;
-	int32_t rc = 0;
 	pid_t pid;
 
 	pid = run_function_in_new_process(run_ipc_server);
@@ -332,9 +331,16 @@ test_ipc_exit(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
-	/* confirm we can send one message */
-	rc = send_and_check(100, recv_timeout, QB_TRUE);
-	_ck_assert_int(rc, >=, 0);
+	req_header.id = IPC_MSG_REQ_TX_RX;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), -1);
+	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 
 	/* kill the server */
 	stop_process(pid);
@@ -350,7 +356,16 @@ test_ipc_exit(void)
 	qb_ipcc_disconnect(conn);
 }
 
+START_TEST(test_ipc_exit_us)
+{
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	recv_timeout = 5000;
+	test_ipc_exit();
+}
+END_TEST
 
+#ifdef HAVE_SEM_TIMEDWAIT
 START_TEST(test_ipc_exit_shm)
 {
 	ipc_type = QB_IPC_SHM;
@@ -380,6 +395,17 @@ START_TEST(test_ipc_txrx_shm_block)
 }
 END_TEST
 
+START_TEST(test_ipc_fc_shm)
+{
+	turn_on_fc = QB_TRUE;
+	ipc_type = QB_IPC_SHM;
+	recv_timeout = 500;
+	ipc_name = __func__;
+	test_ipc_txrx();
+}
+END_TEST
+#endif /* HAVE_SEM_TIMEDWAIT */
+
 START_TEST(test_ipc_txrx_us_block)
 {
 	turn_on_fc = QB_FALSE;
@@ -396,16 +422,6 @@ START_TEST(test_ipc_txrx_us_tmo)
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	recv_timeout = 1000;
-	test_ipc_txrx();
-}
-END_TEST
-
-START_TEST(test_ipc_fc_shm)
-{
-	turn_on_fc = QB_TRUE;
-	ipc_type = QB_IPC_SHM;
-	recv_timeout = 500;
-	ipc_name = __func__;
 	test_ipc_txrx();
 }
 END_TEST
@@ -503,14 +519,6 @@ test_ipc_dispatch(void)
 	stop_process(pid);
 }
 
-START_TEST(test_ipc_disp_shm)
-{
-	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
-	test_ipc_dispatch();
-}
-END_TEST
-
 START_TEST(test_ipc_disp_us)
 {
 	ipc_type = QB_IPC_SOCKET;
@@ -574,6 +582,15 @@ START_TEST(test_ipc_server_fail_soc)
 }
 END_TEST
 
+#ifdef HAVE_SEM_TIMEDWAIT
+START_TEST(test_ipc_disp_shm)
+{
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	test_ipc_dispatch();
+}
+END_TEST
+
 START_TEST(test_ipc_server_fail_shm)
 {
 	ipc_type = QB_IPC_SHM;
@@ -581,6 +598,7 @@ START_TEST(test_ipc_server_fail_shm)
 	test_ipc_server_fail();
 }
 END_TEST
+#endif /* HAVE_SEM_TIMEDWAIT */
 
 static Suite *
 ipc_suite(void)
@@ -589,13 +607,9 @@ ipc_suite(void)
 	uid_t uid;
 	Suite *s = suite_create("ipc");
 
+#ifdef HAVE_SEM_TIMEDWAIT
 	tc = tcase_create("ipc_server_fail_shm");
 	tcase_add_test(tc, test_ipc_server_fail_shm);
-	tcase_set_timeout(tc, 6);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_server_fail_soc");
-	tcase_add_test(tc, test_ipc_server_fail_soc);
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
@@ -609,6 +623,27 @@ ipc_suite(void)
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("ipc_fc_shm");
+	tcase_add_test(tc, test_ipc_fc_shm);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_dispatch_shm");
+	tcase_add_test(tc, test_ipc_disp_shm);
+	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_exit_shm");
+	tcase_add_test(tc, test_ipc_exit_shm);
+	tcase_set_timeout(tc, 3);
+	suite_add_tcase(s, tc);
+#endif /* HAVE_SEM_TIMEDWAIT */
+
+	tc = tcase_create("ipc_server_fail_soc");
+	tcase_add_test(tc, test_ipc_server_fail_soc);
+	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
 	tc = tcase_create("ipc_txrx_us_block");
 	tcase_add_test(tc, test_ipc_txrx_us_block);
 	tcase_set_timeout(tc, 6);
@@ -619,14 +654,14 @@ ipc_suite(void)
 	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
-	tc = tcase_create("ipc_fc_shm");
-	tcase_add_test(tc, test_ipc_fc_shm);
-	tcase_set_timeout(tc, 6);
-	suite_add_tcase(s, tc);
-
 	tc = tcase_create("ipc_fc_us");
 	tcase_add_test(tc, test_ipc_fc_us);
 	tcase_set_timeout(tc, 6);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_exit_us");
+	tcase_add_test(tc, test_ipc_exit_us);
+	tcase_set_timeout(tc, 3);
 	suite_add_tcase(s, tc);
 
 	uid = geteuid();
@@ -641,19 +676,9 @@ ipc_suite(void)
 		tcase_set_timeout(tc, 10);
 		suite_add_tcase(s, tc);
 	}
-	tc = tcase_create("ipc_dispatch_shm");
-	tcase_add_test(tc, test_ipc_disp_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
 	tc = tcase_create("ipc_dispatch_us");
 	tcase_add_test(tc, test_ipc_disp_us);
 	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_exit_shm");
-	tcase_add_test(tc, test_ipc_exit_shm);
-	tcase_set_timeout(tc, 3);
 	suite_add_tcase(s, tc);
 
 	return s;
@@ -670,7 +695,7 @@ main(void)
 	qb_log_init("check", LOG_USER, LOG_EMERG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	srunner_run_all(sr, CK_VERBOSE);

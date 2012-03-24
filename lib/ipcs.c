@@ -42,9 +42,15 @@ qb_ipcs_create(const char *name,
 	if (s == NULL) {
 		return NULL;
 	}
+	if (type == QB_IPC_NATIVE) {
+#ifdef HAVE_SEM_TIMEDWAIT
+		s->type = QB_IPC_SHM;
+#else
+		s->type = QB_IPC_SOCKET;
+#endif /* HAVE_SEM_TIMEDWAIT */
+	}
 
 	s->pid = getpid();
-	s->type = type;
 	s->needs_sock_for_poll = QB_FALSE;
 	s->poll_priority = QB_LOOP_MED;
 	s->ref_count = 1;
@@ -91,7 +97,11 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 		qb_ipcs_us_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_SHM:
+#ifdef HAVE_SEM_TIMEDWAIT
 		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
+#else
+		res = -ENOTSUP;
+#endif /* HAVE_SEM_TIMEDWAIT */
 		break;
 	case QB_IPC_POSIX_MQ:
 #ifdef HAVE_POSIX_MQ
