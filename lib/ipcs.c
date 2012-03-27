@@ -43,11 +43,13 @@ qb_ipcs_create(const char *name,
 		return NULL;
 	}
 	if (type == QB_IPC_NATIVE) {
-#ifdef HAVE_SEM_TIMEDWAIT
+#if defined (HAVE_SEM_TIMEDWAIT) || defined(HAVE_SEMTIMEDOP)
 		s->type = QB_IPC_SHM;
 #else
 		s->type = QB_IPC_SOCKET;
 #endif /* HAVE_SEM_TIMEDWAIT */
+	} else {
+		s->type = type;
 	}
 
 	s->pid = getpid();
@@ -97,11 +99,11 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 		qb_ipcs_us_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_SHM:
-#ifdef HAVE_SEM_TIMEDWAIT
+#if defined (HAVE_SEM_TIMEDWAIT) || defined(HAVE_SEMTIMEDOP)
 		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
 #else
 		res = -ENOTSUP;
-#endif /* HAVE_SEM_TIMEDWAIT */
+#endif /* HAVE_SEM_TIMEDWAIT or HAVE_SEMTIMEDOP */
 		break;
 	case QB_IPC_POSIX_MQ:
 #ifdef HAVE_POSIX_MQ
