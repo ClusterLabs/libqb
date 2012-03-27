@@ -121,7 +121,7 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 #ifdef SCHED_IDLE
 	    || policy == SCHED_IDLE
 #endif
-#ifndef QB_DARWIN
+#if defined(SCHED_BATCH) && !defined(QB_DARWIN)
 	    || policy == SCHED_BATCH
 #endif
 	    ) {
