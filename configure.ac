@@ -143,7 +143,7 @@ AC_FUNC_MMAP
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r \
 		memset munmap socket strchr strrchr strdup strerror strstr \
 		poll epoll_create epoll_create1 random rand getrlimit sysconf \
-		pthread_spin_lock pthread_setschedparam sem_timedwait \
+		pthread_spin_lock pthread_setschedparam sem_timedwait semtimedop \
 		sched_get_priority_max sched_setscheduler])
 
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
