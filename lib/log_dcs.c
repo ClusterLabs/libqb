@@ -196,6 +196,27 @@ qb_log_dcs_init(void)
 void
 qb_log_dcs_fini(void)
 {
+	struct callsite_list *csl_head;
+	struct callsite_list *csl_next;
+	struct callsite_list *csl;
+	int32_t i;
+	int32_t rc;
+	int32_t cnt = qb_array_num_bins_get(lookup_arr);
+	cnt *= qb_array_elems_per_bin_get(lookup_arr);
+
+	for (i = 0; i < cnt; i++) {
+		rc = qb_array_index(lookup_arr, i, (void **)&csl_head);
+		if (rc != 0 || csl_head->next == NULL) {
+			continue;
+		}
+
+		for (csl = csl_head->next; csl; csl = csl_next) {
+			csl_next = csl->next;
+			free(csl);
+		}
+	}
+
+
 	qb_array_free(lookup_arr);
 	qb_array_free(callsite_arr);
 	(void)qb_thread_lock_destroy(arr_next_lock);

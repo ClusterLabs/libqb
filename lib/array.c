@@ -207,6 +207,7 @@ qb_array_free(struct qb_array *a)
 	for (i = 0; i < a->num_bins; i++) {
 		free(a->bin[i]);
 	}
+	free(a->bin);
 	(void)qb_thread_lock_destroy(a->grow_lock);
 	free(a);
 }
