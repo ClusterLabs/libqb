@@ -165,7 +165,7 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 		res = -errno;
 		goto cleanup_fail;
 	}
-#ifdef QB_BSD
+#if defined(QB_BSD) && defined(MADV_NOSYNC)
 	madvise(addr_orig, bytes, MADV_NOSYNC);
 #endif
 	addr_next = ((char *)addr_orig) + bytes;
@@ -176,7 +176,7 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 		res = -errno;
 		goto cleanup_fail;
 	}
-#ifdef QB_BSD
+#if defined(QB_BSD) && defined(MADV_NOSYNC)
 	madvise(((char *)addr_orig) + bytes, bytes, MADV_NOSYNC);
 #endif
 
