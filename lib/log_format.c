@@ -51,10 +51,14 @@ static struct syslog_names prioritynames[] = {
 
 struct syslog_names facilitynames[] = {
 	{"auth", LOG_AUTH},
+#if defined(LOG_AUTHPRIV)
 	{"authpriv", LOG_AUTHPRIV},
+#endif
 	{"cron", LOG_CRON},
 	{"daemon", LOG_DAEMON},
+#if defined(LOG_FTP)
 	{"ftp", LOG_FTP},
+#endif
 	{"kern", LOG_KERN},
 	{"lpr", LOG_LPR},
 	{"mail", LOG_MAIL},
