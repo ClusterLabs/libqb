@@ -327,11 +327,7 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 	struct sockaddr_un address;
 	int32_t res = 0;
 
-#if defined(QB_SOLARIS)
 	request_fd = socket(PF_UNIX, SOCK_STREAM, 0);
-#else
-	request_fd = socket(PF_LOCAL, SOCK_STREAM, 0);
-#endif
 	if (request_fd == -1) {
 		return -errno;
 	}
@@ -501,11 +497,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	/*
 	 * Create socket for IPC clients, name socket, listen for connections
 	 */
-#if defined(QB_SOLARIS)
 	s->server_sock = socket(PF_UNIX, SOCK_STREAM, 0);
-#else
-	s->server_sock = socket(PF_LOCAL, SOCK_STREAM, 0);
-#endif
 	if (s->server_sock == -1) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "Cannot create server socket");
