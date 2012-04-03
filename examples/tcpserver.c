@@ -20,9 +20,21 @@
  */
 #include "os_base.h"
 
-#include <netdb.h>
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
-#include <poll.h>
+#endif /* HAVE_ARPA_INET_H */
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif /* HAVE_NETDB_H */
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif /* HAVE_SYS_SOCKET_H */
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif /* HAVE_NETINET_IN_H */
+#ifdef HAVE_SYS_POLL_H
+#include <sys/poll.h>
+#endif /* HAVE_SYS_POLL_H */
 
 #include <qb/qbdefs.h>
 #include <qb/qbloop.h>
