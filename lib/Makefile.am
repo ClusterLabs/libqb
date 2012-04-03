@@ -61,6 +61,17 @@ else
   libqb_la_SOURCES+=rpl_sem.c
 endif
 
+if HAVE_EPOLL
+  libqb_la_SOURCES+=loop_poll_epoll.c
+else
+if HAVE_KQUEUE
+  libqb_la_SOURCES+=loop_poll_kqueue.c
+else
+  libqb_la_SOURCES+=loop_poll_poll.c
+endif
+endif
+
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libqb.pc
 
