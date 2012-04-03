@@ -34,6 +34,7 @@ rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count)
 
 	(void)pthread_mutexattr_init(&mattr);
 	(void)pthread_condattr_init(&cattr);
+#ifndef DISABLE_POSIX_THREAD_PROCESS_SHARED
 	if (pshared) {
 		rc = pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
 		if (rc != 0) {
@@ -44,6 +45,7 @@ rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count)
 			goto cleanup;
 		}
 	}
+#endif /* DISABLE_POSIX_THREAD_PROCESS_SHARED */
 	rc = pthread_mutex_init(&sem->mutex, &mattr);
 	if (rc != 0) {
 		goto cleanup;
