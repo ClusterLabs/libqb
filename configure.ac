@@ -251,6 +251,10 @@ case "$host_os" in
 				AC_DEFINE_UNQUOTED([QB_FREEBSD_GE_8], [1],
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
+			*netbsd*)
+				AC_DEFINE_UNQUOTED([_SEM_SEMUN_UNDEFINED], [1],
+					   [The semun structure is undefined])
+			;;
 		esac
 		AC_MSG_RESULT([BSD])
 	;;
