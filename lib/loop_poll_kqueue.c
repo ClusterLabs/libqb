@@ -39,23 +39,6 @@ _poll_to_filter_(int32_t event)
 	return out;
 }
 
-static int32_t
-_filter_to_poll_event_(int32_t event)
-{
-	int32_t out = 0;
-	if (event & EPOLLIN)
-		out |= POLLIN;
-	if (event & EPOLLOUT)
-		out |= POLLOUT;
-	if (event & EPOLLPRI)
-		out |= POLLPRI;
-	if (event & EPOLLERR)
-		out |= POLLERR;
-	if (event & EPOLLHUP)
-		out |= POLLHUP;
-	return out;
-}
-
 static void
 _fini(struct qb_poll_source *s)
 {
@@ -76,7 +59,7 @@ _add(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 	EV_SET(&ke, pe->check, kents, EV_ADD, 0, NULL, pe);
 
 	/* set the event */
-	res = kevent(kq, &ke, 1, NULL, 0, NULL);
+	res = kevent(s->epollfd, &ke, 1, NULL, 0, NULL);
 	if (res == -1) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "kevent(add)");
@@ -96,13 +79,13 @@ _del(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t arr
 {
 	int32_t res = 0;
 	struct kevent ke;
-	int kents = _poll_to_filter_(events);
+	int kents = 0; //_poll_to_filter_(events);
 
 	/* fill out the kevent struct */
 	EV_SET(&ke, pe->check, kents, EV_DELETE, 0, NULL, pe);
 
 	/* set the event */
-	res = kevent(kq, &ke, 1, NULL, 0, NULL);
+	res = kevent(s->epollfd, &ke, 1, NULL, 0, NULL);
 	if (res == -1) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "kevent(del)");
@@ -137,17 +120,17 @@ retry_poll:
 	}
 
 	for (i = 0; i < event_count; i++) {
-		if (evi.flags & EV_ERROR) {
+		if (events[i].flags & EV_ERROR) {
 			revents = POLLHUP;
 		}
-		if (evi.filter == EVFILT_READ) {
+		if (events[i].filter == EVFILT_READ) {
 			revents |= POLLIN;
 		}
-		if (evi.filter == EVFILT_WRITE) {
+		if (events[i].filter == EVFILT_WRITE) {
 			revents |= POLLOUT;
 		}
-		pe = evi.udata;
-		if (pe->check != evi.ident) {
+		pe = events[i].udata;
+		if (pe->check != events[i].ident) {
 			qb_util_log(LOG_WARNING,
 				    "can't find poll entry for new event.");
 			continue;
@@ -176,7 +159,7 @@ retry_poll:
 }
 
 int32_t
-qb_epoll_init(struct qb_poll_source *s)
+qb_kqueue_init(struct qb_poll_source *s)
 {
 	s->epollfd = kqueue();
 

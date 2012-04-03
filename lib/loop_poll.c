@@ -253,12 +253,14 @@ _get_empty_array_position_(struct qb_poll_source *s)
 			return res;
 		}
 #ifndef HAVE_EPOLL
+#ifndef HAVE_KQUEUE
 		new_size = (s->poll_entry_count + 1) * sizeof(struct pollfd);
 		ufds = realloc(s->ufds, new_size);
 		if (ufds == NULL) {
 			return -ENOMEM;
 		}
 		s->ufds = ufds;
+#endif
 #endif /* HAVE_EPOLL */
 
 		s->poll_entry_count += 1;
