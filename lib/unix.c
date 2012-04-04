@@ -72,7 +72,12 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
 	} else {
+#if defined(QB_BSD)
+		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
+		is_absolute = path;
+#else
 		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
+#endif
 	}
 	fd = open_mmap_file(path, file_flags);
 	if (fd < 0 && !is_absolute) {
@@ -85,6 +90,10 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 			qb_util_perror(LOG_ERR, "couldn't open file %s", path);
 			return res;
 		}
+	} else if (fd < 0 && is_absolute) {
+		res = -errno;
+		qb_util_perror(LOG_ERR, "couldn't open file %s", path);
+		return res;
 	}
 
 	if (ftruncate(fd, bytes) == -1) {
