@@ -598,14 +598,12 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 		}
 		res = size;
 		goto cleanup;
-	}
-	c->stats.requests++;
-
-	if (hdr->id == QB_IPC_MSG_DISCONNECT) {
+	} else if (size == 0 || hdr->id == QB_IPC_MSG_DISCONNECT) {
 		qb_util_log(LOG_DEBUG, "client requesting a disconnect");
 		qb_ipcs_disconnect(c);
 		res = -ESHUTDOWN;
 	} else {
+		c->stats.requests++;
 		res = c->service->serv_fns.msg_process(c, hdr, hdr->size);
 		/* 0 == good, negative == backoff */
 		if (res < 0) {

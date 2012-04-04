@@ -191,14 +191,11 @@ retry_recv:
 	if (result == -1) {
 		return -errno;
 	}
-#if defined(QB_SOLARIS) || defined(QB_BSD) || defined(QB_DARWIN)
-	/* On many OS poll never return POLLHUP or POLLERR.
-	 * EOF is detected when recvmsg return 0.
-	 */
 	if (result == 0) {
-		return -errno;	//ENOTCONN
+		qb_util_log(LOG_DEBUG,
+			    "recv(fd %d) got 0 bytes assuming ENOTCONN", s);
+		return -ENOTCONN;
 	}
-#endif
 
 	processed += result;
 	if (processed != len) {
@@ -225,6 +222,7 @@ qb_ipc_us_recv_ready(struct qb_ipc_one_way * one_way, int32_t ms_timeout)
 	} else if (poll_events == -1) {
 		return -errno;
 	} else if (poll_events == 1 && (ufds.revents & (POLLERR | POLLHUP))) {
+		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLHUP", one_way->u.us.sock);
 		return -ENOTCONN;
 	}
 	return 0;
@@ -251,6 +249,8 @@ retry_recv:
 		}
 	}
 	if (result == 0) {
+		qb_util_log(LOG_DEBUG, "recv(fd %d) got 0 bytes assuming ENOTCONN",
+			    one_way->u.us.sock);
 		return -ENOTCONN;
 	}
 	if (result == -1) {
@@ -289,6 +289,8 @@ retry_recv:
 		}
 	}
 	if (result == 0) {
+		qb_util_log(LOG_DEBUG, "recv(fd %d) got 0 bytes assuming ENOTCONN",
+			    one_way->u.us.sock);
 		return -ENOTCONN;
 	}
 	if (result == -1) {
