@@ -53,12 +53,10 @@ _add(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 {
 	int32_t res = 0;
 	struct kevent ke;
-	int kents = _poll_to_filter_(events);
+	short filters = _poll_to_filter_(events);
 
-	/* fill out the kevent struct */
-	EV_SET(&ke, pe->check, kents, EV_ADD, 0, NULL, pe);
+	EV_SET(&ke, fd, filters, EV_ADD, 0, NULL, pe);
 
-	/* set the event */
 	res = kevent(s->epollfd, &ke, 1, NULL, 0, NULL);
 	if (res == -1) {
 		res = -errno;
@@ -68,23 +66,34 @@ _add(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 	return res;
 }
 
-
 static int32_t
 _mod(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t events)
 {
+	int32_t res = 0;
+	struct kevent ke[2];
+	short new_filters = _poll_to_filter_(events);
+	short old_filters = _poll_to_filter_(pe->ufd.events);
+
+	EV_SET(&ke[0], fd, old_filters, EV_DELETE, 0, NULL, pe);
+	EV_SET(&ke[1], fd, new_filters, EV_ADD, 0, NULL, pe);
+
+	res = kevent(s->epollfd, ke, 2, NULL, 0, NULL);
+	if (res == -1) {
+		res = -errno;
+		qb_util_perror(LOG_ERR, "kevent(mod)");
+	}
+	return res;
 }
 
 static int32_t
-_del(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t arr_index)
+_del(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t events)
 {
 	int32_t res = 0;
 	struct kevent ke;
-	int kents = 0; //_poll_to_filter_(events);
+	short filters = _poll_to_filter_(events);
 
-	/* fill out the kevent struct */
-	EV_SET(&ke, pe->check, kents, EV_DELETE, 0, NULL, pe);
+	EV_SET(&ke, fd, filters, EV_DELETE, 0, NULL, pe);
 
-	/* set the event */
 	res = kevent(s->epollfd, &ke, 1, NULL, 0, NULL);
 	if (res == -1) {
 		res = -errno;
@@ -97,31 +106,47 @@ static int32_t
 _poll_and_add_to_jobs_(struct qb_loop_source *src, int32_t ms_timeout)
 {
 	int32_t i;
-	int32_t res;
 	int32_t event_count;
 	int32_t new_jobs = 0;
-	int32_t revents;
+	int32_t revents = 0;
 	struct qb_poll_entry *pe = NULL;
 	struct qb_poll_source *s = (struct qb_poll_source *)src;
 	struct kevent events[MAX_EVENTS];
 	struct timespec timeout = { 0, 0 };
+	struct timespec *timeout_pt = &timeout;
 
-	qb_timespec_add_ms(&timeout, ms_timeout);
-
+	if (ms_timeout > 0) {
+		qb_timespec_add_ms(&timeout, ms_timeout);
+	} else if (ms_timeout < 0) {
+		timeout_pt = NULL;
+	}
 	qb_poll_fds_usage_check_(s);
 
 retry_poll:
 
-	event_count = kevent(s->epollfd, NULL, 0, events, MAX_EVENTS, NULL);
+	event_count = kevent(s->epollfd, NULL, 0, events, MAX_EVENTS, timeout_pt);
 	if (errno == EINTR && event_count == -1) {
 		goto retry_poll;
 	} else if (event_count == -1) {
+		qb_util_perror(LOG_ERR, "kevent(poll)");
 		return -errno;
 	}
 
 	for (i = 0; i < event_count; i++) {
+		revents = 0;
+		if (events[i].flags) {
+			qb_util_log(LOG_INFO,
+				    "got flags %d on fd %d.", events[i].flags, pe->ufd.fd);
+		}
 		if (events[i].flags & EV_ERROR) {
-			revents = POLLHUP;
+			qb_util_log(LOG_WARNING,
+				    "got EV_ERROR on fd %d.", pe->ufd.fd);
+			revents |= POLLERR;
+		}
+		if (events[i].flags & EV_EOF) {
+			qb_util_log(LOG_INFO,
+				    "got EV_EOF on fd %d.", pe->ufd.fd);
+			revents |= POLLHUP;
 		}
 		if (events[i].filter == EVFILT_READ) {
 			revents |= POLLIN;
@@ -130,7 +155,7 @@ retry_poll:
 			revents |= POLLOUT;
 		}
 		pe = events[i].udata;
-		if (pe->check != events[i].ident) {
+		if (pe->ufd.fd != events[i].ident) {
 			qb_util_log(LOG_WARNING,
 				    "can't find poll entry for new event.");
 			continue;
@@ -164,6 +189,7 @@ qb_kqueue_init(struct qb_poll_source *s)
 	s->epollfd = kqueue();
 
 	if (s->epollfd < 0) {
+		qb_util_perror(LOG_ERR, "kqueue()");
 		return -errno;
 	}
 	s->driver.fini = _fini;

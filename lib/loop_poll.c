@@ -36,6 +36,16 @@
 /* logs, std(in|out|err), pipe */
 #define POLL_FDS_USED_MISC 50
 
+#ifdef HAVE_EPOLL
+#define USE_EPOLL 1
+#else
+ #ifdef HAVE_KQUEUE
+ #define USE_KQUEUE 1
+ #else
+ #define USE_POLL 1
+ #endif /* HAVE_KQUEUE */
+#endif /* HAVE_EPOLL */
+
 static int32_t _qb_signal_add_to_jobs_(struct qb_loop *l,
 				       struct qb_poll_entry *pe);
 
@@ -188,15 +198,15 @@ qb_loop_poll_create(struct qb_loop *l)
 	s->low_fds_event_fn = NULL;
 	s->not_enough_fds = 0;
 
-#ifdef HAVE_EPOLL
+#ifdef USE_EPOLL
 	(void)qb_epoll_init(s);
-#else
-#ifdef HAVE_KQUEUE
+#endif
+#ifdef USE_KQUEUE
 	(void)qb_kqueue_init(s);
-#else
+#endif
+#ifdef USE_POLL
 	(void)qb_poll_init(s);
-#endif /* HAVE_KQUEUE */
-#endif /* HAVE_EPOLL */
+#endif /* USE_POLL */
 
 	return (struct qb_loop_source *)s;
 }
@@ -229,10 +239,6 @@ _get_empty_array_position_(struct qb_poll_source *s)
 	uint32_t install_pos;
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
-#ifndef HAVE_EPOLL
-	struct pollfd *ufds;
-	int32_t new_size = 0;
-#endif /* HAVE_EPOLL */
 
 	for (found = 0, install_pos = 0;
 	     install_pos < s->poll_entry_count; install_pos++) {
@@ -245,6 +251,15 @@ _get_empty_array_position_(struct qb_poll_source *s)
 	}
 
 	if (found == 0) {
+#ifdef USE_POLL
+		struct pollfd *ufds;
+		int32_t new_size = (s->poll_entry_count + 1) * sizeof(struct pollfd);
+		ufds = realloc(s->ufds, new_size);
+		if (ufds == NULL) {
+			return -ENOMEM;
+		}
+		s->ufds = ufds;
+#endif /* USE_POLL */
 		/*
 		 * Grow pollfd list
 		 */
@@ -252,16 +267,6 @@ _get_empty_array_position_(struct qb_poll_source *s)
 		if (res != 0) {
 			return res;
 		}
-#ifndef HAVE_EPOLL
-#ifndef HAVE_KQUEUE
-		new_size = (s->poll_entry_count + 1) * sizeof(struct pollfd);
-		ufds = realloc(s->ufds, new_size);
-		if (ufds == NULL) {
-			return -ENOMEM;
-		}
-		s->ufds = ufds;
-#endif
-#endif /* HAVE_EPOLL */
 
 		s->poll_entry_count += 1;
 		install_pos = s->poll_entry_count - 1;
@@ -336,6 +341,11 @@ qb_loop_poll_add(struct qb_loop * lp,
 
 	size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
 	res = _poll_add_(l, p, fd, events, data, &pe);
+	if (res != 0) {
+		qb_util_perror(LOG_ERR,
+			       "couldn't add poll entryfor FD %d", fd);
+		return res;
+	}
 	new_size = ((struct qb_poll_source *)l->fd_source)->poll_entry_count;
 
 	pe->poll_dispatch_fn = dispatch_fn;
