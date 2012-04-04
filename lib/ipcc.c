@@ -100,6 +100,30 @@ disconnect_and_cleanup:
 	return NULL;
 }
 
+static struct qb_ipc_one_way *
+_event_sock_one_way_get(struct qb_ipcc_connection * c)
+{
+	if (c->needs_sock_for_poll) {
+		return &c->setup;
+	}
+	if (c->event.type == QB_IPC_SOCKET) {
+		return &c->event;
+	}
+	return NULL;
+}
+
+static struct qb_ipc_one_way *
+_response_sock_one_way_get(struct qb_ipcc_connection * c)
+{
+	if (c->needs_sock_for_poll) {
+		return &c->setup;
+	}
+	if (c->response.type == QB_IPC_SOCKET) {
+		return &c->response;
+	}
+	return NULL;
+}
+
 ssize_t
 qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 {
@@ -204,8 +228,12 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	}
 
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
-	if ((res == -EAGAIN || res == -ETIMEDOUT) && c->needs_sock_for_poll) {
-		res2 = qb_ipc_us_recv_ready(&c->setup, 0);
+	if (res == -EAGAIN || res == -ETIMEDOUT) {
+		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
+
+		if (ow == NULL) return res;
+
+		res2 = qb_ipc_us_recv_ready(ow, 0);
 		if (res2 < 0) {
 			if (res2 == -ENOTCONN) {
 				c->is_connected = QB_FALSE;
@@ -303,12 +331,7 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	if (c == NULL) {
 		return -EINVAL;
 	}
-	if (c->needs_sock_for_poll) {
-		ow = &c->setup;
-	}
-	if (c->event.type == QB_IPC_SOCKET) {
-		ow = &c->event;
-	}
+	ow = _event_sock_one_way_get(c);
 	if (ow) {
 		res = qb_ipc_us_recv_ready(ow, ms_timeout);
 		if (res < 0) {
@@ -345,19 +368,14 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 		return;
 	}
 
-	if (c->needs_sock_for_poll) {
-		ow = &c->setup;
-	}
-	if (c->event.type == QB_IPC_SOCKET) {
-		ow = &c->event;
-	}
+	ow = _event_sock_one_way_get(c);
 	if (ow) {
 		if (qb_ipc_us_recv_ready(ow, 0) == -ENOTCONN) {
 			c->is_connected = QB_FALSE;
 		}
+		qb_ipcc_us_sock_close(ow->u.us.sock);
 	}
 
-	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);
 	}
