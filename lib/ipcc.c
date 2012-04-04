@@ -100,6 +100,26 @@ disconnect_and_cleanup:
 	return NULL;
 }
 
+static void
+_check_connection_state(struct qb_ipcc_connection * c, int32_t res)
+{
+	if (res >= 0) return;
+
+	if (res != -EAGAIN &&
+	    res != -ETIMEDOUT &&
+	    res != -EINTR &&
+#ifdef EWOULDBLOCK
+	    res != -EWOULDBLOCK &&
+#endif
+	    res != -EINVAL) {
+		errno = -res;
+		qb_util_perror(LOG_DEBUG,
+			    "interpreting result %d as a disconnect",
+			    res);
+		c->is_connected = QB_FALSE;
+	}
+}
+
 static struct qb_ipc_one_way *
 _event_sock_one_way_get(struct qb_ipcc_connection * c)
 {
@@ -152,13 +172,13 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 			res2 = qb_ipc_us_send(&c->setup, msg_ptr, 1);
 		} while (res2 == -EAGAIN);
 		if (res2 == -EPIPE) {
-			c->is_connected = QB_FALSE;
-			return -ENOTCONN;
+			res2 = -ENOTCONN;
 		}
 		if (res2 != 1) {
 			res = res2;
 		}
 	}
+	_check_connection_state(c, res);
 	return res;
 }
 
@@ -207,13 +227,13 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 			res2 = qb_ipc_us_send(&c->setup, &res, 1);
 		} while (res2 == -EAGAIN);
 		if (res2 == -EPIPE) {
-			c->is_connected = QB_FALSE;
-			return -ENOTCONN;
+			res2 = -ENOTCONN;
 		}
 		if (res2 != 1) {
 			res = res2;
 		}
 	}
+	_check_connection_state(c, res);
 	return res;
 }
 
@@ -235,14 +255,10 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 
 		res2 = qb_ipc_us_recv_ready(ow, 0);
 		if (res2 < 0) {
-			if (res2 == -ENOTCONN) {
-				c->is_connected = QB_FALSE;
-			}
-			return res2;
-		} else {
-			return res;
+			res = res2;
 		}
 	}
+	_check_connection_state(c, res);
 	return res;
 }
 
@@ -335,22 +351,19 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	if (ow) {
 		res = qb_ipc_us_recv_ready(ow, ms_timeout);
 		if (res < 0) {
-			if (res == -ENOTCONN) {
-				c->is_connected = QB_FALSE;
-			}
+			_check_connection_state(c, res);
 			return res;
 		}
 	}
 	size = c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
 	if (size < 0) {
+		_check_connection_state(c, size);
 		return size;
 	}
 	if (c->needs_sock_for_poll) {
 		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
 		if (res < 0) {
-			if (res == -ENOTCONN) {
-				c->is_connected = QB_FALSE;
-			}
+			_check_connection_state(c, res);
 			return res;
 		}
 	}
@@ -361,6 +374,7 @@ void
 qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_one_way *ow = NULL;
+	int32_t res = 0;
 
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 
@@ -370,9 +384,8 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 
 	ow = _event_sock_one_way_get(c);
 	if (ow) {
-		if (qb_ipc_us_recv_ready(ow, 0) == -ENOTCONN) {
-			c->is_connected = QB_FALSE;
-		}
+		res = qb_ipc_us_recv_ready(ow, 0);
+		_check_connection_state(c, res);
 		qb_ipcc_us_sock_close(ow->u.us.sock);
 	}
 
