@@ -676,6 +676,7 @@ send_response:
 		if (res == -EACCES) {
 			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
 		} else {
+			errno = -res;
 			qb_util_perror(LOG_ERR, "Error in connection setup");
 		}
 		qb_ipcs_disconnect(c);
