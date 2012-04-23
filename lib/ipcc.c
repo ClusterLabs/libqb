@@ -40,12 +40,8 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 		return NULL;
 	}
 
-	if (max_msg_size < sizeof(struct qb_ipc_connection_response)) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	c->setup.max_msg_size = max_msg_size;
+	c->setup.max_msg_size = QB_MAX(max_msg_size,
+				       sizeof(struct qb_ipc_connection_response));
 	(void)strlcpy(c->name, name, NAME_MAX);
 	res = qb_ipcc_us_setup_connect(c, &response);
 	if (res < 0) {
