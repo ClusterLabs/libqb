@@ -892,6 +892,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	}
 	(void)strlcpy(r->request, path, PATH_MAX);
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
+	(void)chown(r->request, c->euid, c->egid);
 
 	c->request.u.us.shared_data = mmap(0,
 					   sizeof(struct ipc_us_control),
