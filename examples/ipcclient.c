@@ -50,8 +50,7 @@ main(int argc, char *argv[])
 	qb_log_init("ipcclient", LOG_USER, LOG_TRACE);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, "*",
-			  LOG_TRACE);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
@@ -61,7 +60,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	while(1) {
+	while (1) {
 		printf("SEND (q or Q to quit) : ");
 		if (fgets(req.message, 256, stdin) == NULL) {
 			continue;
@@ -83,9 +82,7 @@ main(int argc, char *argv[])
 		}
 
 		if (rc > 0) {
-			rc = qb_ipcc_recv(conn,
-					   &res,
-					   sizeof(res), -1);
+			rc = qb_ipcc_recv(conn, &res, sizeof(res), -1);
 			if (rc < 0) {
 				perror("qb_ipcc_recv");
 			}
@@ -96,4 +93,3 @@ main(int argc, char *argv[])
 	qb_ipcc_disconnect(conn);
 	return EXIT_SUCCESS;
 }
-

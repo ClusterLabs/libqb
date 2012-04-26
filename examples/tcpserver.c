@@ -59,8 +59,7 @@ sock_read_fn(int32_t fd, int32_t revents, void *data)
 	}
 	recv_data[bytes_recieved] = '\0';
 
-	if (strcmp(recv_data, "q") == 0 ||
-	    strcmp(recv_data, "Q") == 0) {
+	if (strcmp(recv_data, "q") == 0 || strcmp(recv_data, "Q") == 0) {
 		printf("Quiting connection from socket %d\n", fd);
 		close(fd);
 		return QB_FALSE;
@@ -76,7 +75,7 @@ static int32_t
 sock_accept_fn(int32_t fd, int32_t revents, void *data)
 {
 	struct sockaddr_in client_addr;
-	qb_loop_t * ml = (qb_loop_t*)data;
+	qb_loop_t *ml = (qb_loop_t *) data;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
 	int connected = accept(fd, (struct sockaddr *)&client_addr, &sin_size);
 
@@ -85,12 +84,9 @@ sock_accept_fn(int32_t fd, int32_t revents, void *data)
 		return QB_TRUE;
 	}
 	printf("I got a connection from (%s , %d)\n",
-	       inet_ntoa(client_addr.sin_addr),
-	       ntohs(client_addr.sin_port));
+	       inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
-	qb_loop_poll_add(ml, QB_LOOP_MED,
-			 connected, POLLIN,
-			 ml, sock_read_fn);
+	qb_loop_poll_add(ml, QB_LOOP_MED, connected, POLLIN, ml, sock_read_fn);
 
 	return QB_TRUE;
 }
@@ -98,7 +94,7 @@ sock_accept_fn(int32_t fd, int32_t revents, void *data)
 static int32_t
 please_exit_fn(int32_t rsignal, void *data)
 {
-	qb_loop_t * ml = (qb_loop_t*)data;
+	qb_loop_t *ml = (qb_loop_t *) data;
 
 	printf("Shutting down at you request...\n");
 	qb_loop_stop(ml);
@@ -111,20 +107,16 @@ main(int argc, char *argv[])
 	int sock;
 	int true_opt = 1;
 	struct sockaddr_in server_addr;
-	qb_loop_t * ml = qb_loop_create();
+	qb_loop_t *ml = qb_loop_create();
 
-	if ((sock = socket(AF_INET,
-			   SOCK_STREAM,
-			   0)) == -1) {
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("Socket");
 		exit(1);
 	}
 
 	if (setsockopt(sock,
 		       SOL_SOCKET,
-		       SO_REUSEADDR,
-		       &true_opt,
-		       sizeof(int)) == -1) {
+		       SO_REUSEADDR, &true_opt, sizeof(int)) == -1) {
 		perror("Setsockopt");
 		exit(1);
 	}
@@ -132,7 +124,7 @@ main(int argc, char *argv[])
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(5000);
 	server_addr.sin_addr.s_addr = INADDR_ANY;
-	bzero(&(server_addr.sin_zero),8);
+	bzero(&(server_addr.sin_zero), 8);
 
 	printf("TCPServer binding to port 5000\n");
 	if (bind(sock,
@@ -149,14 +141,9 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	qb_loop_poll_add(ml, QB_LOOP_MED,
-			 sock, POLLIN,
-			 ml, sock_accept_fn);
+	qb_loop_poll_add(ml, QB_LOOP_MED, sock, POLLIN, ml, sock_accept_fn);
 
-	qb_loop_signal_add(ml, QB_LOOP_HIGH,
-			   SIGINT,
-			   ml, please_exit_fn,
-			   NULL);
+	qb_loop_signal_add(ml, QB_LOOP_HIGH, SIGINT, ml, please_exit_fn, NULL);
 	qb_loop_run(ml);
 
 	close(sock);

@@ -35,10 +35,10 @@ static qb_array_t *gio_map;
 
 static int32_t use_glib = QB_FALSE;
 static qb_loop_t *bms_loop;
-static qb_ipcs_service_t* s1;
+static qb_ipcs_service_t *s1;
 
 static int32_t
-s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
+s1_connection_accept_fn(qb_ipcs_connection_t * c, uid_t uid, gid_t gid)
 {
 #if 0
 	if (uid == 0 && gid == 0) {
@@ -52,34 +52,33 @@ s1_connection_accept_fn(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
 #endif
 }
 
-static void 
-s1_connection_created_fn(qb_ipcs_connection_t *c)
+static void
+s1_connection_created_fn(qb_ipcs_connection_t * c)
 {
 	struct qb_ipcs_stats srv_stats;
 
 	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
 	qb_log(LOG_INFO, "Connection created (active:%d, closed:%d)",
-	       srv_stats.active_connections,
-	       srv_stats.closed_connections);
+	       srv_stats.active_connections, srv_stats.closed_connections);
 }
 
-static void 
-s1_connection_destroyed_fn(qb_ipcs_connection_t *c)
+static void
+s1_connection_destroyed_fn(qb_ipcs_connection_t * c)
 {
 	qb_log(LOG_INFO, "Connection about to be freed");
 }
 
-static int32_t 
-s1_connection_closed_fn(qb_ipcs_connection_t *c)
+static int32_t
+s1_connection_closed_fn(qb_ipcs_connection_t * c)
 {
 	struct qb_ipcs_connection_stats stats;
 	struct qb_ipcs_stats srv_stats;
 
 	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
 	qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
-	qb_log(LOG_INFO, "Connection to pid:%d destroyed (active:%d, closed:%d)",
-	       stats.client_pid,
-	       srv_stats.active_connections,
+	qb_log(LOG_INFO,
+	       "Connection to pid:%d destroyed (active:%d, closed:%d)",
+	       stats.client_pid, srv_stats.active_connections,
 	       srv_stats.closed_connections);
 
 	qb_log(LOG_DEBUG, " Requests     %"PRIu64"", stats.requests);
@@ -92,11 +91,11 @@ s1_connection_closed_fn(qb_ipcs_connection_t *c)
 	return 0;
 }
 
-static int32_t 
-s1_msg_process_fn(qb_ipcs_connection_t *c,
-		  void *data, size_t size)
+static int32_t
+s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 {
-	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
+	struct qb_ipc_request_header *req_pt =
+	    (struct qb_ipc_request_header *)data;
 	struct qb_ipc_response_header response;
 	ssize_t res;
 	struct iovec iov[2];
@@ -121,7 +120,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 	return 0;
 }
 
-static void 
+static void
 sigusr1_handler(int32_t num)
 {
 	qb_log(LOG_DEBUG, "(%d)", num);
@@ -129,7 +128,7 @@ sigusr1_handler(int32_t num)
 	exit(0);
 }
 
-static void 
+static void
 show_usage(const char *name)
 {
 	printf("usage: \n");
@@ -151,13 +150,13 @@ struct gio_to_qb_poll {
 	gboolean is_used;
 	GIOChannel *channel;
 	int32_t events;
-	void * data;
+	void *data;
 	qb_ipcs_dispatch_fn_t fn;
 	enum qb_loop_priority p;
 };
 
 static gboolean
-gio_read_socket (GIOChannel *gio, GIOCondition condition, gpointer data)
+gio_read_socket(GIOChannel * gio, GIOCondition condition, gpointer data)
 {
 	struct gio_to_qb_poll *adaptor = (struct gio_to_qb_poll *)data;
 	gint fd = g_io_channel_unix_get_fd(gio);
@@ -165,15 +164,15 @@ gio_read_socket (GIOChannel *gio, GIOCondition condition, gpointer data)
 	return (adaptor->fn(fd, condition, adaptor->data) == 0);
 }
 
-static int32_t 
+static int32_t
 my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
-	void *data, qb_ipcs_dispatch_fn_t fn)
+		  void *data, qb_ipcs_dispatch_fn_t fn)
 {
 	struct gio_to_qb_poll *adaptor;
 	GIOChannel *channel;
 	int32_t res = 0;
 
-	res = qb_array_index(gio_map, fd, (void**)&adaptor);
+	res = qb_array_index(gio_map, fd, (void **)&adaptor);
 	if (res < 0) {
 		return res;
 	}
@@ -199,7 +198,7 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 
 static int32_t
 my_g_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
-	void *data, qb_ipcs_dispatch_fn_t fn)
+		  void *data, qb_ipcs_dispatch_fn_t fn)
 {
 	return 0;
 }
@@ -208,7 +207,7 @@ static int32_t
 my_g_dispatch_del(int32_t fd)
 {
 	struct gio_to_qb_poll *adaptor;
-	if (qb_array_index(gio_map, fd, (void**)&adaptor) == 0) {
+	if (qb_array_index(gio_map, fd, (void **)&adaptor) == 0) {
 		g_io_channel_unref(adaptor->channel);
 		adaptor->is_used = FALSE;
 	}
@@ -216,7 +215,7 @@ my_g_dispatch_del(int32_t fd)
 }
 #endif /* HAVE_GLIB */
 
-static int32_t 
+static int32_t
 my_job_add(enum qb_loop_priority p, void *data, qb_loop_job_dispatch_fn fn)
 {
 	return qb_loop_job_add(bms_loop, p, data, fn);
@@ -224,14 +223,14 @@ my_job_add(enum qb_loop_priority p, void *data, qb_loop_job_dispatch_fn fn)
 
 static int32_t
 my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
-	void *data, qb_ipcs_dispatch_fn_t fn)
+		void *data, qb_ipcs_dispatch_fn_t fn)
 {
 	return qb_loop_poll_add(bms_loop, p, fd, evts, data, fn);
 }
 
-static int32_t 
+static int32_t
 my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
-	void *data, qb_ipcs_dispatch_fn_t fn)
+		void *data, qb_ipcs_dispatch_fn_t fn)
 {
 	return qb_loop_poll_mod(bms_loop, p, fd, evts, data, fn);
 }
@@ -296,10 +295,9 @@ main(int32_t argc, char *argv[])
 	}
 	signal(SIGINT, sigusr1_handler);
 
-	qb_log_init("ipcserver", LOG_USER, LOG_WARNING);
+	qb_log_init("ipcserver", LOG_USER, LOG_TRACE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, __FILE__,
-			  LOG_DEBUG);
+			  QB_LOG_FILTER_FILE, __FILE__, LOG_TRACE);
 	qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
@@ -321,7 +319,8 @@ main(int32_t argc, char *argv[])
 		qb_ipcs_run(s1);
 		g_main_loop_run(glib_loop);
 #else
-		qb_log(LOG_ERR, "You don't seem to have glib-devel installed.\n");
+		qb_log(LOG_ERR,
+		       "You don't seem to have glib-devel installed.\n");
 #endif
 	}
 	return EXIT_SUCCESS;

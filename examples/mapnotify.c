@@ -26,7 +26,8 @@
 #include <qb/qbmap.h>
 
 static void
-notify_fn(uint32_t event, char* key, void* old_value, void* value, void* user_data)
+notify_fn(uint32_t event, char *key, void *old_value, void *value,
+	  void *user_data)
 {
 	if (event == QB_MAP_NOTIFY_FREE) {
 		fprintf(stderr, "Notify[FREE] %s [%d]\n",
@@ -44,13 +45,14 @@ notify_fn(uint32_t event, char* key, void* old_value, void* value, void* user_da
 			fprintf(stderr, " value = [%d]\n", *(int *)value);
 		}
 		if (old_value != NULL) {
-			fprintf(stderr, " old value = [%d]\n", *(int *)old_value);
+			fprintf(stderr, " old value = [%d]\n",
+				*(int *)old_value);
 		}
 	}
 }
 
 static void
-add_cs_keys(qb_map_t *m)
+add_cs_keys(qb_map_t * m)
 {
 	qb_map_put(m, "compatibility", strdup("none"));
 	qb_map_put(m, "totem.version", strdup("2"));
@@ -197,7 +199,7 @@ main(void)
 
 	iter = qb_map_pref_iter_create(trie, "test.");
 	while ((key = qb_map_iter_next(iter, &val)) != NULL) {
-		fprintf(stderr,"Iter %s [%d]\n", key, *(int*)val);
+		fprintf(stderr, "Iter %s [%d]\n", key, *(int *)val);
 		qb_map_rm(trie, key);
 	}
 	qb_map_iter_free(iter);
