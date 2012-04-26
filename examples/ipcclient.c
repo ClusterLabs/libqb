@@ -24,6 +24,7 @@
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 #include <qb/qbipcc.h>
+#include <qb/qblog.h>
 
 #define MAX_MSG_SIZE (8192)
 
@@ -45,6 +46,14 @@ main(int argc, char *argv[])
 	struct my_req req;
 	struct my_res res;
 	char *newline;
+
+	qb_log_init("ipcclient", LOG_USER, LOG_TRACE);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*",
+			  LOG_TRACE);
+	qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	conn = qb_ipcc_connect("ipcserver", MAX_MSG_SIZE);
 	if (conn == NULL) {
