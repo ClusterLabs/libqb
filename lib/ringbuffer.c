@@ -736,11 +736,11 @@ qb_rb_chown(struct qb_ringbuffer_s * rb, uid_t owner, gid_t group)
 		return -EINVAL;
 	}
 	res = chown(rb->shared_hdr->data_path, owner, group);
-	if (res < 0) {
+	if (res < 0 && errno != EPERM) {
 		return -errno;
 	}
 	res = chown(rb->shared_hdr->hdr_path, owner, group);
-	if (res < 0) {
+	if (res < 0 && errno != EPERM) {
 		return -errno;
 	}
 	return 0;
