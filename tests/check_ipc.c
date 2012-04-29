@@ -222,13 +222,14 @@ struct my_req {
 
 static struct my_req request;
 static int32_t
-send_and_check(uint32_t size, int32_t ms_timeout, int32_t expect_perfection)
+send_and_check(int32_t req_id, uint32_t size,
+	       int32_t ms_timeout, int32_t expect_perfection)
 {
 	struct qb_ipc_response_header res_header;
 	int32_t res;
 	int32_t try_times = 0;
 
-	request.hdr.id = IPC_MSG_REQ_TX_RX;
+	request.hdr.id = req_id;
 	request.hdr.size = sizeof(struct qb_ipc_request_header) + size;
 
 repeat_send:
@@ -247,8 +248,15 @@ repeat_send:
 			return res;
 		}
 	}
-	res = qb_ipcc_recv(conn, &res_header,
-			sizeof(struct qb_ipc_response_header), ms_timeout);
+	if (req_id == IPC_MSG_REQ_TX_RX) {
+		res = qb_ipcc_recv(conn, &res_header,
+				   sizeof(struct qb_ipc_response_header),
+				   ms_timeout);
+	} else {
+		res = qb_ipcc_event_recv(conn, &res_header,
+					 sizeof(struct qb_ipc_response_header),
+					 ms_timeout);
+	}
 	if (res == -EINTR) {
 		return -1;
 	}
@@ -259,7 +267,7 @@ repeat_send:
 	}
 	if (expect_perfection) {
 		ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
-		ck_assert_int_eq(res_header.id, IPC_MSG_RES_TX_RX);
+		ck_assert_int_eq(res_header.id, req_id + 1);
 		ck_assert_int_eq(res_header.size, sizeof(struct qb_ipc_response_header));
 	}
 	return res;
@@ -294,7 +302,8 @@ test_ipc_txrx(void)
 		size *= 2;
 		if (size >= MAX_MSG_SIZE)
 			break;
-		if (send_and_check(size, recv_timeout, QB_TRUE) < 0) {
+		if (send_and_check(IPC_MSG_REQ_TX_RX, size,
+				   recv_timeout, QB_TRUE) < 0) {
 			break;
 		}
 	}
@@ -463,11 +472,10 @@ static struct my_res response;
 static void
 test_ipc_dispatch(void)
 {
-	int32_t res;
 	int32_t j;
 	int32_t c = 0;
 	pid_t pid;
-	struct qb_ipc_request_header req_header;
+	int32_t size;
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
@@ -484,36 +492,16 @@ test_ipc_dispatch(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
-	req_header.id = IPC_MSG_REQ_DISPATCH;
-	req_header.size = sizeof(struct qb_ipc_request_header);
-
- repeat_send:
-	res = qb_ipcc_send(conn, &req_header, req_header.size);
-	if (res < 0) {
-		if (res == -EAGAIN) {
-			goto repeat_send;
-		} else if (res == -EINVAL || res == -EINTR) {
-			qb_perror(LOG_INFO, "qb_ipcc_send");
-			return;
-		} else {
-			errno = -res;
-			qb_perror(LOG_INFO, "qb_ipcc_send");
-			goto repeat_send;
+	size = QB_MIN(sizeof(struct qb_ipc_request_header), 64);
+	for (j = 1; j < 19; j++) {
+		size *= 2;
+		if (size >= MAX_MSG_SIZE)
+			break;
+		if (send_and_check(IPC_MSG_REQ_DISPATCH, size,
+				   recv_timeout, QB_TRUE) < 0) {
+			break;
 		}
 	}
- repeat_event_recv:
-	res = qb_ipcc_event_recv(conn, &response, sizeof(struct my_res), 0);
-	if (res < 0) {
-		if (res == -EAGAIN || res == -ETIMEDOUT) {
-			goto repeat_event_recv;
-		} else {
-			errno = -res;
-			qb_perror(LOG_INFO, "qb_ipcc_event_recv");
-			goto repeat_send;
-		}
-	}
-	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
-	ck_assert_int_eq(response.hdr.id, IPC_MSG_RES_DISPATCH);
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
