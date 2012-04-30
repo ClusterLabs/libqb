@@ -383,99 +383,119 @@ test_ipc_exit(void)
 
 START_TEST(test_ipc_exit_us)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	recv_timeout = 5000;
 	test_ipc_exit();
+	qb_leave();
 }
 END_TEST
 
 #ifdef HAVE_SEM_TIMEDWAIT
 START_TEST(test_ipc_exit_shm)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	recv_timeout = 1000;
 	test_ipc_exit();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_txrx_shm_tmo)
 {
+	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	recv_timeout = 1000;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_txrx_shm_block)
 {
+	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	recv_timeout = -1;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_fc_shm)
 {
+	qb_enter();
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
 	recv_timeout = 500;
 	ipc_name = __func__;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 #endif /* HAVE_SEM_TIMEDWAIT */
 
 START_TEST(test_ipc_txrx_us_block)
 {
+	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	recv_timeout = -1;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_txrx_us_tmo)
 {
+	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	recv_timeout = 1000;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_fc_us)
 {
+	qb_enter();
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SOCKET;
 	recv_timeout = 500;
 	ipc_name = __func__;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_txrx_pmq)
 {
+	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_POSIX_MQ;
 	ipc_name = __func__;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_txrx_smq)
 {
+	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SYSV_MQ;
 	ipc_name = __func__;
 	test_ipc_txrx();
+	qb_leave();
 }
 END_TEST
 
@@ -524,9 +544,11 @@ test_ipc_dispatch(void)
 
 START_TEST(test_ipc_disp_us)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	test_ipc_dispatch();
+	qb_leave();
 }
 END_TEST
 
@@ -594,9 +616,11 @@ test_ipc_bulk_events(void)
 
 START_TEST(test_ipc_bulk_events_us)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	test_ipc_bulk_events();
+	qb_leave();
 }
 END_TEST
 
@@ -649,34 +673,42 @@ test_ipc_server_fail(void)
 
 START_TEST(test_ipc_server_fail_soc)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	test_ipc_server_fail();
+	qb_leave();
 }
 END_TEST
 
 #ifdef HAVE_SEM_TIMEDWAIT
 START_TEST(test_ipc_disp_shm)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	test_ipc_dispatch();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_bulk_events_shm)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	test_ipc_bulk_events();
+	qb_leave();
 }
 END_TEST
 
 START_TEST(test_ipc_server_fail_shm)
 {
+	qb_enter();
 	ipc_type = QB_IPC_SHM;
 	ipc_name = __func__;
 	test_ipc_server_fail();
+	qb_leave();
 }
 END_TEST
 #endif /* HAVE_SEM_TIMEDWAIT */
@@ -788,7 +820,7 @@ main(void)
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
-	qb_log_format_set(QB_LOG_STDERR, "[%p] %f:%l %b");
+	qb_log_format_set(QB_LOG_STDERR, "lib/%f|%l| %b");
 
 	srunner_run_all(sr, CK_VERBOSE);
 	number_failed = srunner_ntests_failed(sr);
