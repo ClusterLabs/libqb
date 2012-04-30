@@ -107,12 +107,16 @@ RPMBUILDOPTS	= --define "_sourcedir $(abs_builddir)" \
 		  --define "_srcrpmdir $(abs_builddir)" \
 		  --define "_rpmdir $(abs_builddir)"
 
+tarball: $(TARFILE)
+
 srpm: clean
-	$(MAKE) $(SPEC) $(TARFILE)
+	autoreconf -if
+	$(MAKE) $(SPEC) tarball
 	rpmbuild $(RPMBUILDOPTS) --nodeps -bs $(SPEC)
 
 rpm: clean
-	$(MAKE) $(SPEC) $(TARFILE)
+	autoreconf -if
+	$(MAKE) $(SPEC) tarball
 	rpmbuild $(RPMBUILDOPTS) -ba $(SPEC)
 
 # release/versioning
