@@ -110,7 +110,6 @@ _mod(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 static int32_t
 _del(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t arr_index)
 {
-	struct epoll_event ev;
 	int32_t res = 0;
 
 	if (epoll_ctl(s->epollfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
