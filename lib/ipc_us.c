@@ -242,7 +242,8 @@ qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	struct ipc_us_control *ctl = NULL;
 
 retry_recv:
-	result = recv(one_way->u.us.sock, &data[processed], to_recv, MSG_NOSIGNAL | MSG_WAITALL);
+	result = recv(one_way->u.us.sock, &data[processed], to_recv,
+		      MSG_NOSIGNAL | MSG_WAITALL);
 	if (timeout == -1) {
 		if (result == -1 && errno == EAGAIN) {
 			goto retry_recv;
@@ -272,35 +273,52 @@ retry_recv:
 
 /*
  * recv a message of unknow size.
- * (could use MSG_PEEK here)
  */
 static ssize_t
 qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
 	       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
+	int32_t processed = 0;
+	int32_t to_recv = sizeof(struct qb_ipc_request_header);
+	char *data = msg;
 	struct ipc_us_control *ctl = NULL;
+	struct qb_ipc_request_header *hdr = NULL;
 
 retry_recv:
-	result = recv(one_way->u.us.sock, msg, len, MSG_NOSIGNAL | MSG_WAITALL);
+	result = recv(one_way->u.us.sock, &data[processed], to_recv,
+		      MSG_NOSIGNAL | MSG_WAITALL);
 	if (timeout == -1) {
 		if (result == -1 && errno == EAGAIN) {
 			goto retry_recv;
 		}
 	}
 	if (result == 0) {
-		qb_util_log(LOG_DEBUG, "recv(fd %d) got 0 bytes assuming ENOTCONN",
+		qb_util_log(LOG_DEBUG,
+			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
 			    one_way->u.us.sock);
 		return -ENOTCONN;
 	}
 	if (result == -1) {
 		return -errno;
 	}
+	processed += result;
+	if (processed >= sizeof(struct qb_ipc_request_header) && hdr == NULL) {
+		hdr = (struct qb_ipc_request_header*)msg;
+	}
+	if (hdr) {
+		to_recv = hdr->size - processed;
+	} else {
+		to_recv = len - processed;
+	}
+	if (to_recv > 0) {
+		goto retry_recv;
+	}
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 	if (ctl) {
 		(void)qb_atomic_int_dec_and_test(&ctl->sent);
 	}
-	return result;
+	return processed;
 }
 
 
