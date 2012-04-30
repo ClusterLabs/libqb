@@ -91,31 +91,49 @@ s1_connection_closed_fn(qb_ipcs_connection_t * c)
 	return 0;
 }
 
+struct my_req {
+	struct qb_ipc_request_header hdr;
+	char message[256];
+};
+
 static int32_t
 s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 {
-	struct qb_ipc_request_header *req_pt =
-	    (struct qb_ipc_request_header *)data;
+	struct my_req *req_pt = (struct my_req *)data;
 	struct qb_ipc_response_header response;
 	ssize_t res;
 	struct iovec iov[2];
 	char resp[100];
+	int32_t sl;
 
-	qb_log(LOG_DEBUG, "msg received (id:%d, size:%d)",
-	       req_pt->id, req_pt->size);
+	qb_log(LOG_DEBUG, "msg received (id:%d, size:%d, data:%s)",
+	       req_pt->hdr.id, req_pt->hdr.size, req_pt->message);
+
+	if (strcmp(req_pt->message, "kill") == 0) {
+		exit(0);
+	}
 	response.size = sizeof(struct qb_ipc_response_header);
 	response.id = 13;
 	response.error = 0;
 
-	snprintf(resp, 100, "ACK %zd bytes", size);
+	sl = snprintf(resp, 100, "ACK %zd bytes", size) + 1;
 	iov[0].iov_len = sizeof(response);
 	iov[0].iov_base = &response;
-	iov[1].iov_len = strlen(resp) + 1;
+	iov[1].iov_len = sl;
 	iov[1].iov_base = resp;
+	response.size += sl;
 
 	res = qb_ipcs_response_sendv(c, iov, 2);
 	if (res < 0) {
 		qb_perror(LOG_ERR, "qb_ipcs_response_send");
+	}
+	if (strcmp(req_pt->message, "events") == 0) {
+		int32_t i;
+		qb_log(LOG_INFO, "request to send 10 events");
+		for (i = 0; i < 10; i++) {
+			res = qb_ipcs_event_sendv(c, iov, 2);
+			qb_log(LOG_INFO, "sent event %d res:%d", i, res);
+		}
 	}
 	return 0;
 }
@@ -142,6 +160,7 @@ show_usage(const char *name)
 	printf("  -s             use sysv message queues\n");
 	printf("  -u             use unix sockets\n");
 	printf("  -g             use glib mainloop\n");
+	printf("  -e             use events\n");
 	printf("\n");
 }
 
@@ -244,7 +263,7 @@ my_dispatch_del(int32_t fd)
 int32_t
 main(int32_t argc, char *argv[])
 {
-	const char *options = "mpsugh";
+	const char *options = "mpseugh";
 	int32_t opt;
 	enum qb_ipc_type ipc_type = QB_IPC_NATIVE;
 	struct qb_ipcs_service_handlers sh = {

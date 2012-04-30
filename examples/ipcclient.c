@@ -78,6 +78,7 @@ main(int argc, char *argv[])
 			rc = qb_ipcc_send(conn, &req, req.hdr.size);
 			if (rc < 0) {
 				perror("qb_ipcc_send");
+				exit(0);
 			}
 		}
 
@@ -85,6 +86,19 @@ main(int argc, char *argv[])
 			rc = qb_ipcc_recv(conn, &res, sizeof(res), -1);
 			if (rc < 0) {
 				perror("qb_ipcc_recv");
+				exit(0);
+			}
+			if (strcasecmp(req.message, "events") == 0) {
+				int32_t i;
+				printf("waiting for 10 events\n");
+				for (i = 0; i < 10; i++) {
+					rc = qb_ipcc_event_recv(conn, &res, sizeof(res), -1);
+					if (rc < 0) {
+						perror("qb_ipcc_event_recv");
+					} else {
+						printf("got event %d rc:%d\n", i, rc);
+					}
+				}
 			}
 			printf("Response[%d]: %s \n", res.hdr.id, res.message);
 		}
