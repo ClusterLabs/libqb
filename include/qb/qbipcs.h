@@ -106,7 +106,8 @@ struct qb_ipcs_poll_handlers {
  * or process resource constraints.
  * @return 0 to accept or -errno to indicate a failure (sent back to the client)
  */
-typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c, uid_t uid, gid_t gid);
+typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c,
+						 uid_t uid, gid_t gid);
 
 /**
  * This is called after a new connection has been created.
@@ -198,7 +199,8 @@ void qb_ipcs_destroy(qb_ipcs_service_t* s);
  * @param s service instance
  * @param rl the new rate
  */
-void qb_ipcs_request_rate_limit(qb_ipcs_service_t* s, enum qb_ipcs_rate_limit rl);
+void qb_ipcs_request_rate_limit(qb_ipcs_service_t* s,
+			       	enum qb_ipcs_rate_limit rl);
 
 /**
  * Send a response to a incomming request.
@@ -207,8 +209,13 @@ void qb_ipcs_request_rate_limit(qb_ipcs_service_t* s, enum qb_ipcs_rate_limit rl
  * @param data the message to send
  * @param size the size of the message
  * @return size sent or -errno for errors
+ *
+ * @note the data must include a qb_ipc_response_header at
+ * the top of the message. The client will read the size field
+ * to determine how much to recv.
  */
-ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data, size_t size);
+ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data,
+			      size_t size);
 
 /**
  * Send a response to a incomming request.
@@ -217,8 +224,12 @@ ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data, size_t 
  * @param iov the iovec struct that points to the message to send
  * @param iov_len the number of iovecs.
  * @return size sent or -errno for errors
+ *
+ * @note the iov[0] must be a qb_ipc_response_header. The client will
+ * read the size field to determine how much to recv.
  */
-ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
+ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c,
+			       const struct iovec * iov, size_t iov_len);
 
 /**
  * Send an asyncronous event message to the client.
@@ -227,8 +238,13 @@ ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c, const struct iovec * iov
  * @param data the message to send
  * @param size the size of the message
  * @return size sent or -errno for errors
+ *
+ * @note the data must include a qb_ipc_response_header at
+ * the top of the message. The client will read the size field
+ * to determine how much to recv.
  */
-ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data, size_t size);
+ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data,
+			   size_t size);
 
 /**
  * Send an asyncronous event message to the client.
@@ -237,8 +253,12 @@ ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data, size_t siz
  * @param iov the iovec struct that points to the message to send
  * @param iov_len the number of iovecs.
  * @return size sent or -errno for errors
+ *
+ * @note the iov[0] must be a qb_ipc_response_header. The client will
+ * read the size field to determine how much to recv.
  */
-ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov, size_t iov_len);
+ssize_t qb_ipcs_event_sendv(qb_ipcs_connection_t *c, const struct iovec * iov,
+			    size_t iov_len);
 
 /**
  * Increment the connection's reference counter.

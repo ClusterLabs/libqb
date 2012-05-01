@@ -106,6 +106,10 @@ int32_t qb_ipcc_fc_enable_max_set(qb_ipcc_connection_t * c, uint32_t max);
  * @param msg_ptr pointer to a message to send
  * @param msg_len the size of the message
  * @return (size sent, -errno == error)
+ *
+ * @note the msg_ptr must include a qb_ipc_request_header at
+ * the top of the message. The server will read the size field
+ * to determine how much to recv.
  */
 ssize_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
                      size_t msg_len);
@@ -116,6 +120,9 @@ ssize_t qb_ipcc_send(qb_ipcc_connection_t* c, const void *msg_ptr,
  * @param iov pointer to an iovec struct to send
  * @param iov_len the number of iovecs used
  * @return (size sent, -errno == error)
+ *
+ * @note the iov[0] must be a qb_ipc_request_header. The server will
+ * read the size field to determine how much to recv.
  */
 ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
 	size_t iov_len);
@@ -127,6 +134,9 @@ ssize_t qb_ipcc_sendv(qb_ipcc_connection_t* c, const struct iovec* iov,
  * @param msg_len the size of the buffer
  * @param ms_timeout max time to wait for a response
  * @return (size recv'ed, -errno == error)
+ *
+ * @note that msg_ptr will include a qb_ipc_response_header at
+ * the top of the message.
  */
 ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
                      size_t msg_len, int32_t ms_timeout);
@@ -140,6 +150,12 @@ ssize_t qb_ipcc_recv(qb_ipcc_connection_t* c, void *msg_ptr,
  * @param msg_ptr pointer to a message buffer to receive into
  * @param msg_len the size of the buffer
  * @param ms_timeout max time to wait for a response
+ *
+ * @note the iov[0] must include a qb_ipc_request_header at
+ * the top of the message. The server will read the size field
+ * to determine how much to recv.
+ * @note that msg_ptr will include a qb_ipc_response_header at
+ * the top of the message.
  *
  * @see qb_ipcc_sendv() qb_ipcc_recv()
  */
@@ -158,6 +174,9 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
  *        0 == no wait, negative == block, positive == wait X ms.
  * @param ms_timeout max time to wait for a response
  * @return size of the message or error (-errno)
+ *
+ * @note that msg_ptr will include a qb_ipc_response_header at
+ * the top of the message.
  */
 ssize_t qb_ipcc_event_recv(qb_ipcc_connection_t* c, void *msg_ptr,
 			   size_t msg_len, int32_t ms_timeout);
