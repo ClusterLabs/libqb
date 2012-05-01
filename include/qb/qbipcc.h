@@ -199,6 +199,14 @@ void qb_ipcc_context_set(qb_ipcc_connection_t *c, void *context);
  */
 void *qb_ipcc_context_get(qb_ipcc_connection_t *c);
 
+/**
+ * Is the connection connected?
+ *
+ * @param c connection instance
+ * @retval QB_TRUE when connected
+ * @retval QB_FALSE when not connected
+ */
+int32_t qb_ipcc_is_connected(qb_ipcc_connection_t *c);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

@@ -413,3 +413,20 @@ void *qb_ipcc_context_get(struct qb_ipcc_connection *c)
 	}
 	return c->context;
 }
+
+int32_t
+qb_ipcc_is_connected(qb_ipcc_connection_t *c)
+{
+	struct qb_ipc_one_way *ow;
+
+	if (c == NULL) {
+		return QB_FALSE;
+	}
+
+	ow = _response_sock_one_way_get(c);
+	if (ow) {
+		_check_connection_state(c, qb_ipc_us_recv_ready(ow, 0));
+	}
+
+	return c->is_connected;
+}

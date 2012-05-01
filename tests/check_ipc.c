@@ -659,6 +659,8 @@ test_ipc_server_fail(void)
 	iov[0].iov_len = req_header.size;
 	iov[0].iov_base = &req_header;
 
+	ck_assert_int_eq(QB_TRUE, qb_ipcc_is_connected(conn));
+
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
 				 sizeof(struct qb_ipc_response_header), -1);
@@ -666,6 +668,7 @@ test_ipc_server_fail(void)
 	 * confirm we get -ENOTCONN
 	 */
 	ck_assert_int_eq(res, -ENOTCONN);
+	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
