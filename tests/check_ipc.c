@@ -47,7 +47,6 @@ enum my_msg_ids {
 	IPC_MSG_REQ_SERVER_FAIL,
 	IPC_MSG_RES_SERVER_FAIL,
 };
-#define NUM_BULK_EVENTS 10
 
 /* Test Cases
  *
@@ -71,6 +70,8 @@ static qb_loop_t *my_loop;
 static qb_ipcs_service_t* s1;
 static int32_t turn_on_fc = QB_FALSE;
 static int32_t fc_enabled = 89;
+static int32_t send_event_on_created = QB_FALSE;
+static int32_t num_bulk_events = 10;
 
 static int32_t
 exit_handler(int32_t rsignal, void *data)
@@ -119,7 +120,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		response.id = IPC_MSG_RES_BULK_EVENTS;
 		response.error = 0;
 
-		for (m = 0; m < NUM_BULK_EVENTS; m++) {
+		for (m = 0; m < num_bulk_events; m++) {
 			res = qb_ipcs_event_send(c, &response,
 						 sizeof(response));
 			if (res < 0) {
@@ -127,7 +128,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			}
 		}
 		qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
-		ck_assert_int_eq(stats.event_q_length, NUM_BULK_EVENTS);
+		ck_assert_int_eq(stats.event_q_length, num_bulk_events);
 		qb_ipcs_response_send(c, &response, response.size);
 
 
@@ -173,6 +174,22 @@ s1_connection_destroyed(qb_ipcs_connection_t *c)
 }
 
 static void
+s1_connection_created(qb_ipcs_connection_t *c)
+{
+	if (send_event_on_created) {
+		struct qb_ipc_response_header response;
+		int32_t res;
+
+		response.size = sizeof(struct qb_ipc_response_header);
+		response.id = IPC_MSG_RES_DISPATCH;
+		response.error = 0;
+		res = qb_ipcs_event_send(c, &response,
+					 sizeof(response));
+		ck_assert_int_eq(res, response.size);
+	}
+}
+
+static void
 run_ipc_server(void)
 {
 	int32_t res;
@@ -180,7 +197,7 @@ run_ipc_server(void)
 
 	struct qb_ipcs_service_handlers sh = {
 		.connection_accept = NULL,
-		.connection_created = NULL,
+		.connection_created = s1_connection_created,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = s1_connection_destroyed,
 		.connection_closed = NULL,
@@ -569,7 +586,7 @@ count_bulk_events(int32_t fd, int32_t revents, void *data)
 
 	events_received++;
 
-	if (events_received >= NUM_BULK_EVENTS) {
+	if (events_received >= num_bulk_events) {
 		qb_loop_stop(cl);
 		return -1;
 	}
@@ -616,7 +633,7 @@ test_ipc_bulk_events(void)
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 
 	qb_loop_run(cl);
-	ck_assert_int_eq(events_received, NUM_BULK_EVENTS);
+	ck_assert_int_eq(events_received, num_bulk_events);
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
@@ -628,6 +645,60 @@ START_TEST(test_ipc_bulk_events_us)
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	test_ipc_bulk_events();
+	qb_leave();
+}
+END_TEST
+
+static void
+test_ipc_event_on_created(void)
+{
+	int32_t c = 0;
+	int32_t j = 0;
+	pid_t pid;
+	int32_t res;
+	qb_loop_t *cl;
+	int32_t fd;
+
+	num_bulk_events = 1;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	events_received = 0;
+	cl = qb_loop_create();
+	res = qb_ipcc_fd_get(conn, &fd),
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_poll_add(cl, QB_LOOP_MED,
+			 fd, POLLIN,
+			 cl, count_bulk_events);
+	ck_assert_int_eq(res, 0);
+
+	qb_loop_run(cl);
+	ck_assert_int_eq(events_received, num_bulk_events);
+
+	qb_ipcc_disconnect(conn);
+	stop_process(pid);
+}
+
+START_TEST(test_ipc_event_on_created_us)
+{
+	qb_enter();
+	send_event_on_created = QB_TRUE;
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	test_ipc_event_on_created();
 	qb_leave();
 }
 END_TEST
@@ -713,6 +784,17 @@ START_TEST(test_ipc_bulk_events_shm)
 }
 END_TEST
 
+START_TEST(test_ipc_event_on_created_shm)
+{
+	qb_enter();
+	send_event_on_created = QB_TRUE;
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	test_ipc_event_on_created();
+	qb_leave();
+}
+END_TEST
+
 START_TEST(test_ipc_server_fail_shm)
 {
 	qb_enter();
@@ -766,6 +848,10 @@ ipc_suite(void)
 	tcase_add_test(tc, test_ipc_exit_shm);
 	tcase_set_timeout(tc, 3);
 	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_event_on_created_shm");
+	tcase_add_test(tc, test_ipc_event_on_created_shm);
+	suite_add_tcase(s, tc);
 #endif /* HAVE_SEM_TIMEDWAIT */
 
 	tc = tcase_create("ipc_server_fail_soc");
@@ -813,6 +899,10 @@ ipc_suite(void)
 	tc = tcase_create("ipc_bulk_events_us");
 	tcase_add_test(tc, test_ipc_bulk_events_us);
 	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_event_on_created_us");
+	tcase_add_test(tc, test_ipc_event_on_created_us);
 	suite_add_tcase(s, tc);
 
 	return s;

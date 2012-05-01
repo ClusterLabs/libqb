@@ -682,14 +682,16 @@ send_response:
 	}
 
 	if (res == 0) {
-		qb_ipcs_connection_ref(c);
-		if (s->serv_fns.connection_created) {
-			s->serv_fns.connection_created(c);
+		if (s->type != QB_IPC_SOCKET) {
+			qb_ipcs_connection_ref(c);
+			if (s->serv_fns.connection_created) {
+				s->serv_fns.connection_created(c);
+			}
+			if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
+				c->state = QB_IPCS_CONNECTION_ESTABLISHED;
+			}
+			qb_ipcs_connection_unref(c);
 		}
-		if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
-			c->state = QB_IPCS_CONNECTION_ESTABLISHED;
-		}
-		qb_ipcs_connection_unref(c);
 	} else {
 		if (res == -EACCES) {
 			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
@@ -709,7 +711,15 @@ handle_connection_new_sock(struct qb_ipcs_service *s, int32_t sock, void *msg)
 	struct qb_ipc_event_connection_request *req = msg;
 
 	c = (struct qb_ipcs_connection *)req->connection;
+	qb_ipcs_connection_ref(c);
 	c->event.u.us.sock = sock;
+	if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		c->state = QB_IPCS_CONNECTION_ESTABLISHED;
+	}
+	if (s->serv_fns.connection_created) {
+		s->serv_fns.connection_created(c);
+	}
+	qb_ipcs_connection_unref(c);
 }
 
 static int32_t
