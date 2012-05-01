@@ -47,6 +47,7 @@ enum my_msg_ids {
 	IPC_MSG_REQ_SERVER_FAIL,
 	IPC_MSG_RES_SERVER_FAIL,
 };
+#define NUM_BULK_EVENTS 10
 
 /* Test Cases
  *
@@ -112,18 +113,24 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_BULK_EVENTS) {
 		int32_t m;
+		struct qb_ipcs_connection_stats stats;
+
 		response.size = sizeof(struct qb_ipc_response_header);
 		response.id = IPC_MSG_RES_BULK_EVENTS;
 		response.error = 0;
-		qb_ipcs_response_send(c, &response, response.size);
 
-		for (m = 0; m < 100; m++) {
+		for (m = 0; m < NUM_BULK_EVENTS; m++) {
 			res = qb_ipcs_event_send(c, &response,
 						 sizeof(response));
 			if (res < 0) {
 				qb_perror(LOG_INFO, "qb_ipcs_event_send");
 			}
 		}
+		qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
+		ck_assert_int_eq(stats.event_q_length, NUM_BULK_EVENTS);
+		qb_ipcs_response_send(c, &response, response.size);
+
+
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
 		exit(0);
 	}
@@ -554,6 +561,7 @@ END_TEST
 
 static int32_t events_received;
 
+
 static int32_t
 count_bulk_events(int32_t fd, int32_t revents, void *data)
 {
@@ -561,7 +569,7 @@ count_bulk_events(int32_t fd, int32_t revents, void *data)
 
 	events_received++;
 
-	if (events_received >= 100) {
+	if (events_received >= NUM_BULK_EVENTS) {
 		qb_loop_stop(cl);
 		return -1;
 	}
@@ -608,7 +616,7 @@ test_ipc_bulk_events(void)
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 
 	qb_loop_run(cl);
-	ck_assert_int_eq(events_received, 100);
+	ck_assert_int_eq(events_received, NUM_BULK_EVENTS);
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);

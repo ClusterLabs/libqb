@@ -71,6 +71,7 @@ struct qb_ipcs_connection_stats {
 	uint64_t recv_retries;
 	int32_t flow_control_state;
 	uint64_t flow_control_count;
+	uint32_t event_q_length;
 };
 
 typedef int32_t (*qb_ipcs_dispatch_fn_t) (int32_t fd, int32_t revents,
