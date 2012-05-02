@@ -511,12 +511,8 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 	if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		c->state = QB_IPCS_CONNECTION_INACTIVE;
 		c->service->stats.closed_connections++;
-		if (c->service->needs_sock_for_poll && c->setup.u.us.sock > 0) {
-			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
-			qb_ipcc_us_sock_close(c->setup.u.us.sock);
-			c->setup.u.us.sock = -1;
-			qb_ipcs_connection_unref(c);
-		}
+
+		qb_ipcs_sockets_disconnect(c);
 		/* return early as it's an incomplete connection.
 		 */
 		return;
@@ -526,12 +522,7 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		c->service->stats.active_connections--;
 		c->service->stats.closed_connections++;
 
-		if (c->service->needs_sock_for_poll && c->setup.u.us.sock > 0) {
-			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
-			qb_ipcc_us_sock_close(c->setup.u.us.sock);
-			c->setup.u.us.sock = -1;
-			qb_ipcs_connection_unref(c);
-		}
+		qb_ipcs_sockets_disconnect(c);
 	}
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN) {
 		res = 0;
@@ -668,6 +659,10 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	int32_t recvd = 0;
 	ssize_t avail;
 
+	if (revents & POLLNVAL) {
+		qb_util_log(LOG_DEBUG, "NVAL conn:%p fd:%d", c, fd);
+		return -EINVAL;
+	}
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "HUP conn:%p fd:%d", c, fd);
 		qb_ipcs_disconnect(c);

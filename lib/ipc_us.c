@@ -221,8 +221,14 @@ qb_ipc_us_recv_ready(struct qb_ipc_one_way * one_way, int32_t ms_timeout)
 		return -EAGAIN;
 	} else if (poll_events == -1) {
 		return -errno;
-	} else if (poll_events == 1 && (ufds.revents & (POLLERR | POLLHUP))) {
+	} else if (poll_events == 1 && (ufds.revents & POLLERR)) {
+		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLERR", one_way->u.us.sock);
+		return -ENOTCONN;
+	} else if (poll_events == 1 && (ufds.revents & POLLHUP)) {
 		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLHUP", one_way->u.us.sock);
+		return -ENOTCONN;
+	} else if (poll_events == 1 && (ufds.revents & POLLNVAL)) {
+		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLNVAL", one_way->u.us.sock);
 		return -ENOTCONN;
 	}
 	return 0;
@@ -643,19 +649,10 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->state = QB_IPCS_CONNECTION_ACTIVE;
 	qb_list_add(&c->list, &s->connections);
 
-	if (s->needs_sock_for_poll) {
+	if (s->needs_sock_for_poll || s->type == QB_IPC_SOCKET) {
 		qb_ipcs_connection_ref(c);
 		res = s->poll_fns.dispatch_add(s->poll_priority,
 					       c->setup.u.us.sock,
-					       POLLIN | POLLPRI | POLLNVAL,
-					       c,
-					       qb_ipcs_dispatch_connection_request);
-	}
-	if (s->type == QB_IPC_SOCKET) {
-		c->request.u.us.sock = c->setup.u.us.sock;
-		c->response.u.us.sock = c->setup.u.us.sock;
-		res = s->poll_fns.dispatch_add(s->poll_priority,
-					       c->request.u.us.sock,
 					       POLLIN | POLLPRI | POLLNVAL,
 					       c,
 					       qb_ipcs_dispatch_connection_request);
@@ -663,6 +660,10 @@ handle_new_connection(struct qb_ipcs_service *s,
 			qb_util_log(LOG_ERR,
 				    "Error adding socket to mainloop.");
 		}
+	}
+	if (s->type == QB_IPC_SOCKET) {
+		c->request.u.us.sock = c->setup.u.us.sock;
+		c->response.u.us.sock = c->setup.u.us.sock;
 	}
 
 send_response:
@@ -974,14 +975,35 @@ qb_ipc_us_q_len_get(struct qb_ipc_one_way *one_way)
 	return qb_atomic_int_get(&ctl->sent);
 }
 
+void
+qb_ipcs_sockets_disconnect(struct qb_ipcs_connection *c)
+{
+	int sock = -1;
+
+	qb_enter();
+	if (c->service->needs_sock_for_poll && c->setup.u.us.sock > 0) {
+		sock = c->setup.u.us.sock;
+		qb_ipcc_us_sock_close(sock);
+		c->setup.u.us.sock = -1;
+	}
+	if (c->request.type == QB_IPC_SOCKET) {
+		sock = c->request.u.us.sock;
+	}
+	if (sock > 0) {
+		(void)c->service->poll_fns.dispatch_del(sock);
+		qb_ipcs_connection_unref(c);
+	}
+}
+
 static void
 qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 {
+	qb_enter();
 	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
 	unlink(c->request.u.us.shared_file_name);
 
-	close(c->request.u.us.sock);
-	close(c->event.u.us.sock);
+	qb_ipcc_us_sock_close(c->request.u.us.sock);
+	qb_ipcc_us_sock_close(c->event.u.us.sock);
 }
 
 void

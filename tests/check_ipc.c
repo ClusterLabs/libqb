@@ -46,6 +46,8 @@ enum my_msg_ids {
 	IPC_MSG_RES_BULK_EVENTS,
 	IPC_MSG_REQ_SERVER_FAIL,
 	IPC_MSG_RES_SERVER_FAIL,
+	IPC_MSG_REQ_SERVER_DISCONNECT,
+	IPC_MSG_RES_SERVER_DISCONNECT,
 };
 
 /* Test Cases
@@ -71,6 +73,7 @@ static qb_ipcs_service_t* s1;
 static int32_t turn_on_fc = QB_FALSE;
 static int32_t fc_enabled = 89;
 static int32_t send_event_on_created = QB_FALSE;
+static int32_t disconnect_after_created = QB_FALSE;
 static int32_t num_bulk_events = 10;
 
 static int32_t
@@ -134,6 +137,8 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
 		exit(0);
+	} else if (req_pt->id == IPC_MSG_REQ_SERVER_DISCONNECT) {
+		qb_ipcs_disconnect(c);
 	}
 	return 0;
 }
@@ -704,6 +709,64 @@ START_TEST(test_ipc_event_on_created_us)
 END_TEST
 
 static void
+test_ipc_disconnect_after_created(void)
+{
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
+	int32_t c = 0;
+	int32_t j = 0;
+	pid_t pid;
+	int32_t res;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	ck_assert_int_eq(QB_TRUE, qb_ipcc_is_connected(conn));
+
+	req_header.id = IPC_MSG_REQ_SERVER_DISCONNECT;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), -1);
+	/*
+	 * confirm we get -ENOTCONN
+	 */
+	ck_assert_int_eq(res, -ENOTCONN);
+	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
+
+	qb_ipcc_disconnect(conn);
+	stop_process(pid);
+}
+
+START_TEST(test_ipc_disconnect_after_created_us)
+{
+	qb_enter();
+	disconnect_after_created = QB_TRUE;
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	test_ipc_disconnect_after_created();
+	qb_leave();
+}
+END_TEST
+
+static void
 test_ipc_server_fail(void)
 {
 	struct qb_ipc_request_header req_header;
@@ -903,6 +966,10 @@ ipc_suite(void)
 
 	tc = tcase_create("ipc_event_on_created_us");
 	tcase_add_test(tc, test_ipc_event_on_created_us);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_disconnect_after_created_us");
+	tcase_add_test(tc, test_ipc_disconnect_after_created_us);
 	suite_add_tcase(s, tc);
 
 	return s;
