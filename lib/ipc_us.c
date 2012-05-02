@@ -298,20 +298,26 @@ qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
 retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
-	if (timeout == -1) {
-		if (result == -1 && errno == EAGAIN) {
-			goto retry_recv;
+	if (result == -1) {
+		if (errno != EAGAIN) {
+			return -errno;
+		} else {
+			if (processed > 0 || timeout == -1) {
+				/* if we are part way into receiving the
+				 * message or the call is blocking, retry.
+				 */
+				goto retry_recv;
+			} else {
+				return -errno;
+			}
 		}
-	}
-	if (result == 0) {
+	} else if (result == 0) {
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
 			    one_way->u.us.sock);
 		return -ENOTCONN;
 	}
-	if (result == -1) {
-		return -errno;
-	}
+
 	processed += result;
 	if (processed >= sizeof(struct qb_ipc_request_header) && hdr == NULL) {
 		hdr = (struct qb_ipc_request_header*)msg;
