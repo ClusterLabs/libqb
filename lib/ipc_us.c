@@ -256,15 +256,19 @@ retry_recv:
 		}
 	}
 	if (result == 0) {
-		qb_util_log(LOG_DEBUG, "recv(fd %d) got 0 bytes assuming ENOTCONN",
+		qb_util_log(LOG_DEBUG,
+			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
 			    one_way->u.us.sock);
 		return -ENOTCONN;
 	}
 	if (result == -1) {
-		return -errno;
+		if (errno != EAGAIN) {
+			return -errno;
+		}
+	} else {
+		processed += result;
+		to_recv -= result;
 	}
-	processed += result;
-	to_recv -= result;
 	if (processed != len) {
 		goto retry_recv;
 	}
