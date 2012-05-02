@@ -847,6 +847,13 @@ qb_ipcs_us_connection_acceptor(int fd, int revent, void *data)
 	struct ipc_auth_ugp ugp;
 	socklen_t addrlen = sizeof(struct sockaddr_un);
 
+	if (revent & (POLLNVAL|POLLHUP|POLLERR)) {
+		/*
+		 * handle shutdown more cleanly.
+		 */
+		return -1;
+	}
+
 retry_accept:
 	errno = 0;
 	new_fd = accept(fd, (struct sockaddr *)&un_addr, &addrlen);
