@@ -447,7 +447,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	struct qb_ipc_event_connection_request request;
 	char path[PATH_MAX];
 	int32_t fd_hdr;
-	struct ipc_us_control *ctl;
+	char * shm_ptr;
 
 	c->needs_sock_for_poll = QB_FALSE;
 	c->funcs.send = qb_ipc_us_send;
@@ -468,20 +468,17 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 		return res;
 	}
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
-	c->request.u.us.shared_data = mmap(0,
-					   sizeof(struct ipc_us_control),
-					   PROT_READ | PROT_WRITE, MAP_SHARED,
-					   fd_hdr, 0);
+	shm_ptr = mmap(0, 3 * sizeof(struct ipc_us_control),
+		       PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 
-	if (c->request.u.us.shared_data == MAP_FAILED) {
+	if (shm_ptr == MAP_FAILED) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
-
-	ctl = (struct ipc_us_control *)c->request.u.us.shared_data;
-	ctl->sent = 0;
-	ctl->flow_control = 0;
+	c->request.u.us.shared_data = shm_ptr;
+	c->response.u.us.shared_data = shm_ptr + sizeof(struct ipc_us_control);
+	c->event.u.us.shared_data =  shm_ptr + (2 * sizeof(struct ipc_us_control));
 
 	close(fd_hdr);
 
@@ -922,6 +919,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	int32_t fd_hdr;
 	int32_t res = 0;
 	struct ipc_us_control *ctl;
+	char * shm_ptr;
 
 	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
@@ -940,18 +938,25 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
 	(void)chown(r->request, c->euid, c->egid);
 
-	c->request.u.us.shared_data = mmap(0,
-					   sizeof(struct ipc_us_control),
-					   PROT_READ | PROT_WRITE, MAP_SHARED,
-					   fd_hdr, 0);
+	shm_ptr = mmap(0, 3 * sizeof(struct ipc_us_control),
+		       PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 
-	if (c->request.u.us.shared_data == MAP_FAILED) {
+	if (shm_ptr == MAP_FAILED) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
+	c->request.u.us.shared_data = shm_ptr;
+	c->response.u.us.shared_data = shm_ptr + sizeof(struct ipc_us_control);
+	c->event.u.us.shared_data =  shm_ptr + (2 * sizeof(struct ipc_us_control));
 
 	ctl = (struct ipc_us_control *)c->request.u.us.shared_data;
+	ctl->sent = 0;
+	ctl->flow_control = 0;
+	ctl = (struct ipc_us_control *)c->response.u.us.shared_data;
+	ctl->sent = 0;
+	ctl->flow_control = 0;
+	ctl = (struct ipc_us_control *)c->event.u.us.shared_data;
 	ctl->sent = 0;
 	ctl->flow_control = 0;
 
