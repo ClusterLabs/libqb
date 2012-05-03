@@ -117,23 +117,27 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		}
 	} else if (req_pt->id == IPC_MSG_REQ_BULK_EVENTS) {
 		int32_t m;
+		int32_t num;
 		struct qb_ipcs_connection_stats stats;
 
 		response.size = sizeof(struct qb_ipc_response_header);
-		response.id = IPC_MSG_RES_BULK_EVENTS;
 		response.error = 0;
+
+		qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
+		num = stats.event_q_length;
 
 		for (m = 0; m < num_bulk_events; m++) {
 			res = qb_ipcs_event_send(c, &response,
 						 sizeof(response));
-			if (res < 0) {
-				qb_perror(LOG_INFO, "qb_ipcs_event_send");
-			}
+			ck_assert_int_eq(res, sizeof(response));
+			response.id++;
 		}
 		qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
-		ck_assert_int_eq(stats.event_q_length, num_bulk_events);
-		qb_ipcs_response_send(c, &response, response.size);
+		ck_assert_int_eq(stats.event_q_length - num, num_bulk_events);
 
+		response.id = IPC_MSG_RES_BULK_EVENTS;
+		res = qb_ipcs_response_send(c, &response, response.size);
+		ck_assert_int_eq(res, sizeof(response));
 
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
 		exit(0);
@@ -293,14 +297,15 @@ repeat_send:
 			return res;
 		}
 	}
-	if (req_id == IPC_MSG_REQ_TX_RX) {
-		res = qb_ipcc_recv(conn, &res_header,
-				   sizeof(struct qb_ipc_response_header),
-				   ms_timeout);
-	} else {
+
+	if (req_id == IPC_MSG_REQ_DISPATCH) {
 		res = qb_ipcc_event_recv(conn, &res_header,
 					 sizeof(struct qb_ipc_response_header),
 					 ms_timeout);
+	} else {
+		res = qb_ipcc_recv(conn, &res_header,
+				   sizeof(struct qb_ipc_response_header),
+				   ms_timeout);
 	}
 	if (res == -EINTR) {
 		return -1;
@@ -601,6 +606,9 @@ count_bulk_events(int32_t fd, int32_t revents, void *data)
 static void
 test_ipc_bulk_events(void)
 {
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
 	int32_t c = 0;
 	int32_t j = 0;
 	pid_t pid;
@@ -633,12 +641,25 @@ test_ipc_bulk_events(void)
 	ck_assert_int_eq(res, 0);
 
 	res = send_and_check(IPC_MSG_REQ_BULK_EVENTS,
-			   sizeof(struct qb_ipc_request_header),
-			   recv_timeout, QB_TRUE);
+			     0,
+			     recv_timeout, QB_TRUE);
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 
 	qb_loop_run(cl);
 	ck_assert_int_eq(events_received, num_bulk_events);
+
+	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), -1);
+	if (res != -ECONNRESET && res != -ENOTCONN) {
+		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
+		ck_assert_int_eq(res, -ENOTCONN);
+	}
 
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
@@ -647,6 +668,7 @@ test_ipc_bulk_events(void)
 START_TEST(test_ipc_bulk_events_us)
 {
 	qb_enter();
+	send_event_on_created = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	test_ipc_bulk_events();

@@ -85,33 +85,21 @@ ssize_t
 qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 {
 	int32_t result;
-	struct msghdr msg_send;
-	struct iovec iov_send;
-	char *rbuf = (char *)msg;
 	int32_t processed = 0;
-	struct ipc_us_control *ctl = NULL;
-
-	msg_send.msg_iov = &iov_send;
-	msg_send.msg_iovlen = 1;
-	msg_send.msg_name = 0;
-	msg_send.msg_namelen = 0;
-
-#if !defined(QB_SOLARIS)
-	msg_send.msg_control = 0;
-	msg_send.msg_controllen = 0;
-	msg_send.msg_flags = 0;
-#else
-	msg_send.msg_accrights = NULL;
-	msg_send.msg_accrightslen = 0;
-#endif
+	char *rbuf = (char *)msg;
 
 retry_send:
-	iov_send.iov_base = &rbuf[processed];
-	iov_send.iov_len = len - processed;
+	result = send(one_way->u.us.sock,
+		      &rbuf[processed],
+		      len - processed,
+		      MSG_NOSIGNAL);
 
-	result = sendmsg(one_way->u.us.sock, &msg_send, MSG_NOSIGNAL);
 	if (result == -1) {
-		return -errno;
+		if (errno == EAGAIN && processed > 0) {
+			goto retry_send;
+		} else {
+			return -errno;
+		}
 	}
 
 	processed += result;
@@ -119,6 +107,7 @@ retry_send:
 		goto retry_send;
 	}
 	if (one_way->type == QB_IPC_SOCKET) {
+		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 		if (ctl) {
 			qb_atomic_int_inc(&ctl->sent);
@@ -132,46 +121,46 @@ qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 		size_t iov_len)
 {
 	int32_t result;
-	struct msghdr msg_send;
 	int32_t processed = 0;
-	size_t len = 0;
-	int32_t i;
-	struct ipc_us_control *ctl = NULL;
-
-	for (i = 0; i < iov_len; i++) {
-		len += iov[i].iov_len;
-	}
-	msg_send.msg_iov = (struct iovec *)iov;
-	msg_send.msg_iovlen = iov_len;
-	msg_send.msg_name = 0;
-	msg_send.msg_namelen = 0;
-
-#if !defined(QB_SOLARIS)
-	msg_send.msg_control = 0;
-	msg_send.msg_controllen = 0;
-	msg_send.msg_flags = 0;
-#else
-	msg_send.msg_accrights = NULL;
-	msg_send.msg_accrightslen = 0;
-#endif
+	int32_t total_processed = 0;
+	int32_t iov_p = 0;
+	char *rbuf = (char *)iov[iov_p].iov_base;
 
 retry_send:
-	result = sendmsg(one_way->u.us.sock, &msg_send, MSG_NOSIGNAL);
+	result = send(one_way->u.us.sock,
+		      &rbuf[processed],
+		      iov[iov_p].iov_len - processed,
+		      MSG_NOSIGNAL);
+
 	if (result == -1) {
-		return -errno;
+		if (errno == EAGAIN &&
+		    (processed > 0 || iov_p > 0)) {
+			goto retry_send;
+		} else {
+			return -errno;
+		}
 	}
 
 	processed += result;
-	if (processed != len) {
+	if (processed == iov[iov_p].iov_len) {
+		iov_p++;
+		total_processed += processed;
+		if (iov_p < iov_len) {
+			processed = 0;
+			rbuf = (char *)iov[iov_p].iov_base;
+			goto retry_send;
+		}
+	} else {
 		goto retry_send;
 	}
 	if (one_way->type == QB_IPC_SOCKET) {
+		struct ipc_us_control *ctl;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 		if (ctl) {
 			qb_atomic_int_inc(&ctl->sent);
 		}
 	}
-	return processed;
+	return total_processed;
 }
 
 static ssize_t
@@ -245,34 +234,33 @@ qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	int32_t processed = 0;
 	int32_t to_recv = len;
 	char *data = msg;
-	struct ipc_us_control *ctl = NULL;
 
 retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
-	if (timeout == -1) {
-		if (result == -1 && errno == EAGAIN) {
+
+	if (result == -1) {
+		if (errno == EAGAIN &&
+		    (processed > 0 || timeout == -1)) {
 			goto retry_recv;
+		} else {
+			return -errno;
 		}
 	}
+
 	if (result == 0) {
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
 			    one_way->u.us.sock);
 		return -ENOTCONN;
 	}
-	if (result == -1) {
-		if (errno != EAGAIN) {
-			return -errno;
-		}
-	} else {
-		processed += result;
-		to_recv -= result;
-	}
+	processed += result;
+	to_recv -= result;
 	if (processed != len) {
 		goto retry_recv;
 	}
 	if (one_way->type == QB_IPC_SOCKET) {
+		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 		if (ctl) {
 			(void)qb_atomic_int_dec_and_test(&ctl->sent);
@@ -282,7 +270,7 @@ retry_recv:
 }
 
 /*
- * recv a message of unknow size.
+ * recv a message of unknown size.
  */
 static ssize_t
 qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
@@ -299,17 +287,11 @@ retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
 	if (result == -1) {
-		if (errno != EAGAIN) {
-			return -errno;
+		if (errno == EAGAIN &&
+		    (processed > 0 || timeout == -1)) {
+			goto retry_recv;
 		} else {
-			if (processed > 0 || timeout == -1) {
-				/* if we are part way into receiving the
-				 * message or the call is blocking, retry.
-				 */
-				goto retry_recv;
-			} else {
-				return -errno;
-			}
+			return -errno;
 		}
 	} else if (result == 0) {
 		qb_util_log(LOG_DEBUG,
