@@ -32,7 +32,7 @@ typedef void *timer_handle;
 #define TIMER_HANDLE
 #endif
 
-static int64_t timerlist_hertz = HZ;
+static int64_t timerlist_hertz;
 
 struct timerlist {
 	struct qb_list_head timer_head;

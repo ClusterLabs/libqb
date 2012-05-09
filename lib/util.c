@@ -197,7 +197,7 @@ qb_util_nano_current_get(void)
 uint64_t
 qb_util_nano_monotonic_hz(void)
 {
-	return HZ;
+	return sysconf(_SC_CLK_TCK);
 }
 
 void
