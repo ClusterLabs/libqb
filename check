@@ -50,7 +50,7 @@ fi
 cd $up
 
 set -e
-if [ ! -e install-sh ]
+if [ ! -e build-aux/install-sh ]
 then
 	./autogen.sh
 fi
@@ -185,7 +185,6 @@ check_coverity() {
 		--concurrency \
 		--all \
 		--aggressiveness-level high \
-		--enable MISRA_CAST \
 		--security \
 		--wait-for-license
 	cov-format-errors --dir cov
@@ -210,6 +209,14 @@ check_clang() {
 check_abi() {
 	ver1=$1
 	ver2=$2
+	if [ -z "$ver1" ] ; then
+		echo need two versions.
+		exit 1
+	fi
+	if [ -z "$ver2" ] ; then
+		echo need two versions.
+		exit 1
+	fi
 
 	TMPL=build-aux/abi-check-templ.xml
 	checker=abi-compliance-checker
@@ -251,7 +258,7 @@ check_abi() {
 check_api_sanity() {
 	make
 	export CFLAGS="-Wall -ggdb2"
-	api-sanity-autotest -l libqb -d build-aux/api-auto-test.xml -gen -build -run
+	api-sanity-checker -l libqb -d build-aux/api-auto-test.xml -gen -build -run
 	google-chrome test_results/libqb/master/test_results.html
 	google-chrome test_results/libqb/master/test_results.html
 }
