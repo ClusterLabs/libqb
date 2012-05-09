@@ -623,7 +623,7 @@ handle_new_connection(struct qb_ipcs_service *s,
 		goto send_response;
 	}
 
-	qb_util_log(LOG_INFO, "IPC credentials authenticated");
+	qb_util_log(LOG_DEBUG, "IPC credentials authenticated");
 
 	memset(&response, 0, sizeof(response));
 	if (s->funcs.connect) {
