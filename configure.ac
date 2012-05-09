@@ -6,6 +6,7 @@ AC_PREREQ([2.61])
 AC_INIT([libqb],
 	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
 	[quarterback-devel@fedorahosted.org])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
 AC_USE_SYSTEM_EXTENSIONS
@@ -97,10 +98,15 @@ case $exec_prefix in
 esac
 
 # Checks for libraries.
-AC_CHECK_LIB([rt], [mq_open])
-AC_CHECK_LIB([dl], [dlopen])
-AC_CHECK_LIB([pthread], [pthread_create])
-AC_CHECK_LIB([socket], [socket])
+dnl librt from glibc NEEDs libpthread
+dnl so. if test for libpthread after librt
+dnl it will always be "none needed", but it is not true
+dnl when linking libraries. Looks like a bug.
+AC_SEARCH_LIBS([pthread_create], [pthread])
+AC_SEARCH_LIBS([mq_open], [rt])
+AC_SEARCH_LIBS([dlopen], [dl])
+AC_SEARCH_LIBS([socket], [socket])
+AC_SEARCH_LIBS([gethostbyname], [nsl])
 
 # look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
