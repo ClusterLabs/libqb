@@ -1,0 +1,5 @@
+config.h
+config.h.in
+qb/qbconfig.h
+qb/stamp-h2
+stamp-h1
