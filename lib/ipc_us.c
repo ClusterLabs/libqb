@@ -48,10 +48,15 @@
 #define UNIX_PATH_MAX    108
 #endif /* UNIX_PATH_MAX */
 
-#if defined(QB_LINUX) || defined(QB_SOLARIS)
-#define QB_SUN_LEN(a) sizeof(*(a))
+/*
+ * SUN_LEN() does a strlen() on sun_path, but if you are trying to use the
+ * "Linux abstract namespace" (you have to set sun_path[0] == '\0') then
+ * the strlen() doesn't work.
+ */
+#if defined(SUN_LEN)
+#define QB_SUN_LEN(a) ((a)->sun_path[0] == '\0') ? sizeof(*(a)) : SUN_LEN(a)
 #else
-#define QB_SUN_LEN(a) SUN_LEN(a)
+#define QB_SUN_LEN(a) sizeof(*(a))
 #endif
 
 struct ipc_us_control {
@@ -341,8 +346,8 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 
 	memset(&address, 0, sizeof(struct sockaddr_un));
 	address.sun_family = AF_UNIX;
-#if defined(QB_BSD) || defined(QB_DARWIN)
-	address.sun_len = SUN_LEN(&address);
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+	address.sun_len = QB_SUN_LEN(&address);
 #endif
 
 #if defined(QB_LINUX)

@@ -8,6 +8,8 @@ AC_INIT([libqb],
 	[quarterback-devel@fedorahosted.org])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
+AC_USE_SYSTEM_EXTENSIONS
+
 AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
 dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
 dnl normal compilation.  When a failure occurs, it will then display the full 
@@ -18,6 +20,7 @@ LT_PREREQ([2.2.6])
 LT_INIT
 
 AC_CONFIG_MACRO_DIR([m4])
+
 AC_CANONICAL_HOST
 AC_PROG_LIBTOOL
 AC_LANG([C])
@@ -135,6 +138,13 @@ AC_TYPE_SSIZE_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
+
+AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
+                [AC_DEFINE([HAVE_STRUCT_SOCKADDR_UN_SUN_LEN],
+                           1,
+                           [Define to 1 if struct sockaddr_un has a member sun_len])],
+                [],
+                [#include <sys/un.h>])
 
 # Checks for library functions.
 AC_FUNC_CHOWN

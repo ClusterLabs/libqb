@@ -25,10 +25,6 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif /* _GNU_SOURCE */
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <limits.h>
