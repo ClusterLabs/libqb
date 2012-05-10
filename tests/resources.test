@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 RETURN=0
 
 for d in /dev/shm /var/run
