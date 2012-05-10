@@ -63,6 +63,7 @@ struct ipc_us_control {
 	int32_t sent;
 	int32_t flow_control;
 };
+#define SHM_CONTROL_SIZE (3 * sizeof(struct ipc_us_control))
 
 struct ipc_auth_ugp {
 	uid_t uid;
@@ -416,7 +417,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 static void
 qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 {
-	munmap(c->request.u.us.shared_data, 3 * sizeof(struct ipc_us_control));
+	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	unlink(c->request.u.us.shared_file_name);
 	close(c->request.u.us.sock);
 	close(c->event.u.us.sock);
@@ -444,14 +445,14 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	c->setup.u.us.sock = -1;
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
-				       sizeof(struct ipc_us_control), O_RDWR);
+				       SHM_CONTROL_SIZE, O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't open file for mmap");
 		return res;
 	}
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
-	shm_ptr = mmap(0, 3 * sizeof(struct ipc_us_control),
+	shm_ptr = mmap(0, SHM_CONTROL_SIZE,
 		       PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 
 	if (shm_ptr == MAP_FAILED) {
@@ -484,7 +485,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 cleanup_hdr:
 	close(fd_hdr);
 	unlink(r->request);
-	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	return res;
 }
 
@@ -906,7 +907,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 		 s->name, c->pid, c->setup.u.us.sock);
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
-				       sizeof(struct ipc_us_control),
+				       SHM_CONTROL_SIZE,
 				       O_CREAT | O_TRUNC | O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
@@ -921,7 +922,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 		 */
 		res = 0;
 	}
-	shm_ptr = mmap(0, 3 * sizeof(struct ipc_us_control),
+	shm_ptr = mmap(0, SHM_CONTROL_SIZE,
 		       PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 
 	if (shm_ptr == MAP_FAILED) {
@@ -949,7 +950,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 cleanup_hdr:
 	close(fd_hdr);
 	unlink(r->request);
-	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	return res;
 }
 
@@ -1004,7 +1005,7 @@ static void
 qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 {
 	qb_enter();
-	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	unlink(c->request.u.us.shared_file_name);
 
 	qb_ipcc_us_sock_close(c->request.u.us.sock);
