@@ -915,8 +915,12 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	}
 	(void)strlcpy(r->request, path, PATH_MAX);
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
-	(void)chown(r->request, c->euid, c->egid);
-
+	res = chown(r->request, c->euid, c->egid);
+	if (res != 0) {
+		/* ignore res, this is just for the compiler warnings.
+		 */
+		res = 0;
+	}
 	shm_ptr = mmap(0, 3 * sizeof(struct ipc_us_control),
 		       PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 
