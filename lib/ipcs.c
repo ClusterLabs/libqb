@@ -749,14 +749,7 @@ qb_ipcs_connection_stats_get(qb_ipcs_connection_t * c,
 	if (c == NULL) {
 		return -EINVAL;
 	}
-
 	memcpy(stats, &c->stats, sizeof(struct qb_ipcs_connection_stats));
-
-	if (c->service->funcs.q_len_get) {
-		stats->event_q_length = c->service->funcs.q_len_get(&c->event);
-	} else {
-		stats->event_q_length = 0;
-	}
 	if (clear_after_read) {
 		memset(&c->stats, 0, sizeof(struct qb_ipcs_connection_stats));
 		c->stats.client_pid = c->pid;
