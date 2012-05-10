@@ -477,7 +477,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	res = qb_ipc_us_send(&c->event, &request, request.hdr.size);
 	if (res < 0) {
 		qb_ipcc_us_sock_close(c->event.u.us.sock);
-		return res;
+		goto cleanup_hdr;
 	}
 
 	return 0;
