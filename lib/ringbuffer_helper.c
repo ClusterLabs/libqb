@@ -264,9 +264,7 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
  * 4) sysv sems (if we do NOT have semtimedop)
  *
  * if we need QB_RB_FLAG_SHARED_THREAD
- * then the order of choice is:
- * 1) real posix sem
- * 2) sems using pthread_cond_timedwait
+ * then always use posix sem (real or using pthread_cond_timedwait)
  */
 
 	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
@@ -276,17 +274,11 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	#ifdef HAVE_SEMTIMEDOP
 		use_posix = QB_FALSE;
 	#else
-		/* TODO still need to check whether or not
-		 * mutexes and cond support pshared
-		 */
+		#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED)
+#error you do not seem to have a usable shared process semaphore
+		#endif
 		use_posix = QB_TRUE;
 	#endif /* HAVE_SEMTIMEDOP */
-#endif /* HAVE_SEM_TIMEDWAIT */
-	} else {
-#ifdef HAVE_SEM_TIMEDWAIT
-		use_posix = QB_TRUE;
-#else
-		use_posix = QB_FALSE;
 #endif /* HAVE_SEM_TIMEDWAIT */
 	}
 	if (use_posix) {

@@ -69,9 +69,11 @@ cleanup:
 int
 rpl_sem_wait(rpl_sem_t * sem)
 {
-	int retval = 0;
-
-	pthread_mutex_lock(&sem->mutex);
+	int retval = pthread_mutex_lock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
 
 	/* wait for sem->count to be not zero, or error
 	 */
@@ -97,8 +99,11 @@ rpl_sem_wait(rpl_sem_t * sem)
 int
 rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
 {
-	int retval = 0;
-	pthread_mutex_lock(&sem->mutex);
+	int retval = pthread_mutex_lock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
 
 	/* wait for sem->count to be not zero, or error
 	 */
@@ -131,7 +136,11 @@ rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
 int
 rpl_sem_trywait(rpl_sem_t * sem)
 {
-	pthread_mutex_lock(&sem->mutex);
+	int retval = pthread_mutex_lock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
 	if (sem->count) {
 		sem->count--;
 		pthread_mutex_unlock(&sem->mutex);
@@ -145,17 +154,31 @@ rpl_sem_trywait(rpl_sem_t * sem)
 int
 rpl_sem_post(rpl_sem_t * sem)
 {
-	pthread_mutex_lock(&sem->mutex);
+	int retval = pthread_mutex_lock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
 	sem->count++;
-	pthread_cond_broadcast(&sem->cond);
+	retval = pthread_cond_broadcast(&sem->cond);
 	pthread_mutex_unlock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
 	return 0;
 }
 
 int
 rpl_sem_getvalue(rpl_sem_t * sem, int *sval)
 {
+	int retval = pthread_mutex_lock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
 	*sval = sem->count;
+	pthread_mutex_unlock(&sem->mutex);
 	return 0;
 }
 
