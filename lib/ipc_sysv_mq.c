@@ -38,8 +38,8 @@
 
 #define MY_DATA_SIZE 8000
 struct my_msgbuf {
-	int32_t id __attribute__ ((aligned(8)));
-	char data[MY_DATA_SIZE] __attribute__ ((aligned(8)));
+	int32_t id;
+	char data[MY_DATA_SIZE];
 } __attribute__ ((aligned(8)));
 
 /*

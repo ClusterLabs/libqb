@@ -46,23 +46,23 @@ SEND CONN REQ ->
 */
 
 struct qb_ipc_connection_request {
-        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
-	uint32_t max_msg_size __attribute__ ((aligned(8)));
+	struct qb_ipc_request_header hdr;
+	uint32_t max_msg_size;
 } __attribute__ ((aligned(8)));
 
 struct qb_ipc_event_connection_request {
-        struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
-	intptr_t connection __attribute__ ((aligned(8)));
+	struct qb_ipc_request_header hdr;
+	intptr_t connection;
 } __attribute__ ((aligned(8)));
 
 struct qb_ipc_connection_response {
-	struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
-	int32_t connection_type __attribute__ ((aligned(8)));
-	uint32_t max_msg_size __attribute__ ((aligned(8)));
-	intptr_t connection __attribute__ ((aligned(8)));
-        char request[PATH_MAX] __attribute__ ((aligned(8)));
-        char response[PATH_MAX] __attribute__ ((aligned(8)));
-        char event[PATH_MAX] __attribute__ ((aligned(8)));
+	struct qb_ipc_response_header hdr;
+	int32_t connection_type;
+	uint32_t max_msg_size;
+	intptr_t connection;
+	char request[PATH_MAX];
+	char response[PATH_MAX];
+	char event[PATH_MAX];
 } __attribute__ ((aligned(8)));
 
 struct qb_ipcc_connection;
