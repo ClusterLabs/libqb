@@ -416,7 +416,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 static void
 qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 {
-	munmap(c->request.u.us.shared_data, sizeof(struct ipc_us_control));
+	munmap(c->request.u.us.shared_data, 3 * sizeof(struct ipc_us_control));
 	unlink(c->request.u.us.shared_file_name);
 	close(c->request.u.us.sock);
 	close(c->event.u.us.sock);
