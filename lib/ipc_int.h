@@ -186,7 +186,7 @@ struct qb_ipcs_connection {
 	int32_t fc_enabled;
 	int32_t poll_events;
 	int32_t outstanding_notifiers;
-	struct qb_ipcs_connection_stats stats;
+	struct qb_ipcs_connection_stats_2 stats;
 };
 
 void qb_ipcs_pmq_init(struct qb_ipcs_service *s);

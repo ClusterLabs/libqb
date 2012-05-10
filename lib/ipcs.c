@@ -751,10 +751,39 @@ qb_ipcs_connection_stats_get(qb_ipcs_connection_t * c,
 	}
 	memcpy(stats, &c->stats, sizeof(struct qb_ipcs_connection_stats));
 	if (clear_after_read) {
-		memset(&c->stats, 0, sizeof(struct qb_ipcs_connection_stats));
+		memset(&c->stats, 0, sizeof(struct qb_ipcs_connection_stats_2));
 		c->stats.client_pid = c->pid;
 	}
 	return 0;
+}
+
+struct qb_ipcs_connection_stats_2*
+qb_ipcs_connection_stats_get_2(qb_ipcs_connection_t *c,
+			       int32_t clear_after_read)
+{
+	struct qb_ipcs_connection_stats_2* stats;
+
+	if (c == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+	stats = calloc(1, sizeof(struct qb_ipcs_connection_stats_2));
+	if (stats == NULL) {
+		return NULL;
+	}
+
+	memcpy(stats, &c->stats, sizeof(struct qb_ipcs_connection_stats_2));
+
+	if (c->service->funcs.q_len_get) {
+		stats->event_q_length = c->service->funcs.q_len_get(&c->event);
+	} else {
+		stats->event_q_length = 0;
+	}
+	if (clear_after_read) {
+		memset(&c->stats, 0, sizeof(struct qb_ipcs_connection_stats_2));
+		c->stats.client_pid = c->pid;
+	}
+	return stats;
 }
 
 int32_t

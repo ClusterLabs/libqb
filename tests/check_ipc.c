@@ -118,13 +118,14 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 	} else if (req_pt->id == IPC_MSG_REQ_BULK_EVENTS) {
 		int32_t m;
 		int32_t num;
-		struct qb_ipcs_connection_stats stats;
+		struct qb_ipcs_connection_stats_2 *stats;
 
 		response.size = sizeof(struct qb_ipc_response_header);
 		response.error = 0;
 
-		qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
-		num = stats.event_q_length;
+		stats = qb_ipcs_connection_stats_get_2(c, QB_FALSE);
+		num = stats->event_q_length;
+		free(stats);
 
 		for (m = 0; m < num_bulk_events; m++) {
 			res = qb_ipcs_event_send(c, &response,
@@ -132,8 +133,9 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			ck_assert_int_eq(res, sizeof(response));
 			response.id++;
 		}
-		qb_ipcs_connection_stats_get(c, &stats, QB_FALSE);
-		ck_assert_int_eq(stats.event_q_length - num, num_bulk_events);
+		stats = qb_ipcs_connection_stats_get_2(c, QB_FALSE);
+		ck_assert_int_eq(stats->event_q_length - num, num_bulk_events);
+		free(stats);
 
 		response.id = IPC_MSG_RES_BULK_EVENTS;
 		res = qb_ipcs_response_send(c, &response, response.size);

@@ -73,6 +73,18 @@ struct qb_ipcs_connection_stats {
 	uint64_t flow_control_count;
 };
 
+struct qb_ipcs_connection_stats_2 {
+	int32_t client_pid;
+	uint64_t requests;
+	uint64_t responses;
+	uint64_t events;
+	uint64_t send_retries;
+	uint64_t recv_retries;
+	int32_t flow_control_state;
+	uint64_t flow_control_count;
+	uint32_t event_q_length;
+};
+
 typedef int32_t (*qb_ipcs_dispatch_fn_t) (int32_t fd, int32_t revents,
 					  void *data);
 
@@ -310,6 +322,7 @@ void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
 /**
  * Get the connection statistics.
  *
+ * @deprecated from v0.13.0 onwards, use qb_ipcs_connection_stats_get_2
  * @param stats (out) the statistics structure
  * @param clear_after_read clear stats after copying them into stats
  * @param c connection instance
@@ -318,6 +331,17 @@ void *qb_ipcs_context_get(qb_ipcs_connection_t *c);
 int32_t qb_ipcs_connection_stats_get(qb_ipcs_connection_t *c,
 				     struct qb_ipcs_connection_stats* stats,
 				     int32_t clear_after_read);
+/**
+ * Get (and allocate) the connection statistics.
+ *
+ * @param clear_after_read clear stats after copying them into stats
+ * @param c connection instance
+ * @retval NULL if no memory or invalid connection
+ * @retval allocated statistics structure (user must free it).
+ */
+struct qb_ipcs_connection_stats_2*
+qb_ipcs_connection_stats_get_2(qb_ipcs_connection_t *c,
+			       int32_t clear_after_read);
 
 /**
  * Get the service statistics.
