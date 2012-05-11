@@ -165,6 +165,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		uint32_t len;
 		time_t timestamp;
 		char message[QB_LOG_MAX_LEN];
+		uint32_t u32;
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
 		ptr = chunk;
@@ -182,7 +183,8 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 			ptr += fn_size;
 
 			/* timestamp size & content */
-			memcpy(&timestamp, ptr, sizeof(uint32_t));
+			memcpy(&u32, ptr, sizeof(uint32_t));
+			timestamp = u32;
 			ptr += sizeof(time_t);
 			tm = localtime(&timestamp);
 			if (tm) {
