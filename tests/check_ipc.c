@@ -177,11 +177,20 @@ my_dispatch_del(int32_t fd)
 	return qb_loop_poll_del(my_loop, fd);
 }
 
+static int32_t
+s1_connection_closed(qb_ipcs_connection_t *c)
+{
+	qb_enter();
+	qb_leave();
+	return 0;
+}
+
 static void
 s1_connection_destroyed(qb_ipcs_connection_t *c)
 {
 	qb_enter();
 	qb_loop_stop(my_loop);
+	qb_leave();
 }
 
 static void
@@ -211,7 +220,7 @@ run_ipc_server(void)
 		.connection_created = s1_connection_created,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = s1_connection_destroyed,
-		.connection_closed = NULL,
+		.connection_closed = s1_connection_closed,
 	};
 
 	struct qb_ipcs_poll_handlers ph = {
@@ -893,14 +902,13 @@ START_TEST(test_ipc_server_fail_shm)
 END_TEST
 #endif /* HAVE_SEM_TIMEDWAIT */
 
+
 static Suite *
-ipc_suite(void)
+make_shm_suite(void)
 {
 	TCase *tc;
-	uid_t uid;
-	Suite *s = suite_create("ipc");
+	Suite *s = suite_create("shm");
 
-#ifdef HAVE_SEM_TIMEDWAIT
 	tc = tcase_create("ipc_server_fail_shm");
 	tcase_add_test(tc, test_ipc_server_fail_shm);
 	tcase_set_timeout(tc, 6);
@@ -939,7 +947,15 @@ ipc_suite(void)
 	tc = tcase_create("ipc_event_on_created_shm");
 	tcase_add_test(tc, test_ipc_event_on_created_shm);
 	suite_add_tcase(s, tc);
-#endif /* HAVE_SEM_TIMEDWAIT */
+
+	return s;
+}
+
+static Suite *
+make_soc_suite(void)
+{
+	Suite *s = suite_create("socket");
+	TCase *tc;
 
 	tc = tcase_create("ipc_server_fail_soc");
 	tcase_add_test(tc, test_ipc_server_fail_soc);
@@ -966,18 +982,6 @@ ipc_suite(void)
 	tcase_set_timeout(tc, 3);
 	suite_add_tcase(s, tc);
 
-	uid = geteuid();
-	if (uid == 0) {
-		tc = tcase_create("ipc_txrx_posix_mq");
-		tcase_add_test(tc, test_ipc_txrx_pmq);
-		tcase_set_timeout(tc, 10);
-		suite_add_tcase(s, tc);
-
-		tc = tcase_create("ipc_txrx_sysv_mq");
-		tcase_add_test(tc, test_ipc_txrx_smq);
-		tcase_set_timeout(tc, 10);
-		suite_add_tcase(s, tc);
-	}
 	tc = tcase_create("ipc_dispatch_us");
 	tcase_add_test(tc, test_ipc_disp_us);
 	tcase_set_timeout(tc, 16);
@@ -999,13 +1003,40 @@ ipc_suite(void)
 	return s;
 }
 
+static Suite *
+make_mq_suite(void)
+{
+	Suite *s = suite_create("message_queue");
+	TCase *tc;
+
+	if (geteuid() == 0) {
+		tc = tcase_create("ipc_txrx_posix_mq");
+		tcase_add_test(tc, test_ipc_txrx_pmq);
+		tcase_set_timeout(tc, 10);
+		suite_add_tcase(s, tc);
+
+		tc = tcase_create("ipc_txrx_sysv_mq");
+		tcase_add_test(tc, test_ipc_txrx_smq);
+		tcase_set_timeout(tc, 10);
+		suite_add_tcase(s, tc);
+	}
+	return s;
+}
+
 int32_t
 main(void)
 {
 	int32_t number_failed;
+	SRunner *sr;
+	Suite *s;
 
-	Suite *s = ipc_suite();
-	SRunner *sr = srunner_create(s);
+	s = make_mq_suite();
+	sr = srunner_create(s);
+
+	srunner_add_suite(sr, make_soc_suite());
+#ifdef HAVE_SEM_TIMEDWAIT
+	srunner_add_suite(sr, make_shm_suite());
+#endif /* HAVE_SEM_TIMEDWAIT */
 
 	qb_log_init("check", LOG_USER, LOG_EMERG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
