@@ -325,15 +325,14 @@ new_event_notification(struct qb_ipcs_connection * c)
 		c->outstanding_notifiers++;
 	} else {
 		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers, 1);
-		if (res == 1) {
-			return res;
+		if (res == -EAGAIN) {
+			/*
+			 * notify the client later, when we can.
+			 */
+			c->outstanding_notifiers++;
+			c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
+			(void)_modify_dispatch_descriptor_(c);
 		}
-		/*
-		 * notify the client later, when we can.
-		 */
-		c->outstanding_notifiers++;
-		c->poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
-		(void)_modify_dispatch_descriptor_(c);
 	}
 	return res;
 }
