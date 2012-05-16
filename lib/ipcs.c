@@ -354,7 +354,10 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 		resn = new_event_notification(c);
 		if (resn < 0 && resn != -EAGAIN) {
 			errno = -resn;
-			qb_util_perror(LOG_WARNING, "new_event_notification");
+			qb_util_perror(LOG_WARNING,
+				       "new_event_notification (%s)",
+				       c->description);
+			res = resn;
 		}
 	}
 
@@ -380,7 +383,10 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 		resn = new_event_notification(c);
 		if (resn < 0 && resn != -EAGAIN) {
 			errno = -resn;
-			qb_util_perror(LOG_WARNING, "new_event_notification");
+			qb_util_perror(LOG_WARNING,
+				       "new_event_notification (%s)",
+				       c->description);
+			res = resn;
 		}
 	}
 
@@ -458,6 +464,7 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->request.type = s->type;
 	c->response.type = s->type;
 	c->event.type = s->type;
+	strcpy(c->description, "not set yet");
 
 	return c;
 }
@@ -479,9 +486,9 @@ qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 		return;
 	}
 	if (c->refcount < 1) {
-		qb_util_log(LOG_ERR, "ref:%d state:%d fd:%d",
+		qb_util_log(LOG_ERR, "ref:%d state:%d (%s)",
 			    c->refcount, c->state,
-			    c->setup.u.us.sock);
+			    c->description);
 		assert(0);
 	}
 	free_it = qb_atomic_int_dec_and_test(&c->refcount);
@@ -505,7 +512,8 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 	if (c == NULL) {
 		return;
 	}
-	qb_util_log(LOG_DEBUG, "%s() state:%d", __func__, c->state);
+	qb_util_log(LOG_DEBUG, "%s(%s) state:%d",
+		    __func__, c->description, c->state);
 
 	if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		c->state = QB_IPCS_CONNECTION_INACTIVE;
@@ -582,14 +590,16 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	if (size < 0) {
 		if (size != -EAGAIN && size != -ETIMEDOUT) {
 			qb_util_perror(LOG_ERR,
-				       "recv from client connection failed");
+				       "recv from client connection failed (%s)",
+				       c->description);
 		} else {
 			c->stats.recv_retries++;
 		}
 		res = size;
 		goto cleanup;
 	} else if (size == 0 || hdr->id == QB_IPC_MSG_DISCONNECT) {
-		qb_util_log(LOG_DEBUG, "client requesting a disconnect");
+		qb_util_log(LOG_DEBUG, "client requesting a disconnect (%s)",
+			    c->description);
 		qb_ipcs_disconnect(c);
 		res = -ESHUTDOWN;
 	} else {
@@ -659,11 +669,11 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	ssize_t avail;
 
 	if (revents & POLLNVAL) {
-		qb_util_log(LOG_DEBUG, "NVAL conn:%p fd:%d", c, fd);
+		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);
 		return -EINVAL;
 	}
 	if (revents & POLLHUP) {
-		qb_util_log(LOG_DEBUG, "HUP conn:%p fd:%d", c, fd);
+		qb_util_log(LOG_DEBUG, "HUP conn (%s)", c->description);
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
@@ -672,7 +682,9 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		res = resend_event_notifications(c);
 		if (res < 0 && res != -EAGAIN) {
 			errno = -res;
-			qb_util_perror(LOG_WARNING, "resend_event_notifications");
+			qb_util_perror(LOG_WARNING,
+				       "resend_event_notifications (%s)",
+				       c->description);
 		}
 		if ((revents & POLLIN) == 0) {
 			return 0;
@@ -686,8 +698,8 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	if (c->service->needs_sock_for_poll && avail == 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
 		qb_util_log(LOG_WARNING,
-			    "conn:%p Nothing in q but got POLLIN on fd:%d (res2:%d)",
-			    c, fd, res2);
+			    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
+			    c->description, fd, res2);
 		return 0;
 	}
 
@@ -705,7 +717,9 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
 		if (res2 < 0) {
 			errno = -res2;
-			qb_util_perror(LOG_ERR, "error receiving from setup sock");
+			qb_util_perror(LOG_ERR,
+				       "error receiving from setup sock (%s)",
+				       c->description);
 		}
 	}
 
@@ -715,7 +729,8 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	}
 	if (res != 0) {
 		errno = -res;
-		qb_util_perror(LOG_ERR, "request returned error");
+		qb_util_perror(LOG_ERR, "request returned error (%s)",
+			       c->description);
 		qb_ipcs_connection_unref(c);
 	}
 

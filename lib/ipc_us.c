@@ -612,6 +612,9 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->euid = ugp->uid;
 	c->egid = ugp->gid;
 	c->stats.client_pid = ugp->pid;
+	snprintf(c->description, CONNECTION_DESCRIPTION,
+		 "%d-%d-%d", s->pid, ugp->pid,
+		 c->setup.u.us.sock);
 
 	if (auth_result == 0 && c->service->serv_fns.connection_accept) {
 		res = c->service->serv_fns.connection_accept(c,
@@ -621,7 +624,8 @@ handle_new_connection(struct qb_ipcs_service *s,
 		goto send_response;
 	}
 
-	qb_util_log(LOG_DEBUG, "IPC credentials authenticated");
+	qb_util_log(LOG_DEBUG, "IPC credentials authenticated (%s)",
+		    c->description);
 
 	memset(&response, 0, sizeof(response));
 	if (s->funcs.connect) {
@@ -645,7 +649,8 @@ handle_new_connection(struct qb_ipcs_service *s,
 					       qb_ipcs_dispatch_connection_request);
 		if (res < 0) {
 			qb_util_log(LOG_ERR,
-				    "Error adding socket to mainloop.");
+				    "Error adding socket to mainloop (%s).",
+				    c->description);
 		}
 	}
 	if (s->type == QB_IPC_SOCKET) {
@@ -682,10 +687,12 @@ send_response:
 		}
 	} else {
 		if (res == -EACCES) {
-			qb_util_log(LOG_ERR, "Invalid IPC credentials.");
+			qb_util_log(LOG_ERR, "Invalid IPC credentials (%s).",
+				    c->description);
 		} else {
 			errno = -res;
-			qb_util_perror(LOG_ERR, "Error in connection setup");
+			qb_util_perror(LOG_ERR, "Error in connection setup (%s)",
+				       c->description);
 		}
 		qb_ipcs_disconnect(c);
 	}
@@ -901,17 +908,19 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	struct ipc_us_control *ctl;
 	char * shm_ptr;
 
-	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
+	qb_util_log(LOG_DEBUG, "connecting to client (%s)",
+		    c->description);
 
-	snprintf(r->request, NAME_MAX, "qb-%s-control-%d-%d",
-		 s->name, c->pid, c->setup.u.us.sock);
+	snprintf(r->request, NAME_MAX, "qb-%s-control-%s",
+		 s->name, c->description);
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
 				       SHM_CONTROL_SIZE,
 				       O_CREAT | O_TRUNC | O_RDWR);
 	if (fd_hdr < 0) {
 		res = -errno;
-		qb_util_perror(LOG_ERR, "couldn't create file for mmap");
+		qb_util_perror(LOG_ERR, "couldn't create file for mmap (%s)",
+			       c->description);
 		return res;
 	}
 	(void)strlcpy(r->request, path, PATH_MAX);
@@ -927,7 +936,8 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	if (shm_ptr == MAP_FAILED) {
 		res = -errno;
-		qb_util_perror(LOG_ERR, "couldn't create mmap for header");
+		qb_util_perror(LOG_ERR, "couldn't create mmap for header (%s)",
+			       c->description);
 		goto cleanup_hdr;
 	}
 	c->request.u.us.shared_data = shm_ptr;
@@ -960,7 +970,8 @@ qb_ipc_us_fc_set(struct qb_ipc_one_way *one_way, int32_t fc_enable)
 	struct ipc_us_control *ctl =
 	    (struct ipc_us_control *)one_way->u.us.shared_data;
 
-	qb_util_log(LOG_TRACE, "setting fc to %d", fc_enable);
+	qb_util_log(LOG_TRACE, "setting fc to %d",
+		    fc_enable);
 	qb_atomic_int_set(&ctl->flow_control, fc_enable);
 }
 

@@ -169,6 +169,8 @@ enum qb_ipcs_connection_state {
 	QB_IPCS_CONNECTION_SHUTTING_DOWN,
 };
 
+#define CONNECTION_DESCRIPTION (16)
+
 struct qb_ipcs_connection {
 	enum qb_ipcs_connection_state state;
 	int32_t refcount;
@@ -186,6 +188,7 @@ struct qb_ipcs_connection {
 	int32_t fc_enabled;
 	int32_t poll_events;
 	int32_t outstanding_notifiers;
+	char description[CONNECTION_DESCRIPTION];
 	struct qb_ipcs_connection_stats_2 stats;
 };
 
