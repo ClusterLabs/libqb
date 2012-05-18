@@ -54,6 +54,7 @@ struct qb_ringbuffer_shared_s {
 	char data_path[PATH_MAX];
 	int32_t ref_count;
 	rpl_sem_t posix_sem;
+	uint32_t shared_header_size;
 	char user_data[1];
 };
 

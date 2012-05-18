@@ -152,6 +152,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	 * create the semaphore
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
+		rb->shared_hdr->shared_header_size = shared_size;
 		rb->shared_data = NULL;
 		/* rb->shared_hdr->word_size tracks data by ints and not bytes/chars. */
 		rb->shared_hdr->word_size = real_size / sizeof(uint32_t);
@@ -234,6 +235,7 @@ cleanup_hdr:
 void
 qb_rb_close(struct qb_ringbuffer_s * rb)
 {
+	uint32_t shared_size;
 	if (rb == NULL) {
 		return;
 	}
@@ -250,8 +252,9 @@ qb_rb_close(struct qb_ringbuffer_s * rb)
 		qb_util_log(LOG_DEBUG,
 			    "Closing ringbuffer: %s", rb->shared_hdr->hdr_path);
 	}
+	shared_size = rb->shared_hdr->shared_header_size;
 	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
-	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
+	munmap(rb->shared_hdr, shared_size);
 	free(rb);
 }
 
