@@ -20,6 +20,47 @@
  */
 #include "ringbuffer_int.h"
 #include <qb/qbdefs.h>
+#include <qb/qbatomic.h>
+
+
+static int32_t
+my_atomic_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
+{
+	int retval = qb_atomic_int_get(&rb->shared_hdr->count);
+	if (retval > 0) {
+		qb_atomic_int_exchange_and_add(&rb->shared_hdr->count, -1);
+		return 0;
+	}
+
+	return -ETIMEDOUT;
+}
+
+static int32_t
+my_atomic_post(qb_ringbuffer_t * rb)
+{
+	qb_atomic_int_exchange_and_add(&rb->shared_hdr->count, 1);
+	return 0;
+}
+
+static ssize_t
+my_atomic_getvalue_fn(struct qb_ringbuffer_s *rb)
+{
+	return qb_atomic_int_get(&rb->shared_hdr->count);
+}
+
+static int32_t
+my_atomic_destroy(qb_ringbuffer_t * rb)
+{
+	rb->shared_hdr->count = 0;
+	return 0;
+}
+
+static int32_t
+my_atomic_create(struct qb_ringbuffer_s *rb, uint32_t flags)
+{
+	rb->shared_hdr->count = 0;
+	return 0;
+}
 
 static int32_t
 my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
@@ -281,7 +322,13 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	#endif /* HAVE_SEMTIMEDOP */
 #endif /* HAVE_SEM_TIMEDWAIT */
 	}
-	if (use_posix) {
+	if (flags & QB_RB_FLAG_NO_SEMAPHORE) {
+		rc = my_atomic_create(rb, flags);
+		rb->sem_timedwait_fn = my_atomic_timedwait;
+		rb->sem_post_fn = my_atomic_post;
+		rb->sem_getvalue_fn = my_atomic_getvalue_fn;
+		rb->sem_destroy_fn = my_atomic_destroy;
+	} else if (use_posix) {
 		rc = my_posix_sem_create(rb, flags);
 		rb->sem_timedwait_fn = my_posix_sem_timedwait;
 		rb->sem_post_fn = my_posix_sem_post;

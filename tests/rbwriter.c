@@ -156,7 +156,8 @@ int32_t main(int32_t argc, char *argv[])
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	rb = qb_rb_open("tester", ONE_MEG * 3,
-			QB_RB_FLAG_SHARED_PROCESS, 0);
+			QB_RB_FLAG_SHARED_PROCESS | 
+			QB_RB_FLAG_NO_SEMAPHORE, 0);
 	do_throughput_benchmark();
 	qb_rb_close(rb);
 	return EXIT_SUCCESS;

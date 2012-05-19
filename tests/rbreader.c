@@ -54,6 +54,7 @@ int32_t main(int32_t argc, char *argv[])
 
 	rb = qb_rb_open("tester", ONE_MEG * 3,
 			QB_RB_FLAG_SHARED_PROCESS |
+			QB_RB_FLAG_NO_SEMAPHORE |
 			QB_RB_FLAG_CREATE, 0);
 
 	if (rb == NULL) {

@@ -557,10 +557,6 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		return res;
 	}
 
-	if (qb_rb_space_used(rb) == 0) {
-		return -ENOMSG;
-	}
-
 	read_pt = rb->shared_hdr->read_pt;
 	qb_rb_chunk_check(rb, read_pt);
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
