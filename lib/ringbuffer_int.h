@@ -57,7 +57,7 @@ struct qb_ringbuffer_shared_s {
 	rpl_sem_t posix_sem;
 	uint32_t shared_header_size;
 	char user_data[1];
-};
+} __attribute__ ((aligned(8)));
 
 struct qb_ringbuffer_s {
 	uint32_t flags;
