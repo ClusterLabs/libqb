@@ -87,6 +87,102 @@ socket_nosigpipe(int32_t s)
 #define MSG_NOSIGNAL 0
 #endif
 
+
+static ssize_t
+_ipc_us_send_setup(struct qb_ipcs_connection *c,
+		   const void *msg_data, size_t len)
+{
+	struct msghdr msg;
+	char ccmsg[CMSG_SPACE(sizeof(int))];
+	struct cmsghdr *cmsg;
+	struct iovec vec;
+	int rv;
+	int *fdptr;
+
+	msg.msg_name = 0;
+	msg.msg_namelen = 0;
+
+	vec.iov_base = (void*)msg_data;
+	vec.iov_len = len;
+	msg.msg_iov = &vec;
+	msg.msg_iovlen = 1;
+
+	/* old BSD implementations should use msg_accrights instead of
+	 * msg_control; the interface is different. */
+	msg.msg_control = ccmsg;
+	msg.msg_controllen = sizeof(ccmsg);
+	cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+	cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+	fdptr = (int *) CMSG_DATA(cmsg);
+	*fdptr = c->request.u.shm.eventfd;
+	printf("sending eventfd %d\n", c->request.u.shm.eventfd);
+	msg.msg_controllen = cmsg->cmsg_len;
+	msg.msg_flags = 0;
+
+	rv = sendmsg(c->setup.u.us.sock, &msg, MSG_NOSIGNAL | MSG_WAITALL);
+	if (rv == -1) {
+		return -errno;
+	}
+	return rv;
+}
+
+static ssize_t
+_ipc_us_recv_setup(struct qb_ipcc_connection *c,
+		   void *msg_data, size_t len)
+{
+	struct msghdr   msg;
+	char            control[1024];
+	struct cmsghdr  *cmsg;
+	struct iovec    iov;
+	int rv;
+	struct qb_ipc_connection_response *r;
+
+	iov.iov_base = msg_data;
+	iov.iov_len = len;
+
+        memset(&msg, 0, sizeof(msg));
+        msg.msg_control = control;
+        msg.msg_controllen = sizeof(control);
+	
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
+recv_again:
+
+	rv = recvmsg(c->setup.u.us.sock, &msg, MSG_NOSIGNAL | MSG_WAITALL);
+	if (rv == -1 && errno == EAGAIN) {
+		goto recv_again;
+	} else if (rv == -1) {
+		perror("recvmsg");
+		return -errno;
+	}
+
+	r = (struct qb_ipc_connection_response *)msg_data;
+	if (r->connection_type == QB_IPC_SHM) {
+#ifdef HAVE_EVENTFD
+		/* Loop over all control messages */
+		cmsg = CMSG_FIRSTHDR(&msg);
+		while (cmsg != NULL) {
+			if (cmsg->cmsg_level == SOL_SOCKET
+			    && cmsg->cmsg_type  == SCM_RIGHTS) {
+				c->request.u.shm.eventfd = *(int*)CMSG_DATA(cmsg);
+				printf("received eventfd %d\n",
+				       c->request.u.shm.eventfd);
+				break;
+			} else {
+				fprintf(stderr,
+					"got control message of unknown type %d\n",
+					cmsg->cmsg_type);
+			}
+			cmsg = CMSG_NXTHDR(&msg, cmsg);
+		}
+#endif
+	}
+	return rv;
+}
+
 ssize_t
 qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 {
@@ -400,10 +496,9 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return res;
 	}
+	res = _ipc_us_recv_setup(c, r,
+				 sizeof(struct qb_ipc_connection_response));
 
-	res =
-	    qb_ipc_us_recv(&c->setup, r,
-			   sizeof(struct qb_ipc_connection_response), -1);
 	if (res < 0) {
 		return res;
 	}
@@ -669,7 +764,14 @@ send_response:
 		s->stats.active_connections++;
 	}
 
-	res2 = qb_ipc_us_send(&c->setup, &response, response.hdr.size);
+#ifdef HAVE_EVENTFD
+	if (s->type == QB_IPC_SHM) {
+		res2 = _ipc_us_send_setup(c, &response, response.hdr.size);
+	} else
+#endif
+	{
+		res2 = qb_ipc_us_send(&c->setup, &response, response.hdr.size);
+	}
 	if (res == 0 && res2 != response.hdr.size) {
 		res = res2;
 	}
@@ -1000,10 +1102,13 @@ qb_ipcs_sockets_disconnect(struct qb_ipcs_connection *c)
 	qb_enter();
 	if (c->service->needs_sock_for_poll && c->setup.u.us.sock > 0) {
 		sock = c->setup.u.us.sock;
+		(void)c->service->poll_fns.dispatch_del(sock);
 		qb_ipcc_us_sock_close(sock);
 		c->setup.u.us.sock = -1;
 	}
-	if (c->request.type == QB_IPC_SOCKET) {
+	if (c->request.type == QB_IPC_SHM) {
+		sock = c->request.u.shm.eventfd;
+	} else if (c->request.type == QB_IPC_SOCKET) {
 		sock = c->request.u.us.sock;
 	}
 	if (sock > 0) {

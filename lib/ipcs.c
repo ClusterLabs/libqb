@@ -155,6 +155,11 @@ _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 				c->event.u.us.sock,
 				c->poll_events, c,
 				qb_ipcs_dispatch_connection_request);
+	} else if (c->service->type == QB_IPC_SHM) {
+		return disp_mod(c->service->poll_priority,
+				c->setup.u.us.sock,
+				c->poll_events, c,
+				qb_ipcs_dispatch_connection_request);
 	} else {
 		return disp_mod(c->service->poll_priority,
 				c->setup.u.us.sock,
@@ -569,7 +574,7 @@ qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_enable)
 }
 
 static int32_t
-_process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
+_process_request_(struct qb_ipcs_connection *c)
 {
 	int32_t res = 0;
 	ssize_t size;
@@ -579,13 +584,13 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
 		size = c->service->funcs.peek(&c->request, (void **)&hdr,
-					      ms_timeout);
+					      0);
 	} else {
 		hdr = c->receive_buf;
 		size = c->service->funcs.recv(&c->request,
 					      hdr,
 					      c->request.max_msg_size,
-					      ms_timeout);
+					      0);
 	}
 	if (size < 0) {
 		if (size != -EAGAIN && size != -ETIMEDOUT) {
@@ -622,51 +627,26 @@ cleanup:
 	return res;
 }
 
-#define IPC_REQUEST_TIMEOUT 10
-#define MAX_RECV_MSGS 50
 
 int32_t
 qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data)
 {
-	int32_t res = _process_request_((struct qb_ipcs_connection *)data,
-					IPC_REQUEST_TIMEOUT);
+	int32_t res = _process_request_((struct qb_ipcs_connection *)data);
 	if (res > 0) {
 		return 0;
 	}
 	return res;
 }
 
-static ssize_t
-_request_q_len_get(struct qb_ipcs_connection *c)
-{
-	ssize_t q_len;
-	if (c->service->funcs.q_len_get) {
-		q_len = c->service->funcs.q_len_get(&c->request);
-		if (q_len <= 0) {
-			return q_len;
-		}
-		if (c->service->poll_priority == QB_LOOP_MED) {
-			q_len = QB_MIN(q_len, 5);
-		} else if (c->service->poll_priority == QB_LOOP_LOW) {
-			q_len = 1;
-		} else {
-			q_len = QB_MIN(q_len, MAX_RECV_MSGS);
-		}
-	} else {
-		q_len = 1;
-	}
-	return q_len;
-}
+static int max_recv_num[3] = {1, 5, 50};
 
 int32_t
 qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
-	char bytes[MAX_RECV_MSGS];
 	int32_t res;
 	int32_t res2;
 	int32_t recvd = 0;
-	ssize_t avail;
 
 	if (revents & POLLNVAL) {
 		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);
@@ -693,30 +673,24 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	if (c->fc_enabled) {
 		return 0;
 	}
-	avail = _request_q_len_get(c);
-
-	if (c->service->needs_sock_for_poll && avail == 0) {
-		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
-		qb_util_log(LOG_WARNING,
-			    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
-			    c->description, fd, res2);
-		return 0;
-	}
 
 	do {
-		res = _process_request_(c, IPC_REQUEST_TIMEOUT);
+		res = _process_request_(c);
 		if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
 			recvd++;
 		}
-		if (res > 0) {
-			avail--;
-		}
-	} while (avail > 0 && res > 0 && !c->fc_enabled);
+	} while (recvd < max_recv_num[c->service->poll_priority] &&
+		 res > 0 && !c->fc_enabled);
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
-		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
-		if (res2 < 0) {
-			errno = -res2;
+		uint64_t v;
+		res2 = read(c->request.u.shm.eventfd, &v, sizeof(v));
+		if (res2 == sizeof(v)) {
+			if (v > recvd) {
+				v -= recvd;
+				write(c->request.u.shm.eventfd, &v, sizeof(v));
+			}
+		} else if (res2 == -1 && errno != EAGAIN) {
 			qb_util_perror(LOG_ERR,
 				       "error receiving from setup sock (%s)",
 				       c->description);

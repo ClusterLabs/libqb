@@ -169,14 +169,17 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 
 	res = c->funcs.send(&c->request, msg_ptr, msg_len);
 	if (res == msg_len && c->needs_sock_for_poll) {
+		uint64_t v = 1;
 		do {
-			res2 = qb_ipc_us_send(&c->setup, msg_ptr, 1);
-		} while (res2 == -EAGAIN);
-		if (res2 == -EPIPE) {
+			errno = 0;
+			res2 = write(c->request.u.shm.eventfd, &v, sizeof(v));
+			perror("write");
+		} while (res2 == -1 && errno == EAGAIN);
+		if (errno == EPIPE) {
 			res2 = -ENOTCONN;
 		}
-		if (res2 != 1) {
-			res = res2;
+		if (res2 != sizeof(uint64_t)) {
+			res = errno;
 		}
 	}
 	_check_connection_state(c, res);
@@ -223,15 +226,19 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 	}
 
 	res = c->funcs.sendv(&c->request, iov, iov_len);
-	if (res > 0 && c->needs_sock_for_poll) {
+	if (res == total_size && c->needs_sock_for_poll) {
+		uint64_t v = 1;
 		do {
-			res2 = qb_ipc_us_send(&c->setup, &res, 1);
-		} while (res2 == -EAGAIN);
-		if (res2 == -EPIPE) {
+		//	errno = 0;
+			res2 = write(c->request.u.shm.eventfd, &v, sizeof(v));
+		//	printf("eventfd %d\n", c->request.u.shm.eventfd);
+		//	perror("write");
+		} while (res2 == -1 && errno == EAGAIN);
+		if (errno == EPIPE) {
 			res2 = -ENOTCONN;
 		}
-		if (res2 != 1) {
-			res = res2;
+		if (res2 != sizeof(uint64_t)) {
+			res = errno;
 		}
 	}
 	_check_connection_state(c, res);

@@ -107,6 +107,7 @@ s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 	char resp[100];
 	int32_t sl;
 
+	//qb_enter();
 	hdr = (struct qb_ipc_request_header *)data;
 	if (hdr->id == (QB_IPC_MSG_USER_START + 1)) {
 		return 0;

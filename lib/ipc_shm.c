@@ -28,6 +28,8 @@
 #include <qb/qbloop.h>
 #include <qb/qbrb.h>
 
+#include <sys/eventfd.h>
+
 /*
  * utility functions
  * --------------------------------------------------------
@@ -133,11 +135,11 @@ static int32_t
 qb_ipc_shm_fc_get(struct qb_ipc_one_way *one_way)
 {
 	int32_t *fc;
-	int32_t rc = qb_rb_refcount_get(one_way->u.shm.rb);
+//	int32_t rc = qb_rb_refcount_get(one_way->u.shm.rb);
 
-	if (rc != 2) {
-		return -ENOTCONN;
-	}
+//	if (rc != 2) {
+//		return -ENOTCONN;
+//	}
 	fc = qb_rb_shared_user_data_get(one_way->u.shm.rb);
 	return qb_atomic_int_get(fc);
 }
@@ -220,6 +222,7 @@ return_error:
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
+	c->service->poll_fns.dispatch_del(c->request.u.shm.eventfd);
 	if (c->response.u.shm.rb) {
 		qb_rb_close(c->response.u.shm.rb);
 		c->response.u.shm.rb = NULL;
@@ -256,6 +259,7 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 					 QB_RB_FLAG_SHARED_PROCESS |
 					 QB_RB_FLAG_NO_SEMAPHORE,
 					 sizeof(int32_t));
+
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "qb_rb_open:%s", r->request);
@@ -296,6 +300,20 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	if (res != 0) {
 		qb_util_perror(LOG_ERR, "qb_rb_chown:%s", r->event);
 		goto cleanup_all;
+	}
+
+	c->request.u.shm.eventfd = eventfd(0, EFD_NONBLOCK |
+					   EFD_CLOEXEC);
+
+	res = s->poll_fns.dispatch_add(s->poll_priority,
+				       c->request.u.shm.eventfd,
+				       POLLIN | POLLPRI | POLLNVAL,
+				       c,
+				       qb_ipcs_dispatch_connection_request);
+	if (res < 0) {
+		qb_util_log(LOG_ERR,
+			    "Error adding socket to mainloop (%s).",
+			    c->description);
 	}
 
 	r->hdr.error = 0;

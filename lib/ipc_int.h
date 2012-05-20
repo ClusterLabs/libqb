@@ -88,6 +88,7 @@ struct qb_ipc_one_way {
 		} smq;
 		struct {
 			qb_ringbuffer_t *rb;
+			int eventfd;
 		} shm;
 	} u;
 };

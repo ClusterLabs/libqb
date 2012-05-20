@@ -372,6 +372,7 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	uint32_t write_pt;
 
 	if (rb == NULL) {
+		errno = EINVAL;
 		return NULL;
 	}
 	/*
