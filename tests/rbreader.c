@@ -28,9 +28,10 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
-#define BUFFER_CHUNK_SIZE (50*50*10)
+#define ONE_MEG 1048576
 static qb_ringbuffer_t *rb = NULL;
 static int keep_reading = QB_TRUE;
+int8_t buffer[ONE_MEG];
 
 
 static void sigterm_handler(int32_t num)
@@ -42,18 +43,18 @@ static void sigterm_handler(int32_t num)
 int32_t main(int32_t argc, char *argv[])
 {
 	ssize_t num_read;
-	int8_t buffer[BUFFER_CHUNK_SIZE];
 
 	signal(SIGINT, sigterm_handler);
 
 	qb_log_init("rbreader", LOG_USER, LOG_EMERG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
-	rb = qb_rb_open("tester", BUFFER_CHUNK_SIZE * 3,
-			QB_RB_FLAG_SHARED_PROCESS | QB_RB_FLAG_CREATE, 0);
+	rb = qb_rb_open("tester", ONE_MEG * 3,
+			QB_RB_FLAG_SHARED_PROCESS |
+			QB_RB_FLAG_CREATE, 0);
 
 	if (rb == NULL) {
 		qb_perror(LOG_ERR, "failed to create ringbuffer");
@@ -61,8 +62,11 @@ int32_t main(int32_t argc, char *argv[])
 	}
 	while (keep_reading) {
 		num_read = qb_rb_chunk_read(rb, buffer,
-					    BUFFER_CHUNK_SIZE, 5500);
-		if (num_read < 0) {
+					    ONE_MEG, 0);
+		if (num_read == -ETIMEDOUT) {
+			usleep(100000);
+		} else if (num_read < 0) {
+			errno = -num_read;
 			qb_perror(LOG_ERR, "nothing to read");
 		}
 	}
