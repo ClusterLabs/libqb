@@ -99,13 +99,20 @@ struct my_req {
 static int32_t
 s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 {
-	struct my_req *req_pt = (struct my_req *)data;
+	struct qb_ipc_request_header *hdr;
+	struct my_req *req_pt;
 	struct qb_ipc_response_header response;
 	ssize_t res;
 	struct iovec iov[2];
 	char resp[100];
 	int32_t sl;
 
+	hdr = (struct qb_ipc_request_header *)data;
+	if (hdr->id == (QB_IPC_MSG_USER_START + 1)) {
+		return 0;
+	}
+
+	req_pt = (struct my_req *)data;
 	qb_log(LOG_DEBUG, "msg received (id:%d, size:%d, data:%s)",
 	       req_pt->hdr.id, req_pt->hdr.size, req_pt->message);
 
@@ -316,7 +323,7 @@ main(int32_t argc, char *argv[])
 
 	qb_log_init("ipcserver", LOG_USER, LOG_TRACE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, __FILE__, LOG_TRACE);
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
