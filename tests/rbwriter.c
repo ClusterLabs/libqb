@@ -66,18 +66,28 @@ static void
 _benchmark(int write_size)
 {
 	struct timeval tv1, tv2, tv_elapsed;
-	unsigned int res;
+	int res;
 	int write_count = 0;
+	char *dest;
 
 	alarm_notice = 0;
 	alarm (10);
 	gettimeofday (&tv1, NULL);
 	do {
-		res = qb_rb_chunk_write(rb, buffer, write_size);
-		if (res == write_size) {
-			write_count++;
+		dest = qb_rb_chunk_alloc(rb, write_size);
+		//usleep(10000);
+
+		res = -EAGAIN;
+		if (dest) {
+			memcpy(dest, buffer, write_size);
+			clock_gettime(CLOCK_REALTIME, (struct timespec*)dest);
+			res = qb_rb_chunk_commit(rb, write_size);
+			//printf("res %d\n", res);
+			if (res == 0) {
+				write_count++;
+			}
 		}
-	} while (alarm_notice == 0 && (res == write_size || res == -EAGAIN));
+	} while (alarm_notice == 0 && (res == 0 || res == -EAGAIN));
 	write_count -= qb_rb_chunks_used(rb);
 	if (res < 0) {
 		perror("qb_ipcc_sendv");

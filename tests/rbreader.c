@@ -40,9 +40,12 @@ static void sigterm_handler(int32_t num)
 	keep_reading = QB_FALSE;
 }
 
-int32_t main(int32_t argc, char *argv[])
+int32_t
+main(int32_t argc, char *argv[])
 {
 	ssize_t num_read;
+	uint32_t num_rx = 0;
+	long int acumulated_time = 0;
 
 	signal(SIGINT, sigterm_handler);
 
@@ -65,11 +68,25 @@ int32_t main(int32_t argc, char *argv[])
 		num_read = qb_rb_chunk_read(rb, buffer,
 					    ONE_MEG, 0);
 		if (num_read == -ETIMEDOUT) {
-			usleep(1000);
+			//usleep(1);
 		} else if (num_read < 0) {
 			errno = -num_read;
 			qb_perror(LOG_ERR, "nothing to read");
+		} else if (num_read > 0) {
+			struct timespec *sent = (struct timespec *)buffer;
+			struct timespec received;
+			clock_gettime(CLOCK_REALTIME, &received);
+
+			num_rx++;
+			acumulated_time += (received.tv_nsec - sent->tv_nsec);
+			//printf("num_rx %d, %ld\n", num_rx, (received.tv_nsec - sent->tv_nsec));
+			if (num_rx > 100000) {
+				printf("ave latency %ld ns\n", acumulated_time/1000);
+				acumulated_time = 0;
+				num_rx = 0;
+			}
 		}
+
 	}
 	qb_rb_close(rb);
 	return 0;
