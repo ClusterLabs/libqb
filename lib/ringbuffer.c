@@ -530,6 +530,7 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
+	uint32_t chunk_magic;
 	int32_t res;
 
 	if (rb == NULL) {
@@ -543,9 +544,17 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 		return res;
 	}
 	read_pt = rb->shared_hdr->read_pt;
-	QB_MAGIC_ASSERT(read_pt);
+	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
+
+	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+		errno = ENOMSG;
+		return 0;
+	} else {
+		return chunk_size;
+	}
+
 
 	return chunk_size;
 }
@@ -556,6 +565,7 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
+	uint32_t chunk_magic;
 	int32_t res = 0;
 
 	if (rb == NULL) {
@@ -572,8 +582,12 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 	}
 
 	read_pt = rb->shared_hdr->read_pt;
-	QB_MAGIC_ASSERT(read_pt);
+	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
+
+	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+		return -EBADMSG;
+	}
 
 	if (len < chunk_size) {
 		qb_util_log(LOG_ERR,
