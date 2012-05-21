@@ -70,9 +70,7 @@ _benchmark(int write_size)
 	int write_count = 0;
 
 	alarm_notice = 0;
-
 	alarm (10);
-
 	gettimeofday (&tv1, NULL);
 	do {
 		res = qb_rb_chunk_write(rb, buffer, write_size);
@@ -80,22 +78,22 @@ _benchmark(int write_size)
 			write_count++;
 		}
 	} while (alarm_notice == 0 && (res == write_size || res == -EAGAIN));
+	write_count -= qb_rb_chunks_used(rb);
 	if (res < 0) {
 		perror("qb_ipcc_sendv");
 	}
-	gettimeofday (&tv2, NULL);
-	timersub (&tv2, &tv1, &tv_elapsed);
+	gettimeofday(&tv2, NULL);
+	timersub(&tv2, &tv1, &tv_elapsed);
 
-	printf ("%5d messages sent ", write_count);
-	printf ("%5d bytes per write ", write_size);
-	printf ("%7.3f Seconds runtime ",
+	printf("%5d messages sent ", write_count);
+	printf("%5d bytes per write ", write_size);
+	printf("%7.3f Seconds runtime ",
 		(tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
-	printf ("%9.3f TP/s ",
+	printf("%9.3f TP/s ",
 		((float)write_count) /  (tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
-	printf ("%7.3f MB/s.\n",
+	printf("%7.3f MB/s.\n",
 		((float)write_count) * ((float)write_size) /  ((tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)) * 1000000.0));
 }
-
 
 static void
 do_throughput_benchmark(void)
@@ -105,7 +103,7 @@ do_throughput_benchmark(void)
 
 	signal (SIGALRM, sigalrm_handler);
 
-	for (i = 0; i < 10; i++) { /* number of repetitions - up to 50k */
+	for (i = 0; i < 10; i++) {
 		_benchmark(size);
 		signal (SIGALRM, sigalrm_handler);
 		size *= 5;

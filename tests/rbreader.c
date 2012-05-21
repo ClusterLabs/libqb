@@ -65,7 +65,7 @@ int32_t main(int32_t argc, char *argv[])
 		num_read = qb_rb_chunk_read(rb, buffer,
 					    ONE_MEG, 0);
 		if (num_read == -ETIMEDOUT) {
-			usleep(100000);
+			usleep(1000);
 		} else if (num_read < 0) {
 			errno = -num_read;
 			qb_perror(LOG_ERR, "nothing to read");
