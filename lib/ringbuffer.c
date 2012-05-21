@@ -34,6 +34,35 @@ do {				\
 #define DEBUG_PRINTF(format, args...)
 #endif /* CRAZY_DEBUG_PRINTFS */
 
+/*
+ * move the write pointer to the next 128 byte boundary
+ * write_pt goes in 4 bytes (sizeof(uint32_t))
+ * #define USE_CACHE_LINE_ALIGNMENT 1
+ */
+#ifdef USE_CACHE_LINE_ALIGNMENT
+#define QB_CACHE_LINE_SIZE 128
+#define QB_CACHE_LINE_WORDS (QB_CACHE_LINE_SIZE/sizeof(uint32_t))
+#define idx_cache_line_step(idx)	\
+do {					\
+	if (idx % QB_CACHE_LINE_WORDS) {			\
+		idx += (QB_CACHE_LINE_WORDS - (idx % QB_CACHE_LINE_WORDS));	\
+	}				\
+	if (idx > (rb->shared_hdr->word_size - 1)) {		\
+		idx = ((idx) % (rb->shared_hdr->word_size));	\
+	}						\
+} while (0)
+#else
+#define QB_CACHE_LINE_SIZE 0
+#define QB_CACHE_LINE_WORDS 0
+#define idx_cache_line_step(idx)			\
+do {							\
+	if (idx > (rb->shared_hdr->word_size - 1)) {		\
+		idx = ((idx) % (rb->shared_hdr->word_size));	\
+	}						\
+} while (0)
+#endif
+
+
 /* the chunk header is two words
  * 1) the chunk data size
  * 2) the magic number
@@ -46,16 +75,16 @@ do {				\
  * So:
  * qb_rb_space_free() >= QB_RB_CHUNK_MARGIN + new data chunk
  * The extra word size is to allow for non word sized data chunks.
+ * QB_CACHE_LINE_WORDS is to make sure we have space to align the
+ * chunk.
  */
-#define QB_RB_CHUNK_MARGIN (sizeof(uint32_t) * (QB_RB_CHUNK_HEADER_WORDS + 1))
+#define QB_RB_CHUNK_MARGIN (sizeof(uint32_t) * (QB_RB_CHUNK_HEADER_WORDS +\
+						1 + QB_CACHE_LINE_WORDS))
 #define QB_RB_CHUNK_MAGIC		0xAAAAAAAA
 #define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
 	rb->shared_data[pointer]
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
 	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size]
-
-#define QB_RB_WRITE_PT_INDEX (rb->shared_hdr->word_size)
-#define QB_RB_READ_PT_INDEX (rb->shared_hdr->word_size + 1)
 
 #define idx_step(idx)					\
 do {							\
@@ -63,32 +92,6 @@ do {							\
 		idx = ((idx) % (rb->shared_hdr->word_size));	\
 	}						\
 } while (0)
-
-/*
- * move the write pointer to the next 32 byte boundary
- * write_pt goes in 4 bytes (sizeof(uint32_t))
- */
-/*
- * #define USE_CACHE_LINE_ALIGNMENT 1
- */
-#ifdef USE_CACHE_LINE_ALIGNMENT
-#define idx_cache_line_step(idx)	\
-do {					\
-	if (idx % 8) {			\
-		idx += (8 - (idx % 8));	\
-	}				\
-	if (idx > (rb->shared_hdr->word_size - 1)) {		\
-		idx = ((idx) % (rb->shared_hdr->word_size));	\
-	}						\
-} while (0)
-#else
-#define idx_cache_line_step(idx)			\
-do {							\
-	if (idx > (rb->shared_hdr->word_size - 1)) {		\
-		idx = ((idx) % (rb->shared_hdr->word_size));	\
-	}						\
-} while (0)
-#endif
 
 static void qb_rb_chunk_check(struct qb_ringbuffer_s * rb, uint32_t pointer);
 
@@ -314,9 +317,6 @@ qb_rb_space_free(struct qb_ringbuffer_s * rb)
 		return -EINVAL;
 	}
 	write_size = rb->shared_hdr->write_pt;
-	/*
-	 * TODO idx_cache_line_step (write_size);
-	 */
 	read_size = rb->shared_hdr->read_pt;
 
 	if (write_size > read_size) {
@@ -440,7 +440,7 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	old_write_pt = rb->shared_hdr->write_pt;
 	rb->shared_data[old_write_pt] = len;
-	rb->shared_data[old_write_pt + 1] = QB_RB_CHUNK_MAGIC;
+	rb->shared_data[(old_write_pt + 1) % rb->shared_hdr->word_size] = QB_RB_CHUNK_MAGIC;
 
 	/*
 	 * commit the new write pointer
