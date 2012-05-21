@@ -108,10 +108,15 @@ static ssize_t
 qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out,
 		int32_t ms_timeout)
 {
+	ssize_t rc;
 	if (one_way->u.shm.rb == NULL) {
 		return -ENOTCONN;
 	}
-	return qb_rb_chunk_peek(one_way->u.shm.rb, data_out, ms_timeout);
+	rc = qb_rb_chunk_peek(one_way->u.shm.rb, data_out, ms_timeout);
+	if (rc == 0)  {
+		return -EAGAIN;
+	}
+	return rc;
 }
 
 static void
