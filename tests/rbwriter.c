@@ -74,7 +74,6 @@ _benchmark(int write_size)
 	alarm (10);
 	gettimeofday (&tv1, NULL);
 	do {
-		usleep(1);
 		dest = qb_rb_chunk_alloc(rb, write_size);
 
 		res = -EAGAIN;
@@ -86,6 +85,8 @@ _benchmark(int write_size)
 			if (res == 0) {
 				write_count++;
 			}
+		} else {
+			usleep(10);
 		}
 	} while (alarm_notice == 0 && (res == 0 || res == -EAGAIN));
 //	write_count -= qb_rb_chunks_used(rb);

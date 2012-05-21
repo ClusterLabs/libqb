@@ -29,7 +29,7 @@
 #include <qb/qblog.h>
 
 #define ONE_MEG 1048576
-#define NUM_RX 100000
+#define NUM_RX 1000000
 static qb_ringbuffer_t *rb = NULL;
 static int keep_reading = QB_TRUE;
 int8_t buffer[ONE_MEG];
@@ -79,7 +79,7 @@ main(int32_t argc, char *argv[])
 		num_read = qb_rb_chunk_read(rb, buffer,
 					    ONE_MEG, 0);
 		if (num_read == -ETIMEDOUT) {
-			usleep(10000);
+			usleep(10);
 		} else if (num_read < 0) {
 			errno = -num_read;
 			qb_perror(LOG_ERR, "nothing to read");
