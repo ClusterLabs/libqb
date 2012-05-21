@@ -222,7 +222,7 @@ return_error:
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
-	c->service->poll_fns.dispatch_del(c->request.u.shm.eventfd);
+	(void)c->service->poll_fns.dispatch_del(c->request.u.shm.eventfd);
 	if (c->response.u.shm.rb) {
 		qb_rb_close(c->response.u.shm.rb);
 		c->response.u.shm.rb = NULL;

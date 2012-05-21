@@ -688,7 +688,12 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		if (res2 == sizeof(v)) {
 			if (v > recvd) {
 				v -= recvd;
-				write(c->request.u.shm.eventfd, &v, sizeof(v));
+				res2 = write(c->request.u.shm.eventfd, &v, sizeof(v));
+				if (res2 == -1) {
+					qb_util_perror(LOG_WARNING,
+						       "couldn't write to eventfd (%s)",
+						       c->description);
+				}
 			}
 		} else if (res2 == -1 && errno != EAGAIN) {
 			qb_util_perror(LOG_ERR,
