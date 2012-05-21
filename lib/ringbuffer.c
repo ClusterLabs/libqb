@@ -82,12 +82,19 @@ do {							\
 						1 + QB_CACHE_LINE_WORDS))
 #define QB_RB_CHUNK_MAGIC		0xA1A1A1A1
 #define QB_RB_CHUNK_MAGIC_DEAD		0xD0D0D0D0
+#define QB_RB_CHUNK_MAGIC_ALLOC		0xA110CED0
 #define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
 	rb->shared_data[pointer]
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
 	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size]
 #define QB_RB_CHUNK_MAGIC_SET(rb, pointer, new_val) \
-	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size] = new_val
+do {							\
+	if ((pointer + 1) > (rb->shared_hdr->word_size - 1)) {		\
+	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size] = new_val; \
+	} else {						\
+	rb->shared_data[(pointer + 1)] = new_val; \
+	} \
+} while (0)
 
 #define QB_MAGIC_ASSERT(_ptr_) \
 do {							\
@@ -413,9 +420,9 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	/*
 	 * insert the chunk header
 	 */
-	rb->shared_data[write_pt++] = 0;
-	idx_step(write_pt);
-	rb->shared_data[write_pt++] = QB_RB_CHUNK_MAGIC;
+	rb->shared_data[write_pt] = 0;
+	QB_RB_CHUNK_MAGIC_SET(rb, write_pt, QB_RB_CHUNK_MAGIC_ALLOC);
+	write_pt += QB_RB_CHUNK_HEADER_WORDS;
 	idx_step(write_pt);
 
 	/*
@@ -460,12 +467,12 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	old_write_pt = rb->shared_hdr->write_pt;
 	rb->shared_data[old_write_pt] = len;
-	QB_RB_CHUNK_MAGIC_SET(rb, old_write_pt, QB_RB_CHUNK_MAGIC);
 
 	/*
 	 * commit the new write pointer
 	 */
 	rb->shared_hdr->write_pt = qb_rb_chunk_step(rb, old_write_pt);
+	QB_RB_CHUNK_MAGIC_SET(rb, old_write_pt, QB_RB_CHUNK_MAGIC);
 
 	DEBUG_PRINTF("%s:[%d] read: %u, write: %u -> %u (%u)\n", __func__,
 		     rb->shared_hdr->count,
