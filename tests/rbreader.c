@@ -29,9 +29,20 @@
 #include <qb/qblog.h>
 
 #define ONE_MEG 1048576
+#define NUM_RX 100000
 static qb_ringbuffer_t *rb = NULL;
 static int keep_reading = QB_TRUE;
 int8_t buffer[ONE_MEG];
+
+#define timersub_ts(a, b, result)                                          \
+        do {                                                            \
+                (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;           \
+                (result)->tv_nsec = (a)->tv_nsec - (b)->tv_nsec;        \
+                if ((result)->tv_nsec < 0) {                            \
+                        --(result)->tv_sec;                             \
+                        (result)->tv_nsec += 1000000000;                \
+                }                                                       \
+        } while (0)
 
 
 static void sigterm_handler(int32_t num)
@@ -75,13 +86,14 @@ main(int32_t argc, char *argv[])
 		} else if (num_read > 0) {
 			struct timespec *sent = (struct timespec *)buffer;
 			struct timespec received;
+			struct timespec delta;
 			clock_gettime(CLOCK_REALTIME, &received);
+			timersub_ts(&received, sent, &delta);
 
 			num_rx++;
-			acumulated_time += (received.tv_nsec - sent->tv_nsec);
-			//printf("num_rx %d, %ld\n", num_rx, (received.tv_nsec - sent->tv_nsec));
-			if (num_rx > 100000) {
-				printf("ave latency %ld ns\n", acumulated_time/1000);
+			acumulated_time += delta.tv_nsec;
+			if (num_rx > NUM_RX) {
+				printf("ave latency %ld ns\n", acumulated_time/NUM_RX);
 				acumulated_time = 0;
 				num_rx = 0;
 			}
