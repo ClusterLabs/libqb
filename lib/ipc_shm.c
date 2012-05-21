@@ -171,6 +171,7 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 
 	c->request.u.shm.rb = qb_rb_open(response->request,
 					 c->request.max_msg_size,
+					 QB_RB_FLAG_NO_SEMAPHORE |
 					 QB_RB_FLAG_SHARED_PROCESS,
 					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
@@ -252,7 +253,8 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	c->request.u.shm.rb = qb_rb_open(r->request,
 					 c->request.max_msg_size,
 					 QB_RB_FLAG_CREATE |
-					 QB_RB_FLAG_SHARED_PROCESS,
+					 QB_RB_FLAG_SHARED_PROCESS |
+					 QB_RB_FLAG_NO_SEMAPHORE,
 					 sizeof(int32_t));
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
