@@ -74,8 +74,8 @@ _benchmark(int write_size)
 	alarm (10);
 	gettimeofday (&tv1, NULL);
 	do {
+		usleep(1);
 		dest = qb_rb_chunk_alloc(rb, write_size);
-		//usleep(10000);
 
 		res = -EAGAIN;
 		if (dest) {
@@ -88,9 +88,9 @@ _benchmark(int write_size)
 			}
 		}
 	} while (alarm_notice == 0 && (res == 0 || res == -EAGAIN));
-	write_count -= qb_rb_chunks_used(rb);
+//	write_count -= qb_rb_chunks_used(rb);
 	if (res < 0) {
-		perror("qb_ipcc_sendv");
+		perror("qb_rb_chunk_alloc");
 	}
 	gettimeofday(&tv2, NULL);
 	timersub(&tv2, &tv1, &tv_elapsed);

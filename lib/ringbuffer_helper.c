@@ -323,11 +323,11 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 #endif /* HAVE_SEM_TIMEDWAIT */
 	}
 	if (flags & QB_RB_FLAG_NO_SEMAPHORE) {
-		rc = my_atomic_create(rb, flags);
-		rb->sem_timedwait_fn = my_atomic_timedwait;
-		rb->sem_post_fn = my_atomic_post;
-		rb->sem_getvalue_fn = my_atomic_getvalue_fn;
-		rb->sem_destroy_fn = my_atomic_destroy;
+		rc = 0;
+		rb->sem_timedwait_fn = NULL;
+		rb->sem_post_fn = NULL;
+		rb->sem_getvalue_fn = NULL;
+		rb->sem_destroy_fn = NULL;
 	} else if (use_posix) {
 		rc = my_posix_sem_create(rb, flags);
 		rb->sem_timedwait_fn = my_posix_sem_timedwait;

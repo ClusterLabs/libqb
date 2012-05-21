@@ -235,7 +235,9 @@ cleanup_hdr:
 	}
 	if (rb && (flags & QB_RB_FLAG_CREATE)) {
 		unlink(rb->shared_hdr->hdr_path);
-		(void)rb->sem_destroy_fn(rb);
+		if (rb->sem_destroy_fn) {
+			(void)rb->sem_destroy_fn(rb);
+		}
 	}
 	if (rb && (rb->shared_hdr != MAP_FAILED && rb->shared_hdr != NULL)) {
 		munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
@@ -255,7 +257,9 @@ qb_rb_close(struct qb_ringbuffer_s * rb)
 
 	(void)qb_atomic_int_dec_and_test(&rb->shared_hdr->ref_count);
 	if (rb->flags & QB_RB_FLAG_CREATE) {
-		(void)rb->sem_destroy_fn(rb);
+		if (rb->sem_destroy_fn) {
+			(void)rb->sem_destroy_fn(rb);
+		}
 		unlink(rb->shared_hdr->data_path);
 		unlink(rb->shared_hdr->hdr_path);
 		qb_util_log(LOG_DEBUG,
@@ -278,7 +282,9 @@ qb_rb_force_close(struct qb_ringbuffer_s * rb)
 		return;
 	}
 
-	(void)rb->sem_destroy_fn(rb);
+	if (rb->sem_destroy_fn) {
+		(void)rb->sem_destroy_fn(rb);
+	}
 	unlink(rb->shared_hdr->data_path);
 	unlink(rb->shared_hdr->hdr_path);
 	qb_util_log(LOG_DEBUG,
@@ -373,7 +379,11 @@ qb_rb_chunks_used(struct qb_ringbuffer_s *rb)
 	if (rb == NULL) {
 		return -EINVAL;
 	}
-	return rb->sem_getvalue_fn(rb);
+	if (rb->sem_getvalue_fn) {
+		return rb->sem_getvalue_fn(rb);
+	} else {
+		return -ENOTSUP;
+	}
 }
 
 void *
@@ -467,7 +477,11 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	/*
 	 * post the notification to the reader
 	 */
-	return rb->sem_post_fn(rb);
+	if (rb->sem_post_fn) {
+		return rb->sem_post_fn(rb);
+	} else {
+		return 0;
+	}
 }
 
 ssize_t
@@ -531,31 +545,30 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 	uint32_t read_pt;
 	uint32_t chunk_size;
 	uint32_t chunk_magic;
-	int32_t res;
+	int32_t res = 0;
 
 	if (rb == NULL) {
 		return -EINVAL;
 	}
-	res = rb->sem_timedwait_fn(rb, timeout);
+	if (rb->sem_timedwait_fn) {
+		res = rb->sem_timedwait_fn(rb, timeout);
+	}
 	if (res < 0 && res != -EIDRM) {
-		if (res != -ETIMEDOUT) {
+		if (res == -ETIMEDOUT) {
+			return 0;
+		} else {
+			errno = -res;
 			qb_util_perror(LOG_ERR, "sem_timedwait");
 		}
 		return res;
 	}
 	read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
+	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+		return 0;
+	}
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
-
-	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		errno = ENOMSG;
-		return 0;
-	} else {
-		return chunk_size;
-	}
-
-
 	return chunk_size;
 }
 
@@ -583,12 +596,16 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 
 	read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
-	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		return -EBADMSG;
+		if (rb->sem_timedwait_fn == NULL) {
+			return -ETIMEDOUT;
+		} else {
+			return -EBADMSG;
+		}
 	}
 
+	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 	if (len < chunk_size) {
 		qb_util_log(LOG_ERR,
 			    "trying to recv chunk of size %d but %d available",
@@ -616,7 +633,7 @@ print_header(struct qb_ringbuffer_s * rb)
 	}
 	printf(" ->write_pt [%d]\n", rb->shared_hdr->write_pt);
 	printf(" ->read_pt [%d]\n", rb->shared_hdr->read_pt);
-	printf(" ->count [%d]\n", rb->shared_hdr->count);
+	//printf(" ->count [%d]\n", rb->shared_hdr->count);
 	printf(" ->size [%d words]\n", rb->shared_hdr->word_size);
 #ifndef S_SPLINT_S
 	printf(" =>free [%zu bytes]\n", qb_rb_space_free(rb));
