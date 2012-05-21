@@ -80,11 +80,22 @@ do {							\
  */
 #define QB_RB_CHUNK_MARGIN (sizeof(uint32_t) * (QB_RB_CHUNK_HEADER_WORDS +\
 						1 + QB_CACHE_LINE_WORDS))
-#define QB_RB_CHUNK_MAGIC		0xAAAAAAAA
+#define QB_RB_CHUNK_MAGIC		0xA1A1A1A1
+#define QB_RB_CHUNK_MAGIC_DEAD		0xD0D0D0D0
 #define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
 	rb->shared_data[pointer]
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
 	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size]
+#define QB_RB_CHUNK_MAGIC_SET(rb, pointer, new_val) \
+	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size] = new_val
+
+#define QB_MAGIC_ASSERT(_ptr_) \
+do {							\
+	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, _ptr_); \
+	if (chunk_magic != QB_RB_CHUNK_MAGIC) print_header(rb); \
+	assert(chunk_magic == QB_RB_CHUNK_MAGIC); \
+} while (0)
+
 
 #define idx_step(idx)					\
 do {							\
@@ -93,7 +104,7 @@ do {							\
 	}						\
 } while (0)
 
-static void qb_rb_chunk_check(struct qb_ringbuffer_s * rb, uint32_t pointer);
+static void print_header(struct qb_ringbuffer_s * rb);
 
 qb_ringbuffer_t *
 qb_rb_open(const char *name, size_t size, uint32_t flags,
@@ -413,7 +424,6 @@ qb_rb_chunk_step(struct qb_ringbuffer_s * rb, uint32_t pointer)
 	 * skip over the chunk header
 	 */
 	pointer += QB_RB_CHUNK_HEADER_WORDS;
-	idx_step(pointer);
 
 	/*
 	 * skip over the user's data.
@@ -441,16 +451,19 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	old_write_pt = rb->shared_hdr->write_pt;
 	rb->shared_data[old_write_pt] = len;
-	rb->shared_data[(old_write_pt + 1) % rb->shared_hdr->word_size] = QB_RB_CHUNK_MAGIC;
+	QB_RB_CHUNK_MAGIC_SET(rb, old_write_pt, QB_RB_CHUNK_MAGIC);
 
 	/*
 	 * commit the new write pointer
 	 */
 	rb->shared_hdr->write_pt = qb_rb_chunk_step(rb, old_write_pt);
 
-	DEBUG_PRINTF("%s: read: %u, write: %u (was:%u)\n", __func__,
-		     rb->shared_hdr->read_pt, rb->shared_hdr->write_pt,
-		     old_write_pt);
+	DEBUG_PRINTF("%s:[%d] read: %u, write: %u -> %u (%u)\n", __func__,
+		     rb->shared_hdr->count,
+		     rb->shared_hdr->read_pt,
+		     old_write_pt,
+		     rb->shared_hdr->write_pt,
+		     rb->shared_hdr->word_size);
 
 	/*
 	 * post the notification to the reader
@@ -511,7 +524,6 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 {
 	uint32_t read_pt;
 	uint32_t chunk_size;
-	uint32_t chunk_magic;
 	int32_t res;
 
 	if (rb == NULL) {
@@ -525,16 +537,11 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 		return res;
 	}
 	read_pt = rb->shared_hdr->read_pt;
+	QB_MAGIC_ASSERT(read_pt);
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
-	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
 
-	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		errno = ENOMSG;
-		return 0;
-	} else {
-		return chunk_size;
-	}
+	return chunk_size;
 }
 
 ssize_t
@@ -559,7 +566,7 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 	}
 
 	read_pt = rb->shared_hdr->read_pt;
-	qb_rb_chunk_check(rb, read_pt);
+	QB_MAGIC_ASSERT(read_pt);
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 
 	if (len < chunk_size) {
@@ -589,26 +596,12 @@ print_header(struct qb_ringbuffer_s * rb)
 	}
 	printf(" ->write_pt [%d]\n", rb->shared_hdr->write_pt);
 	printf(" ->read_pt [%d]\n", rb->shared_hdr->read_pt);
+	printf(" ->count [%d]\n", rb->shared_hdr->count);
 	printf(" ->size [%d words]\n", rb->shared_hdr->word_size);
 #ifndef S_SPLINT_S
 	printf(" =>free [%zu bytes]\n", qb_rb_space_free(rb));
 	printf(" =>used [%zu bytes]\n", qb_rb_space_used(rb));
 #endif /* S_SPLINT_S */
-}
-
-static void
-qb_rb_chunk_check(struct qb_ringbuffer_s * rb, uint32_t pointer)
-{
-	uint32_t chunk_size;
-	uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, pointer);
-
-	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
-		printf("size: %x\n", chunk_size);
-		printf("magic: %x\n", chunk_magic);
-		print_header(rb);
-		assert(0);
-	}
 }
 
 ssize_t
