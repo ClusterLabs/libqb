@@ -28,7 +28,7 @@ my_atomic_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 {
 	int retval = qb_atomic_int_get(&rb->shared_hdr->count);
 	if (retval > 0) {
-		qb_atomic_int_exchange_and_add(&rb->shared_hdr->count, -1);
+		qb_atomic_int_add(&rb->shared_hdr->count, -1);
 		return 0;
 	}
 
@@ -38,7 +38,7 @@ my_atomic_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 static int32_t
 my_atomic_post(qb_ringbuffer_t * rb)
 {
-	qb_atomic_int_exchange_and_add(&rb->shared_hdr->count, 1);
+	qb_atomic_int_add(&rb->shared_hdr->count, 1);
 	return 0;
 }
 
