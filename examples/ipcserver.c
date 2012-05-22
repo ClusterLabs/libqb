@@ -301,14 +301,8 @@ main(int32_t argc, char *argv[])
 		case 'm':
 			ipc_type = QB_IPC_SHM;
 			break;
-		case 's':
-			ipc_type = QB_IPC_SYSV_MQ;
-			break;
 		case 'u':
 			ipc_type = QB_IPC_SOCKET;
-			break;
-		case 'p':
-			ipc_type = QB_IPC_POSIX_MQ;
 			break;
 		case 'g':
 			use_glib = QB_TRUE;

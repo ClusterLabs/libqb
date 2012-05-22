@@ -25,9 +25,6 @@
 #include "os_base.h"
 
 #include <dirent.h>
-#ifdef HAVE_MQUEUE_H
-#include <mqueue.h>
-#endif /* HAVE_MQUEUE_H */
 #include <qb/qblist.h>
 #include <qb/qbloop.h>
 #include <qb/qbipcc.h>
@@ -76,16 +73,6 @@ struct qb_ipc_one_way {
 			void* shared_data;
 			char shared_file_name[NAME_MAX];
 		} us;
-#ifdef HAVE_MQUEUE_H
-		struct {
-			mqd_t q;
-			char name[NAME_MAX];
-		} pmq;
-#endif
-		struct {
-			int32_t q;
-			int32_t key;
-		} smq;
 		struct {
 			qb_ringbuffer_t *rb;
 			int eventfd;
@@ -123,9 +110,7 @@ int32_t qb_ipc_us_recv_ready(struct qb_ipc_one_way *one_way, int32_t ms_timeout)
 
 void qb_ipcc_us_sock_close(int32_t sock);
 
-int32_t qb_ipcc_pmq_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
-int32_t qb_ipcc_smq_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 
 struct qb_ipcs_service;
@@ -193,9 +178,7 @@ struct qb_ipcs_connection {
 	struct qb_ipcs_connection_stats_2 stats;
 };
 
-void qb_ipcs_pmq_init(struct qb_ipcs_service *s);
 void qb_ipcs_us_init(struct qb_ipcs_service *s);
-void qb_ipcs_smq_init(struct qb_ipcs_service *s);
 void qb_ipcs_shm_init(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_us_publish(struct qb_ipcs_service *s);
