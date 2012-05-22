@@ -522,28 +522,6 @@ START_TEST(test_ipc_fc_us)
 }
 END_TEST
 
-START_TEST(test_ipc_txrx_pmq)
-{
-	qb_enter();
-	turn_on_fc = QB_FALSE;
-	ipc_type = QB_IPC_POSIX_MQ;
-	ipc_name = __func__;
-	test_ipc_txrx();
-	qb_leave();
-}
-END_TEST
-
-START_TEST(test_ipc_txrx_smq)
-{
-	qb_enter();
-	turn_on_fc = QB_FALSE;
-	ipc_type = QB_IPC_SYSV_MQ;
-	ipc_name = __func__;
-	test_ipc_txrx();
-	qb_leave();
-}
-END_TEST
-
 struct my_res {
 	struct qb_ipc_response_header hdr;
 	char message[1024 * 1024];
@@ -1003,26 +981,6 @@ make_soc_suite(void)
 	return s;
 }
 
-static Suite *
-make_mq_suite(void)
-{
-	Suite *s = suite_create("message_queue");
-	TCase *tc;
-
-	if (geteuid() == 0) {
-		tc = tcase_create("ipc_txrx_posix_mq");
-		tcase_add_test(tc, test_ipc_txrx_pmq);
-		tcase_set_timeout(tc, 10);
-		suite_add_tcase(s, tc);
-
-		tc = tcase_create("ipc_txrx_sysv_mq");
-		tcase_add_test(tc, test_ipc_txrx_smq);
-		tcase_set_timeout(tc, 10);
-		suite_add_tcase(s, tc);
-	}
-	return s;
-}
-
 int32_t
 main(void)
 {
@@ -1030,11 +988,10 @@ main(void)
 	SRunner *sr;
 	Suite *s;
 
-	s = make_mq_suite();
+	s = make_soc_suite();
 	sr = srunner_create(s);
 
-	srunner_add_suite(sr, make_soc_suite());
-#ifdef HAVE_SEM_TIMEDWAIT
+#if defined (HAVE_SEM_TIMEDWAIT) || defined (HAVE_EVENTFD)
 	srunner_add_suite(sr, make_shm_suite());
 #endif /* HAVE_SEM_TIMEDWAIT */
 

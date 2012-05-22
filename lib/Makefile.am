@@ -71,14 +71,6 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_LIBADD	        = @LTLIBOBJS@
 
-if HAVE_SYSV_MQ
-  libqb_la_SOURCES+=ipc_sysv_mq.c
-endif
-
-if HAVE_POSIX_MQ
-  libqb_la_SOURCES+=ipc_posix_mq.c
-endif
-
 if HAVE_SEM_TIMEDWAIT
 else
   libqb_la_SOURCES+=rpl_sem.c

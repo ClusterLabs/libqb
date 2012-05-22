@@ -20,9 +20,6 @@
  */
 #include "os_base.h"
 
-#ifdef HAVE_MQUEUE_H
-#include <mqueue.h>
-#endif /* HAVE_MQUEUE_H */
 #include "ipc_int.h"
 #include "util_int.h"
 #include <qb/qbdefs.h>
@@ -66,22 +63,12 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	case QB_IPC_SHM:
 		res = qb_ipcc_shm_connect(c, &response);
 		break;
-	case QB_IPC_POSIX_MQ:
-#ifdef HAVE_POSIX_MQ
-		res = qb_ipcc_pmq_connect(c, &response);
-#else
-		res = -ENOTSUP;
-#endif /* HAVE_POSIX_MQ */
-		break;
-	case QB_IPC_SYSV_MQ:
-#ifdef HAVE_SYSV_MQ
-		res = qb_ipcc_smq_connect(c, &response);
-#else
-		res = -ENOTSUP;
-#endif /* HAVE_SYSV_MQ */
-		break;
 	case QB_IPC_SOCKET:
 		res = qb_ipcc_us_connect(c, &response);
+		break;
+	case QB_IPC_POSIX_MQ:
+	case QB_IPC_SYSV_MQ:
+		res = -ENOTSUP;
 		break;
 	default:
 		res = -EINVAL;

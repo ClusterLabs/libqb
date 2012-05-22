@@ -106,18 +106,8 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 #endif /* HAVE_SEM_TIMEDWAIT or HAVE_SEMTIMEDOP */
 		break;
 	case QB_IPC_POSIX_MQ:
-#ifdef HAVE_POSIX_MQ
-		qb_ipcs_pmq_init((struct qb_ipcs_service *)s);
-#else
-		res = -ENOTSUP;
-#endif /* HAVE_POSIX_MQ */
-		break;
 	case QB_IPC_SYSV_MQ:
-#ifdef HAVE_SYSV_MQ
-		qb_ipcs_smq_init((struct qb_ipcs_service *)s);
-#else
 		res = -ENOTSUP;
-#endif /* HAVE_SYSV_MQ */
 		break;
 	default:
 		res = -EINVAL;
@@ -142,15 +132,7 @@ _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 {
 	qb_ipcs_dispatch_mod_fn disp_mod = c->service->poll_fns.dispatch_mod;
 
-	if (c->service->type == QB_IPC_POSIX_MQ
-	    && !c->service->needs_sock_for_poll) {
-#ifdef HAVE_MQUEUE_H
-		return disp_mod(c->service->poll_priority,
-				(int32_t) c->request.u.pmq.q,
-				c->poll_events, c,
-				qb_ipcs_dispatch_service_request);
-#endif /* HAVE_MQUEUE_H */
-	} else if (c->service->type == QB_IPC_SOCKET) {
+	if (c->service->type == QB_IPC_SOCKET) {
 		return disp_mod(c->service->poll_priority,
 				c->event.u.us.sock,
 				c->poll_events, c,
