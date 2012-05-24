@@ -55,7 +55,7 @@ struct qb_ringbuffer_shared_s {
 	int32_t ref_count;
 	rpl_sem_t posix_sem;
 	char user_data[1];
-};
+} __attribute__ ((aligned(8)));
 
 struct qb_ringbuffer_s {
 	uint32_t flags;

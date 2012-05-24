@@ -281,7 +281,13 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	#endif /* HAVE_SEMTIMEDOP */
 #endif /* HAVE_SEM_TIMEDWAIT */
 	}
-	if (use_posix) {
+	if (flags & QB_RB_FLAG_NO_SEMAPHORE) {
+		rc = 0;
+		rb->sem_timedwait_fn = NULL;
+		rb->sem_post_fn = NULL;
+		rb->sem_getvalue_fn = NULL;
+		rb->sem_destroy_fn = NULL;
+	} else if (use_posix) {
 		rc = my_posix_sem_create(rb, flags);
 		rb->sem_timedwait_fn = my_posix_sem_timedwait;
 		rb->sem_post_fn = my_posix_sem_post;
