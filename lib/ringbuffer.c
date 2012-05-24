@@ -692,35 +692,28 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	uint32_t read_pt;
 	uint32_t write_pt;
 	struct qb_ringbuffer_s *rb;
+	size_t word_size;
 
 	if (fd < 0) {
 		return NULL;
 	}
-	rb = calloc(1, sizeof(struct qb_ringbuffer_s));
-	if (rb == NULL) {
-		return NULL;
-	}
-	rb->shared_hdr = calloc(1, sizeof(struct qb_ringbuffer_shared_s));
-	if (rb->shared_hdr == NULL) {
-		goto cleanup_fail2;
-	}
-
-	rb->flags = flags;
 
 	n_required = sizeof(uint32_t);
-	n_read = read(fd, &rb->shared_hdr->word_size, n_required);
+	n_read = read(fd, &word_size, n_required);
 	if (n_read != n_required) {
 		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
 		goto cleanup_fail;
 	}
 	total_read += n_read;
 
-	n_required = (rb->shared_hdr->word_size * sizeof(uint32_t));
+	n_required = (word_size * sizeof(uint32_t));
 
-	if ((rb->shared_data = malloc(n_required)) == NULL) {
-		qb_util_perror(LOG_ERR, "exhausted virtual memory");
-		goto cleanup_fail;
+	rb = qb_rb_open("create_from_file", n_required,
+			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
+	if (rb == NULL) {
+		goto cleanup_fail2;
 	}
+
 	n_read = read(fd, rb->shared_data, n_required);
 	if (n_read < 0) {
 		qb_util_perror(LOG_ERR, "Unable to read blackbox file data");
@@ -752,7 +745,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 cleanup_fail:
 	free(rb->shared_hdr);
 cleanup_fail2:
-	free(rb);
+	qb_rb_close(rb);
 	return NULL;
 }
 

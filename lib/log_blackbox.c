@@ -206,4 +206,5 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 			       time_buf, function, lineno, message);
 		}
 	} while (bytes_read > 0);
+	qb_rb_close(instance);
 }
