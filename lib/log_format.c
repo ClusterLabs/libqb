@@ -547,7 +547,7 @@ qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
 		}
 		/* copy from current to the next % */
 		len = p - format;
-		strncpy(&string[location], format, len);
+		memcpy(&string[location], format, len);
 		location += len;
 		format = p;
 
