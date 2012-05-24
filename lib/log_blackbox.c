@@ -202,7 +202,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 				message[len] = '\0';
 				len--;
 			}
-			printf("%s %s():%d %s\n",
+			printf("%s %s(%d): %s\n",
 			       time_buf, function, lineno, message);
 		}
 	} while (bytes_read > 0);
