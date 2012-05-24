@@ -494,7 +494,11 @@ reprocess:
 			{
 			char *arg_string;
 			arg_string = va_arg(ap, char *);
-			p = stpcpy(&serialize[location], arg_string);
+			if (arg_string == NULL) {
+				p = stpcpy(&serialize[location], "(null)");
+			} else {
+				p = stpcpy(&serialize[location], arg_string);
+			}
 			location += p - &serialize[location] + 1;
 			break;
 			}

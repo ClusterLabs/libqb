@@ -226,6 +226,12 @@ main(int32_t argc, char *argv[])
 	qb_log(LOG_DEBUG, "hello");
 	qb_log(LOG_INFO, "this is an info");
 	qb_log(LOG_NOTICE, "hello - notice?");
+	{
+		char * str = NULL;
+		qb_log(LOG_ERR,
+		       "%s ------%s------------- %u?",
+		       NULL, str, 56);
+	}
 	func_one();
 	func_two();
 
