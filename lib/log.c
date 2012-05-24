@@ -894,7 +894,9 @@ qb_log_custom_close(int32_t t)
 	target = qb_log_target_get(t);
 
 	if (target->close) {
+		in_logger = QB_TRUE;
 		target->close(t);
+		in_logger = QB_FALSE;
 	}
 	qb_log_target_free(target);
 }
@@ -987,7 +989,9 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		rc = -EINVAL;
 	}
 	if (rc == 0 && need_reload && conf[t].reload) {
+		in_logger = QB_TRUE;
 		conf[t].reload(t);
+		in_logger = QB_FALSE;
 	}
 	return rc;
 }
