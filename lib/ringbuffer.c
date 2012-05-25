@@ -657,13 +657,6 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	}
 	written_size += result;
 
-	result = write(fd, rb->shared_data,
-		       rb->shared_hdr->word_size * sizeof(uint32_t));
-	if (result != rb->shared_hdr->word_size * sizeof(uint32_t)) {
-		return -errno;
-	}
-	written_size += result;
-
 	/*
 	 * store the read & write pointers
 	 */
@@ -674,6 +667,13 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	written_size += result;
 	result = write(fd, (void *)&rb->shared_hdr->read_pt, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
+		return -errno;
+	}
+	written_size += result;
+
+	result = write(fd, rb->shared_data,
+		       rb->shared_hdr->word_size * sizeof(uint32_t));
+	if (result != rb->shared_hdr->word_size * sizeof(uint32_t)) {
 		return -errno;
 	}
 	written_size += result;
@@ -706,13 +706,22 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	}
 	total_read += n_read;
 
-	n_required = (word_size * sizeof(uint32_t));
+	n_read = read(fd, &write_pt, sizeof(uint32_t));
+	assert(n_read == sizeof(uint32_t));
+	total_read += n_read;
 
+	n_read = read(fd, &read_pt, sizeof(uint32_t));
+	assert(n_read == sizeof(uint32_t));
+	total_read += n_read;
+
+	n_required = (word_size * sizeof(uint32_t));
 	rb = qb_rb_open("create_from_file", n_required,
 			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
 	if (rb == NULL) {
 		goto cleanup_fail2;
 	}
+	rb->shared_hdr->read_pt = read_pt;
+	rb->shared_hdr->write_pt = write_pt;
 
 	n_read = read(fd, rb->shared_data, n_required);
 	if (n_read < 0) {
@@ -726,16 +735,6 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 			    n_read, n_required);
 		goto cleanup_fail;
 	}
-
-	n_read = read(fd, &write_pt, sizeof(uint32_t));
-	assert(n_read == sizeof(uint32_t));
-	rb->shared_hdr->write_pt = write_pt;
-	total_read += n_read;
-
-	n_read = read(fd, &read_pt, sizeof(uint32_t));
-	assert(n_read == sizeof(uint32_t));
-	rb->shared_hdr->read_pt = read_pt;
-	total_read += n_read;
 
 	qb_util_log(LOG_DEBUG, "read total of: %zd", total_read);
 	print_header(rb);
