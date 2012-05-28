@@ -131,6 +131,10 @@ size_t strlcpy(char *dest, const char *src, size_t maxlen);
 size_t strlcat(char *dest, const char *src, size_t maxlen);
 #endif
 
+#ifndef HAVE_STPCPY
+char * stpcpy(char *dest, const char *src);
+#endif
+
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif

@@ -177,7 +177,7 @@ AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		localtime localtime_r memset munmap socket \
-		strchr strrchr strdup strerror strstr stpcpy strcasecmp \
+		strchr strrchr strdup strerror strstr strcasecmp \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
 		pthread_spin_lock pthread_setschedparam \
@@ -195,7 +195,7 @@ AM_CONDITIONAL(HAVE_KQUEUE,
 	       [test "x$ac_cv_func_kqueue" = xyes])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
-AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
+AC_REPLACE_FUNCS(strlcpy strlcat strchrnul stpcpy)
 
 ## local defines
 PACKAGE_FEATURES=""
