@@ -173,11 +173,15 @@ AM_CONDITIONAL(HAVE_SEMUN,
 AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
-AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday localtime localtime_r \
-		memset munmap socket strchr strrchr strdup strerror strstr \
-		poll epoll_create epoll_create1 kqueue random rand getrlimit sysconf \
-		pthread_spin_lock pthread_setschedparam sem_timedwait semtimedop \
-		sched_get_priority_max sched_setscheduler getpeerucred getpeereid])
+AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
+		localtime localtime_r memset munmap socket \
+		strchr strrchr strdup strerror strstr stpcpy strcasecmp \
+		poll epoll_create epoll_create1 kqueue \
+		random rand getrlimit sysconf \
+		pthread_spin_lock pthread_setschedparam \
+		sem_timedwait semtimedop \
+		sched_get_priority_max sched_setscheduler \
+		getpeerucred getpeereid])
 
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
 	       [test "x$ac_cv_func_sem_timedwait" = xyes])
