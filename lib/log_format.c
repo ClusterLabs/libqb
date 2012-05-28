@@ -114,6 +114,15 @@ qb_log_facility2str(int32_t fnum)
 	return NULL;
 }
 
+const char *
+qb_log_priority2str(uint8_t priority)
+{
+	if (priority > LOG_TRACE) {
+		return prioritynames[LOG_TRACE].c_name;
+	}
+	return prioritynames[priority].c_name;
+}
+
 void
 qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
 {

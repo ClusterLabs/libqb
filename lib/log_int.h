@@ -93,6 +93,7 @@ struct qb_log_callsite *qb_log_dcs_get(int32_t *newly_created,
 				       uint32_t lineno,
 				       uint32_t tags);
 
+const char * qb_log_priority2str(uint8_t priority);
 size_t qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap);
 size_t qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf);
 
