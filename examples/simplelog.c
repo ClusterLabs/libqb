@@ -29,7 +29,7 @@
 #define MY_TAG_TWO   (1 << 1)
 #define MY_TAG_THREE (1 << 2)
 
-static int32_t _log_priority = LOG_WARNING;
+static uint8_t _log_priority = LOG_WARNING;
 
 static void
 func_one(void)
@@ -229,8 +229,8 @@ main(int32_t argc, char *argv[])
 	{
 		char * str = NULL;
 		qb_log(LOG_ERR,
-		       "%s ------%s------------- %u?",
-		       NULL, str, 56);
+		       "%s-%d-%s-%u",
+		       NULL, 952, str, 56);
 	}
 	func_one();
 	func_two();
