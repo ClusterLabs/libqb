@@ -129,7 +129,7 @@ check_mac() {
 	echo "======================="
 	ORIG_CFLAGS=$CFLAGS
 	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED"
-	check "ac_cv_supports_sysv_mq=no ac_cv_supports_posix_mq=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no ac_cv_link_attribute_section=no"
+	check "ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no ac_cv_link_attribute_section=no"
 	export CFLAGS=$ORIG_CFLAGS
 
 }
