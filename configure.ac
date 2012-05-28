@@ -177,7 +177,7 @@ AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		localtime localtime_r memset munmap socket \
-		strchr strrchr strdup strerror strstr strcasecmp \
+		strchr strrchr strdup strstr strcasecmp \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
 		pthread_spin_lock pthread_setschedparam \
