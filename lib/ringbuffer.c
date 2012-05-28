@@ -702,7 +702,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	n_read = read(fd, &word_size, n_required);
 	if (n_read != n_required) {
 		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
-		goto cleanup_fail;
+		return NULL;
 	}
 	total_read += n_read;
 
@@ -718,7 +718,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	rb = qb_rb_open("create_from_file", n_required,
 			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
 	if (rb == NULL) {
-		goto cleanup_fail2;
+		return NULL;
 	}
 	rb->shared_hdr->read_pt = read_pt;
 	rb->shared_hdr->write_pt = write_pt;
@@ -743,7 +743,6 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 
 cleanup_fail:
 	free(rb->shared_hdr);
-cleanup_fail2:
 	qb_rb_close(rb);
 	return NULL;
 }
