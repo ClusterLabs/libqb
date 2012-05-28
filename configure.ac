@@ -173,6 +173,7 @@ AM_CONDITIONAL(HAVE_SEMUN,
 AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
+AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		localtime localtime_r memset munmap socket \
 		strchr strrchr strdup strerror strstr stpcpy strcasecmp \

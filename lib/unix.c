@@ -43,14 +43,14 @@
 char *
 qb_strerror_r(int errnum, char *buf, size_t buflen)
 {
-#ifdef QB_LINUX
+#ifdef STRERROR_R_CHAR_P
 	return strerror_r(errnum, buf, buflen);
 #else
 	if (strerror_r(errnum, buf, buflen) != 0) {
 		buf[0] = '\0';
 	}
 	return buf;
-#endif /* QB_LINUX */
+#endif /* STRERROR_R_CHAR_P */
 }
 
 static int32_t
