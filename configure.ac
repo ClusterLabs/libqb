@@ -152,6 +152,23 @@ AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
                 [],
                 [#include <sys/un.h>])
 
+
+AC_MSG_CHECKING(looking for union semun in sys/sem.h)
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+],[
+union semun arg;
+semctl(0, 0, 0, arg);
+], [have_union_semun="1" union_semun=yes ]
+msg=yes, [
+have_union_semun="0"
+msg=no ] )
+AC_MSG_RESULT([$msg])
+AM_CONDITIONAL(HAVE_SEMUN,
+	       [test "x$have_union_semun" = xyes])
+
 # Checks for library functions.
 AC_FUNC_CHOWN
 AC_FUNC_FORK
@@ -274,8 +291,6 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 			*netbsd*)
-				AC_DEFINE_UNQUOTED([_SEM_SEMUN_UNDEFINED], [1],
-					   [The semun structure is undefined])
 			;;
 		esac
 		AC_MSG_RESULT([BSD])
@@ -285,8 +300,6 @@ case "$host_os" in
 				   [Compiling for Solaris platform])
 		AC_DEFINE_UNQUOTED([TS_CLASS], [1],
 				   [Prevent being scheduled RR])
-		AC_DEFINE_UNQUOTED([_SEM_SEMUN_UNDEFINED], [1],
-				   [The semun structure is undefined])
 		CP=rsync
 		AC_MSG_RESULT([Solaris])
 	;;

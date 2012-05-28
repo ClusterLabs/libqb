@@ -72,13 +72,13 @@ struct qb_ringbuffer_s {
 
 void qb_rb_force_close(qb_ringbuffer_t * rb);
 
-#if defined(_SEM_SEMUN_UNDEFINED)
+#ifndef HAVE_SEMUN
 union semun {
 	int32_t val;
 	struct semid_ds *buf;
 	unsigned short int *array;
 	struct seminfo *__buf;
 };
-#endif /* _SEM_SEMUN_UNDEFINED */
+#endif /* HAVE_SEMUN */
 
 #endif /* _RINGBUFFER_H_ */
