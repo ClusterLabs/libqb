@@ -65,6 +65,7 @@ developing applications that use %{name}.
 %{_libdir}/libqb.so
 %{_libdir}/pkgconfig/libqb.pc
 %{_mandir}/man3/qb*3*
+%{_mandir}/man8/qb-blackbox.8.gz
 
 %changelog
 * @date@ Autotools generated version <nobody@nowhere.org> - @version@-1-@numcomm@.@alphatag@.@dirty@
