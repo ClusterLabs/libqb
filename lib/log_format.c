@@ -700,9 +700,9 @@ reprocess:
 			{
 			fmt[fmt_pos++] = *format;
 			fmt[fmt_pos++] = '\0';
-			location = snprintf(&string[location],
-					    str_len - location,
-					    fmt, &buf[data_pos]);
+			location += snprintf(&string[location],
+					     str_len - location,
+					     fmt, &buf[data_pos]);
 			data_pos += sizeof(void*);
 			format++;
 			break;
