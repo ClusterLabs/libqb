@@ -131,4 +131,11 @@ size_t strlcpy(char *dest, const char *src, size_t maxlen);
 size_t strlcat(char *dest, const char *src, size_t maxlen);
 #endif
 
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+#ifndef NAME_MAX
+#define NAME_MAX 255
+#endif
+
 #endif /* QB_OS_BASE_H_DEFINED */

@@ -264,12 +264,6 @@ case "$host_os" in
 		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902' has an invalid section specifier '__verbose': mach-o section specifier requires a segment and section separated by a comma
-		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
-				   [Shared memory define for Darwin platform])
-		AC_DEFINE_UNQUOTED([PATH_MAX], [4096],
-				   [Number of chars in a path name including nul])
-		AC_DEFINE_UNQUOTED([NAME_MAX], [255],
-				   [Number of chars in a file name])
 		AC_DEFINE_UNQUOTED([DISABLE_POSIX_THREAD_PROCESS_SHARED], [1],
 				   [Disable _POSIX_THREAD_PROCESS_SHARED])
 		AC_MSG_RESULT([Dawin])
@@ -277,8 +271,6 @@ case "$host_os" in
 	*bsd*)
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
 				   [Compiling for BSD platform])
-		AC_DEFINE_UNQUOTED([MAP_ANONYMOUS], [MAP_ANON],
-				   [Shared memory define for BSD platform])
 		case "$host_os" in
 			*freebsd[[234567]]*)
 			;;

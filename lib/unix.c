@@ -32,6 +32,14 @@
 #include <qb/qbutil.h>
 #include <qb/qbatomic.h>
 
+#if defined(MAP_ANON) && ! defined(MAP_ANONYMOUS)
+/*
+ * BSD derivatives usually have MAP_ANON, not MAP_ANONYMOUS
+ **/
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
+
 char *
 qb_strerror_r(int errnum, char *buf, size_t buflen)
 {
