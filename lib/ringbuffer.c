@@ -692,7 +692,7 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	uint32_t read_pt;
 	uint32_t write_pt;
 	struct qb_ringbuffer_s *rb;
-	size_t word_size;
+	uint32_t word_size = 0;
 
 	if (fd < 0) {
 		return NULL;
