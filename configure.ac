@@ -530,6 +530,7 @@ AC_CONFIG_FILES([Makefile
 		 include/qb/Makefile
 		 lib/Makefile
 		 lib/libqb.pc
+		 tools/Makefile
 		 tests/Makefile
 		 examples/Makefile
 		 docs/Makefile

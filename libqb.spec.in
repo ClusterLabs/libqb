@@ -46,6 +46,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %doc COPYING
+%{_sbindir}/qb-blackbox
 %{_libdir}/libqb.so.*
 
 %package        devel

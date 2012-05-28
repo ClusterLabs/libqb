@@ -1,4 +1,4 @@
-# Copyright (C) 2010 Red Hat, Inc.
+# Copyright (c) 2011 Red Hat, Inc.
 #
 # Authors: Angus Salkeld <asalkeld@redhat.com>
 #
@@ -16,33 +16,13 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
+#
+MAINTAINERCLEANFILES = Makefiles.in
+EXTRA_DIST =
+CLEANFILES =
 
-MAINTAINERCLEANFILES	= Makefile.in
-EXTRA_DIST 		= man.dox html.dox
-noinst_HEADERS          = mainpage.h
+sbin_PROGRAMS = qb-blackbox
 
-if HAVE_DOXYGEN
-inc_dir = $(top_srcdir)/include/qb
-dependant_headers = $(wildcard $(inc_dir)/qb*.h)
-dist_man_MANS = man3/qbipcc.h.3 man3/qbipcs.h.3 man3/qbatomic.h.3 \
-		man3/qbhdb.h.3 man3/qbipc_common.h.3 man3/qblist.h.3 \
-		man3/qbloop.h.3 man3/qbutil.h.3 man3/qbarray.h.3 \
-		man3/qblog.h.3 man3/qbmap.h.3 man8/qb-blackbox.8
-
-
-$(dist_man_MANS): man.dox $(dependant_headers)
-	@mkdir -p man3
-	@doxygen man.dox
-
-doxygen: html.dox
-	@mkdir -p html
-	@doxygen html.dox
-
-else
-doxygen:
-	@echo WARNING: no doxygen to build man pages!
-endif
-
-clean-generic:
-	rm -rf html man3
-	
+qb_blackbox_SOURCES = qb_blackbox.c $(top_builddir)/include/qb/qblog.h
+qb_blackbox_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+qb_blackbox_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
