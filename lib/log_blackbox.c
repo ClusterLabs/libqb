@@ -142,7 +142,8 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 {
 	qb_ringbuffer_t *instance;
 	ssize_t bytes_read;
-	char chunk[512];
+	int max_size = 2 * QB_LOG_MAX_LEN;
+	char *chunk;
 	int fd;
 	char time_buf[64];
 
@@ -156,6 +157,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 	if (instance == NULL) {
 		return;
 	}
+	chunk = malloc(max_size);
 
 	do {
 		char *ptr;
@@ -167,7 +169,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		char message[QB_LOG_MAX_LEN];
 		uint32_t u32;
 
-		bytes_read = qb_rb_chunk_read(instance, chunk, 512, 0);
+		bytes_read = qb_rb_chunk_read(instance, chunk, max_size, 0);
 		ptr = chunk;
 		if (bytes_read > 0) {
 			struct tm *tm;
@@ -207,4 +209,5 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		}
 	} while (bytes_read > 0);
 	qb_rb_close(instance);
+	free(chunk);
 }
