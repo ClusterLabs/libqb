@@ -113,7 +113,7 @@ qb_log_dcs_get(int32_t * newly_created,
 	int32_t rc;
 	struct qb_log_callsite *cs = NULL;
 	struct callsite_list *csl_head;
-	struct callsite_list *csl_last;
+	struct callsite_list *csl_last = NULL;
 	struct callsite_list *csl;
 	const char *safe_filename = filename;
 	const char *safe_function = function;

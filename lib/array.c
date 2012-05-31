@@ -103,7 +103,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 	int32_t b;
 	int32_t elem;
 	char *bin;
-	int32_t rc;
+	int32_t rc = 0;
 
 	if (a == NULL || element_out == NULL) {
 		return -EINVAL;

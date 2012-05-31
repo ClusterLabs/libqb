@@ -40,6 +40,7 @@ static qb_ringbuffer_t *rb = NULL;
 #define ONE_MEG 1048576
 static char buffer[ONE_MEG * 3];
 
+#ifndef timersub
 #define timersub(a, b, result)					\
 do {								\
 	(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
@@ -49,6 +50,7 @@ do {								\
 		(result)->tv_usec += 1000000;			\
 	}							\
 } while (0)
+#endif
 
 static void sigalrm_handler (int num)
 {
