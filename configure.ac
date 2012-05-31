@@ -153,22 +153,21 @@ AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
                 [],
                 [#include <sys/un.h>])
 
-
 AC_MSG_CHECKING(looking for union semun in sys/sem.h)
-AC_TRY_COMPILE([
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-],[
-union semun arg;
-semctl(0, 0, 0, arg);
-], [have_union_semun="1" union_semun=yes ]
-msg=yes, [
-have_union_semun="0"
-msg=no ] )
-AC_MSG_RESULT([$msg])
-AM_CONDITIONAL(HAVE_SEMUN,
-	       [test "x$have_union_semun" = xyes])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+[[#include <sys/types.h>
+  #include <sys/ipc.h>
+  #include <sys/sem.h>]],
+[[union semun arg; semctl(0, 0, 0, arg);]])],
+                    [
+                      AC_MSG_RESULT([yes])
+                      AC_DEFINE_UNQUOTED([HAVE_SEMUN], 1, [Define to 1 if you have union semun.])
+                    ],
+                    [
+                      AC_MSG_RESULT([no])
+                    ]
+                 )
+
 
 # Checks for library functions.
 AC_FUNC_CHOWN
