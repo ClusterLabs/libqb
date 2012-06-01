@@ -249,6 +249,8 @@ retry_recv:
 		if (errno == EAGAIN &&
 		    (processed > 0 || timeout == -1)) {
 			goto retry_recv;
+		} else if (errno == ECONNRESET || errno == EPIPE) {
+			return -ENOTCONN;
 		} else {
 			return -errno;
 		}
