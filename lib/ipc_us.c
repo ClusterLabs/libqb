@@ -250,6 +250,9 @@ retry_recv:
 		    (processed > 0 || timeout == -1)) {
 			goto retry_recv;
 		} else if (errno == ECONNRESET || errno == EPIPE) {
+			qb_util_perror(LOG_DEBUG,
+				       "recv(fd %d) converting to ENOTCONN",
+				       one_way->u.us.sock);
 			return -ENOTCONN;
 		} else {
 			return -errno;

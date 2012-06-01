@@ -13,7 +13,7 @@ AC_USE_SYSTEM_EXTENSIONS
 
 AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
 dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
-dnl normal compilation.  When a failure occurs, it will then display the full 
+dnl normal compilation.  When a failure occurs, it will then display the full
 dnl command line
 dnl Wrap in m4_ifdef to avoid breaking on older platforms
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
@@ -254,9 +254,11 @@ fi
 # THIS SECTION MUST DIE!
 CP=cp
 LIB_RT=-lrt
+ipc_needs_response_ack=yes
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
+		ipc_needs_response_ack=no
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
 		AC_MSG_RESULT([Linux])
@@ -268,7 +270,10 @@ case "$host_os" in
 		LIB_RT=
 		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
-		dnl cc1: error in backend: Global variable 'descriptor.4902' has an invalid section specifier '__verbose': mach-o section specifier requires a segment and section separated by a comma
+		dnl cc1: error in backend: Global variable 'descriptor.4902'
+		dnl has an invalid section specifier '__verbose': mach-o
+		dnl section specifier requires a segment and section
+		dnl separated by a comma
 		AC_DEFINE_UNQUOTED([DISABLE_POSIX_THREAD_PROCESS_SHARED], [1],
 				   [Disable _POSIX_THREAD_PROCESS_SHARED])
 		AC_MSG_RESULT([Dawin])
@@ -298,6 +303,11 @@ case "$host_os" in
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;
 esac
+
+if test "x$ipc_needs_response_ack" = xyes; then
+	AC_DEFINE_UNQUOTED(IPC_NEEDS_RESPONSE_ACK, 1,
+			   [ipc needs a response ack])
+fi
 
 AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
 if test -z "$gcc_has_builtin_atomic_operations"; then

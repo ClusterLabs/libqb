@@ -235,6 +235,17 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		return -EINVAL;
 	}
 
+#ifdef IPC_NEEDS_RESPONSE_ACK
+	if (c->needs_sock_for_poll) {
+		char one_byte = 1;
+		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
+		if (res < 0) {
+			_check_connection_state(c, res);
+			return res;
+		}
+	}
+#endif /* IPC_NEEDS_RESPONSE_ACK */
+
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
 	if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);

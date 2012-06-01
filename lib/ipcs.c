@@ -28,6 +28,8 @@
 
 static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
 				    int32_t fc_enable);
+static int32_t
+new_event_notification(struct qb_ipcs_connection * c);
 
 static QB_LIST_DECLARE(qb_ipc_services);
 
@@ -243,6 +245,12 @@ qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.send(&c->response, data, size);
 	if (res == size) {
+#ifdef IPC_NEEDS_RESPONSE_ACK
+		int32_t resn = new_event_notification(c);
+		if (resn < 0 && resn != -EAGAIN) {
+			res = resn;
+		}
+#endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		c->stats.send_retries++;
@@ -264,6 +272,12 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.sendv(&c->response, iov, iov_len);
 	if (res > 0) {
+#ifdef IPC_NEEDS_RESPONSE_ACK
+		int32_t resn = new_event_notification(c);
+		if (resn < 0 && resn != -EAGAIN) {
+			res = resn;
+		}
+#endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		c->stats.send_retries++;
