@@ -49,8 +49,14 @@ format_this(char *out, const char *fmt, ...)
 START_TEST(test_va_serialize)
 {
 	char buf[QB_LOG_MAX_LEN];
+	char cmp_buf[QB_LOG_MAX_LEN];
+
 	format_this(buf, "one line");
 	ck_assert_str_eq(buf, "one line");
+
+	format_this(buf, "p1:%p, p2:%p", format_this, buf);
+	snprintf(cmp_buf, QB_LOG_MAX_LEN, "p1:%p, p2:%p", format_this, buf);
+	ck_assert_str_eq(buf, cmp_buf);
 
 	format_this(buf, "s1:%s, s2:%s", "Yes", "Never");
 	ck_assert_str_eq(buf, "s1:Yes, s2:Never");

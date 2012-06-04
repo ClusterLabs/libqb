@@ -41,6 +41,10 @@
 #include <stdint.h>
 #endif /* HAVE_STDINT_H */
 
+#ifdef HAVE_STDDEF_H
+#include <stddef.h>
+#endif /* HAVE_STDDEF_H */
+
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
 #endif

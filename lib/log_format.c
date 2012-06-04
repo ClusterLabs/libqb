@@ -513,10 +513,9 @@ reprocess:
 			}
 		case 'p':
 			{
-			void *arg_pointer;
-			arg_pointer = va_arg(ap, void *);
-			memcpy (&serialize[location], &arg_pointer, sizeof (void *));
-			location += sizeof (arg_pointer);
+			ptrdiff_t arg_pointer = va_arg(ap, ptrdiff_t);
+			memcpy(&serialize[location], &arg_pointer, sizeof(ptrdiff_t));
+			location += sizeof(ptrdiff_t);
 			break;
 			}
 		case '%':
@@ -698,11 +697,14 @@ reprocess:
 			}
 		case 'p':
 			{
+			ptrdiff_t pt;
+			memcpy(&pt, &buf[data_pos],
+			       sizeof(ptrdiff_t));
 			fmt[fmt_pos++] = *format;
 			fmt[fmt_pos++] = '\0';
 			location += snprintf(&string[location],
 					     str_len - location,
-					     fmt, &buf[data_pos]);
+					     fmt, pt);
 			data_pos += sizeof(void*);
 			format++;
 			break;
