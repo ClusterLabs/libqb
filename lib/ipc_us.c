@@ -645,7 +645,7 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->state = QB_IPCS_CONNECTION_ACTIVE;
 	qb_list_add(&c->list, &s->connections);
 
-	if (s->needs_sock_for_poll || s->type == QB_IPC_SOCKET) {
+	if (s->needs_sock_for_poll) {
 		qb_ipcs_connection_ref(c);
 		res = s->poll_fns.dispatch_add(s->poll_priority,
 					       c->setup.u.us.sock,
@@ -719,6 +719,23 @@ handle_connection_new_sock(struct qb_ipcs_service *s, int32_t sock, void *msg)
 	if (s->serv_fns.connection_created) {
 		s->serv_fns.connection_created(c);
 	}
+
+	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED &&
+	    s->type == QB_IPC_SOCKET) {
+		int32_t res;
+		qb_ipcs_connection_ref(c);
+		res = s->poll_fns.dispatch_add(s->poll_priority,
+					       c->request.u.us.sock,
+					       POLLIN | POLLPRI | POLLNVAL,
+					       c,
+					       qb_ipcs_dispatch_connection_request);
+		if (res < 0) {
+			qb_util_log(LOG_ERR,
+				    "Error adding socket to mainloop (%s).",
+				    c->description);
+		}
+	}
+
 	qb_ipcs_connection_unref(c);
 }
 
