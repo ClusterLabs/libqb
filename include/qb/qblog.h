@@ -98,6 +98,12 @@ extern "C" {
  *		   LOG_INFO - LOG_DEBUG);
  * @endcode
  *
+ * To ensure all logs to file targets are fsync'ed (default QB_FALSE)
+ * @code
+ *	qb_log_ctl(mytarget, QB_LOG_CONF_FILE_SYNC, QB_TRUE);
+ * @endcode
+ *
+ *
  * @par Filtering messages.
  * To have more power over what log messages go to which target you can apply
  * filters to the targets. What happens is the desired callsites have the
@@ -393,6 +399,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_THREADED,
 	QB_LOG_CONF_PRIORITY_BUMP,
 	QB_LOG_CONF_STATE_GET,
+	QB_LOG_CONF_FILE_SYNC,
 };
 
 enum qb_log_filter_type {

@@ -26,6 +26,7 @@ _file_logger(int32_t t,
 	     struct qb_log_callsite *cs, time_t timestamp, const char *msg)
 {
 	char output_buffer[QB_LOG_MAX_LEN];
+	struct qb_log_target *target = qb_log_target_get(t);
 	FILE *f = qb_log_target_user_data_get(t);
 
 	if (f == NULL) {
@@ -36,7 +37,11 @@ _file_logger(int32_t t,
 	qb_log_target_format(t, cs, timestamp, msg, output_buffer);
 
 	fprintf(f, "%s\n", output_buffer);
+
 	fflush(f);
+	if (target->file_sync) {
+		fsync(fileno(f));
+	}
 }
 
 static void

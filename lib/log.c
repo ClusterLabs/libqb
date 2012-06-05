@@ -730,6 +730,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
 		conf[i].pos = i;
 		conf[i].debug = QB_FALSE;
+		conf[i].file_sync = QB_FALSE;
 		conf[i].state = QB_LOG_STATE_UNUSED;
 		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
@@ -966,6 +967,9 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		if (t == QB_LOG_SYSLOG) {
 			need_reload = QB_TRUE;
 		}
+		break;
+	case QB_LOG_CONF_FILE_SYNC:
+		conf[t].file_sync = arg;
 		break;
 	case QB_LOG_CONF_PRIORITY_BUMP:
 		conf[t].priority_bump = arg;
