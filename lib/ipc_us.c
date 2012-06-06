@@ -202,13 +202,14 @@ retry_recv:
 }
 
 int32_t
-qb_ipc_us_recv_ready(struct qb_ipc_one_way * one_way, int32_t ms_timeout)
+qb_ipc_us_ready(struct qb_ipc_one_way * one_way,
+		int32_t ms_timeout, int32_t events)
 {
 	struct pollfd ufds;
 	int32_t poll_events;
 
 	ufds.fd = one_way->u.us.sock;
-	ufds.events = POLLIN;
+	ufds.events = events;
 	ufds.revents = 0;
 
 	poll_events = poll(&ufds, 1, ms_timeout);

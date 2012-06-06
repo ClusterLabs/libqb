@@ -232,6 +232,29 @@ qb_ipcs_destroy(struct qb_ipcs_service *s)
 /*
  * connection API
  */
+static struct qb_ipc_one_way *
+_event_sock_one_way_get(struct qb_ipcs_connection * c)
+{
+	if (c->service->needs_sock_for_poll) {
+		return &c->setup;
+	}
+	if (c->event.type == QB_IPC_SOCKET) {
+		return &c->event;
+	}
+	return NULL;
+}
+
+static struct qb_ipc_one_way *
+_response_sock_one_way_get(struct qb_ipcs_connection * c)
+{
+	if (c->service->needs_sock_for_poll) {
+		return &c->setup;
+	}
+	if (c->response.type == QB_IPC_SOCKET) {
+		return &c->response;
+	}
+	return NULL;
+}
 
 ssize_t
 qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
@@ -253,6 +276,13 @@ qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 #endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
+		if (ow) {
+			ssize_t res2  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			if (res2 < 0) {
+				res = res2;
+			}
+		}
 		c->stats.send_retries++;
 	}
 	qb_ipcs_connection_unref(c);
@@ -280,6 +310,13 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 #endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
+		if (ow) {
+			ssize_t res2  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			if (res2 < 0) {
+				res = res2;
+			}
+		}
 		c->stats.send_retries++;
 	}
 	qb_ipcs_connection_unref(c);
@@ -355,6 +392,15 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 				       c->description);
 			res = resn;
 		}
+	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
+		if (ow) {
+			resn  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			if (resn < 0) {
+				res = resn;
+			}
+		}
+		c->stats.send_retries++;
 	}
 
 	qb_ipcs_connection_unref(c);
@@ -384,6 +430,15 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 				       c->description);
 			res = resn;
 		}
+	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
+		if (ow) {
+			resn  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			if (resn < 0) {
+				res = resn;
+			}
+		}
+		c->stats.send_retries++;
 	}
 
 	qb_ipcs_connection_unref(c);

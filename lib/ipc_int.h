@@ -105,7 +105,7 @@ int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 				   struct qb_ipc_connection_response *r);
 ssize_t qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len);
 ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way, void *msg, size_t len, int32_t timeout);
-int32_t qb_ipc_us_recv_ready(struct qb_ipc_one_way *one_way, int32_t ms_timeout);
+int32_t qb_ipc_us_ready(struct qb_ipc_one_way *one_way, int32_t ms_timeout, int32_t events);
 
 void qb_ipcc_us_sock_close(int32_t sock);
 
