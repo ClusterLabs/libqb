@@ -137,9 +137,9 @@ my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
 	sops[0].sem_num = 0;
 	sops[0].sem_op = -1;
 #ifdef HAVE_SEMTIMEDOP
-	sops[0].sem_flg = IPC_NOWAIT;
-#else
 	sops[0].sem_flg = 0;
+#else
+	sops[0].sem_flg = IPC_NOWAIT;
 #endif /* HAVE_SEMTIMEDOP */
 
 semop_again:
