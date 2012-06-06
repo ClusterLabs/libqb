@@ -26,7 +26,8 @@
 #include <qb/qbipcc.h>
 #include <qb/qblog.h>
 
-static int do_benchmark = QB_FALSE;
+static int32_t do_benchmark = QB_FALSE;
+static int32_t use_events = QB_FALSE;
 
 #ifndef timersub
 #define timersub(a, b, result)						\
@@ -130,6 +131,7 @@ do_echo(qb_ipcc_connection_t *conn)
 	struct my_res res;
 	char *newline;
 	int32_t rc;
+	int32_t send_ten_events;
 
 	while (1) {
 		printf("SEND (q or Q to quit) : ");
@@ -153,13 +155,22 @@ do_echo(qb_ipcc_connection_t *conn)
 			}
 		}
 
+		send_ten_events = (strcasecmp(req.message, "events") == 0);
+
 		if (rc > 0) {
-			rc = qb_ipcc_recv(conn, &res, sizeof(res), -1);
+			if (use_events && !send_ten_events) {
+				printf("waiting for event recv\n");
+				rc = qb_ipcc_event_recv(conn, &res, sizeof(res), -1);
+			} else {
+				printf("waiting for recv\n");
+				rc = qb_ipcc_recv(conn, &res, sizeof(res), -1);
+			}
+			printf("recv %d\n", rc);
 			if (rc < 0) {
 				perror("qb_ipcc_recv");
 				exit(0);
 			}
-			if (strcasecmp(req.message, "events") == 0) {
+			if (send_ten_events) {
 				int32_t i;
 				printf("waiting for 10 events\n");
 				for (i = 0; i < 10; i++) {
@@ -176,11 +187,25 @@ do_echo(qb_ipcc_connection_t *conn)
 	}
 }
 
+static void
+show_usage(const char *name)
+{
+	printf("usage: \n");
+	printf("%s <options>\n", name);
+	printf("\n");
+	printf("  options:\n");
+	printf("\n");
+	printf("  -h             show this help text\n");
+	printf("  -b             benchmark\n");
+	printf("  -e             use events instead of responses\n");
+	printf("\n");
+}
+
 int
 main(int argc, char *argv[])
 {
 	qb_ipcc_connection_t *conn;
-	const char *options = "b";
+	const char *options = "eb";
 	int32_t opt;
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
@@ -188,7 +213,13 @@ main(int argc, char *argv[])
 		case 'b':
 			do_benchmark = QB_TRUE;
 			break;
+		case 'e':
+			use_events = QB_TRUE;
+			break;
+		case 'h':
 		default:
+			show_usage(argv[0]);
+			exit(0);
 			break;
 		}
 	}

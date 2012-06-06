@@ -34,6 +34,7 @@ static qb_array_t *gio_map;
 #endif /* HAVE_GLIB */
 
 static int32_t use_glib = QB_FALSE;
+static int32_t use_events = QB_FALSE;
 static qb_loop_t *bms_loop;
 static qb_ipcs_service_t *s1;
 
@@ -106,6 +107,7 @@ s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 	struct iovec iov[2];
 	char resp[100];
 	int32_t sl;
+	int32_t send_ten_events = QB_FALSE;
 
 	hdr = (struct qb_ipc_request_header *)data;
 	if (hdr->id == (QB_IPC_MSG_USER_START + 1)) {
@@ -130,11 +132,18 @@ s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 	iov[1].iov_base = resp;
 	response.size += sl;
 
-	res = qb_ipcs_response_sendv(c, iov, 2);
+	send_ten_events = (strcmp(req_pt->message, "events") == 0);
+
+	if (use_events && !send_ten_events) {
+		res = qb_ipcs_event_sendv(c, iov, 2);
+	} else {
+		res = qb_ipcs_response_sendv(c, iov, 2);
+	}
 	if (res < 0) {
+		errno = - res;
 		qb_perror(LOG_ERR, "qb_ipcs_response_send");
 	}
-	if (strcmp(req_pt->message, "events") == 0) {
+	if (send_ten_events) {
 		int32_t i;
 		qb_log(LOG_INFO, "request to send 10 events");
 		for (i = 0; i < 10; i++) {
@@ -163,8 +172,6 @@ show_usage(const char *name)
 	printf("\n");
 	printf("  -h             show this help text\n");
 	printf("  -m             use shared memory\n");
-	printf("  -p             use posix message queues\n");
-	printf("  -s             use sysv message queues\n");
 	printf("  -u             use unix sockets\n");
 	printf("  -g             use glib mainloop\n");
 	printf("  -e             use events\n");
@@ -305,6 +312,9 @@ main(int32_t argc, char *argv[])
 			break;
 		case 'g':
 			use_glib = QB_TRUE;
+			break;
+		case 'e':
+			use_events = QB_TRUE;
 			break;
 		case 'h':
 		default:
