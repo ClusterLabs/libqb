@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export CFLAGS="$CFLAGS -Wp,-D_FORTIFY_SOURCE=2 -O2"
+export CFLAGS="$CFLAGS"
 export MAKEFLAGS="$MAKEFLAGS --no-print-directory"
 
 help_all() {
