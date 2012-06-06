@@ -753,7 +753,6 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	int off = 0;
 	int on = 1;
 #endif
-	msg_recv.msg_flags = 0;
 	msg_recv.msg_iov = &iov_recv;
 	msg_recv.msg_iovlen = 1;
 	msg_recv.msg_name = 0;
@@ -765,6 +764,8 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 #ifdef QB_SOLARIS
 	msg_recv.msg_accrights = 0;
 	msg_recv.msg_accrightslen = 0;
+#else
+	msg_recv.msg_flags = 0;
 #endif /* QB_SOLARIS */
 
 	iov_recv.iov_base = msg;
