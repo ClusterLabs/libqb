@@ -437,7 +437,6 @@ START_TEST(test_ipc_exit_us)
 }
 END_TEST
 
-#ifdef HAVE_SEM_TIMEDWAIT
 START_TEST(test_ipc_exit_shm)
 {
 	qb_enter();
@@ -484,7 +483,6 @@ START_TEST(test_ipc_fc_shm)
 	qb_leave();
 }
 END_TEST
-#endif /* HAVE_SEM_TIMEDWAIT */
 
 START_TEST(test_ipc_txrx_us_block)
 {
@@ -837,7 +835,6 @@ START_TEST(test_ipc_server_fail_soc)
 }
 END_TEST
 
-#ifdef HAVE_SEM_TIMEDWAIT
 START_TEST(test_ipc_disp_shm)
 {
 	qb_enter();
@@ -878,7 +875,6 @@ START_TEST(test_ipc_server_fail_shm)
 	qb_leave();
 }
 END_TEST
-#endif /* HAVE_SEM_TIMEDWAIT */
 
 
 static Suite *
@@ -987,13 +983,18 @@ main(void)
 	int32_t number_failed;
 	SRunner *sr;
 	Suite *s;
+	int32_t do_shm_tests = QB_TRUE;
+
+#if defined (HAVE_SEM_TIMEDWAIT) || defined (HAVE_EVENTFD)
+	do_shm_tests = QB_FALSE;
+#endif /* HAVE_SEM_TIMEDWAIT */
 
 	s = make_soc_suite();
 	sr = srunner_create(s);
 
-#if defined (HAVE_SEM_TIMEDWAIT) || defined (HAVE_EVENTFD)
-	srunner_add_suite(sr, make_shm_suite());
-#endif /* HAVE_SEM_TIMEDWAIT */
+	if (do_shm_tests) {
+		srunner_add_suite(sr, make_shm_suite());
+	}
 
 	qb_log_init("check", LOG_USER, LOG_EMERG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
