@@ -296,6 +296,7 @@ case "$host_os" in
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
+		ac_cv_link_attribute_section=no
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
 				   [Compiling for Solaris platform])
 		CP=rsync
