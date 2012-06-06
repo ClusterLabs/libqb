@@ -80,11 +80,11 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
 	} else {
-#if defined(QB_BSD)
+#if defined(QB_LINUX)
+		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
+#else
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
 		is_absolute = path;
-#else
-		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
 #endif
 	}
 	fd = open_mmap_file(path, file_flags);
