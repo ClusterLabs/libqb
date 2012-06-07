@@ -513,9 +513,13 @@ static void
 _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 {
 	uint32_t old_read_pt;
+	uint32_t chunk_magic;
 
 	old_read_pt = rb->shared_hdr->read_pt;
-	QB_MAGIC_ASSERT(old_read_pt);
+	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, old_read_pt);
+	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+		return;
+	}
 
 	rb->shared_hdr->read_pt = qb_rb_chunk_step(rb, old_read_pt);
 
@@ -533,7 +537,7 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 void
 qb_rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 {
-	if (rb == NULL || qb_rb_space_used(rb) == 0) {
+	if (rb == NULL) {
 		return;
 	}
 	_rb_chunk_reclaim(rb);
