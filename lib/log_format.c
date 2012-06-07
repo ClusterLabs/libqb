@@ -387,6 +387,7 @@ qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap)
 	int type_long = 0;
 	int type_longlong = 0;
         int sformat_length = 0;
+        int sformat_precision = 0;
 
 	p = stpcpy(serialize, fmt);
 	location = p - serialize + 1;
@@ -408,8 +409,11 @@ reprocess:
 		case '+': /* a sign should be used, ignore */
 		case '\'': /* group in thousands, ignore */
 		case 'I': /* glibc-ism locale alternative, ignore */
+                    format++;
+                    goto reprocess;
 		case '.': /* precision, ignore */
                     format++;
+                    sformat_precision = 1;
                     goto reprocess;
 		case '0': /* field width, ignore */
 		case '1': /* field width, ignore */
@@ -421,11 +425,12 @@ reprocess:
 		case '7': /* field width, ignore */
 		case '8': /* field width, ignore */
 		case '9': /* field width, ignore */
-			sformat_length *= 10;
-			sformat_length += (format[0] - '0');
+                        if(sformat_precision) {
+                            sformat_length *= 10;
+                            sformat_length += (format[0] - '0');
+                        }
 			format++;
 			goto reprocess;
-
 		case '*': /* variable field width, save */ {
 			int arg_int = va_arg(ap, int);
 			memcpy(&serialize[location], &arg_int, sizeof (int));
@@ -529,6 +534,7 @@ reprocess:
 		case '%':
 			serialize[location++] = '%';
                         sformat_length = 0;
+                        sformat_precision = 0;
 			break;
 
 		}
