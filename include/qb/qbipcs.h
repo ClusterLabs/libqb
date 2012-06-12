@@ -117,6 +117,8 @@ struct qb_ipcs_poll_handlers {
  * The type of checks you should do are authentication, service availabilty
  * or process resource constraints.
  * @return 0 to accept or -errno to indicate a failure (sent back to the client)
+ *
+ * @note you can call qb_ipcs_connection_auth_set() within this function.
  */
 typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c,
 						 uid_t uid, gid_t gid);
@@ -376,6 +378,23 @@ qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_t* pt);
  */
 qb_ipcs_connection_t * qb_ipcs_connection_next_get(qb_ipcs_service_t* pt,
 						   qb_ipcs_connection_t *current);
+
+/**
+ * Set the permissions on and shared memory files so that both processes can
+ * read and write to them.
+ *
+ * @param conn connection instance
+ * @param uid the user id to set.
+ * @param gid the group id to set.
+ * @param mode the mode to set.
+ *
+ * @see chmod() chown()
+ * @note this must be called within the qb_ipcs_connection_accept_fn()
+ * callback.
+ */
+void qb_ipcs_connection_auth_set(qb_ipcs_connection_t *conn, uid_t uid,
+				 gid_t gid, mode_t mode);
+
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

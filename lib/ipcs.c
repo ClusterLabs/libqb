@@ -864,3 +864,14 @@ qb_ipcs_stats_get(struct qb_ipcs_service * s,
 	}
 	return 0;
 }
+
+void
+qb_ipcs_connection_auth_set(qb_ipcs_connection_t *c, uid_t uid,
+			    gid_t gid, mode_t mode)
+{
+	if (c) {
+		c->auth.uid = uid;
+		c->auth.gid = gid;
+		c->auth.mode = mode;
+	}
+}

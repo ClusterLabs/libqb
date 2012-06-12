@@ -615,8 +615,9 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->response.max_msg_size = req->max_msg_size;
 	c->event.max_msg_size = req->max_msg_size;
 	c->pid = ugp->pid;
-	c->euid = ugp->uid;
-	c->egid = ugp->gid;
+	c->auth.uid = c->euid = ugp->uid;
+	c->auth.gid = c->egid = ugp->gid;
+	c->auth.mode = 0600;
 	c->stats.client_pid = ugp->pid;
 	snprintf(c->description, CONNECTION_DESCRIPTION,
 		 "%d-%d-%d", s->pid, ugp->pid,
@@ -949,12 +950,19 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	}
 	(void)strlcpy(r->request, path, PATH_MAX);
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
-	res = chown(r->request, c->euid, c->egid);
+	res = chown(r->request, c->auth.uid, c->auth.gid);
 	if (res != 0) {
 		/* ignore res, this is just for the compiler warnings.
 		 */
 		res = 0;
 	}
+	res = chmod(r->request, c->auth.mode);
+	if (res != 0) {
+		/* ignore res, this is just for the compiler warnings.
+		*/
+		res = 0;
+	}
+
 	shm_ptr = mmap(0, SHM_CONTROL_SIZE,
 		       PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
 

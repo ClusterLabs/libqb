@@ -156,12 +156,19 @@ enum qb_ipcs_connection_state {
 
 #define CONNECTION_DESCRIPTION (16)
 
+struct qb_ipcs_connection_auth {
+	uid_t uid;
+	gid_t gid;
+	mode_t mode;
+};
+
 struct qb_ipcs_connection {
 	enum qb_ipcs_connection_state state;
 	int32_t refcount;
 	pid_t pid;
 	uid_t euid;
 	gid_t egid;
+	struct qb_ipcs_connection_auth auth;
 	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;
 	struct qb_ipc_one_way response;

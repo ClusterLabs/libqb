@@ -769,3 +769,22 @@ qb_rb_chown(struct qb_ringbuffer_s * rb, uid_t owner, gid_t group)
 	}
 	return 0;
 }
+
+int32_t
+qb_rb_chmod(qb_ringbuffer_t * rb, mode_t mode)
+{
+	int32_t res;
+
+	if (rb == NULL) {
+		return -EINVAL;
+	}
+	res = chmod(rb->shared_hdr->data_path, mode);
+	if (res < 0) {
+		return -errno;
+	}
+	res = chmod(rb->shared_hdr->hdr_path, mode);
+	if (res < 0) {
+		return -errno;
+	}
+	return 0;
+}

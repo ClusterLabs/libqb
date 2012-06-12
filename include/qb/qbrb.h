@@ -285,6 +285,14 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags);
  */
 int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group);
 
+/**
+ * Like 'chmod' it changes the mode of the ringbuffers resources.
+ * @param mode mode to change to
+ * @param rb ringbuffer instance
+ * @retval 0 == ok
+ * @retval -errno for error
+ */
+int32_t qb_rb_chmod(qb_ringbuffer_t * rb, mode_t mode);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
