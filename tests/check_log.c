@@ -568,7 +568,48 @@ START_TEST(test_log_long_msg)
 }
 END_TEST
 
-static Suite *log_suite(void)
+START_TEST(test_threaded_logging)
+{
+	int32_t t;
+	int32_t rc;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(t, "%b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_THREADED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	qb_log_thread_start();
+
+	memset(test_buf, 0, sizeof(test_buf));
+	test_priority = 0;
+	num_msgs = 0;
+
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+	qb_log(LOG_INFO, "Yoda how old are you? - %d", __LINE__);
+
+	qb_log_fini();
+
+	ck_assert_int_eq(num_msgs, 10);
+}
+END_TEST
+
+static Suite *
+log_suite(void)
 {
 	TCase *tc;
 	Suite *s = suite_create("logging");
@@ -604,6 +645,10 @@ static Suite *log_suite(void)
 
 	tc = tcase_create("filter_ft");
 	tcase_add_test(tc, test_log_filter_fn);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("threaded_logging");
+	tcase_add_test(tc, test_threaded_logging);
 	suite_add_tcase(s, tc);
 
 	return s;

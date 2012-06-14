@@ -225,7 +225,7 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 		if (t->state != QB_LOG_STATE_ENABLED) {
 			continue;
 		}
-		if (t->threaded) {
+		if (!t->threaded) {
 			continue;
 		}
 		if (qb_bit_is_set(cs->targets, t->pos)) {

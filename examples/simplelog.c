@@ -235,10 +235,16 @@ main(int32_t argc, char *argv[])
 	func_one();
 	func_two();
 
-	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	if (!do_threaded) {
+		/* Disabling syslog here will prevent the logs from
+		 * getting flushed in qb_log_fini() if threaded
+		 * logging is on.
+		 */
+		qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 
-	qb_log(LOG_WARNING, "no syslog");
-	qb_log(LOG_ERR, "no syslog");
+		qb_log(LOG_WARNING, "no syslog");
+		qb_log(LOG_ERR, "no syslog");
+	}
 
 #if 0
 	// test blackbox
