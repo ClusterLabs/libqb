@@ -330,7 +330,7 @@ resend_event_notifications(struct qb_ipcs_connection *c)
 	ssize_t res = 0;
 
 	if (c->outstanding_notifiers > 0) {
-		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers,
+		res = qb_ipc_us_send(&c->setup, c->receive_buf,
 				     c->outstanding_notifiers);
 	}
 	if (res > 0) {
