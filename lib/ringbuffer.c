@@ -111,6 +111,7 @@ do {							\
 } while (0)
 
 static void print_header(struct qb_ringbuffer_s * rb);
+static void _rb_chunk_reclaim(struct qb_ringbuffer_s * rb);
 
 qb_ringbuffer_t *
 qb_rb_open(const char *name, size_t size, uint32_t flags,
@@ -404,7 +405,7 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
 		while (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
-			qb_rb_chunk_reclaim(rb);
+			_rb_chunk_reclaim(rb);
 		}
 	} else {
 		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
