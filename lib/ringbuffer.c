@@ -472,9 +472,12 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	rb->shared_hdr->write_pt = qb_rb_chunk_step(rb, old_write_pt);
 	QB_RB_CHUNK_MAGIC_SET(rb, old_write_pt, QB_RB_CHUNK_MAGIC);
 
-	DEBUG_PRINTF("%s: read: %u, write: %u (was:%u)\n", __func__,
-		     rb->shared_hdr->read_pt, rb->shared_hdr->write_pt,
-		     old_write_pt);
+	DEBUG_PRINTF("commit [%zd] read: %u, write: %u -> %u (%u)\n",
+		     (rb->sem_getvalue_fn ? rb->sem_getvalue_fn(rb) : 0),
+		     rb->shared_hdr->read_pt,
+		     old_write_pt,
+		     rb->shared_hdr->write_pt,
+		     rb->shared_hdr->word_size);
 
 	/*
 	 * post the notification to the reader
@@ -530,8 +533,10 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 	rb->shared_data[old_read_pt] = 0;
 	QB_RB_CHUNK_MAGIC_SET(rb, old_read_pt, QB_RB_CHUNK_MAGIC_DEAD);
 
-	DEBUG_PRINTF("%s: read: %u (was:%u), write: %u\n", __func__,
-		     rb->shared_hdr->read_pt, old_read_pt,
+	DEBUG_PRINTF("reclaim [%zd]: read: %u -> %u, write: %u\n",
+		     (rb->sem_getvalue_fn ? rb->sem_getvalue_fn(rb) : 0),
+		     old_read_pt,
+		     rb->shared_hdr->read_pt,
 		     rb->shared_hdr->write_pt);
 }
 
