@@ -517,6 +517,7 @@ static void
 _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 {
 	uint32_t old_read_pt;
+	uint32_t new_read_pt;
 	uint32_t chunk_magic;
 
 	old_read_pt = rb->shared_hdr->read_pt;
@@ -525,13 +526,21 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 		return;
 	}
 
-	rb->shared_hdr->read_pt = qb_rb_chunk_step(rb, old_read_pt);
+	new_read_pt = qb_rb_chunk_step(rb, old_read_pt);
 
 	/*
 	 * clear the header
 	 */
 	rb->shared_data[old_read_pt] = 0;
 	QB_RB_CHUNK_MAGIC_SET(rb, old_read_pt, QB_RB_CHUNK_MAGIC_DEAD);
+
+	/*
+	 * set the new read pointer after clearing the header
+	 * to prevent a situation where a fast writer will write their
+	 * new chunk between setting the new read pointer and clearing the
+	 * header.
+	 */
+	rb->shared_hdr->read_pt = new_read_pt;
 
 	DEBUG_PRINTF("reclaim [%zd]: read: %u -> %u, write: %u\n",
 		     (rb->sem_getvalue_fn ? rb->sem_getvalue_fn(rb) : 0),
