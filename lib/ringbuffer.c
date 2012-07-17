@@ -346,7 +346,11 @@ qb_rb_space_free(struct qb_ringbuffer_s * rb)
 	} else if (write_size < read_size) {
 		space_free = (read_size - write_size) - 1;
 	} else {
-		space_free = rb->shared_hdr->word_size;
+		if (rb->sem_getvalue_fn && rb->sem_getvalue_fn(rb) > 0) {
+			space_free = 0;
+		} else {
+			space_free = rb->shared_hdr->word_size;
+		}
 	}
 
 	/* word -> bytes */
