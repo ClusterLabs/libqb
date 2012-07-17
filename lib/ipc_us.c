@@ -604,7 +604,7 @@ handle_new_connection(struct qb_ipcs_service *s,
 		return -ENOMEM;
 	}
 
-	c->receive_buf = malloc(req->max_msg_size);
+	c->receive_buf = calloc(1, req->max_msg_size);
 	if (c->receive_buf == NULL) {
 		free(c);
 		qb_ipcc_us_sock_close(sock);

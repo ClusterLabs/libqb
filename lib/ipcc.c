@@ -52,7 +52,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	c->response.max_msg_size = response.max_msg_size;
 	c->request.max_msg_size = response.max_msg_size;
 	c->event.max_msg_size = response.max_msg_size;
-	c->receive_buf = malloc(response.max_msg_size);
+	c->receive_buf = calloc(1, response.max_msg_size);
 	c->fc_enable_max = 1;
 	if (c->receive_buf == NULL) {
 		res = -ENOMEM;
