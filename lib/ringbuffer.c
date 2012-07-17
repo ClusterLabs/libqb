@@ -78,8 +78,10 @@ do {							\
  * QB_CACHE_LINE_WORDS is to make sure we have space to align the
  * chunk.
  */
+#define QB_RB_WORD_ALIGN 1
 #define QB_RB_CHUNK_MARGIN (sizeof(uint32_t) * (QB_RB_CHUNK_HEADER_WORDS +\
-						1 + QB_CACHE_LINE_WORDS))
+						QB_RB_WORD_ALIGN +\
+						QB_CACHE_LINE_WORDS))
 #define QB_RB_CHUNK_MAGIC		0xA1A1A1A1
 #define QB_RB_CHUNK_MAGIC_DEAD		0xD0D0D0D0
 #define QB_RB_CHUNK_MAGIC_ALLOC		0xA110CED0
@@ -420,13 +422,11 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	rb->shared_data[write_pt] = 0;
 	QB_RB_CHUNK_MAGIC_SET(rb, write_pt, QB_RB_CHUNK_MAGIC_ALLOC);
-	write_pt += QB_RB_CHUNK_HEADER_WORDS;
-	idx_step(write_pt);
 
 	/*
 	 * return a pointer to the beginning of the chunk data
 	 */
-	return (void *)&rb->shared_data[write_pt];
+	return (void *)QB_RB_CHUNK_DATA_GET(rb, write_pt);
 
 }
 
@@ -444,7 +444,7 @@ qb_rb_chunk_step(struct qb_ringbuffer_s * rb, uint32_t pointer)
 	 */
 	pointer += (chunk_size / sizeof(uint32_t));
 	/* make allowance for non-word sizes */
-	if ((chunk_size % sizeof(uint32_t)) != 0) {
+	if ((chunk_size % (sizeof(uint32_t) * QB_RB_WORD_ALIGN)) != 0) {
 		pointer++;
 	}
 
