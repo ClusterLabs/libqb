@@ -570,6 +570,9 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 	read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+		if (rb->sem_post_fn) {
+			(void)rb->sem_post_fn(rb);
+		}
 		return 0;
 	}
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
@@ -606,6 +609,7 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		if (rb->sem_timedwait_fn == NULL) {
 			return -ETIMEDOUT;
 		} else {
+			(void)rb->sem_post_fn(rb);
 			return -EBADMSG;
 		}
 	}
@@ -615,6 +619,7 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		qb_util_log(LOG_ERR,
 			    "trying to recv chunk of size %d but %d available",
 			    len, chunk_size);
+		(void)rb->sem_post_fn(rb);
 		return -ENOBUFS;
 	}
 
