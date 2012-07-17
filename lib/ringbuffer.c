@@ -88,13 +88,9 @@ do {							\
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
 	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size]
 #define QB_RB_CHUNK_MAGIC_SET(rb, pointer, new_val) \
-do {							\
-	if ((pointer + 1) > (rb->shared_hdr->word_size - 1)) {		\
-	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size] = new_val; \
-	} else {						\
-	rb->shared_data[(pointer + 1)] = new_val; \
-	} \
-} while (0)
+	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size] = new_val;
+#define QB_RB_CHUNK_DATA_GET(rb, pointer) \
+	&rb->shared_data[(pointer + QB_RB_CHUNK_HEADER_WORDS) % rb->shared_hdr->word_size]
 
 #define QB_MAGIC_ASSERT(_ptr_) \
 do {							\
@@ -580,7 +576,7 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 		return 0;
 	}
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
-	*data_out = &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS];
+	*data_out = QB_RB_CHUNK_DATA_GET(rb, read_pt);
 	return chunk_size;
 }
 
@@ -626,9 +622,9 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		(void)rb->sem_post_fn(rb);
 		return -ENOBUFS;
 	}
-
+	;
 	memcpy(data_out,
-	       &rb->shared_data[read_pt + QB_RB_CHUNK_HEADER_WORDS],
+	       QB_RB_CHUNK_DATA_GET(rb, read_pt),
 	       chunk_size);
 
 	_rb_chunk_reclaim(rb);
