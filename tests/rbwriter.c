@@ -65,10 +65,10 @@ static void sigterm_handler(int32_t num)
 }
 
 static void
-_benchmark(int write_size)
+_benchmark(ssize_t write_size)
 {
 	struct timeval tv1, tv2, tv_elapsed;
-	unsigned int res;
+	ssize_t res;
 	int write_count = 0;
 
 	alarm_notice = 0;
@@ -89,7 +89,7 @@ _benchmark(int write_size)
 	timersub (&tv2, &tv1, &tv_elapsed);
 
 	printf ("%5d messages sent ", write_count);
-	printf ("%5d bytes per write ", write_size);
+	printf ("%5ld bytes per write ", (long int) write_size);
 	printf ("%7.3f Seconds runtime ",
 		(tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
 	printf ("%9.3f TP/s ",
