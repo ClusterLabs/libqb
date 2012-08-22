@@ -11,7 +11,7 @@ AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
 AC_USE_SYSTEM_EXTENSIONS
 
-AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
+AM_INIT_AUTOMAKE([-Wno-portability dist-xz])
 dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
 dnl normal compilation.  When a failure occurs, it will then display the full
 dnl command line
