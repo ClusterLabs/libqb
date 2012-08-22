@@ -1,0 +1,5 @@
+language: c
+compiler:
+  - gcc
+before_install: sudo apt-get install check doxygen splint
+script: ./autogen.sh && ./configure && make check
