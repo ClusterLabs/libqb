@@ -3,3 +3,7 @@ compiler:
   - gcc
 before_install: sudo apt-get install check doxygen splint
 script: ./autogen.sh && ./configure && make check
+notifications:
+  email:
+    recipients:
+      - quarterback-devel@lists.fedorahosted.org
