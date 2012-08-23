@@ -905,6 +905,13 @@ retry_accept:
 
 	res = qb_ipcs_uc_recv_and_auth(new_fd, &setup_msg, sizeof(setup_msg),
 				       &ugp);
+	if (res < 0) {
+		close(new_fd);
+		/* This is an error, but -1 would indicate disconnect
+		 * from the poll loop
+		 */
+		return 0;
+	}
 
 	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
 		(void)handle_new_connection(s, res, new_fd, &setup_msg,
