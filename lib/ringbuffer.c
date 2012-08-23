@@ -766,7 +766,6 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	return rb;
 
 cleanup_fail:
-	free(rb->shared_hdr);
 	qb_rb_close(rb);
 	return NULL;
 }
