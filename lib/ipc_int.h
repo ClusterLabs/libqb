@@ -198,4 +198,6 @@ void qb_ipcs_sockets_disconnect(struct qb_ipcs_connection *c);
 int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 	struct qb_ipc_request_header *hdr);
 
+int32_t qb_ipc_us_sock_error_is_disconnected(int err);
+
 #endif /* QB_IPC_INT_H_DEFINED */

@@ -749,10 +749,18 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 
 	if (c->service->needs_sock_for_poll && avail == 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
-		qb_util_log(LOG_WARNING,
-			    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
-			    c->description, fd, res2);
-		return 0;
+		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
+			errno = -res2;
+			qb_util_perror(LOG_WARNING, "conn (%s) disconnected",
+				       c->description);
+			qb_ipcs_disconnect(c);
+			return -ESHUTDOWN;
+		} else {
+			qb_util_log(LOG_WARNING,
+				    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
+				    c->description, fd, res2);
+			return 0;
+		}
 	}
 
 	do {

@@ -93,13 +93,7 @@ _check_connection_state(struct qb_ipcc_connection * c, int32_t res)
 {
 	if (res >= 0) return;
 
-	if (res != -EAGAIN &&
-	    res != -ETIMEDOUT &&
-	    res != -EINTR &&
-#ifdef EWOULDBLOCK
-	    res != -EWOULDBLOCK &&
-#endif
-	    res != -EINVAL) {
+	if (qb_ipc_us_sock_error_is_disconnected(res)) {
 		errno = -res;
 		qb_util_perror(LOG_DEBUG,
 			    "interpreting result %d as a disconnect",

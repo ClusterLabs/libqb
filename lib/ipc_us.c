@@ -202,6 +202,21 @@ retry_recv:
 }
 
 int32_t
+qb_ipc_us_sock_error_is_disconnected(int err)
+{
+	if (err == -EAGAIN ||
+	    err == -ETIMEDOUT ||
+	    err == -EINTR ||
+#ifdef EWOULDBLOCK
+	    err == -EWOULDBLOCK ||
+#endif
+	    err == -EINVAL) {
+		return QB_FALSE;
+	}
+	return QB_TRUE;
+}
+
+int32_t
 qb_ipc_us_ready(struct qb_ipc_one_way * one_way,
 		int32_t ms_timeout, int32_t events)
 {
