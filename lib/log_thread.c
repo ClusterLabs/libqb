@@ -152,6 +152,8 @@ qb_log_thread_start(void)
 	}
 
 	wthread_active = 1;
+	sem_init(&logt_thread_start, 0, 0);
+	sem_init(&logt_print_finished, 0, 0);
 	res = pthread_create(&logt_thread_id, NULL,
 			     qb_logt_worker_thread, NULL);
 	if (res != 0) {
@@ -179,6 +181,8 @@ cleanup_pthread:
 	wthread_should_exit = 1;
 	sem_post(&logt_print_finished);
 	pthread_join(logt_thread_id, NULL);
+	sem_destroy(&logt_print_finished);
+	sem_destroy(&logt_thread_start);
 
 	return res;
 }
@@ -270,4 +274,6 @@ qb_log_thread_stop(void)
 		pthread_join(logt_thread_id, NULL);
 	}
 	(void)qb_thread_lock_destroy(logt_wthread_lock);
+	sem_destroy(&logt_print_finished);
+	sem_destroy(&logt_thread_start);
 }
