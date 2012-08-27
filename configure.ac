@@ -257,7 +257,6 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
-LIB_RT=-lrt
 ipc_needs_response_ack=yes
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
@@ -271,7 +270,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
-		LIB_RT=
 		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902'
@@ -390,7 +388,6 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$localstatedir/run" ])
 
 AC_SUBST(CP)
-AC_SUBST(LIB_RT)
 # *FLAGS handling goes here
 
 ENV_CFLAGS="$CFLAGS"
