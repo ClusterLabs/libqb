@@ -134,6 +134,7 @@ retry_poll:
 
 	for (i = 0; i < event_count; i++) {
 		revents = 0;
+		pe = events[i].udata;
 		if (events[i].flags) {
 			qb_util_log(LOG_INFO,
 				    "got flags %d on fd %d.", events[i].flags, pe->ufd.fd);
@@ -154,7 +155,6 @@ retry_poll:
 		if (events[i].filter == EVFILT_WRITE) {
 			revents |= POLLOUT;
 		}
-		pe = events[i].udata;
 		if (pe->ufd.fd != events[i].ident) {
 			qb_util_log(LOG_WARNING,
 				    "can't find poll entry for new event.");
