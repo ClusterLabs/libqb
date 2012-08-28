@@ -275,7 +275,7 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 		use_posix = QB_FALSE;
 	#else
 		#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED)
-#error you do not seem to have a usable shared process semaphore
+		return -ENOTSUP;
 		#endif
 		use_posix = QB_TRUE;
 	#endif /* HAVE_SEMTIMEDOP */
