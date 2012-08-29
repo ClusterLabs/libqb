@@ -953,7 +953,7 @@ make_soc_suite(void)
 
 	tc = tcase_create("ipc_exit_us");
 	tcase_add_test(tc, test_ipc_exit_us);
-	tcase_set_timeout(tc, 3);
+	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_dispatch_us");
