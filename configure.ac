@@ -184,6 +184,8 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
 		pthread_spin_lock pthread_setschedparam \
+                pthread_mutexattr_setpshared \
+                pthread_condattr_setpshared \
 		sem_timedwait semtimedop \
 		sched_get_priority_max sched_setscheduler \
 		getpeerucred getpeereid])
