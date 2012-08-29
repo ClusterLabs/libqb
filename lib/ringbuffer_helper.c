@@ -255,31 +255,18 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	int32_t rc;
 	int32_t use_posix = QB_TRUE;
 
-/*
- * if we need QB_RB_FLAG_SHARED_PROCESS
- * then the order of choice is:
- * 1) real posix sem
- * 2) sysv sems (if we have semtimedop)
- * 3) faked sems using pthread_cond_timedwait
- * 4) sysv sems (if we do NOT have semtimedop)
- *
- * if we need QB_RB_FLAG_SHARED_THREAD
- * then always use posix sem (real or using pthread_cond_timedwait)
- */
-
-	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
-#ifdef HAVE_SEM_TIMEDWAIT
+	if ((flags & QB_RB_FLAG_SHARED_PROCESS) &&
+	    !(flags & QB_RB_FLAG_NO_SEMAPHORE)) {
+#if defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
+    defined(HAVE_RPL_PSHARED_SEMAPHORE)
 		use_posix = QB_TRUE;
 #else
-	#ifdef HAVE_SEMTIMEDOP
+	#ifdef HAVE_SYSV_PSHARED_SEMAPHORE
 		use_posix = QB_FALSE;
 	#else
-		#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED)
 		return -ENOTSUP;
-		#endif
-		use_posix = QB_TRUE;
-	#endif /* HAVE_SEMTIMEDOP */
-#endif /* HAVE_SEM_TIMEDWAIT */
+	#endif /* HAVE_SYSV_PSHARED_SEMAPHORE */
+#endif /* HAVE_POSIX_PSHARED_SEMAPHORE */
 	}
 	if (flags & QB_RB_FLAG_NO_SEMAPHORE) {
 		rc = 0;

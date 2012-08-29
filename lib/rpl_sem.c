@@ -24,17 +24,17 @@ rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count)
 	pthread_mutexattr_t mattr;
 	pthread_condattr_t cattr;
 
-#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED)
+#ifndef HAVE_RPL_PSHARED_SEMAPHORE
 	if (pshared) {
 		errno = ENOSYS;
 		return -1;
 	}
-#endif
+#endif /* HAVE_RPL_PSHARED_SEMAPHORE */
 	sem->count = count;
 
 	(void)pthread_mutexattr_init(&mattr);
 	(void)pthread_condattr_init(&cattr);
-#ifndef DISABLE_POSIX_THREAD_PROCESS_SHARED
+#ifdef HAVE_RPL_PSHARED_SEMAPHORE
 	if (pshared) {
 		rc = pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
 		if (rc != 0) {
@@ -45,7 +45,7 @@ rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count)
 			goto cleanup;
 		}
 	}
-#endif /* DISABLE_POSIX_THREAD_PROCESS_SHARED */
+#endif /* HAVE_RPL_PSHARED_SEMAPHORE */
 	rc = pthread_mutex_init(&sem->mutex, &mattr);
 	if (rc != 0) {
 		goto cleanup;

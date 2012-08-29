@@ -101,11 +101,13 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 		qb_ipcs_us_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_SHM:
-#if defined (HAVE_SEM_TIMEDWAIT) || defined(HAVE_SEMTIMEDOP)
+#if defined(HAVE_SYSV_PSHARED_SEMAPHORE) || \
+    defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
+    defined(HAVE_RPL_PSHARED_SEMAPHORE)
 		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
 #else
 		res = -ENOTSUP;
-#endif /* HAVE_SEM_TIMEDWAIT or HAVE_SEMTIMEDOP */
+#endif /* HAVE PSHARED SEMAPHORE */
 		break;
 	case QB_IPC_POSIX_MQ:
 	case QB_IPC_SYSV_MQ:
