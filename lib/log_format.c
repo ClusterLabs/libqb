@@ -379,18 +379,16 @@ qb_log_target_format(int32_t target,
 }
 
 size_t
-qb_vsprintf_serialize(char *serialize, const char *fmt, va_list ap)
+qb_vsnprintf_serialize(char *serialize, size_t max_len,
+		       const char *fmt, va_list ap)
 {
 	char *format;
 	char *p;
-	uint32_t location = 0;
 	int type_long = 0;
 	int type_longlong = 0;
         int sformat_length = 0;
         int sformat_precision = 0;
-
-	p = stpcpy(serialize, fmt);
-	location = p - serialize + 1;
+	uint32_t location = strlcpy(serialize, fmt, max_len) + 1;
 
 	format = (char *)fmt;
 	for (;;) {
@@ -433,6 +431,9 @@ reprocess:
 			goto reprocess;
 		case '*': /* variable field width, save */ {
 			int arg_int = va_arg(ap, int);
+			if (location + sizeof (int) > max_len) {
+				return max_len;
+			}
 			memcpy(&serialize[location], &arg_int, sizeof (int));
 			location += sizeof(int);
 			format++;
@@ -456,6 +457,9 @@ reprocess:
 			if (type_long) {
 				long int arg_int;
 
+				if (location + sizeof (long int) > max_len) {
+					return max_len;
+				}
 				arg_int = va_arg(ap, long int);
 				memcpy(&serialize[location], &arg_int,
 				       sizeof(long int));
@@ -465,6 +469,9 @@ reprocess:
 			} else if (type_longlong) {
 				long long int arg_int;
 
+				if (location + sizeof (long long int) > max_len) {
+					return max_len;
+				}
 				arg_int = va_arg(ap, long long int);
 				memcpy(&serialize[location], &arg_int,
 				       sizeof(long long int));
@@ -474,6 +481,9 @@ reprocess:
 			} else {
 				int arg_int;
 
+				if (location + sizeof (int) > max_len) {
+					return max_len;
+				}
 				arg_int = va_arg(ap, int);
 				memcpy(&serialize[location], &arg_int,
 				       sizeof(int));
@@ -492,6 +502,9 @@ reprocess:
 			{
 			double arg_double;
 
+			if (location + sizeof (double) > max_len) {
+				return max_len;
+			}
 			arg_double = va_arg(ap, double);
 			memcpy (&serialize[location], &arg_double, sizeof (double));
 			location += sizeof(double);
@@ -503,6 +516,9 @@ reprocess:
 			int arg_int;
 			unsigned char arg_char;
 
+			if (location + sizeof (unsigned int) > max_len) {
+				return max_len;
+			}
 			arg_int = va_arg(ap, unsigned int);
 			arg_char = (unsigned char)arg_int;
 			memcpy (&serialize[location], &arg_char, sizeof (unsigned char));
@@ -514,24 +530,38 @@ reprocess:
 			char *arg_string;
 			arg_string = va_arg(ap, char *);
 			if (arg_string == NULL) {
-				p = stpcpy(&serialize[location], "(null)");
+				location += strlcpy(&serialize[location],
+						   "(null)",
+						   QB_MIN(strlen("(null)") + 1,
+							  max_len - location));
 			} else if (sformat_length) {
-                                p = stpncpy(&serialize[location], arg_string, sformat_length);
-                                serialize[location+sformat_length] = 0;
+                                location += strlcpy(&serialize[location],
+						   arg_string,
+						   QB_MIN(sformat_length + 1,
+						   (max_len - location)));
 			} else {
-				p = stpcpy(&serialize[location], arg_string);
+				location += strlcpy(&serialize[location],
+						   arg_string,
+						   QB_MIN(strlen(arg_string) + 1,
+							  max_len - location));
 			}
-			location += p - &serialize[location] + 1;
+			location++;
 			break;
 			}
 		case 'p':
 			{
 			ptrdiff_t arg_pointer = va_arg(ap, ptrdiff_t);
+			if (location + sizeof (ptrdiff_t) > max_len) {
+				return max_len;
+			}
 			memcpy(&serialize[location], &arg_pointer, sizeof(ptrdiff_t));
 			location += sizeof(ptrdiff_t);
 			break;
 			}
 		case '%':
+			if (location + 1 > max_len) {
+				return max_len;
+			}
 			serialize[location++] = '%';
                         sformat_length = 0;
                         sformat_precision = 0;
@@ -558,14 +588,15 @@ qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
 	int type_longlong = 0;
 	int len;
 
+	string[0] = '\0';
 	format = (char *)buf;
 	for (;;) {
 		type_long = 0;
 		type_longlong = 0;
 		p = strchrnul((const char *)format, '%');
 		if (*p == '\0') {
-			p = stpcpy(&string[location], format);
-			location += p - &string[location] + 1;
+			location = strlcat(&string[location], format, str_len) + 1;
+			p += location;
 			break;
 		}
 		/* copy from current to the next % */

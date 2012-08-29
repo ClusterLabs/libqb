@@ -200,7 +200,7 @@ AM_CONDITIONAL(HAVE_KQUEUE,
 	       [test "x$ac_cv_func_kqueue" = xyes])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
-AC_REPLACE_FUNCS(strlcpy strlcat strchrnul stpcpy)
+AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
 
 ## local defines
 PACKAGE_FEATURES=""
