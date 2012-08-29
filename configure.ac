@@ -297,6 +297,10 @@ case "$host_os" in
 				# callback locks up.
 				ac_cv_link_attribute_section=no
 			;;
+			*netbsd*)
+				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
+					   [Unix path length])
+			;;
 		esac
 		AC_MSG_RESULT([BSD])
 	;;
