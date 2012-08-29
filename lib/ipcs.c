@@ -45,11 +45,13 @@ qb_ipcs_create(const char *name,
 		return NULL;
 	}
 	if (type == QB_IPC_NATIVE) {
-#if defined (HAVE_SEM_TIMEDWAIT) || defined(HAVE_SEMTIMEDOP)
+#if defined(HAVE_SYSV_PSHARED_SEMAPHORE) || \
+    defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
+    defined(HAVE_RPL_PSHARED_SEMAPHORE)
 		s->type = QB_IPC_SHM;
 #else
 		s->type = QB_IPC_SOCKET;
-#endif /* HAVE_SEM_TIMEDWAIT */
+#endif /* HAVE PSHARED SEMAPHORE */
 	} else {
 		s->type = type;
 	}
