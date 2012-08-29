@@ -851,7 +851,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 			ugp->uid = cred.uid;
 			ugp->gid = cred.gid;
 		} else {
-			res = -EBADMSG;
+			res = -EINVAL;
 		}
 	}
 #else /* no credentials */

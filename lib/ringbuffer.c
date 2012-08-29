@@ -624,7 +624,11 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 			return -ETIMEDOUT;
 		} else {
 			(void)rb->sem_post_fn(rb);
+#ifdef EBADMSG
 			return -EBADMSG;
+#else
+			return -EINVAL;
+#endif
 		}
 	}
 
