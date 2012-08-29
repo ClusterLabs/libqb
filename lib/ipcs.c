@@ -519,7 +519,7 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->request.type = s->type;
 	c->response.type = s->type;
 	c->event.type = s->type;
-	strcpy(c->description, "not set yet");
+	strlcpy(c->description, "not set yet", CONNECTION_DESCRIPTION);
 
 	return c;
 }
