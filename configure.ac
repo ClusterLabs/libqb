@@ -293,6 +293,9 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 			*netbsd*)
+				# this is because dlopen within a dl_iterate_phdr
+				# callback locks up.
+				ac_cv_link_attribute_section=no
 			;;
 		esac
 		AC_MSG_RESULT([BSD])
