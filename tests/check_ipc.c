@@ -983,12 +983,12 @@ main(void)
 	int32_t number_failed;
 	SRunner *sr;
 	Suite *s;
-	int32_t do_shm_tests = QB_TRUE;
+	int32_t do_shm_tests = QB_FALSE;
 
 #if defined(HAVE_SYSV_PSHARED_SEMAPHORE) || \
     defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
     defined(HAVE_RPL_PSHARED_SEMAPHORE)
-	do_shm_tests = QB_FALSE;
+	do_shm_tests = QB_TRUE;
 #endif /* HAVE PSHARED SEMAPHORE */
 
 	s = make_soc_suite();
