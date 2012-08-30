@@ -136,8 +136,9 @@ retry_poll:
 		revents = 0;
 		pe = events[i].udata;
 		if (events[i].flags) {
-			qb_util_log(LOG_INFO,
-				    "got flags %d on fd %d.", events[i].flags, pe->ufd.fd);
+			qb_util_log(LOG_TRACE,
+				    "got flags %d on fd %d.", events[i].flags,
+				    pe->ufd.fd);
 		}
 		if (events[i].flags & EV_ERROR) {
 			qb_util_log(LOG_WARNING,
