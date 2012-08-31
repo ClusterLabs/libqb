@@ -150,6 +150,12 @@
 #define HAVE_SYSV_PSHARED_SEMAPHORE 1
 #endif /* HAVE_SEM_TIMEDWAIT */
 
+#if !defined(HAVE_SYSV_PSHARED_SEMAPHORE) && \
+    !defined(HAVE_POSIX_PSHARED_SEMAPHORE) && \
+    !defined(HAVE_RPL_PSHARED_SEMAPHORE)
+#define DISABLE_IPC_SHM 1
+#endif /* HAVE PSHARED SEMAPHORE */
+
 #ifndef HAVE_STRCHRNUL
 char *strchrnul (const char *s, int c_in);
 #endif

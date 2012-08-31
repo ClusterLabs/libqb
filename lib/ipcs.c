@@ -45,13 +45,11 @@ qb_ipcs_create(const char *name,
 		return NULL;
 	}
 	if (type == QB_IPC_NATIVE) {
-#if defined(HAVE_SYSV_PSHARED_SEMAPHORE) || \
-    defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
-    defined(HAVE_RPL_PSHARED_SEMAPHORE)
-		s->type = QB_IPC_SHM;
-#else
+#ifdef DISABLE_IPC_SHM
 		s->type = QB_IPC_SOCKET;
-#endif /* HAVE PSHARED SEMAPHORE */
+#else
+		s->type = QB_IPC_SHM;
+#endif /* DISABLE_IPC_SHM */
 	} else {
 		s->type = type;
 	}
@@ -103,13 +101,11 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 		qb_ipcs_us_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_SHM:
-#if defined(HAVE_SYSV_PSHARED_SEMAPHORE) || \
-    defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
-    defined(HAVE_RPL_PSHARED_SEMAPHORE)
-		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
-#else
+#ifdef DISABLE_IPC_SHM
 		res = -ENOTSUP;
-#endif /* HAVE PSHARED SEMAPHORE */
+#else
+		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
+#endif /* DISABLE_IPC_SHM */
 		break;
 	case QB_IPC_POSIX_MQ:
 	case QB_IPC_SYSV_MQ:
@@ -272,12 +268,6 @@ qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.send(&c->response, data, size);
 	if (res == size) {
-#ifdef IPC_NEEDS_RESPONSE_ACK
-		int32_t resn = new_event_notification(c);
-		if (resn < 0 && resn != -EAGAIN) {
-			res = resn;
-		}
-#endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
@@ -306,12 +296,6 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.sendv(&c->response, iov, iov_len);
 	if (res > 0) {
-#ifdef IPC_NEEDS_RESPONSE_ACK
-		int32_t resn = new_event_notification(c);
-		if (resn < 0 && resn != -EAGAIN) {
-			res = resn;
-		}
-#endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);

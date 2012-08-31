@@ -259,7 +259,6 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
-ipc_needs_response_ack=no
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
@@ -306,8 +305,9 @@ case "$host_os" in
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
-		ipc_needs_response_ack=yes
 		ac_cv_link_attribute_section=no
+		AC_DEFINE_UNQUOTED(DISABLE_IPC_SHM, 1,
+				   [Disable shared mem ipc])
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
 				   [Compiling for Solaris platform])
 		CP=rsync
@@ -317,11 +317,6 @@ case "$host_os" in
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;
 esac
-
-if test "x$ipc_needs_response_ack" = xyes; then
-	AC_DEFINE_UNQUOTED(IPC_NEEDS_RESPONSE_ACK, 1,
-			   [ipc needs a response ack])
-fi
 
 AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
 if test -z "$gcc_has_builtin_atomic_operations"; then

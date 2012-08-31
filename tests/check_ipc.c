@@ -983,13 +983,11 @@ main(void)
 	int32_t number_failed;
 	SRunner *sr;
 	Suite *s;
-	int32_t do_shm_tests = QB_FALSE;
+	int32_t do_shm_tests = QB_TRUE;
 
-#if defined(HAVE_SYSV_PSHARED_SEMAPHORE) || \
-    defined(HAVE_POSIX_PSHARED_SEMAPHORE) || \
-    defined(HAVE_RPL_PSHARED_SEMAPHORE)
-	do_shm_tests = QB_TRUE;
-#endif /* HAVE PSHARED SEMAPHORE */
+#ifdef DISABLE_IPC_SHM
+	do_shm_tests = QB_FALSE;
+#endif /* DISABLE_IPC_SHM */
 
 	s = make_soc_suite();
 	sr = srunner_create(s);
