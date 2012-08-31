@@ -259,11 +259,10 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
-ipc_needs_response_ack=yes
+ipc_needs_response_ack=no
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
-		ipc_needs_response_ack=no
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
 		AC_MSG_RESULT([Linux])
@@ -296,8 +295,6 @@ case "$host_os" in
 				# this is because dlopen within a dl_iterate_phdr
 				# callback locks up.
 				ac_cv_link_attribute_section=no
-			;;
-			*netbsd*)
 				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
 					   [Unix path length])
 			;;
@@ -305,6 +302,7 @@ case "$host_os" in
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
+		ipc_needs_response_ack=yes
 		ac_cv_link_attribute_section=no
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
 				   [Compiling for Solaris platform])
