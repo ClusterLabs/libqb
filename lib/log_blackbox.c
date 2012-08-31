@@ -51,7 +51,7 @@ _blackbox_vlogger(int32_t target,
 {
 	size_t max_size;
 	size_t actual_size;
-	size_t fn_size;
+	uint32_t fn_size;
 	char *chunk;
 	char *msg_len_pt;
 	uint32_t msg_len;
@@ -200,7 +200,6 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		time_t timestamp;
 		uint32_t msg_len;
 		char message[QB_LOG_MAX_LEN];
-		uint32_t u32;
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, max_size, 0);
 		ptr = chunk;
@@ -226,8 +225,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 			ptr += fn_size;
 
 			/* timestamp size & content */
-			memcpy(&u32, ptr, sizeof(uint32_t));
-			timestamp = u32;
+			memcpy(&timestamp, ptr, sizeof(time_t));
 			ptr += sizeof(time_t);
 			tm = localtime(&timestamp);
 			if (tm) {
