@@ -298,6 +298,10 @@ case "$host_os" in
 				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
 					   [Unix path length])
 			;;
+			*openbsd*)
+				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [104],
+					   [Unix path length])
+			;;
 		esac
 		AC_MSG_RESULT([BSD])
 	;;
