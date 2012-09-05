@@ -413,6 +413,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		return res;
 	}
 
+	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_AUTHENTICATE;
 	request.hdr.size = sizeof(request);
 	request.max_msg_size = c->setup.max_msg_size;
@@ -492,6 +493,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 		goto cleanup_hdr;
 	}
 
+	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_NEW_EVENT_SOCK;
 	request.hdr.size = sizeof(request);
 	request.connection = r->connection;
