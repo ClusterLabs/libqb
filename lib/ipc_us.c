@@ -407,11 +407,19 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 {
 	int32_t res;
 	struct qb_ipc_connection_request request;
+#ifdef QB_LINUX
+	int off = 0;
+	int on = 1;
+#endif
 
 	res = qb_ipcc_us_sock_connect(c->name, &c->setup.u.us.sock);
 	if (res != 0) {
 		return res;
 	}
+
+#ifdef QB_LINUX
+	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+#endif
 
 	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_AUTHENTICATE;
@@ -422,6 +430,10 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return res;
 	}
+
+#ifdef QB_LINUX
+	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
+#endif
 
 	res =
 	    qb_ipc_us_recv(&c->setup, r,
