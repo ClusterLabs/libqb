@@ -595,9 +595,7 @@ qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
 		type_longlong = 0;
 		p = strchrnul((const char *)format, '%');
 		if (*p == '\0') {
-			location = strlcat(&string[location], format, str_len) + 1;
-			p += location;
-			break;
+			return strlcat(string, format, str_len) + 1;
 		}
 		/* copy from current to the next % */
 		len = p - format;
