@@ -856,16 +856,19 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	 */
 	{
 		struct ucred cred;
-		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg_recv);
-		assert(cmsg != NULL);
-		if (CMSG_DATA(cmsg)) {
+		struct cmsghdr *cmsg;
+
+		res = -EINVAL;
+		for (cmsg = CMSG_FIRSTHDR(&msg_recv); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg_recv, cmsg)) {
+			if (cmsg->cmsg_type != SCM_CREDENTIALS)
+				continue;
+
 			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
 			res = 0;
 			ugp->pid = cred.pid;
 			ugp->uid = cred.uid;
 			ugp->gid = cred.gid;
-		} else {
-			res = -EINVAL;
+			break;
 		}
 	}
 #else /* no credentials */
