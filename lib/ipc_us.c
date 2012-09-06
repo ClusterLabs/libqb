@@ -372,7 +372,7 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 	address.sun_len = QB_SUN_LEN(&address);
 #endif
 
-#if defined(QB_LINUX)
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
 	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 #else
 	snprintf(address.sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR,
@@ -557,7 +557,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 
 	qb_util_log(LOG_INFO, "server name: %s", s->name);
-#if defined(QB_LINUX)
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
 	snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX - 1, "%s", s->name);
 #else
 	{
@@ -589,7 +589,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	 * Allow everyone to write to the socket since the IPC layer handles
 	 * security automatically
 	 */
-#if !defined(QB_LINUX)
+#if !defined(QB_LINUX) && !defined(QB_CYGWIN)
 	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
@@ -778,7 +778,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
 
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	char cmsg_cred[CMSG_SPACE(sizeof(struct ucred))];
 	int off = 0;
 	int on = 1;
@@ -787,7 +787,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	msg_recv.msg_iovlen = 1;
 	msg_recv.msg_name = 0;
 	msg_recv.msg_namelen = 0;
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	msg_recv.msg_control = (void *)cmsg_cred;
 	msg_recv.msg_controllen = sizeof(cmsg_cred);
 #endif
@@ -800,7 +800,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 
 	iov_recv.iov_base = msg;
 	iov_recv.iov_len = len;
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
@@ -880,7 +880,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 
 cleanup_and_return:
 
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
 #endif
 

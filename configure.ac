@@ -266,6 +266,14 @@ case "$host_os" in
 				   [Compiling for Linux platform])
 		AC_MSG_RESULT([Linux])
 	;;
+	*cygwin*)
+		AC_DEFINE_UNQUOTED([QB_CYGWIN], [1],
+				   [Compiling for Cygwin platform])
+		ac_cv_link_attribute_section=no
+		nongcc_memory_barrier_needed=yes
+		gcc_has_builtin_atomic_operations=no
+		AC_MSG_RESULT([Cygwin])
+	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
