@@ -407,12 +407,21 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 {
 	int32_t res;
 	struct qb_ipc_connection_request request;
+#ifdef QB_LINUX
+	int off = 0;
+	int on = 1;
+#endif
 
 	res = qb_ipcc_us_sock_connect(c->name, &c->setup.u.us.sock);
 	if (res != 0) {
 		return res;
 	}
 
+#ifdef QB_LINUX
+	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+#endif
+
+	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_AUTHENTICATE;
 	request.hdr.size = sizeof(request);
 	request.max_msg_size = c->setup.max_msg_size;
@@ -421,6 +430,10 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return res;
 	}
+
+#ifdef QB_LINUX
+	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
+#endif
 
 	res =
 	    qb_ipc_us_recv(&c->setup, r,
@@ -492,6 +505,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 		goto cleanup_hdr;
 	}
 
+	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_NEW_EVENT_SOCK;
 	request.hdr.size = sizeof(request);
 	request.connection = r->connection;
@@ -842,16 +856,19 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	 */
 	{
 		struct ucred cred;
-		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg_recv);
-		assert(cmsg != NULL);
-		if (CMSG_DATA(cmsg)) {
+		struct cmsghdr *cmsg;
+
+		res = -EINVAL;
+		for (cmsg = CMSG_FIRSTHDR(&msg_recv); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg_recv, cmsg)) {
+			if (cmsg->cmsg_type != SCM_CREDENTIALS)
+				continue;
+
 			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
 			res = 0;
 			ugp->pid = cred.pid;
 			ugp->uid = cred.uid;
 			ugp->gid = cred.gid;
-		} else {
-			res = -EINVAL;
+			break;
 		}
 	}
 #else /* no credentials */
