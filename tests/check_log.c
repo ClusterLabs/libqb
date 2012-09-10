@@ -600,6 +600,7 @@ START_TEST(test_log_long_msg)
 
         qb_log_blackbox_write_to_file("blackbox.dump");
         qb_log_blackbox_print_from_file("blackbox.dump");
+	unlink("blackbox.dump");
 	qb_log_fini();
 }
 END_TEST
