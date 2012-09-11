@@ -467,6 +467,8 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	int32_t fd_hdr;
 	char * shm_ptr;
 
+	qb_atomic_init();
+
 	c->needs_sock_for_poll = QB_FALSE;
 	c->funcs.send = qb_ipc_us_send;
 	c->funcs.sendv = qb_ipc_us_sendv;
@@ -1110,4 +1112,6 @@ qb_ipcs_us_init(struct qb_ipcs_service *s)
 	s->funcs.q_len_get = qb_ipc_us_q_len_get;
 
 	s->needs_sock_for_poll = QB_FALSE;
+
+	qb_atomic_init();
 }

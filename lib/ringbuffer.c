@@ -164,6 +164,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		qb_util_log(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
+	qb_atomic_init();
 
 	rb->flags = flags;
 
