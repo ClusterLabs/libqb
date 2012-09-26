@@ -66,6 +66,17 @@ static struct trie_node *trie_new_node(struct trie *t, struct trie_node *parent)
 #define TRIE_CHAR2INDEX(ch) (126 - ch)
 #define TRIE_INDEX2CHAR(idx) (126 - idx)
 
+
+static int32_t
+trie_node_alive(struct trie_node *node)
+{
+	if (node->value == NULL ||
+	    node->refcount <= 0) {
+		return QB_FALSE;
+	}
+	return QB_TRUE;
+}
+
 static struct trie_node *
 trie_node_next(struct trie_node *node, struct trie_node *root, int all)
 {
@@ -86,7 +97,7 @@ keep_going:
 		}
 	}
 	if (n) {
-		if (all || n->value) {
+		if (all || trie_node_alive(n)) {
 			return n;
 		} else {
 			c = n;
@@ -112,7 +123,7 @@ keep_going:
 	} while (n == NULL && p != root);
 
 	if (n) {
-		if (all || n->value) {
+		if (all || trie_node_alive(n)) {
 			return n;
 		}
 		if (n == root) {
@@ -421,7 +432,7 @@ trie_node_ref(struct trie *t, struct trie_node *node)
 static void
 trie_node_deref(struct trie *t, struct trie_node *node)
 {
-	if (node->value == NULL) {
+	if (!trie_node_alive(node)) {
 		return;
 	}
 	node->refcount--;

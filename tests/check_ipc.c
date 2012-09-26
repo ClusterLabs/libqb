@@ -953,7 +953,7 @@ make_soc_suite(void)
 
 	tc = tcase_create("ipc_exit_us");
 	tcase_add_test(tc, test_ipc_exit_us);
-	tcase_set_timeout(tc, 3);
+	tcase_set_timeout(tc, 6);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_dispatch_us");
@@ -985,9 +985,9 @@ main(void)
 	Suite *s;
 	int32_t do_shm_tests = QB_TRUE;
 
-#if defined (HAVE_SEM_TIMEDWAIT) || defined (HAVE_EVENTFD)
+#ifdef DISABLE_IPC_SHM
 	do_shm_tests = QB_FALSE;
-#endif /* HAVE_SEM_TIMEDWAIT */
+#endif /* DISABLE_IPC_SHM */
 
 	s = make_soc_suite();
 	sr = srunner_create(s);

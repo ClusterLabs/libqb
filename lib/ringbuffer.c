@@ -164,6 +164,7 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		qb_util_log(LOG_ERR, "couldn't create mmap for header");
 		goto cleanup_hdr;
 	}
+	qb_atomic_init();
 
 	rb->flags = flags;
 
@@ -624,7 +625,11 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 			return -ETIMEDOUT;
 		} else {
 			(void)rb->sem_post_fn(rb);
+#ifdef EBADMSG
 			return -EBADMSG;
+#else
+			return -EINVAL;
+#endif
 		}
 	}
 
@@ -766,7 +771,6 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	return rb;
 
 cleanup_fail:
-	free(rb->shared_hdr);
 	qb_rb_close(rb);
 	return NULL;
 }

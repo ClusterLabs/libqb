@@ -202,6 +202,21 @@ retry_recv:
 }
 
 int32_t
+qb_ipc_us_sock_error_is_disconnected(int err)
+{
+	if (err == -EAGAIN ||
+	    err == -ETIMEDOUT ||
+	    err == -EINTR ||
+#ifdef EWOULDBLOCK
+	    err == -EWOULDBLOCK ||
+#endif
+	    err == -EINVAL) {
+		return QB_FALSE;
+	}
+	return QB_TRUE;
+}
+
+int32_t
 qb_ipc_us_ready(struct qb_ipc_one_way * one_way,
 		int32_t ms_timeout, int32_t events)
 {
@@ -357,7 +372,7 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 	address.sun_len = QB_SUN_LEN(&address);
 #endif
 
-#if defined(QB_LINUX)
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
 	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 #else
 	snprintf(address.sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR,
@@ -392,12 +407,21 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 {
 	int32_t res;
 	struct qb_ipc_connection_request request;
+#ifdef QB_LINUX
+	int off = 0;
+	int on = 1;
+#endif
 
 	res = qb_ipcc_us_sock_connect(c->name, &c->setup.u.us.sock);
 	if (res != 0) {
 		return res;
 	}
 
+#ifdef QB_LINUX
+	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+#endif
+
+	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_AUTHENTICATE;
 	request.hdr.size = sizeof(request);
 	request.max_msg_size = c->setup.max_msg_size;
@@ -406,6 +430,10 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return res;
 	}
+
+#ifdef QB_LINUX
+	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
+#endif
 
 	res =
 	    qb_ipc_us_recv(&c->setup, r,
@@ -438,6 +466,8 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	char path[PATH_MAX];
 	int32_t fd_hdr;
 	char * shm_ptr;
+
+	qb_atomic_init();
 
 	c->needs_sock_for_poll = QB_FALSE;
 	c->funcs.send = qb_ipc_us_send;
@@ -477,6 +507,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 		goto cleanup_hdr;
 	}
 
+	memset(&request, 0, sizeof(request));
 	request.hdr.id = QB_IPC_MSG_NEW_EVENT_SOCK;
 	request.hdr.size = sizeof(request);
 	request.connection = r->connection;
@@ -528,7 +559,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 
 	qb_util_log(LOG_INFO, "server name: %s", s->name);
-#if defined(QB_LINUX)
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
 	snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX - 1, "%s", s->name);
 #else
 	{
@@ -560,7 +591,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	 * Allow everyone to write to the socket since the IPC layer handles
 	 * security automatically
 	 */
-#if !defined(QB_LINUX)
+#if !defined(QB_LINUX) && !defined(QB_CYGWIN)
 	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
@@ -749,7 +780,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
 
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	char cmsg_cred[CMSG_SPACE(sizeof(struct ucred))];
 	int off = 0;
 	int on = 1;
@@ -758,7 +789,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	msg_recv.msg_iovlen = 1;
 	msg_recv.msg_name = 0;
 	msg_recv.msg_namelen = 0;
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	msg_recv.msg_control = (void *)cmsg_cred;
 	msg_recv.msg_controllen = sizeof(cmsg_cred);
 #endif
@@ -771,7 +802,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 
 	iov_recv.iov_base = msg;
 	iov_recv.iov_len = len;
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
@@ -827,16 +858,19 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	 */
 	{
 		struct ucred cred;
-		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg_recv);
-		assert(cmsg != NULL);
-		if (CMSG_DATA(cmsg)) {
+		struct cmsghdr *cmsg;
+
+		res = -EINVAL;
+		for (cmsg = CMSG_FIRSTHDR(&msg_recv); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg_recv, cmsg)) {
+			if (cmsg->cmsg_type != SCM_CREDENTIALS)
+				continue;
+
 			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
 			res = 0;
 			ugp->pid = cred.pid;
 			ugp->uid = cred.uid;
 			ugp->gid = cred.gid;
-		} else {
-			res = -EBADMSG;
+			break;
 		}
 	}
 #else /* no credentials */
@@ -848,7 +882,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 
 cleanup_and_return:
 
-#ifdef QB_LINUX
+#ifdef SO_PASSCRED
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
 #endif
 
@@ -905,6 +939,13 @@ retry_accept:
 
 	res = qb_ipcs_uc_recv_and_auth(new_fd, &setup_msg, sizeof(setup_msg),
 				       &ugp);
+	if (res < 0) {
+		close(new_fd);
+		/* This is an error, but -1 would indicate disconnect
+		 * from the poll loop
+		 */
+		return 0;
+	}
 
 	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
 		(void)handle_new_connection(s, res, new_fd, &setup_msg,
@@ -1071,4 +1112,6 @@ qb_ipcs_us_init(struct qb_ipcs_service *s)
 	s->funcs.q_len_get = qb_ipc_us_q_len_get;
 
 	s->needs_sock_for_poll = QB_FALSE;
+
+	qb_atomic_init();
 }

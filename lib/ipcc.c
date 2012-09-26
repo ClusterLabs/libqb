@@ -93,13 +93,7 @@ _check_connection_state(struct qb_ipcc_connection * c, int32_t res)
 {
 	if (res >= 0) return;
 
-	if (res != -EAGAIN &&
-	    res != -ETIMEDOUT &&
-	    res != -EINTR &&
-#ifdef EWOULDBLOCK
-	    res != -EWOULDBLOCK &&
-#endif
-	    res != -EINVAL) {
+	if (qb_ipc_us_sock_error_is_disconnected(res)) {
 		errno = -res;
 		qb_util_perror(LOG_DEBUG,
 			    "interpreting result %d as a disconnect",
@@ -234,17 +228,6 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	if (c == NULL) {
 		return -EINVAL;
 	}
-
-#ifdef IPC_NEEDS_RESPONSE_ACK
-	if (c->needs_sock_for_poll) {
-		char one_byte = 1;
-		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
-		if (res < 0) {
-			_check_connection_state(c, res);
-			return res;
-		}
-	}
-#endif /* IPC_NEEDS_RESPONSE_ACK */
 
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
 	if (res == -EAGAIN || res == -ETIMEDOUT) {

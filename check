@@ -121,7 +121,6 @@ check_bsd() {
 	echo "checking bsd"
 	echo "======================="
 	ORIG_CFLAGS=$CFLAGS
-	export CFLAGS="$CFLAGS -DIPC_NEEDS_RESPONSE_ACK"
 	check "ac_cv_func_sem_timedwait=no ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
 	export CFLAGS=$ORIG_CFLAGS
 }
@@ -131,7 +130,7 @@ check_mac() {
 	echo "checking mac"
 	echo "======================="
 	ORIG_CFLAGS=$CFLAGS
-	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED -DIPC_NEEDS_RESPONSE_ACK"
+	export CFLAGS="$CFLAGS -DDISABLE_POSIX_THREAD_PROCESS_SHARED"
 	check "ac_cv_func_clock_gettime=no ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no ac_cv_link_attribute_section=no"
 	export CFLAGS=$ORIG_CFLAGS
 }

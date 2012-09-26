@@ -20,6 +20,9 @@
  */
 #include "os_base.h"
 
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif /* HAVE_NETINET_IN_H */
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif /* HAVE_ARPA_INET_H */
@@ -29,9 +32,6 @@
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif /* HAVE_SYS_SOCKET_H */
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif /* HAVE_NETINET_IN_H */
 #ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
 #endif /* HAVE_SYS_POLL_H */

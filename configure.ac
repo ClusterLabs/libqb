@@ -11,7 +11,7 @@ AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
 AC_USE_SYSTEM_EXTENSIONS
 
-AM_INIT_AUTOMAKE([-Wno-portability dist-xz color-tests parallel-tests])
+AM_INIT_AUTOMAKE([-Wno-portability dist-xz])
 dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
 dnl normal compilation.  When a failure occurs, it will then display the full
 dnl command line
@@ -77,11 +77,13 @@ AM_CONDITIONAL(HAVE_SPLINT, test -n "${SPLINT}")
 # this function checks if CC support options passed as
 # args. Global CFLAGS are ignored during this test.
 cc_supports_flag() {
-	local CPPFLAGS="$CPPFLAGS $@"
+	BACKUP="$CPPFLAGS"
+	CPPFLAGS="$CPPFLAGS $@"
 	AC_MSG_CHECKING([whether $CC supports "$@"])
 	AC_PREPROC_IFELSE([AC_LANG_PROGRAM([])],
 			  [RC=0; AC_MSG_RESULT([yes])],
 			  [RC=1; AC_MSG_RESULT([no])])
+	CPPFLAGS="$BACKUP"
 	return $RC
 }
 
@@ -182,6 +184,8 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
 		pthread_spin_lock pthread_setschedparam \
+                pthread_mutexattr_setpshared \
+                pthread_condattr_setpshared \
 		sem_timedwait semtimedop \
 		sched_get_priority_max sched_setscheduler \
 		getpeerucred getpeereid])
@@ -196,7 +200,7 @@ AM_CONDITIONAL(HAVE_KQUEUE,
 	       [test "x$ac_cv_func_kqueue" = xyes])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
-AC_REPLACE_FUNCS(strlcpy strlcat strchrnul stpcpy)
+AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
 
 ## local defines
 PACKAGE_FEATURES=""
@@ -255,21 +259,25 @@ fi
 # OS detection
 # THIS SECTION MUST DIE!
 CP=cp
-LIB_RT=-lrt
-ipc_needs_response_ack=yes
 AC_MSG_CHECKING([for os in ${host_os}])
 case "$host_os" in
 	*linux*)
-		ipc_needs_response_ack=no
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
 		AC_MSG_RESULT([Linux])
+	;;
+	*cygwin*)
+		AC_DEFINE_UNQUOTED([QB_CYGWIN], [1],
+				   [Compiling for Cygwin platform])
+		ac_cv_link_attribute_section=no
+		nongcc_memory_barrier_needed=yes
+		gcc_has_builtin_atomic_operations=no
+		AC_MSG_RESULT([Cygwin])
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
-		LIB_RT=
 		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902'
@@ -291,12 +299,23 @@ case "$host_os" in
 					   [Compiling for FreeBSD >= 8 platform])
 			;;
 			*netbsd*)
+				# this is because dlopen within a dl_iterate_phdr
+				# callback locks up.
+				ac_cv_link_attribute_section=no
+				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
+					   [Unix path length])
+			;;
+			*openbsd*)
+				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [104],
+					   [Unix path length])
 			;;
 		esac
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
 		ac_cv_link_attribute_section=no
+		AC_DEFINE_UNQUOTED(DISABLE_IPC_SHM, 1,
+				   [Disable shared mem ipc])
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
 				   [Compiling for Solaris platform])
 		CP=rsync
@@ -306,11 +325,6 @@ case "$host_os" in
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;
 esac
-
-if test "x$ipc_needs_response_ack" = xyes; then
-	AC_DEFINE_UNQUOTED(IPC_NEEDS_RESPONSE_ACK, 1,
-			   [ipc needs a response ack])
-fi
 
 AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
 if test -z "$gcc_has_builtin_atomic_operations"; then
@@ -388,7 +402,6 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$localstatedir/run" ])
 
 AC_SUBST(CP)
-AC_SUBST(LIB_RT)
 # *FLAGS handling goes here
 
 ENV_CFLAGS="$CFLAGS"

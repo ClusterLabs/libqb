@@ -45,6 +45,51 @@ static void *notified_new_value = NULL;
 static void *notified_user_data = NULL;
 static int32_t notified_event = 0;
 static int32_t notified_event_prev = 0;
+static int32_t notified_events = 0;
+
+static void
+my_map_notification_iter(uint32_t event,
+			 char* key, void* old_value,
+			 void* value, void* user_data)
+{
+	const char *p;
+	void *data;
+	qb_map_t *m = (qb_map_t *)user_data;
+	qb_map_iter_t *it = qb_map_iter_create(m);
+
+	notified_events++;
+
+	for (p = qb_map_iter_next(it, &data); p; p = qb_map_iter_next(it, &data)) {
+		printf("%s > %s\n", p, (char*) data);
+	}
+	qb_map_iter_free(it);
+}
+
+/*
+ * create some entries
+ * add a notifier
+ * delete an entry
+ * in the notifier iterate over the map.
+ */
+static void
+test_map_notifications_iter(qb_map_t *m)
+{
+	int i;
+
+	qb_map_put(m, "k1", "one");
+	qb_map_put(m, "k12", "two");
+	qb_map_put(m, "k34", "three");
+	ck_assert_int_eq(qb_map_count_get(m), 3);
+
+	notified_events = 0;
+	i = qb_map_notify_add(m, NULL, my_map_notification_iter,
+			      (QB_MAP_NOTIFY_DELETED |
+			       QB_MAP_NOTIFY_RECURSIVE), m);
+	ck_assert_int_eq(i, 0);
+	qb_map_rm(m, "k12");
+	ck_assert_int_eq(notified_events, 1);
+	ck_assert_int_eq(qb_map_count_get(m), 2);
+}
 
 static void
 test_map_simple(qb_map_t *m, const char *name)
@@ -729,6 +774,8 @@ START_TEST(test_trie_notifications)
 	test_map_notifications_prefix(m);
 	m = qb_trie_create();
 	test_map_notifications_free(m);
+	m = qb_trie_create();
+	test_map_notifications_iter(m);
 }
 END_TEST
 

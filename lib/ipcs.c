@@ -45,11 +45,11 @@ qb_ipcs_create(const char *name,
 		return NULL;
 	}
 	if (type == QB_IPC_NATIVE) {
-#if defined (HAVE_SEM_TIMEDWAIT) || defined(HAVE_SEMTIMEDOP)
-		s->type = QB_IPC_SHM;
-#else
+#ifdef DISABLE_IPC_SHM
 		s->type = QB_IPC_SOCKET;
-#endif /* HAVE_SEM_TIMEDWAIT */
+#else
+		s->type = QB_IPC_SHM;
+#endif /* DISABLE_IPC_SHM */
 	} else {
 		s->type = type;
 	}
@@ -101,11 +101,11 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 		qb_ipcs_us_init((struct qb_ipcs_service *)s);
 		break;
 	case QB_IPC_SHM:
-#if defined (HAVE_SEM_TIMEDWAIT) || defined(HAVE_SEMTIMEDOP)
-		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
-#else
+#ifdef DISABLE_IPC_SHM
 		res = -ENOTSUP;
-#endif /* HAVE_SEM_TIMEDWAIT or HAVE_SEMTIMEDOP */
+#else
+		qb_ipcs_shm_init((struct qb_ipcs_service *)s);
+#endif /* DISABLE_IPC_SHM */
 		break;
 	case QB_IPC_POSIX_MQ:
 	case QB_IPC_SYSV_MQ:
@@ -268,12 +268,6 @@ qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.send(&c->response, data, size);
 	if (res == size) {
-#ifdef IPC_NEEDS_RESPONSE_ACK
-		int32_t resn = new_event_notification(c);
-		if (resn < 0 && resn != -EAGAIN) {
-			res = resn;
-		}
-#endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
@@ -302,12 +296,6 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.sendv(&c->response, iov, iov_len);
 	if (res > 0) {
-#ifdef IPC_NEEDS_RESPONSE_ACK
-		int32_t resn = new_event_notification(c);
-		if (resn < 0 && resn != -EAGAIN) {
-			res = resn;
-		}
-#endif /* IPC_NEEDS_RESPONSE_ACK */
 		c->stats.responses++;
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
@@ -515,7 +503,7 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->request.type = s->type;
 	c->response.type = s->type;
 	c->event.type = s->type;
-	strcpy(c->description, "not set yet");
+	(void)strlcpy(c->description, "not set yet", CONNECTION_DESCRIPTION);
 
 	return c;
 }
@@ -749,10 +737,18 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 
 	if (c->service->needs_sock_for_poll && avail == 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
-		qb_util_log(LOG_WARNING,
-			    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
-			    c->description, fd, res2);
-		return 0;
+		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
+			errno = -res2;
+			qb_util_perror(LOG_WARNING, "conn (%s) disconnected",
+				       c->description);
+			qb_ipcs_disconnect(c);
+			return -ESHUTDOWN;
+		} else {
+			qb_util_log(LOG_WARNING,
+				    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
+				    c->description, fd, res2);
+			return 0;
+		}
 	}
 
 	do {
