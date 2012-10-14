@@ -94,6 +94,12 @@ qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 	int32_t processed = 0;
 	char *rbuf = (char *)msg;
 
+#if !MSG_NOSIGNAL
+   struct sigaction act, oact;
+   act.sa_handler = SIG_IGN;
+   sigaction(SIGPIPE, &act, &oact);
+#endif  /* !MSG_NOSIGNAL */
+
 retry_send:
 	result = send(one_way->u.us.sock,
 		      &rbuf[processed],
@@ -104,6 +110,9 @@ retry_send:
 		if (errno == EAGAIN && processed > 0) {
 			goto retry_send;
 		} else {
+#if !MSG_NOSIGNAL
+            sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL */
 			return -errno;
 		}
 	}
@@ -112,6 +121,11 @@ retry_send:
 	if (processed != len) {
 		goto retry_send;
 	}
+
+#if !MSG_NOSIGNAL
+    sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL */
+
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
@@ -132,6 +146,12 @@ qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 	int32_t iov_p = 0;
 	char *rbuf = (char *)iov[iov_p].iov_base;
 
+#if !MSG_NOSIGNAL
+   struct sigaction act, oact;
+   act.sa_handler = SIG_IGN;
+   sigaction(SIGPIPE, &act, &oact);
+#endif  /* !MSG_NOSIGNAL */
+
 retry_send:
 	result = send(one_way->u.us.sock,
 		      &rbuf[processed],
@@ -143,6 +163,9 @@ retry_send:
 		    (processed > 0 || iov_p > 0)) {
 			goto retry_send;
 		} else {
+#if !MSG_NOSIGNAL
+            sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL */
 			return -errno;
 		}
 	}
@@ -159,6 +182,11 @@ retry_send:
 	} else {
 		goto retry_send;
 	}
+
+#if !MSG_NOSIGNAL
+    sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL */
+
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
