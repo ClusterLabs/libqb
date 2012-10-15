@@ -94,11 +94,11 @@ qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 	int32_t processed = 0;
 	char *rbuf = (char *)msg;
 
-#if !MSG_NOSIGNAL
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
    struct sigaction act, oact;
    act.sa_handler = SIG_IGN;
    sigaction(SIGPIPE, &act, &oact);
-#endif  /* !MSG_NOSIGNAL */
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 
 retry_send:
 	result = send(one_way->u.us.sock,
@@ -110,9 +110,9 @@ retry_send:
 		if (errno == EAGAIN && processed > 0) {
 			goto retry_send;
 		} else {
-#if !MSG_NOSIGNAL
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
             sigaction(SIGPIPE, &oact, NULL);
-#endif  /* !MSG_NOSIGNAL */
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 			return -errno;
 		}
 	}
@@ -122,9 +122,9 @@ retry_send:
 		goto retry_send;
 	}
 
-#if !MSG_NOSIGNAL
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
     sigaction(SIGPIPE, &oact, NULL);
-#endif  /* !MSG_NOSIGNAL */
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl = NULL;
@@ -146,11 +146,11 @@ qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 	int32_t iov_p = 0;
 	char *rbuf = (char *)iov[iov_p].iov_base;
 
-#if !MSG_NOSIGNAL
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
    struct sigaction act, oact;
    act.sa_handler = SIG_IGN;
    sigaction(SIGPIPE, &act, &oact);
-#endif  /* !MSG_NOSIGNAL */
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 
 retry_send:
 	result = send(one_way->u.us.sock,
@@ -163,9 +163,9 @@ retry_send:
 		    (processed > 0 || iov_p > 0)) {
 			goto retry_send;
 		} else {
-#if !MSG_NOSIGNAL
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
             sigaction(SIGPIPE, &oact, NULL);
-#endif  /* !MSG_NOSIGNAL */
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 			return -errno;
 		}
 	}
@@ -183,9 +183,9 @@ retry_send:
 		goto retry_send;
 	}
 
-#if !MSG_NOSIGNAL
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
     sigaction(SIGPIPE, &oact, NULL);
-#endif  /* !MSG_NOSIGNAL */
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl;
@@ -203,6 +203,12 @@ qb_ipc_us_recv_msghdr(int32_t s, struct msghdr *hdr, char *msg, size_t len)
 	int32_t result;
 	int32_t processed = 0;
 
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+   struct sigaction act, oact;
+   act.sa_handler = SIG_IGN;
+   sigaction(SIGPIPE, &act, &oact);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
+
 retry_recv:
 	hdr->msg_iov->iov_base = &msg[processed];
 	hdr->msg_iov->iov_len = len - processed;
@@ -212,9 +218,15 @@ retry_recv:
 		goto retry_recv;
 	}
 	if (result == -1) {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+      sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 		return -errno;
 	}
 	if (result == 0) {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+      sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN", s);
 		return -ENOTCONN;
@@ -224,6 +236,9 @@ retry_recv:
 	if (processed != len) {
 		goto retry_recv;
 	}
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+    sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 	assert(processed == len);
 
 	return processed;
@@ -285,6 +300,12 @@ qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	int32_t to_recv = len;
 	char *data = msg;
 
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+   struct sigaction act, oact;
+   act.sa_handler = SIG_IGN;
+   sigaction(SIGPIPE, &act, &oact);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
+
 retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
@@ -294,16 +315,25 @@ retry_recv:
 		    (processed > 0 || timeout == -1)) {
 			goto retry_recv;
 		} else if (errno == ECONNRESET || errno == EPIPE) {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+         sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 			qb_util_perror(LOG_DEBUG,
 				       "recv(fd %d) converting to ENOTCONN",
 				       one_way->u.us.sock);
 			return -ENOTCONN;
 		} else {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+         sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 			return -errno;
 		}
 	}
 
 	if (result == 0) {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+      sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
 			    one_way->u.us.sock);
@@ -314,6 +344,9 @@ retry_recv:
 	if (processed != len) {
 		goto retry_recv;
 	}
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+   sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
@@ -338,6 +371,12 @@ qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
 	struct ipc_us_control *ctl = NULL;
 	struct qb_ipc_request_header *hdr = NULL;
 
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+   struct sigaction act, oact;
+   act.sa_handler = SIG_IGN;
+   sigaction(SIGPIPE, &act, &oact);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
+
 retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
@@ -346,9 +385,15 @@ retry_recv:
 		    (processed > 0 || timeout == -1)) {
 			goto retry_recv;
 		} else {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+         sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 			return -errno;
 		}
 	} else if (result == 0) {
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+      sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
 			    one_way->u.us.sock);
@@ -367,6 +412,9 @@ retry_recv:
 	if (to_recv > 0) {
 		goto retry_recv;
 	}
+#if !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE)
+   sigaction(SIGPIPE, &oact, NULL);
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 	if (ctl) {
 		(void)qb_atomic_int_dec_and_test(&ctl->sent);
