@@ -627,7 +627,8 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 					      ms_timeout);
 	}
 	if (size < 0) {
-		if (size != -EAGAIN && size != -ETIMEDOUT) {
+                if (size == -ENOTCONN) {
+		} else if (size != -EAGAIN && size != -ETIMEDOUT) {
 			qb_util_perror(LOG_ERR,
 				       "recv from client connection failed (%s)",
 				       c->description);
@@ -774,13 +775,16 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	res = QB_MIN(0, res);
 	if (res == -EAGAIN || res == -ETIMEDOUT || res == -ENOBUFS) {
 		res = 0;
-	}
-	if (res != 0) {
+        } else if (res == -ENOTCONN) {
+             errno = -res;
+             qb_ipcs_disconnect(c);
+             res = -ESHUTDOWN;
+        } else if (res != 0) {
 		errno = -res;
 		qb_util_perror(LOG_ERR, "request returned error (%s)",
 			       c->description);
 		qb_ipcs_connection_unref(c);
-	}
+	}     
 
 	return res;
 }
