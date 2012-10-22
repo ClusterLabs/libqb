@@ -391,21 +391,35 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	pthread_rwlock_unlock(&_listlock);
 	if (_custom_filter_fn) {
 		for (cs = sect->start; cs < sect->stop; cs++) {
-			if (cs->lineno == 0) {
-				break;
+			if (cs->lineno > 0) {
+				_custom_filter_fn(cs);
 			}
-			_custom_filter_fn(cs);
 		}
 	}
+	/* qb_log_callsites_dump_sect(sect); */
 
 	return 0;
+}
+
+static void
+qb_log_callsites_dump_sect(struct callsite_section *sect)
+{
+	struct qb_log_callsite *cs;
+
+	printf(" start %p - stop %p\n", sect->start, sect->stop);
+	printf("filename    lineno targets         tags\n");
+	for (cs = sect->start; cs < sect->stop; cs++) {
+		if (cs->lineno > 0) {
+			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
+			       cs->targets, cs->tags);
+		}
+	}
 }
 
 void
 qb_log_callsites_dump(void)
 {
 	struct callsite_section *sect;
-	struct qb_log_callsite *cs;
 	int32_t l;
 
 	pthread_rwlock_rdlock(&_listlock);
@@ -413,15 +427,7 @@ qb_log_callsites_dump(void)
 	printf("Callsite Database [%d]\n", l);
 	printf("---------------------\n");
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
-		printf(" start %p - stop %p\n", sect->start, sect->stop);
-		printf("filename    lineno targets         tags\n");
-		for (cs = sect->start; cs < sect->stop; cs++) {
-			if (cs->lineno == 0) {
-				break;
-			}
-			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
-			       cs->targets, cs->tags);
-		}
+		qb_log_callsites_dump_sect(sect);
 	}
 	pthread_rwlock_unlock(&_listlock);
 }
@@ -536,11 +542,10 @@ _log_filter_apply(struct callsite_section *sect,
 	struct qb_log_callsite *cs;
 
 	for (cs = sect->start; cs < sect->stop; cs++) {
-		if (cs->lineno == 0) {
-			break;
+		if (cs->lineno > 0) {
+			_log_filter_apply_to_cs(cs, t, c, type, text,
+					    high_priority, low_priority);
 		}
-		_log_filter_apply_to_cs(cs, t, c, type, text,
-					high_priority, low_priority);
 	}
 }
 
@@ -646,10 +651,9 @@ qb_log_filter_fn_set(qb_log_filter_fn fn)
 
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
 		for (cs = sect->start; cs < sect->stop; cs++) {
-			if (cs->lineno == 0) {
-				break;
+			if (cs->lineno > 0) {
+				_custom_filter_fn(cs);
 			}
-			_custom_filter_fn(cs);
 		}
 	}
 	return 0;
