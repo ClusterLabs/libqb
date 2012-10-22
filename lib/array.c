@@ -36,6 +36,7 @@ struct qb_array {
 	size_t num_bins;
 	size_t autogrow_elements;
 	qb_thread_lock_t *grow_lock;
+	qb_array_new_bin_cb_fn new_bin_cb;
 };
 
 qb_array_t *
@@ -125,6 +126,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 	assert(b < MAX_BINS);
 
 	if (b >= a->num_bins || a->bin[b] == NULL) {
+		int32_t bin_alloced = QB_FALSE;
 
 		(void)qb_thread_lock(a->grow_lock);
 
@@ -139,9 +141,13 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 			if (a->bin[b] == NULL) {
 				goto unlock_error;
 			}
+			bin_alloced = QB_TRUE;
 		}
 
 		(void)qb_thread_unlock(a->grow_lock);
+		if (bin_alloced && a->new_bin_cb) {
+			a->new_bin_cb(a, b);
+		}
 	}
 
 	elem = ELEM_NUM_GET(idx);
@@ -156,6 +162,16 @@ unlock_error:
 
 	(void)qb_thread_unlock(a->grow_lock);
 	return rc;
+}
+
+int32_t
+qb_array_new_bin_cb_set(struct qb_array * a, qb_array_new_bin_cb_fn fn)
+{
+	if (a == NULL) {
+		return -EINVAL;
+	}
+	a->new_bin_cb = fn;
+	return 0;
 }
 
 size_t

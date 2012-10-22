@@ -105,6 +105,14 @@ size_t qb_array_num_bins_get(qb_array_t* a);
  */
 size_t qb_array_elems_per_bin_get(qb_array_t* a);
 
+
+typedef void (*qb_array_new_bin_cb_fn)(qb_array_t * a, uint32_t bin);
+
+/**
+ * Get a callback when a new bin is allocated.
+ */
+int32_t qb_array_new_bin_cb_set(qb_array_t * a, qb_array_new_bin_cb_fn fn);
+
 /**
  * Free all the memory used by the array.
  * @param a array instance.
