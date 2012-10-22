@@ -94,6 +94,7 @@ qb_log_dcs_get(int32_t * newly_created,
 	struct callsite_list *csl;
 	const char *safe_filename = filename;
 	const char *safe_function = function;
+	const char *safe_format = format;
 
 	if (filename == NULL) {
 		safe_filename = "";
@@ -101,15 +102,18 @@ qb_log_dcs_get(int32_t * newly_created,
 	if (function == NULL) {
 		safe_function = "";
 	}
+	if (format == NULL) {
+		safe_format = "";
+	}
 	/*
 	 * try the fastest access first (no locking needed)
 	 */
 	rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
 	assert(rc == 0);
 	if (csl_head->cs &&
-		format == csl_head->cs->format &&
 		priority == csl_head->cs->priority &&
-		strcmp(safe_filename, csl_head->cs->filename) == 0) {
+		strcmp(safe_filename, csl_head->cs->filename) == 0 &&
+		strcmp(safe_format, csl_head->cs->format) == 0) {
 		return csl_head->cs;
 	}
 	/*
@@ -117,7 +121,7 @@ qb_log_dcs_get(int32_t * newly_created,
 	 */
 	(void)qb_thread_lock(arr_next_lock);
 	if (csl_head->cs == NULL) {
-		csl_head->cs = _log_dcs_new_cs(safe_function, safe_filename, format,
+		csl_head->cs = _log_dcs_new_cs(safe_function, safe_filename, safe_format,
 					       priority, lineno, tags);
 		cs = csl_head->cs;
 		csl_head->next = NULL;
@@ -125,8 +129,8 @@ qb_log_dcs_get(int32_t * newly_created,
 	} else {
 		for (csl = csl_head; csl; csl = csl->next) {
 			assert(csl->cs->lineno == lineno);
-			if (format == csl->cs->format &&
-			    priority == csl->cs->priority &&
+			if (priority == csl->cs->priority &&
+			    strcmp(safe_format, csl_head->cs->format) == 0 &&
 			    strcmp(safe_filename, csl->cs->filename) == 0) {
 				cs = csl->cs;
 				break;
@@ -139,7 +143,7 @@ qb_log_dcs_get(int32_t * newly_created,
 			if (csl == NULL) {
 				goto cleanup;
 			}
-			csl->cs = _log_dcs_new_cs(safe_function, safe_filename, format,
+			csl->cs = _log_dcs_new_cs(safe_function, safe_filename, safe_format,
 						  priority, lineno, tags);
 			csl->next = NULL;
 			csl_last->next = csl;
