@@ -225,6 +225,7 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 {
 	int32_t res = 0;
 	int32_t res2 = 0;
+	int32_t poll_ms = 0;
 	if (c == NULL) {
 		return -EINVAL;
 	}
@@ -234,8 +235,9 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
 
 		if (ow == NULL) return res;
+                if (res == -EAGAIN) poll_ms = ms_timeout;
 
-		res2 = qb_ipc_us_ready(ow, 0, POLLIN);
+		res2 = qb_ipc_us_ready(ow, poll_ms, POLLIN);
 		if (res2 < 0) {
 			res = res2;
 		}
