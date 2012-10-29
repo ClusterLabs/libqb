@@ -620,7 +620,7 @@ test_ipc_bulk_events(void)
 
 	events_received = 0;
 	cl = qb_loop_create();
-	res = qb_ipcc_fd_get(conn, &fd),
+	res = qb_ipcc_fd_get(conn, &fd);
 	ck_assert_int_eq(res, 0);
 	res = qb_loop_poll_add(cl, QB_LOOP_MED,
 			 fd, POLLIN,
@@ -692,7 +692,7 @@ test_ipc_event_on_created(void)
 
 	events_received = 0;
 	cl = qb_loop_create();
-	res = qb_ipcc_fd_get(conn, &fd),
+	res = qb_ipcc_fd_get(conn, &fd);
 	ck_assert_int_eq(res, 0);
 	res = qb_loop_poll_add(cl, QB_LOOP_MED,
 			 fd, POLLIN,
