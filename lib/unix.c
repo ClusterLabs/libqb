@@ -75,7 +75,7 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	int32_t res = 0;
 	ssize_t written;
 	char *buffer = NULL;
-	char *is_absolute = strchr(file, '/');;
+	char *is_absolute = strchr(file, '/');
 
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
