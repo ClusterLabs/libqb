@@ -112,22 +112,23 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 
 	if (file_flags & O_CREAT) {
 		long page_size = sysconf(_SC_PAGESIZE);
+		long write_size = QB_MIN(page_size, bytes);
 		if (page_size < 0) {
 			res = -errno;
 			goto unlink_exit;
 		}
-		buffer = calloc(1, page_size);
+		buffer = calloc(1, write_size);
 		if (buffer == NULL) {
 			res = -ENOMEM;
 			goto unlink_exit;
 		}
-		for (i = 0; i < (bytes / page_size); i++) {
+		for (i = 0; i < (bytes / write_size); i++) {
 retry_write:
-			written = write(fd, buffer, page_size);
+			written = write(fd, buffer, write_size);
 			if (written == -1 && errno == EINTR) {
 				goto retry_write;
 			}
-			if (written != page_size) {
+			if (written != write_size) {
 				res = -ENOSPC;
 				free(buffer);
 				goto unlink_exit;
