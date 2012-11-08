@@ -533,7 +533,8 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
 				       SHM_CONTROL_SIZE, O_RDWR);
 	if (fd_hdr < 0) {
-		res = -errno;
+		res = fd_hdr;
+		errno = -fd_hdr;
 		qb_util_perror(LOG_ERR, "couldn't open file for mmap");
 		return res;
 	}
@@ -1034,7 +1035,8 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 				       SHM_CONTROL_SIZE,
 				       O_CREAT | O_TRUNC | O_RDWR);
 	if (fd_hdr < 0) {
-		res = -errno;
+		res = fd_hdr;
+		errno = -fd_hdr;
 		qb_util_perror(LOG_ERR, "couldn't create file for mmap (%s)",
 			       c->description);
 		return res;
