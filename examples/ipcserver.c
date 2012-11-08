@@ -279,6 +279,7 @@ main(int32_t argc, char *argv[])
 {
 	const char *options = "mpseugh";
 	int32_t opt;
+	int32_t rc;
 	enum qb_ipc_type ipc_type = QB_IPC_NATIVE;
 	struct qb_ipcs_service_handlers sh = {
 		.connection_accept = s1_connection_accept_fn,
@@ -339,7 +340,12 @@ main(int32_t argc, char *argv[])
 	if (!use_glib) {
 		bms_loop = qb_loop_create();
 		qb_ipcs_poll_handlers_set(s1, &ph);
-		qb_ipcs_run(s1);
+		rc = qb_ipcs_run(s1);
+		if (rc != 0) {
+			errno = -rc;
+			qb_perror(LOG_ERR, "qb_ipcs_run");
+			exit(1);
+		}
 		qb_loop_run(bms_loop);
 	} else {
 #ifdef HAVE_GLIB
