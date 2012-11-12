@@ -292,6 +292,7 @@ qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
+	int32_t final_rc = 0;
 	int32_t processed = 0;
 	int32_t to_recv = len;
 	char *data = msg;
@@ -305,32 +306,33 @@ retry_recv:
 	if (result == -1) {
 		if (errno == EAGAIN &&
 		    (processed > 0 || timeout == -1)) {
-			goto retry_recv;
+			result = qb_ipc_us_ready(one_way, timeout,
+						 POLLIN);
+			if (result == 0 || result == -EAGAIN) {
+				goto retry_recv;
+			}
+			final_rc = result;
+			goto cleanup_sigpipe;
 		} else if (errno == ECONNRESET || errno == EPIPE) {
-			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-			qb_util_perror(LOG_DEBUG,
-				       "recv(fd %d) converting to ENOTCONN",
-				       one_way->u.us.sock);
-			return -ENOTCONN;
+			final_rc = -ENOTCONN;
+			goto cleanup_sigpipe;
 		} else {
-			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-			return -errno;
+			final_rc = -errno;
+			goto cleanup_sigpipe;
 		}
 	}
 
 	if (result == 0) {
-		sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-		qb_util_log(LOG_DEBUG,
-			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
-			    one_way->u.us.sock);
-		return -ENOTCONN;
+		final_rc = -ENOTCONN;
+		goto cleanup_sigpipe;
 	}
 	processed += result;
 	to_recv -= result;
 	if (processed != len) {
 		goto retry_recv;
 	}
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	final_rc = processed;
+
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
@@ -338,7 +340,10 @@ retry_recv:
 			(void)qb_atomic_int_dec_and_test(&ctl->sent);
 		}
 	}
-	return processed;
+
+ cleanup_sigpipe:
+	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	return final_rc;
 }
 
 /*
@@ -349,6 +354,7 @@ qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
 	       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
+	int32_t final_rc = 0;
 	int32_t processed = 0;
 	int32_t to_recv = sizeof(struct qb_ipc_request_header);
 	char *data = msg;
@@ -363,17 +369,25 @@ retry_recv:
 	if (result == -1) {
 		if (errno == EAGAIN &&
 		    (processed > 0 || timeout == -1)) {
-			goto retry_recv;
+			/*
+			 * Don't spin too hard else we can consume too
+			 * much cpu.
+			 */
+			result = qb_ipc_us_ready(one_way,
+						 100,
+						 POLLIN);
+			if (result == 0 || result == -EAGAIN) {
+				goto retry_recv;
+			}
+			final_rc = result;
+			goto cleanup_sigpipe;
 		} else {
-			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-			return -errno;
+			final_rc = -errno;
+			goto cleanup_sigpipe;
 		}
 	} else if (result == 0) {
-		sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-		qb_util_log(LOG_DEBUG,
-			    "recv(fd %d) got 0 bytes assuming ENOTCONN",
-			    one_way->u.us.sock);
-		return -ENOTCONN;
+		final_rc = -ENOTCONN;
+		goto cleanup_sigpipe;
 	}
 
 	processed += result;
@@ -388,12 +402,16 @@ retry_recv:
 	if (to_recv > 0) {
 		goto retry_recv;
 	}
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	final_rc = processed;
+
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 	if (ctl) {
 		(void)qb_atomic_int_dec_and_test(&ctl->sent);
 	}
-	return processed;
+
+ cleanup_sigpipe:
+	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	return final_rc;
 }
 
 
