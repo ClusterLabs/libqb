@@ -139,6 +139,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 		if (a->bin[b] == NULL) {
 			a->bin[b] = calloc(MAX_ELEMENTS_PER_BIN, a->element_size);
 			if (a->bin[b] == NULL) {
+				rc = -errno;
 				goto unlock_error;
 			}
 			bin_alloced = QB_TRUE;
