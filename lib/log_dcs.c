@@ -130,7 +130,7 @@ qb_log_dcs_get(int32_t * newly_created,
 		for (csl = csl_head; csl; csl = csl->next) {
 			assert(csl->cs->lineno == lineno);
 			if (priority == csl->cs->priority &&
-			    strcmp(safe_format, csl_head->cs->format) == 0 &&
+			    strcmp(safe_format, csl->cs->format) == 0 &&
 			    strcmp(safe_filename, csl->cs->filename) == 0) {
 				cs = csl->cs;
 				break;
