@@ -757,6 +757,15 @@ trie_iter_next(qb_map_iter_t * i, void **value)
 static void
 trie_iter_free(qb_map_iter_t * i)
 {
+	struct trie_iter *si = (struct trie_iter *)i;
+	struct trie *t = (struct trie *)(i->m);
+
+	if (si->n != NULL) {
+		/* if free'ing the iterator before getting to the last
+		 * node make sure we de-ref the current node.
+		 */
+		trie_node_deref(t, si->n);
+	}
 	free(i);
 }
 
