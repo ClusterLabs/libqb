@@ -82,6 +82,58 @@ static const char log_month_name[][4] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
+static pthread_rwlock_t _formatlock;
+
+void
+qb_log_format_init(void)
+{
+	int32_t i;
+	struct qb_log_target *t;
+
+	i = pthread_rwlock_init(&_formatlock, NULL);
+	assert(i == 0);
+
+	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+		t = qb_log_target_get(i);
+		t->format = strdup("[%p] %b");
+	}
+}
+
+void
+qb_log_format_fini(void)
+{
+	struct qb_log_target *t;
+	int32_t i;
+
+	pthread_rwlock_destroy(&_formatlock);
+
+	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+		t = qb_log_target_get(i);
+		free(t->format);
+	}
+}
+
+void
+qb_log_format_set(int32_t target, const char *format)
+{
+	char modified_format[256];
+	struct qb_log_target *t = qb_log_target_get(target);
+
+	pthread_rwlock_wrlock(&_formatlock);
+
+	free(t->format);
+
+	if (format) {
+		qb_log_target_format_static(target, format, modified_format);
+		t->format = strdup(modified_format);
+	} else {
+		t->format = strdup("[%p] %b");
+	}
+	assert(t->format != NULL);
+
+	pthread_rwlock_unlock(&_formatlock);
+}
+
 /* Convert string "auth" to equivalent number "LOG_AUTH" etc. */
 int32_t
 qb_log_facility2int(const char *fname)
@@ -276,7 +328,9 @@ qb_log_target_format(int32_t target,
 	int c;
 	struct qb_log_target *t = qb_log_target_get(target);
 
+	pthread_rwlock_rdlock(&_formatlock);
 	if (t->format == NULL) {
+		pthread_rwlock_unlock(&_formatlock);
 		return;
 	}
 
@@ -370,6 +424,7 @@ qb_log_target_format(int32_t target,
 			break;
 		}
 	}
+	pthread_rwlock_unlock(&_formatlock);
 
 	if (output_buffer[output_buffer_idx - 1] == '\n') {
 		output_buffer[output_buffer_idx - 1] = '\0';

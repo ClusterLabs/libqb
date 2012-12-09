@@ -735,6 +735,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 
 	i = pthread_rwlock_init(&_listlock, NULL);
 	assert(i == 0);
+	qb_log_format_init();
 
 	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
 		conf[i].pos = i;
@@ -744,7 +745,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
 		qb_list_init(&conf[i].filter_head);
-		qb_log_format_set(i, NULL);
 	}
 
 	qb_log_dcs_init();
@@ -786,7 +786,6 @@ qb_log_fini(void)
 	for (pos = 0; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
 		_log_target_disable(t);
-		free(conf[pos].format);
 		qb_list_for_each_safe(iter2, next2, &t->filter_head) {
 			flt = qb_list_entry(iter2, struct qb_log_filter, list);
 			qb_list_del(iter2);
@@ -794,6 +793,7 @@ qb_log_fini(void)
 			free(flt);
 		}
 	}
+	qb_log_format_fini();
 	qb_log_dcs_fini();
 	qb_list_for_each_safe(iter, next, &callsite_sections) {
 		s = qb_list_entry(iter, struct callsite_section, list);
@@ -1007,19 +1007,4 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		in_logger = QB_FALSE;
 	}
 	return rc;
-}
-
-void
-qb_log_format_set(int32_t t, const char *format)
-{
-	char modified_format[256];
-	free(conf[t].format);
-
-	if (format) {
-		qb_log_target_format_static(t, format, modified_format);
-		conf[t].format = strdup(modified_format);
-	} else {
-		conf[t].format = strdup("[%p] %b");
-	}
-	assert(conf[t].format != NULL);
 }
