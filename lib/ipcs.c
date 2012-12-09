@@ -628,7 +628,7 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	}
 	if (size < 0) {
 		if (size != -EAGAIN && size != -ETIMEDOUT) {
-			qb_util_perror(LOG_ERR,
+			qb_util_perror(LOG_DEBUG,
 				       "recv from client connection failed (%s)",
 				       c->description);
 		} else {
@@ -776,9 +776,14 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		res = 0;
 	}
 	if (res != 0) {
-		errno = -res;
-		qb_util_perror(LOG_ERR, "request returned error (%s)",
-			       c->description);
+		if (res != -ENOTCONN) {
+			/*
+			 * Abnormal state (ENOTCONN is normal shutdown).
+			 */
+			errno = -res;
+			qb_util_perror(LOG_ERR, "request returned error (%s)",
+				       c->description);
+		}
 		qb_ipcs_connection_unref(c);
 	}
 
