@@ -48,6 +48,11 @@
 #define UNIX_PATH_MAX    108
 #endif /* UNIX_PATH_MAX */
 
+#ifndef EWOULDBLOCK
+#define EWOULDBLOCK EAGAIN
+#endif
+
+
 /*
  * SUN_LEN() does a strlen() on sun_path, but if you are trying to use the
  * "Linux abstract namespace" (you have to set sun_path[0] == '\0') then
@@ -60,8 +65,17 @@
 #endif
 
 struct ipc_us_control {
-	int32_t sent;
+	int32_t sent; /* number of messages "inflight/not received" */
+	int32_t sent_size;
 	int32_t flow_control;
+/* mini ringbuffer that keeps track of the chunks we had to send()
+ * to transmit each message.
+ * we do this as the kernel limits the number of chunks sent to the
+ * socket buffer to /proc/sys/net/unix/max_dgram_qlen, default is 10
+ */
+#define CHUNKS_PER_MSG_MAX 10
+	int32_t chunks_per_msg_idx;
+	int32_t chunks_per_msg[CHUNKS_PER_MSG_MAX];
 };
 #define SHM_CONTROL_SIZE (3 * sizeof(struct ipc_us_control))
 
@@ -73,12 +87,14 @@ struct ipc_auth_ugp {
 
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 static int32_t qb_ipc_us_fc_get(struct qb_ipc_one_way *one_way);
+static ssize_t qb_ipc_us_q_size_get(struct qb_ipc_one_way *one_way);
+static ssize_t qb_ipc_us_q_len_get(struct qb_ipc_one_way *one_way);
 
 static void
 socket_nosigpipe(int32_t s)
 {
 #ifdef SO_NOSIGPIPE
-	int32_t on = 1;
+	int on = 1;
 	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
 #endif /* SO_NOSIGPIPE */
 }
@@ -109,14 +125,164 @@ static void sigpipe_ctl(enum qb_sigpipe_ctl ctl)
 #define MSG_NOSIGNAL 0
 #endif
 
-ssize_t
-qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
+
+/*
+ * make sure the SO_SNDBUF is at least required_max
+ * and return the actual value (it could be bigger).
+ * or return the negative errno.
+ */
+static int
+ensure_socket_buf_size(int fd, int required_max)
+{
+	int cur_buf_size;
+	socklen_t opt_len;
+	int32_t rc = 0;
+
+	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF,
+		       &cur_buf_size,
+		       &opt_len) < 0) {
+		rc = -errno;
+		qb_util_perror(LOG_ERR, "couldn't get the socket send size");
+		return rc;
+	}
+	if (cur_buf_size >= required_max) {
+		return cur_buf_size;
+	}
+	qb_util_log(LOG_TRACE, "increasing SO_SNDBUF from %d to %d",
+		    cur_buf_size, required_max);
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF,
+		       &required_max,
+		       sizeof(required_max)) < 0) {
+		rc = -errno;
+		qb_util_perror(LOG_ERR, "couldn't set the socket send size");
+		return rc;
+	}
+	return required_max;
+}
+
+
+static int32_t
+_ipc_ctl_chunk_count(struct qb_ipc_one_way *one_way)
+{
+	struct ipc_us_control *ctl =
+	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	int32_t cnt_read;
+	int32_t idx;
+	int32_t total = 0;
+
+	if (ctl == NULL) {
+		return 0;
+	}
+	cnt_read = qb_atomic_int_get(&ctl->sent);
+	idx = qb_atomic_int_get(&ctl->chunks_per_msg_idx) - cnt_read;
+	if (idx < 0) {
+		idx += CHUNKS_PER_MSG_MAX;
+	} else {
+		idx = (idx % CHUNKS_PER_MSG_MAX);
+	}
+
+	while (cnt_read > 0) {
+		total += ctl->chunks_per_msg[idx];
+		cnt_read--;
+		idx = (qb_atomic_int_get(&ctl->chunks_per_msg_idx) - cnt_read);
+		if (idx < 0) {
+			idx += CHUNKS_PER_MSG_MAX;
+		} else {
+			idx = (idx % CHUNKS_PER_MSG_MAX);
+		}
+	}
+	return total;
+}
+
+static void
+_ipc_ctl_chunk_count_push(struct qb_ipc_one_way *one_way, int32_t chunks,
+			  int32_t msg_size)
+{
+	struct ipc_us_control *ctl =
+	    (struct ipc_us_control *)one_way->u.us.shared_data;
+
+	int32_t idx = qb_atomic_int_get(&ctl->chunks_per_msg_idx);
+	ctl->chunks_per_msg[idx++] = chunks;
+	idx %= CHUNKS_PER_MSG_MAX;
+	assert(idx >= 0);
+	assert(idx < CHUNKS_PER_MSG_MAX);
+	qb_atomic_int_set(&ctl->chunks_per_msg_idx, idx);
+
+	qb_atomic_int_inc(&ctl->sent);
+	qb_atomic_int_add(&ctl->sent_size, msg_size);
+}
+
+
+static void
+_ipc_ctl_chunk_count_pop(struct qb_ipc_one_way *one_way, int32_t msg_size)
+{
+	struct ipc_us_control *ctl =
+	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	int32_t size = qb_atomic_int_get(&ctl->sent_size);
+
+	if (size == 0) {
+		/*already empty*/
+		return;
+	}
+	if (msg_size < size) {
+		/* prevent it going negative */
+		size = msg_size;
+	}
+	qb_atomic_int_add(&ctl->sent, -1);
+	qb_atomic_int_add(&ctl->sent_size, -size);
+}
+
+
+/*
+ * 1) enough space in the buffer
+ *    from man unix:
+ *    "This limit is calculated as the doubled (see socket(7)) option
+ *     value less 32 bytes used for overhead."
+ * 2) enough chunks in the buffer
+ *    no more than 10 chunks sent to the buffer.
+ */
+static int32_t
+unix_sock_has_space_for(struct qb_ipc_one_way *one_way,
+			size_t len, int32_t hint)
+{
+	int32_t space_left;
+	int32_t chunks_in_buffer;
+	int32_t chunks_needed;
+	int32_t qsize = qb_ipc_us_q_size_get(one_way);
+
+	space_left = (one_way->max_msg_size * 2) - (32 + qsize);
+	if (space_left < len) {
+		qb_util_log(LOG_TRACE,
+			    "%s %d for message of size %d",
+			    "not enough space left in the socket buffer",
+			    space_left, len);
+		return QB_FALSE;
+	}
+	chunks_in_buffer = _ipc_ctl_chunk_count(one_way);
+	if (chunks_in_buffer < 2) {
+		return QB_TRUE;
+	}
+	chunks_needed = hint + 1;
+	/*
+	qb_util_log(LOG_DEBUG,
+		    "space left %d, msg_size %d, qsize: %d chunks_needed %d chunks %d",
+		    space_left, len, qsize, chunks_needed, chunks_in_buffer);
+	*/
+	if (chunks_needed + chunks_in_buffer >= 9) {
+		return QB_FALSE;
+	}
+
+	return QB_TRUE;
+}
+
+
+static ssize_t
+_ipc_us_send_chunk(struct qb_ipc_one_way *one_way, const void *msg, size_t len,
+		   int32_t *chunks)
 {
 	int32_t result;
 	int32_t processed = 0;
 	char *rbuf = (char *)msg;
-
-	sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_send:
 	result = send(one_way->u.us.sock,
@@ -125,29 +291,62 @@ retry_send:
 		      MSG_NOSIGNAL);
 
 	if (result == -1) {
-		if (errno == EAGAIN && processed > 0) {
+		if ((errno == EAGAIN || errno == EWOULDBLOCK) &&
+		    processed > 0) {
+			/*
+			ssize_t qsize = qb_ipc_us_q_len_get(one_way);
+			result = qb_ipc_us_ready(one_way, 100, POLLOUT);
+			qb_util_log(LOG_DEBUG, "polled and got %d (qlen:%d)",
+				    result, qsize);
+			*/
 			goto retry_send;
 		} else {
-			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+			if (errno == EWOULDBLOCK) {
+				return -EAGAIN;
+			}
 			return -errno;
 		}
+	}
+	if (result > 0) {
+		(*chunks)++;
 	}
 
 	processed += result;
 	if (processed != len) {
+		/*
+		qb_util_log(LOG_DEBUG, "sent some (%d) %d/%d",
+			    result, processed, len);
+		*/
 		goto retry_send;
 	}
 
+	return processed;
+}
+
+ssize_t
+qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
+{
+	int32_t result;
+	int32_t chunks = 0;
+
+	if (!unix_sock_has_space_for(one_way, len, 1)) {
+		return -EAGAIN;
+	}
+
+	sigpipe_ctl(QB_SIGPIPE_IGNORE);
+
+	result = _ipc_us_send_chunk(one_way, msg, len, &chunks);
+
 	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 
-	if (one_way->type == QB_IPC_SOCKET) {
+	if (result > 0 && one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 		if (ctl) {
-			qb_atomic_int_inc(&ctl->sent);
+			_ipc_ctl_chunk_count_push(one_way, chunks, result);
 		}
 	}
-	return processed;
+	return result;
 }
 
 static ssize_t
@@ -155,22 +354,29 @@ qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 		size_t iov_len)
 {
 	int32_t result;
-	int32_t processed = 0;
 	int32_t total_processed = 0;
 	int32_t iov_p = 0;
-	char *rbuf = (char *)iov[iov_p].iov_base;
+	size_t to_send = 0;
+	int32_t i;
+	int32_t chunks = 0;
+
+	for (i = 0; i < iov_len; i++) {
+		to_send += iov[i].iov_len;
+	}
+	if (!unix_sock_has_space_for(one_way, to_send, iov_len)) {
+		return -EAGAIN;
+	}
 
 	sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_send:
-	result = send(one_way->u.us.sock,
-		      &rbuf[processed],
-		      iov[iov_p].iov_len - processed,
-		      MSG_NOSIGNAL);
+	result = _ipc_us_send_chunk(one_way,
+				    iov[iov_p].iov_base,
+				    iov[iov_p].iov_len,
+				    &chunks);
 
 	if (result == -1) {
-		if (errno == EAGAIN &&
-		    (processed > 0 || iov_p > 0)) {
+		if ((errno == EAGAIN || errno == EWOULDBLOCK) && iov_p > 0) {
 			goto retry_send;
 		} else {
 			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
@@ -178,26 +384,30 @@ retry_send:
 		}
 	}
 
-	processed += result;
-	if (processed == iov[iov_p].iov_len) {
+	if (result > 0) {
+		assert(result == iov[iov_p].iov_len);
+	}
+	if (result == iov[iov_p].iov_len) {
 		iov_p++;
-		total_processed += processed;
+		total_processed += result;
 		if (iov_p < iov_len) {
-			processed = 0;
-			rbuf = (char *)iov[iov_p].iov_base;
 			goto retry_send;
 		}
 	} else {
+		if (result > 0) {
+			qb_util_log(LOG_ERR, "holy crap iov %d result %d != iov_len %d",
+				    iov_p, result, iov[iov_p].iov_len);
+		}
 		goto retry_send;
 	}
 
 	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 
-	if (one_way->type == QB_IPC_SOCKET) {
+	if (result > 0 && one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 		if (ctl) {
-			qb_atomic_int_inc(&ctl->sent);
+			_ipc_ctl_chunk_count_push(one_way, chunks, total_processed);
 		}
 	}
 	return total_processed;
@@ -216,7 +426,7 @@ retry_recv:
 	hdr->msg_iov->iov_len = len - processed;
 
 	result = recvmsg(s, hdr, MSG_NOSIGNAL | MSG_WAITALL);
-	if (result == -1 && errno == EAGAIN) {
+	if (result == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 		goto retry_recv;
 	}
 	if (result == -1) {
@@ -246,9 +456,7 @@ qb_ipc_us_sock_error_is_disconnected(int err)
 	if (err == -EAGAIN ||
 	    err == -ETIMEDOUT ||
 	    err == -EINTR ||
-#ifdef EWOULDBLOCK
 	    err == -EWOULDBLOCK ||
-#endif
 	    err == -EINVAL) {
 		return QB_FALSE;
 	}
@@ -304,7 +512,7 @@ retry_recv:
 		      MSG_NOSIGNAL | MSG_WAITALL);
 
 	if (result == -1) {
-		if (errno == EAGAIN &&
+		if ((errno == EAGAIN || errno == EWOULDBLOCK) &&
 		    (processed > 0 || timeout == -1)) {
 			result = qb_ipc_us_ready(one_way, timeout,
 						 POLLIN);
@@ -337,7 +545,7 @@ retry_recv:
 		struct ipc_us_control *ctl = NULL;
 		ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 		if (ctl) {
-			(void)qb_atomic_int_dec_and_test(&ctl->sent);
+			_ipc_ctl_chunk_count_pop(one_way, processed);
 		}
 	}
 
@@ -367,7 +575,7 @@ retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
 	if (result == -1) {
-		if (errno == EAGAIN &&
+		if ((errno == EAGAIN || errno == EWOULDBLOCK) &&
 		    (processed > 0 || timeout == -1)) {
 			/*
 			 * Don't spin too hard else we can consume too
@@ -406,7 +614,7 @@ retry_recv:
 
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 	if (ctl) {
-		(void)qb_atomic_int_dec_and_test(&ctl->sent);
+		_ipc_ctl_chunk_count_pop(one_way, processed);
 	}
 
  cleanup_sigpipe:
@@ -416,7 +624,9 @@ retry_recv:
 
 
 static int32_t
-qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
+qb_ipcc_us_sock_connect(const char *socket_name,
+			struct qb_ipc_one_way* one_way,
+			int32_t * sock_pt)
 {
 	int32_t request_fd;
 	struct sockaddr_un address;
@@ -433,6 +643,12 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 	if (res < 0) {
 		goto error_connect;
 	}
+
+	res = ensure_socket_buf_size(request_fd, one_way->max_msg_size);
+	if (res < 0) {
+		goto error_connect;
+	}
+	one_way->max_msg_size = res;
 
 	memset(&address, 0, sizeof(struct sockaddr_un));
 	address.sun_family = AF_UNIX;
@@ -480,7 +696,8 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	int on = 1;
 #endif
 
-	res = qb_ipcc_us_sock_connect(c->name, &c->setup.u.us.sock);
+	res = qb_ipcc_us_sock_connect(c->name, &c->setup,
+				      &c->setup.u.us.sock);
 	if (res != 0) {
 		return res;
 	}
@@ -567,11 +784,12 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	}
 	c->request.u.us.shared_data = shm_ptr;
 	c->response.u.us.shared_data = shm_ptr + sizeof(struct ipc_us_control);
-	c->event.u.us.shared_data =  shm_ptr + (2 * sizeof(struct ipc_us_control));
+	c->event.u.us.shared_data = shm_ptr + (2 * sizeof(struct ipc_us_control));
 
 	close(fd_hdr);
 
-	res = qb_ipcc_us_sock_connect(c->name, &c->event.u.us.sock);
+	res = qb_ipcc_us_sock_connect(c->name, &c->event,
+				      &c->event.u.us.sock);
 	if (res != 0) {
 		goto cleanup_hdr;
 	}
@@ -954,7 +1172,6 @@ cleanup_and_return:
 #ifdef SO_PASSCRED
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
 #endif
-
 	return res;
 }
 
@@ -1005,6 +1222,12 @@ retry_accept:
 		 */
 		return 0;
 	}
+	res = ensure_socket_buf_size(new_fd, setup_msg.max_msg_size);
+	if (res < 0) {
+		close(new_fd);
+		return 0;
+	}
+	setup_msg.max_msg_size = res;
 
 	res = qb_ipcs_uc_recv_and_auth(new_fd, &setup_msg, sizeof(setup_msg),
 				       &ugp);
@@ -1089,13 +1312,19 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	ctl = (struct ipc_us_control *)c->request.u.us.shared_data;
 	ctl->sent = 0;
+	ctl->sent_size = 0;
 	ctl->flow_control = 0;
+	ctl->chunks_per_msg_idx = 0;
 	ctl = (struct ipc_us_control *)c->response.u.us.shared_data;
 	ctl->sent = 0;
+	ctl->sent_size = 0;
 	ctl->flow_control = 0;
+	ctl->chunks_per_msg_idx = 0;
 	ctl = (struct ipc_us_control *)c->event.u.us.shared_data;
 	ctl->sent = 0;
+	ctl->sent_size = 0;
 	ctl->flow_control = 0;
+	ctl->chunks_per_msg_idx = 0;
 
 	close(fd_hdr);
 	return res;
@@ -1128,10 +1357,24 @@ qb_ipc_us_fc_get(struct qb_ipc_one_way *one_way)
 }
 
 static ssize_t
+qb_ipc_us_q_size_get(struct qb_ipc_one_way *one_way)
+{
+	struct ipc_us_control *ctl =
+	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	if (ctl == NULL) {
+		return 0;
+	}
+	return qb_atomic_int_get(&ctl->sent_size);
+}
+
+static ssize_t
 qb_ipc_us_q_len_get(struct qb_ipc_one_way *one_way)
 {
 	struct ipc_us_control *ctl =
 	    (struct ipc_us_control *)one_way->u.us.shared_data;
+	if (ctl == NULL) {
+		return 0;
+	}
 	return qb_atomic_int_get(&ctl->sent);
 }
 
