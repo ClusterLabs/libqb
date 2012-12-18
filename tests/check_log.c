@@ -103,6 +103,14 @@ START_TEST(test_va_serialize)
 
 	format_this_up_to(buf, 11, "123456789____");
 	ck_assert_str_eq(buf, "123456789_");
+
+	format_this(buf, "Client %s.%.9s wants to fence (%s) '%s' with device '%s'",
+		    "bla", "foooooooooooooooooo",
+		    "action", "target", "hoop");
+
+	ck_assert_str_eq(buf,
+			 "Client bla.foooooooo wants to fence (action) 'target' with device 'hoop'");
+
 }
 END_TEST
 

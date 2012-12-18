@@ -433,6 +433,27 @@ qb_log_target_format(int32_t target,
 	}
 }
 
+
+/*
+ * These wrappers around strl* functions just return the
+ * number of characters written, not the number of characters
+ * requested to be written.
+ */
+static size_t
+my_strlcpy(char *dest, const char * src, size_t maxlen)
+{
+	size_t rc = strlcpy(dest, src, maxlen);
+	/* maxlen includes NUL, so -1 */
+	return QB_MIN(rc, maxlen-1);
+}
+
+static size_t
+my_strlcat(char *dest, const char * src, size_t maxlen)
+{
+	size_t rc = strlcat(dest, src, maxlen);
+	return QB_MIN(rc, maxlen-1);
+}
+
 size_t
 qb_vsnprintf_serialize(char *serialize, size_t max_len,
 		       const char *fmt, va_list ap)
@@ -443,7 +464,7 @@ qb_vsnprintf_serialize(char *serialize, size_t max_len,
 	int type_longlong = 0;
         int sformat_length = 0;
         int sformat_precision = 0;
-	uint32_t location = strlcpy(serialize, fmt, max_len) + 1;
+	uint32_t location = my_strlcpy(serialize, fmt, max_len) + 1;
 
 	format = (char *)fmt;
 	for (;;) {
@@ -478,7 +499,7 @@ reprocess:
 		case '7': /* field width, ignore */
 		case '8': /* field width, ignore */
 		case '9': /* field width, ignore */
-                        if(sformat_precision) {
+                        if (sformat_precision) {
                             sformat_length *= 10;
                             sformat_length += (format[0] - '0');
                         }
@@ -585,17 +606,17 @@ reprocess:
 			char *arg_string;
 			arg_string = va_arg(ap, char *);
 			if (arg_string == NULL) {
-				location += strlcpy(&serialize[location],
+				location += my_strlcpy(&serialize[location],
 						   "(null)",
 						   QB_MIN(strlen("(null)") + 1,
 							  max_len - location));
 			} else if (sformat_length) {
-                                location += strlcpy(&serialize[location],
+				location += my_strlcpy(&serialize[location],
 						   arg_string,
 						   QB_MIN(sformat_length + 1,
 						   (max_len - location)));
 			} else {
-				location += strlcpy(&serialize[location],
+				location += my_strlcpy(&serialize[location],
 						   arg_string,
 						   QB_MIN(strlen(arg_string) + 1,
 							  max_len - location));
@@ -650,7 +671,7 @@ qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
 		type_longlong = 0;
 		p = strchrnul((const char *)format, '%');
 		if (*p == '\0') {
-			return strlcat(string, format, str_len) + 1;
+			return my_strlcat(string, format, str_len) + 1;
 		}
 		/* copy from current to the next % */
 		len = p - format;
@@ -790,7 +811,8 @@ reprocess:
 				       str_len - location,
 				       fmt, &buf[data_pos]);
 			location += len;
-			data_pos += len + 1;
+			/* don't use len as there might be a len modifier */
+			data_pos += strlen(&buf[data_pos]) + 1;
 			format++;
 			break;
 			}
