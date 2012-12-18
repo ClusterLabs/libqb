@@ -19,14 +19,24 @@
  */
 #include "os_base.h"
 
+/*
+ * strlcat() appends string src to the end of dst.  It will append at most
+ * maxlen - strlen(dst) - 1 characters.  It will then NUL-terminate, unless
+ * maxlen is 0 or the original dst string was longer than maxlen (in
+ * practice this should not happen as it means that either maxlen is
+ * incorrect or that dst is not a proper string).
+ *
+ * @return the total length of the string it tried to create
+ *         (the length of dst plus the length of src).
+ */
 size_t
 strlcat(char *dest, const char * src, size_t maxlen)
 {
 	size_t	curlen = strlen(dest);
 	size_t	addlen = strlen(src);
-	size_t	appendlen = (maxlen-1) - curlen;
+	size_t	appendlen = maxlen - curlen;
 	if (appendlen > 0) {
-		strlcpy(dest+curlen, src, maxlen-curlen);
+		strlcpy(dest+curlen, src, appendlen);
 	}
 	return curlen + addlen;
 }
