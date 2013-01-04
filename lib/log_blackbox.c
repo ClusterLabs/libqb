@@ -247,7 +247,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 				message[len] = '\0';
 				len--;
 			}
-			message[msg_len] = '\0';
+			message[len] = '\0';
 			printf("%-7s %s %s(%u):%u: %s\n",
 				qb_log_priority2str(priority),
 			       time_buf, function, lineno, tags, message);
