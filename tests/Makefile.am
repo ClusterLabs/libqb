@@ -27,8 +27,10 @@ noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
 	auto_check_header_qbipc_common auto_check_header_qblist auto_check_header_qbloop \
 	auto_check_header_qbrb auto_check_header_qbatomic auto_check_header_qbdefs \
 	auto_check_header_qbipcc auto_check_header_qbipcs auto_check_header_qblog \
-	auto_check_header_qbmap auto_check_header_qbutil
+	auto_check_header_qbmap auto_check_header_qbutil format_compare_speed
 
+format_compare_speed_SOURCES = format_compare_speed.c $(top_builddir)/include/qb/qbutil.h
+format_compare_speed_LDADD = $(top_builddir)/lib/libqb.la
 
 bmc_SOURCES = bmc.c $(top_builddir)/include/qb/qbipcc.h
 bmc_LDADD = $(top_builddir)/lib/libqb.la
