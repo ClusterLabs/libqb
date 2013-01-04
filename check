@@ -13,6 +13,7 @@ help_all() {
 	echo "  sysv            Check using sys-v semaphores"
 	echo "  nosection       Check without gcc __attribute__(section)"
 	echo "  noepoll         Check using poll (not epoll)"
+	echo "  noeventfd       Check using no eventfd"
 	echo "  nogettime       Check without gettime()"
 	echo "  bsd             Check with a bsd-like config"
 	echo "  mac             Check with a mac/darwin-like config"
@@ -114,6 +115,13 @@ check_noepoll() {
 	echo "checking noepoll"
 	echo "======================="
 	check "ac_cv_func_epoll_create1=no ac_cv_func_epoll_create=no"
+}
+
+check_noeventfd() {
+	# no epoll
+	echo "checking noeventfd"
+	echo "======================="
+	check "ac_cv_func_eventfd=no"
 }
 
 check_bsd() {
@@ -291,6 +299,9 @@ case $command in
 	;;
 	noepoll)
 		check_noepoll
+	;;
+	noeventfd)
+		check_noeventfd
 	;;
 	nogettime)
 		check_nogettime

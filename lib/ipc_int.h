@@ -31,6 +31,7 @@
 #include <qb/qbipcs.h>
 #include <qb/qbipc_common.h>
 #include <qb/qbrb.h>
+#include "ringbuffer_int.h"
 
 #define QB_IPC_MAX_WAIT_MS 2000
 
@@ -75,6 +76,10 @@ struct qb_ipc_one_way {
 		} us;
 		struct {
 			qb_ringbuffer_t *rb;
+			int read_eventfd;
+			int write_eventfd;
+			uint32_t space_used;
+			int is_writer;
 		} shm;
 	} u;
 };
@@ -111,6 +116,7 @@ void qb_ipcc_us_sock_close(int32_t sock);
 
 int32_t qb_ipcc_us_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
 int32_t qb_ipcc_shm_connect(struct qb_ipcc_connection *c, struct qb_ipc_connection_response * response);
+int32_t qb_ipc_soc_ready(int fd, int32_t ms_timeout, int32_t events);
 
 struct qb_ipcs_service;
 struct qb_ipcs_connection;
@@ -199,5 +205,18 @@ int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 	struct qb_ipc_request_header *hdr);
 
 int32_t qb_ipc_us_sock_error_is_disconnected(int err);
+
+
+int32_t qb_ipc_efd_create(struct qb_ipcs_service *s,
+			  struct qb_ipcs_connection *c,
+			  struct qb_ipc_one_way *one_way,
+			  uint32_t flags,
+			  struct qb_rb_notifier *notifier_cb);
+
+int32_t qb_ipc_efd_send_fds(struct qb_ipcs_connection *c);
+
+int32_t qb_ipc_efd_recv_fds(struct qb_ipcc_connection *c);
+
+int32_t qb_ipc_efd_add_to_mainloop(struct qb_ipcs_connection *c);
 
 #endif /* QB_IPC_INT_H_DEFINED */

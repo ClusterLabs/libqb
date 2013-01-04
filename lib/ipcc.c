@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright (C) 2010-2013 Red Hat, Inc.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
  *
@@ -32,6 +32,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	qb_ipcc_connection_t *c = NULL;
 	struct qb_ipc_connection_response response;
 
+	qb_enter();
 	c = calloc(1, sizeof(struct qb_ipcc_connection));
 	if (c == NULL) {
 		return NULL;
@@ -44,10 +45,6 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	if (res < 0) {
 		goto disconnect_and_cleanup;
 	}
-	c->response.type = response.connection_type;
-	c->request.type = response.connection_type;
-	c->event.type = response.connection_type;
-	c->setup.type = response.connection_type;
 
 	c->response.max_msg_size = response.max_msg_size;
 	c->request.max_msg_size = response.max_msg_size;
@@ -88,10 +85,10 @@ disconnect_and_cleanup:
 	return NULL;
 }
 
-static void
+static int32_t
 _check_connection_state(struct qb_ipcc_connection * c, int32_t res)
 {
-	if (res >= 0) return;
+	if (res >= 0) return res;
 
 	if (qb_ipc_us_sock_error_is_disconnected(res)) {
 		errno = -res;
@@ -100,6 +97,28 @@ _check_connection_state(struct qb_ipcc_connection * c, int32_t res)
 			    res);
 		c->is_connected = QB_FALSE;
 	}
+	if (res == -EAGAIN &&
+	    !c->needs_sock_for_poll &&
+	    c->request.type == QB_IPC_SHM) {
+		/*
+		 * eventfd's are not "connected" from one endpoint to another
+		 * so we can't really use them to determine connectedness.
+		 * If we get an EAGAIN use the original setup socket to
+		 * see if the other side has disconnected/died.
+		 */
+		int res2 = qb_ipc_soc_ready(c->setup.u.us.sock, 0, POLLIN);
+		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
+			errno = -res2;
+			qb_util_perror(LOG_DEBUG,
+				       "%s %d %s",
+				       "interpreting result",
+				       res2,
+				       "(from socket) as a disconnect");
+			c->is_connected = QB_FALSE;
+			res = res2;
+		}
+	}
+	return res;
 }
 
 static struct qb_ipc_one_way *
@@ -108,10 +127,7 @@ _event_sock_one_way_get(struct qb_ipcc_connection * c)
 	if (c->needs_sock_for_poll) {
 		return &c->setup;
 	}
-	if (c->event.type == QB_IPC_SOCKET) {
-		return &c->event;
-	}
-	return NULL;
+	return &c->event;
 }
 
 static struct qb_ipc_one_way *
@@ -120,10 +136,7 @@ _response_sock_one_way_get(struct qb_ipcc_connection * c)
 	if (c->needs_sock_for_poll) {
 		return &c->setup;
 	}
-	if (c->response.type == QB_IPC_SOCKET) {
-		return &c->response;
-	}
-	return NULL;
+	return &c->response;
 }
 
 ssize_t
@@ -131,6 +144,8 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 {
 	ssize_t res;
 	ssize_t res2;
+
+	qb_enter();
 
 	if (c == NULL || msg_len > c->request.max_msg_size) {
 		return -EINVAL;
@@ -160,8 +175,7 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 			res = res2;
 		}
 	}
-	_check_connection_state(c, res);
-	return res;
+	return _check_connection_state(c, res);
 }
 
 int32_t
@@ -215,8 +229,7 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 			res = res2;
 		}
 	}
-	_check_connection_state(c, res);
-	return res;
+	return _check_connection_state(c, res);
 }
 
 ssize_t
@@ -226,9 +239,11 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	int32_t res = 0;
 	int32_t res2 = 0;
 	int32_t poll_ms = 0;
+
 	if (c == NULL) {
 		return -EINVAL;
 	}
+	qb_enter();
 
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
 	if (res == -EAGAIN || res == -ETIMEDOUT) {
@@ -242,8 +257,7 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 			res = res2;
 		}
 	}
-	_check_connection_state(c, res);
-	return res;
+	return _check_connection_state(c, res);
 }
 
 ssize_t
@@ -255,6 +269,7 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 	int32_t timeout_now;
 	int32_t timeout_rem = ms_timeout;
 
+	qb_enter();
 	if (c == NULL) {
 		return -EINVAL;
 	}
@@ -308,13 +323,16 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 int32_t
 qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 {
+	qb_enter();
 	if (c == NULL) {
 		return -EINVAL;
 	}
-	if (c->event.type == QB_IPC_SOCKET) {
-		*fd = c->event.u.us.sock;
-	} else {
+	if (c->needs_sock_for_poll) {
 		*fd = c->setup.u.us.sock;
+	} else if (c->request.type == QB_IPC_SHM) {
+		*fd = c->event.u.shm.write_eventfd;
+	} else {
+		*fd = c->event.u.us.sock;
 	}
 	return 0;
 }
@@ -327,6 +345,7 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	int32_t res;
 	ssize_t size;
 	struct qb_ipc_one_way *ow = NULL;
+	qb_enter();
 
 	if (c == NULL) {
 		return -EINVAL;
@@ -335,20 +354,17 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	if (ow) {
 		res = qb_ipc_us_ready(ow, ms_timeout, POLLIN);
 		if (res < 0) {
-			_check_connection_state(c, res);
-			return res;
+			return _check_connection_state(c, res);
 		}
 	}
 	size = c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
 	if (size < 0) {
-		_check_connection_state(c, size);
-		return size;
+		return _check_connection_state(c, size);
 	}
 	if (c->needs_sock_for_poll) {
 		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
 		if (res < 0) {
-			_check_connection_state(c, res);
-			return res;
+			return _check_connection_state(c, res);
 		}
 	}
 	return size;
@@ -369,7 +385,7 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 	ow = _event_sock_one_way_get(c);
 	if (ow) {
 		res = qb_ipc_us_ready(ow, 0, POLLIN);
-		_check_connection_state(c, res);
+		(void)_check_connection_state(c, res);
 		qb_ipcc_us_sock_close(ow->u.us.sock);
 	}
 
@@ -402,13 +418,23 @@ qb_ipcc_is_connected(qb_ipcc_connection_t *c)
 {
 	struct qb_ipc_one_way *ow;
 
+	qb_enter();
 	if (c == NULL) {
 		return QB_FALSE;
 	}
 
-	ow = _response_sock_one_way_get(c);
+	if (c->needs_sock_for_poll) {
+		ow = &c->setup;
+	} else if (c->request.type == QB_IPC_SHM) {
+		/* this is not using the eventfd, as the setup socket
+		 * has better connection status
+		 */
+		ow = &c->setup;
+	} else {
+		ow = &c->response;
+	}
 	if (ow) {
-		_check_connection_state(c, qb_ipc_us_ready(ow, 0, POLLIN));
+		(void)_check_connection_state(c, qb_ipc_us_ready(ow, 0, POLLIN));
 	}
 
 	return c->is_connected;

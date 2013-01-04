@@ -90,6 +90,7 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 {
 	int32_t res = 0;
 
+	qb_enter();
 	if (s->poll_fns.dispatch_add == NULL ||
 	    s->poll_fns.dispatch_mod == NULL ||
 	    s->poll_fns.dispatch_del == NULL) {
@@ -133,19 +134,21 @@ static int32_t
 _modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
 {
 	qb_ipcs_dispatch_mod_fn disp_mod = c->service->poll_fns.dispatch_mod;
+	int fd = c->setup.u.us.sock;
+
+	qb_util_log(LOG_DEBUG, "_modify_dispatch_descriptor_ %d",
+		    c->service->poll_priority);
 
 	if (c->service->type == QB_IPC_SOCKET) {
-		return disp_mod(c->service->poll_priority,
-				c->event.u.us.sock,
-				c->poll_events, c,
-				qb_ipcs_dispatch_connection_request);
-	} else {
-		return disp_mod(c->service->poll_priority,
-				c->setup.u.us.sock,
-				c->poll_events, c,
-				qb_ipcs_dispatch_connection_request);
+		fd = c->request.u.us.sock;
+	} else if (!c->service->needs_sock_for_poll) {
+		fd = c->request.u.shm.write_eventfd;
 	}
-	return -EINVAL;
+
+	return disp_mod(c->service->poll_priority,
+		fd,
+		c->poll_events, c,
+		qb_ipcs_dispatch_connection_request);
 }
 
 void
@@ -156,6 +159,7 @@ qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 	enum qb_loop_priority old_p = s->poll_priority;
 	struct qb_list_head *pos;
 	struct qb_list_head *n;
+	qb_enter();
 
 	switch (rl) {
 	case QB_IPCS_RATE_FAST:
@@ -195,6 +199,7 @@ qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 void
 qb_ipcs_ref(struct qb_ipcs_service *s)
 {
+	qb_enter();
 	qb_atomic_int_inc(&s->ref_count);
 }
 
@@ -206,6 +211,7 @@ qb_ipcs_unref(struct qb_ipcs_service *s)
 	struct qb_list_head *pos;
 	struct qb_list_head *n;
 
+	qb_enter();
 	assert(s->ref_count > 0);
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
@@ -238,10 +244,7 @@ _event_sock_one_way_get(struct qb_ipcs_connection * c)
 	if (c->service->needs_sock_for_poll) {
 		return &c->setup;
 	}
-	if (c->event.type == QB_IPC_SOCKET) {
-		return &c->event;
-	}
-	return NULL;
+	return &c->event;
 }
 
 static struct qb_ipc_one_way *
@@ -250,10 +253,7 @@ _response_sock_one_way_get(struct qb_ipcs_connection * c)
 	if (c->service->needs_sock_for_poll) {
 		return &c->setup;
 	}
-	if (c->response.type == QB_IPC_SOCKET) {
-		return &c->response;
-	}
-	return NULL;
+	return &c->response;
 }
 
 ssize_t
@@ -262,6 +262,7 @@ qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 {
 	ssize_t res;
 
+	qb_enter();
 	if (c == NULL) {
 		return -EINVAL;
 	}
@@ -290,6 +291,7 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 {
 	ssize_t res;
 
+	qb_enter();
 	if (c == NULL) {
 		return -EINVAL;
 	}
@@ -317,6 +319,7 @@ resend_event_notifications(struct qb_ipcs_connection *c)
 {
 	ssize_t res = 0;
 
+	qb_enter();
 	if (c->outstanding_notifiers > 0) {
 		res = qb_ipc_us_send(&c->setup, c->receive_buf,
 				     c->outstanding_notifiers);
@@ -340,6 +343,7 @@ new_event_notification(struct qb_ipcs_connection * c)
 	if (!c->service->needs_sock_for_poll) {
 		return res;
 	}
+	qb_enter();
 
 	assert(c->outstanding_notifiers >= 0);
 	if (c->outstanding_notifiers > 0) {
@@ -364,6 +368,7 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 	ssize_t res;
 	ssize_t resn;
 
+	qb_enter();
 	if (c == NULL) {
 		return -EINVAL;
 	}
@@ -402,6 +407,7 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 	ssize_t res;
 	ssize_t resn;
 
+	qb_enter();
 	if (c == NULL) {
 		return -EINVAL;
 	}
@@ -614,6 +620,7 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	ssize_t size;
 	struct qb_ipc_request_header *hdr;
 
+	qb_enter();
 	qb_ipcs_connection_ref(c);
 
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
@@ -658,28 +665,20 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	}
 
 cleanup:
+	qb_leave();
 	qb_ipcs_connection_unref(c);
 	return res;
 }
 
 #define IPC_REQUEST_TIMEOUT 10
 #define MAX_RECV_MSGS 50
-
-int32_t
-qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data)
-{
-	int32_t res = _process_request_((struct qb_ipcs_connection *)data,
-					IPC_REQUEST_TIMEOUT);
-	if (res > 0) {
-		return 0;
-	}
-	return res;
-}
+static int max_recv_num[3] = {1, 5, 50};
 
 static ssize_t
 _request_q_len_get(struct qb_ipcs_connection *c)
 {
 	ssize_t q_len;
+	qb_enter();
 	if (c->service->funcs.q_len_get) {
 		q_len = c->service->funcs.q_len_get(&c->request);
 		if (q_len <= 0) {
@@ -706,8 +705,9 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	int32_t res;
 	int32_t res2;
 	int32_t recvd = 0;
-	ssize_t avail;
 
+	qb_util_log(LOG_DEBUG, "fd %d event %d conn (%s) fc:%d",
+		    fd, revents, c->description, c->fc_enabled);
 	if (revents & POLLNVAL) {
 		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);
 		return -EINVAL;
@@ -733,9 +733,8 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	if (c->fc_enabled) {
 		return 0;
 	}
-	avail = _request_q_len_get(c);
 
-	if (c->service->needs_sock_for_poll && avail == 0) {
+	if (c->service->needs_sock_for_poll && _request_q_len_get(c) == 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
 		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
 			errno = -res2;
@@ -756,10 +755,8 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
 			recvd++;
 		}
-		if (res > 0) {
-			avail--;
-		}
-	} while (avail > 0 && res > 0 && !c->fc_enabled);
+	} while (recvd < max_recv_num[c->service->poll_priority] &&
+		 res > 0 && !c->fc_enabled);
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
@@ -770,7 +767,6 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 				       c->description);
 		}
 	}
-
 	res = QB_MIN(0, res);
 	if (res == -EAGAIN || res == -ETIMEDOUT || res == -ENOBUFS) {
 		res = 0;
@@ -786,6 +782,7 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 		}
 		qb_ipcs_connection_unref(c);
 	}
+	qb_leave();
 
 	return res;
 }

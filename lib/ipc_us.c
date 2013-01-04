@@ -41,6 +41,7 @@
 
 #include "util_int.h"
 #include "ipc_int.h"
+#include "ringbuffer_int.h"
 
 #define SERVER_BACKLOG 5
 
@@ -108,6 +109,35 @@ static void sigpipe_ctl(enum qb_sigpipe_ctl ctl)
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
+
+int32_t
+qb_ipc_soc_ready(int fd, int32_t ms_timeout, int32_t events)
+{
+	struct pollfd ufds;
+	int32_t poll_events;
+
+	ufds.fd = fd;
+	ufds.events = events;
+	ufds.revents = 0;
+
+	poll_events = poll(&ufds, 1, ms_timeout);
+	if ((poll_events == -1 && errno == EINTR) || poll_events == 0) {
+		return -EAGAIN;
+	} else if (poll_events == -1) {
+		return -errno;
+	} else if (poll_events == 1 && (ufds.revents & POLLERR)) {
+		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLERR", ufds.fd);
+		return -ENOTCONN;
+	} else if (poll_events == 1 && (ufds.revents & POLLHUP)) {
+		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLHUP", ufds.fd);
+		return -ENOTCONN;
+	} else if (poll_events == 1 && (ufds.revents & POLLNVAL)) {
+		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLNVAL", ufds.fd);
+		return -ENOTCONN;
+	}
+	return 0;
+}
+
 
 ssize_t
 qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
@@ -255,33 +285,32 @@ qb_ipc_us_sock_error_is_disconnected(int err)
 	return QB_TRUE;
 }
 
+
 int32_t
 qb_ipc_us_ready(struct qb_ipc_one_way * one_way,
 		int32_t ms_timeout, int32_t events)
 {
-	struct pollfd ufds;
-	int32_t poll_events;
+	int fd;
 
-	ufds.fd = one_way->u.us.sock;
-	ufds.events = events;
-	ufds.revents = 0;
-
-	poll_events = poll(&ufds, 1, ms_timeout);
-	if ((poll_events == -1 && errno == EINTR) || poll_events == 0) {
-		return -EAGAIN;
-	} else if (poll_events == -1) {
-		return -errno;
-	} else if (poll_events == 1 && (ufds.revents & POLLERR)) {
-		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLERR", one_way->u.us.sock);
-		return -ENOTCONN;
-	} else if (poll_events == 1 && (ufds.revents & POLLHUP)) {
-		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLHUP", one_way->u.us.sock);
-		return -ENOTCONN;
-	} else if (poll_events == 1 && (ufds.revents & POLLNVAL)) {
-		qb_util_log(LOG_DEBUG, "poll(fd %d) got POLLNVAL", one_way->u.us.sock);
-		return -ENOTCONN;
+	fd = one_way->u.us.sock;
+#ifdef HAVE_EVENTFD
+	if (one_way->type == QB_IPC_SHM) {
+		if ((events & POLLIN) == POLLIN) {
+			if (one_way->u.shm.is_writer) {
+				fd = one_way->u.shm.read_eventfd;
+			} else {
+				fd = one_way->u.shm.write_eventfd;
+			}
+		} else {
+			if (one_way->u.shm.is_writer) {
+				fd = one_way->u.shm.write_eventfd;
+			} else {
+				fd = one_way->u.shm.read_eventfd;
+			}
+		}
 	}
-	return 0;
+#endif
+	return qb_ipc_soc_ready(fd, ms_timeout, events);
 }
 
 /*
@@ -513,7 +542,12 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	if (r->hdr.error != 0) {
 		return r->hdr.error;
 	}
-	return 0;
+	c->response.type = r->connection_type;
+	c->request.type = r->connection_type;
+	c->event.type = r->connection_type;
+	c->setup.type = r->connection_type;
+
+	return qb_ipc_efd_recv_fds(c);
 }
 
 static void
@@ -778,6 +812,12 @@ send_response:
 
 	res2 = qb_ipc_us_send(&c->setup, &response, response.hdr.size);
 	if (res == 0 && res2 != response.hdr.size) {
+		qb_util_perror(LOG_TRACE, "qb_ipc_us_send");
+		res = res2;
+	}
+	res2 = qb_ipc_efd_send_fds(c);
+	if (res == 0 && res2 != 0) {
+		qb_util_perror(LOG_TRACE, "qb_ipc_efd_send_fds");
 		res = res2;
 	}
 
@@ -1141,15 +1181,25 @@ qb_ipcs_sockets_disconnect(struct qb_ipcs_connection *c)
 	int sock = -1;
 
 	qb_enter();
-	if (c->service->needs_sock_for_poll && c->setup.u.us.sock > 0) {
-		sock = c->setup.u.us.sock;
-		qb_ipcc_us_sock_close(sock);
-		c->setup.u.us.sock = -1;
-	}
-	if (c->request.type == QB_IPC_SOCKET) {
+
+	if (c->request.type == QB_IPC_SHM) {
+		if (c->setup.u.us.sock > 0) {
+			sock = c->setup.u.us.sock;
+			(void)c->service->poll_fns.dispatch_del(sock);
+			qb_ipcc_us_sock_close(sock);
+			qb_ipcs_connection_unref(c);
+			c->setup.u.us.sock = -1;
+		}
+		if (!c->service->needs_sock_for_poll) {
+			/* using eventfd */
+			sock = c->request.u.shm.write_eventfd;
+			(void)c->service->poll_fns.dispatch_del(sock);
+			qb_ipcc_us_sock_close(sock);
+			qb_ipcs_connection_unref(c);
+		}
+
+	} else if (c->request.type == QB_IPC_SOCKET) {
 		sock = c->request.u.us.sock;
-	}
-	if (sock > 0) {
 		(void)c->service->poll_fns.dispatch_del(sock);
 		qb_ipcs_connection_unref(c);
 	}

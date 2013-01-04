@@ -133,7 +133,7 @@ AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h \
 		  sys/param.h sys/socket.h sys/time.h sys/poll.h sys/epoll.h \
 		  sys/uio.h sys/event.h sys/sockio.h sys/un.h sys/resource.h \
 		  syslog.h errno.h unistd.h sys/mman.h \
-		  sys/sem.h sys/ipc.h sys/msg.h netdb.h])
+		  sys/sem.h sys/ipc.h sys/msg.h netdb.h sys/eventfd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_UID_T
@@ -184,11 +184,11 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
 		pthread_spin_lock pthread_setschedparam \
-                pthread_mutexattr_setpshared \
-                pthread_condattr_setpshared \
+		pthread_mutexattr_setpshared \
+		pthread_condattr_setpshared \
 		sem_timedwait semtimedop \
 		sched_get_priority_max sched_setscheduler \
-		getpeerucred getpeereid])
+		getpeerucred getpeereid eventfd])
 
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
 	       [test "x$ac_cv_func_sem_timedwait" = xyes])
@@ -371,7 +371,7 @@ if test x"$memory_barrier_needed" != xno; then
 			   [need atomic memory barrier])
 fi
 
-LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
+LINT_FLAGS="-syntax -weak -unrecog +posixlib +ignoresigns -fcnuse \
 	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
 	-warnposix +matchanyintegral"
 

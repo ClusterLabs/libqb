@@ -138,7 +138,8 @@ do_echo(qb_ipcc_connection_t *conn)
 			req.hdr.size = sizeof(struct my_req);
 			rc = qb_ipcc_send(conn, &req, req.hdr.size);
 			if (rc < 0) {
-				perror("qb_ipcc_send");
+				errno = -rc;
+				qb_perror(LOG_ERR, "qb_ipcc_send");
 				exit(0);
 			}
 		}
@@ -147,15 +148,15 @@ do_echo(qb_ipcc_connection_t *conn)
 
 		if (rc > 0) {
 			if (use_events && !send_ten_events) {
-				printf("waiting for event recv\n");
+				qb_log(LOG_DEBUG, "waiting for event recv");
 				rc = qb_ipcc_event_recv(conn, &res, sizeof(res), -1);
 			} else {
-				printf("waiting for recv\n");
+				qb_log(LOG_DEBUG, "waiting for recv");
 				rc = qb_ipcc_recv(conn, &res, sizeof(res), -1);
 			}
-			printf("recv %d\n", rc);
 			if (rc < 0) {
-				perror("qb_ipcc_recv");
+				errno = -rc;
+				qb_perror(LOG_ERR, "recv %d", rc);
 				exit(0);
 			}
 			if (send_ten_events) {

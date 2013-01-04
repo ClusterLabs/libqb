@@ -39,6 +39,7 @@
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
+	qb_enter();
 	if (c->is_connected) {
 		qb_rb_close(c->request.u.shm.rb);
 		qb_rb_close(c->response.u.shm.rb);
@@ -47,6 +48,9 @@ qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 		qb_rb_force_close(c->request.u.shm.rb);
 		qb_rb_force_close(c->response.u.shm.rb);
 		qb_rb_force_close(c->event.u.shm.rb);
+	}
+	if (!c->needs_sock_for_poll) {
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	}
 }
 
@@ -161,40 +165,50 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 		    struct qb_ipc_connection_response * response)
 {
 	int32_t res = 0;
+	struct qb_rb_notifier notifier;
 
 	c->funcs.send = qb_ipc_shm_send;
 	c->funcs.sendv = qb_ipc_shm_sendv;
 	c->funcs.recv = qb_ipc_shm_recv;
 	c->funcs.fc_get = qb_ipc_shm_fc_get;
 	c->funcs.disconnect = qb_ipcc_shm_disconnect;
-	c->needs_sock_for_poll = QB_TRUE;
 
 	if (strlen(c->name) > (NAME_MAX - 20)) {
 		errno = EINVAL;
 		return -errno;
 	}
 
-	c->request.u.shm.rb = qb_rb_open(response->request,
-					 c->request.max_msg_size,
-					 QB_RB_FLAG_SHARED_PROCESS,
-					 sizeof(int32_t));
+	res = qb_ipc_efd_create(NULL, NULL, &c->request, 0, &notifier);
+	c->request.u.shm.is_writer = QB_TRUE;
+	c->needs_sock_for_poll = (res < 0);
+	c->request.u.shm.rb = qb_rb_open_2(response->request,
+					   c->request.max_msg_size,
+					   QB_RB_FLAG_SHARED_PROCESS,
+					   sizeof(int32_t),
+					   &notifier);
 	if (c->request.u.shm.rb == NULL) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "qb_rb_open:REQUEST");
 		goto return_error;
 	}
-	c->response.u.shm.rb = qb_rb_open(response->response,
-					  c->response.max_msg_size,
-					  QB_RB_FLAG_SHARED_PROCESS, 0);
+	(void)qb_ipc_efd_create(NULL, NULL, &c->response, 0, &notifier);
+	c->response.u.shm.is_writer = QB_FALSE;
+	c->response.u.shm.rb = qb_rb_open_2(response->response,
+					    c->response.max_msg_size,
+					    QB_RB_FLAG_SHARED_PROCESS, 0,
+					    &notifier);
 
 	if (c->response.u.shm.rb == NULL) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "qb_rb_open:RESPONSE");
 		goto cleanup_request;
 	}
-	c->event.u.shm.rb = qb_rb_open(response->event,
-				       c->response.max_msg_size,
-				       QB_RB_FLAG_SHARED_PROCESS, 0);
+	(void)qb_ipc_efd_create(NULL, NULL, &c->event, 0, &notifier);
+	c->event.u.shm.is_writer = QB_FALSE;
+	c->event.u.shm.rb = qb_rb_open_2(response->event,
+					 c->response.max_msg_size,
+					 QB_RB_FLAG_SHARED_PROCESS, 0,
+					 &notifier);
 
 	if (c->event.u.shm.rb == NULL) {
 		res = -errno;
@@ -224,6 +238,7 @@ return_error:
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
+	qb_enter();
 	if (c->response.u.shm.rb) {
 		qb_rb_close(c->response.u.shm.rb);
 		c->response.u.shm.rb = NULL;
@@ -244,12 +259,21 @@ qb_ipcs_shm_rb_open(struct qb_ipcs_connection *c,
 		    const char *rb_name)
 {
 	int32_t res = 0;
+	struct qb_rb_notifier notifier;
+	uint32_t flags = QB_RB_FLAG_CREATE | QB_RB_FLAG_SHARED_PROCESS;
 
-	ow->u.shm.rb = qb_rb_open(rb_name,
-				  ow->max_msg_size,
-				  QB_RB_FLAG_CREATE |
-				  QB_RB_FLAG_SHARED_PROCESS,
-				  sizeof(int32_t));
+	res = qb_ipc_efd_create(c->service, c, ow, flags, &notifier);
+	if (res != 0) {
+		memset(&notifier, 0, sizeof(struct qb_rb_notifier));
+		errno = -res;
+		qb_util_perror(LOG_DEBUG, "qb_ipc_efd_create:%s", rb_name);
+	}
+
+	ow->u.shm.rb = qb_rb_open_2(rb_name,
+				    ow->max_msg_size,
+				    flags,
+				    sizeof(int32_t),
+				    &notifier);
 	if (ow->u.shm.rb == NULL) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "qb_rb_open:%s", rb_name);
@@ -272,6 +296,7 @@ cleanup:
 	return res;
 }
 
+
 static int32_t
 qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		    struct qb_ipcs_connection *c,
@@ -290,18 +315,29 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 
 	res = qb_ipcs_shm_rb_open(c, &c->request,
 				  r->request);
+	qb_util_log(LOG_TRACE, "called qb_ipcs_shm_rb_open %d",
+		    res);
 	if (res != 0) {
 		goto cleanup;
 	}
 
+	c->request.u.shm.is_writer = QB_FALSE;
+
+	res = qb_ipc_efd_add_to_mainloop(c);
+	if (res != 0) {
+		goto cleanup_request;
+	}
+
 	res = qb_ipcs_shm_rb_open(c, &c->response,
 				  r->response);
+	c->response.u.shm.is_writer = QB_TRUE;
 	if (res != 0) {
 		goto cleanup_request;
 	}
 
 	res = qb_ipcs_shm_rb_open(c, &c->event,
 				  r->event);
+	c->event.u.shm.is_writer = QB_TRUE;
 	if (res != 0) {
 		goto cleanup_request_response;
 	}
@@ -338,5 +374,9 @@ qb_ipcs_shm_init(struct qb_ipcs_service *s)
 	s->funcs.fc_set = qb_ipc_shm_fc_set;
 	s->funcs.q_len_get = qb_ipc_shm_q_len_get;
 
+#ifdef HAVE_EVENTFD
+	s->needs_sock_for_poll = QB_FALSE;
+#else
 	s->needs_sock_for_poll = QB_TRUE;
+#endif /* HAVE_EVENTFD */
 }

@@ -40,11 +40,24 @@
 struct qb_ringbuffer_s;
 
 int32_t qb_rb_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags);
-typedef int32_t(*qb_rb_sem_post_fn_t) (struct qb_ringbuffer_s * rb);
-typedef ssize_t(*qb_rb_sem_getvalue_fn_t) (struct qb_ringbuffer_s * rb);
-typedef int32_t(*qb_rb_sem_timedwait_fn_t) (struct qb_ringbuffer_s * rb,
-					    int32_t ms_timeout);
-typedef int32_t(*qb_rb_sem_destroy_fn_t) (struct qb_ringbuffer_s * rb);
+
+typedef int32_t(*qb_rb_notifier_post_fn_t) (void * instance, size_t msg_size);
+typedef ssize_t(*qb_rb_notifier_q_len_fn_t) (void * instance);
+typedef ssize_t(*qb_rb_notifier_used_fn_t) (void * instance);
+typedef int32_t(*qb_rb_notifier_timedwait_fn_t) (void * instance,
+					         int32_t ms_timeout);
+typedef int32_t(*qb_rb_notifier_reclaim_fn_t) (void * instance, size_t msg_size);
+typedef int32_t(*qb_rb_notifier_destroy_fn_t) (void * instance);
+
+struct qb_rb_notifier {
+	qb_rb_notifier_post_fn_t post_fn;
+	qb_rb_notifier_q_len_fn_t q_len_fn;
+	qb_rb_notifier_used_fn_t space_used_fn;
+	qb_rb_notifier_timedwait_fn_t timedwait_fn;
+	qb_rb_notifier_reclaim_fn_t reclaim_fn;
+	qb_rb_notifier_destroy_fn_t destroy_fn;
+	void *instance;
+};
 
 struct qb_ringbuffer_shared_s {
 	volatile uint32_t write_pt;
@@ -63,14 +76,15 @@ struct qb_ringbuffer_s {
 	struct qb_ringbuffer_shared_s *shared_hdr;
 	uint32_t *shared_data;
 
-	qb_rb_sem_post_fn_t sem_post_fn;
-	qb_rb_sem_getvalue_fn_t sem_getvalue_fn;
-	qb_rb_sem_timedwait_fn_t sem_timedwait_fn;
-	qb_rb_sem_destroy_fn_t sem_destroy_fn;
+	struct qb_rb_notifier notifier;
 };
 
-
 void qb_rb_force_close(qb_ringbuffer_t * rb);
+
+qb_ringbuffer_t *qb_rb_open_2(const char *name, size_t size, uint32_t flags,
+			      size_t shared_user_data_size,
+			      struct qb_rb_notifier *notifier);
+
 
 #ifndef HAVE_SEMUN
 union semun {
