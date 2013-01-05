@@ -135,7 +135,7 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 		res = pthread_setschedparam(logt_thread_id, policy,
 					    &logt_sched_param);
 		if (res != 0) {
-			res = -errno;
+			res = -res;
 		}
 	}
 #endif
@@ -158,7 +158,7 @@ qb_log_thread_start(void)
 			     qb_logt_worker_thread, NULL);
 	if (res != 0) {
 		wthread_active = 0;
-		return -errno;
+		return -res;
 	}
 	sem_wait(&logt_thread_start);
 
