@@ -32,14 +32,12 @@ static void
 qb_loop_run_level(struct qb_loop_level *level)
 {
 	struct qb_loop_item *job;
-	struct qb_list_head *iter;
 	int32_t processed = 0;
 
 Ill_have_another:
 
-	iter = level->job_head.next;
-	if (iter != &level->job_head) {
-		job = qb_list_entry(iter, struct qb_loop_item, list);
+	if (!qb_list_empty(&level->job_head)) {
+		job = qb_list_first_entry(&level->job_head, struct qb_loop_item, list);
 		qb_list_del(&job->list);
 		qb_list_init(&job->list);
 		job->source->dispatch_and_take_back(job, level->priority);
