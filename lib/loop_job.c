@@ -58,8 +58,8 @@ get_more_jobs(struct qb_loop_source *s, int32_t ms_timeout)
 		if (!qb_list_empty(&s->l->level[p].wait_head)) {
 			level_jobs = qb_list_length(&s->l->level[p].wait_head);
 			new_jobs += level_jobs;
-			qb_list_splice(&s->l->level[p].wait_head,
-				       s->l->level[p].job_head.prev);
+			qb_list_splice_tail(&s->l->level[p].wait_head,
+				            &s->l->level[p].job_head);
 			qb_list_init(&s->l->level[p].wait_head);
 			s->l->level[p].todo += level_jobs;
 		}

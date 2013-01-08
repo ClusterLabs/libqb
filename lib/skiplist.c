@@ -191,8 +191,7 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 
 	/* node callbacks
 	 */
-	for (list = n->notifier_head.next;
-	     list != &n->notifier_head; list = list->next) {
+	qb_list_for_each(list, &n->notifier_head) {
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
@@ -202,8 +201,7 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 	}
 	/* global callbacks
 	 */
-	for (list = l->header->notifier_head.next;
-	     list != &l->header->notifier_head; list = list->next) {
+	qb_list_for_each(list, &l->header->notifier_head) {
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
@@ -259,8 +257,7 @@ skiplist_notify_add(qb_map_t * m, const char *key,
 		add_to_tail = QB_TRUE;
 	}
 	if (n) {
-		for (list = n->notifier_head.next;
-		     list != &n->notifier_head; list = list->next) {
+		qb_list_for_each(list, &n->notifier_head) {
 			f = qb_list_entry(list, struct qb_map_notifier, list);
 
 			if (events & QB_MAP_NOTIFY_FREE &&
@@ -317,10 +314,8 @@ skiplist_notify_del(qb_map_t * m, const char *key,
 	if (head == NULL) {
 		return -ENOENT;
 	}
-	for (list = head->next;
-	     list != head; list = next) {
+	qb_list_for_each_safe(list, next, head) {
 		f = qb_list_entry(list, struct qb_map_notifier, list);
-		next = list->next;
 
 		if (f->events == events && f->callback == fn) {
 			if (cmp_userdata && (f->user_data == user_data)) {

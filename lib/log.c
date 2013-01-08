@@ -266,7 +266,7 @@ qb_log_callsite_get(const char *function,
 			if (t->state != QB_LOG_STATE_ENABLED) {
 				continue;
 			}
-			for (f_item = t->filter_head.next; f_item != &t->filter_head; f_item = f_item->next) {
+			qb_list_for_each(f_item, &t->filter_head) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, t->pos, flt->conf, flt->type,
 							flt->text, flt->high_priority,
@@ -274,7 +274,7 @@ qb_log_callsite_get(const char *function,
 			}
 		}
 		if (tags == 0) {
-			for (f_item = tags_head.next; f_item != &tags_head; f_item = f_item->next) {
+			qb_list_for_each(f_item, &tags_head) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, flt->new_value, flt->conf, flt->type,
 							flt->text, flt->high_priority,

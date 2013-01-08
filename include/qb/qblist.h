@@ -108,6 +108,32 @@ static inline void qb_list_del(struct qb_list_head *_remove)
 }
 
 /**
+ * Replace old entry by new one
+ * @param old: the element to be replaced
+ * @param new: the new element to insert
+ */
+static inline void qb_list_replace(struct qb_list_head *old,
+		struct qb_list_head *new)
+{
+	new->next = old->next;
+	new->next->prev = new;
+	new->prev = old->prev;
+	new->prev->next = new;
+}
+
+/**
+ * Tests whether list is the last entry in list head
+ * @param list: the entry to test
+ * @param head: the head of the list
+ * @return boolean true/false
+ */
+static inline int qb_list_is_last(const struct qb_list_head *list,
+		const struct qb_list_head *head)
+{
+	return list->next == head;
+}
+
+/**
  * A quick test to see if the list is empty (pointing to it's self).
  * @param head pointer to the list head
  * @return boolean true/false
@@ -139,6 +165,25 @@ static inline void qb_list_splice(struct qb_list_head *list,
 }
 
 /**
+ * Join two lists, each list being a queue
+ * @param list: the new list to add.
+ * @param head: the place to add it in the first list.
+ */
+static inline void qb_list_splice_tail(struct qb_list_head *list,
+				struct qb_list_head *head)
+{
+	struct qb_list_head *first = list->next;
+	struct qb_list_head *last = list->prev;
+	struct qb_list_head *at = head;
+
+	first->prev = head->prev;
+	head->prev->next = first;
+
+	last->next = at;
+	at->prev = last;
+}
+
+/**
  * Get the struct for this entry
  * @param ptr:	the &struct list_head pointer.
  * @param type:	the type of the struct this is embedded in.
@@ -147,6 +192,14 @@ static inline void qb_list_splice(struct qb_list_head *list,
 #define qb_list_entry(ptr,type,member)\
 	((type *)((char *)(ptr)-(char*)(&((type *)0)->member)))
 
+/**
+ * Get the first element from a list
+ * @param ptr:	the &struct list_head pointer.
+ * @param type:	the type of the struct this is embedded in.
+ * @param member:	the name of the list_struct within the struct.
+ */
+#define qb_list_first_entry(ptr, type, member) \
+	qb_list_entry((ptr)->next, type, member)
 
 /**
  * Iterate over a list
@@ -221,6 +274,16 @@ static inline void qb_list_splice(struct qb_list_head *list,
 		n = qb_list_entry(pos->member.prev, typeof(*pos), member);	\
 	     &pos->member != (head); 						\
 	     pos = n, n = qb_list_entry(n->member.prev, typeof(*n), member))
+
+/**
+ * Iterate over list of given type from the current point
+ * @param pos:		the type * to use as a loop cursor.
+ * @param head:		the head for your list.
+ * @param member:	the name of the list_struct within the struct.
+ */
+#define qb_list_for_each_entry_from(pos, head, member)				\
+	for (; &pos->member != (head);						\
+	     pos = qb_list_entry(pos->member.next, typeof(*pos), member))
 
 /**
  * Count the number of items in the list.

@@ -90,7 +90,7 @@ retry_sem_wait:
 		}
 
 		rec =
-		    qb_list_entry(logt_print_finished_records.next,
+		    qb_list_first_entry(&logt_print_finished_records,
 				  struct qb_log_record, list);
 		qb_list_del(&rec->list);
 		logt_memory_used = logt_memory_used - strlen(rec->buffer) -
@@ -255,7 +255,7 @@ qb_log_thread_stop(void)
 
 			(void)qb_thread_lock(logt_wthread_lock);
 
-			rec = qb_list_entry(logt_print_finished_records.next,
+			rec = qb_list_first_entry(&logt_print_finished_records,
 					    struct qb_log_record, list);
 			qb_list_del(&rec->list);
 			logt_memory_used = logt_memory_used -
