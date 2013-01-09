@@ -196,10 +196,7 @@ trie_node_split(struct trie *t, struct trie_node *cur_node, int seg_cnt)
 	cur_node->key = NULL;
 	cur_node->refcount = 0;
 	/* move notifier list to split */
-	split_node->notifier_head.next = cur_node->notifier_head.next;
-	split_node->notifier_head.next->prev = &split_node->notifier_head;
-	split_node->notifier_head.prev = cur_node->notifier_head.prev;
-	split_node->notifier_head.prev->next = &split_node->notifier_head;
+	qb_list_replace(&cur_node->notifier_head, &split_node->notifier_head);
 	qb_list_init(&cur_node->notifier_head);
 
 	if (seg_cnt < cur_node->num_segments) {
@@ -572,11 +569,11 @@ trie_notify(struct trie_node *n,
 {
 	struct trie_node *c = n;
 	struct qb_list_head *list;
+	struct qb_list_head *next;
 	struct qb_map_notifier *tn;
 
 	do {
-		for (list = c->notifier_head.next;
-		     list != &c->notifier_head; ) {
+		qb_list_for_each_safe(list, next, &c->notifier_head) {
 			tn = qb_list_entry(list, struct qb_map_notifier, list);
 			trie_notify_ref(tn);
 
@@ -592,7 +589,6 @@ trie_notify(struct trie_node *n,
 				tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
 					     old_value, value, tn->user_data);
 			}
-		        list = list->next;
 			trie_notify_deref(tn);
 		}
 		c = c->parent;
@@ -618,8 +614,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 		n = t->header;
 	}
 	if (n) {
-		for (list = n->notifier_head.next;
-		     list != &n->notifier_head; list = list->next) {
+		qb_list_for_each(list, &n->notifier_head) {
 			f = qb_list_entry(list, struct qb_map_notifier, list);
 
 			if (events & QB_MAP_NOTIFY_FREE &&
@@ -671,6 +666,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	struct qb_map_notifier *f;
 	struct trie_node *n;
 	struct qb_list_head *list;
+	struct qb_list_head *next;
 	int32_t found = QB_FALSE;
 
 	if (key) {
@@ -681,8 +677,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	if (n == NULL) {
 		return -ENOENT;
 	}
-	for (list = n->notifier_head.next;
-	     list != &n->notifier_head; ) {
+	qb_list_for_each_safe(list, next, &n->notifier_head) {
 		f = qb_list_entry(list, struct qb_map_notifier, list);
 		trie_notify_ref(f);
 
@@ -695,7 +690,6 @@ trie_notify_del(qb_map_t * m, const char *key,
 				found = QB_TRUE;
 			}
 		}
-		list = list->next;
 		trie_notify_deref(f);
 	}
 	if (found) {

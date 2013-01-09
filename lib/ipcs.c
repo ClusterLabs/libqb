@@ -172,8 +172,7 @@ qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
 		break;
 	}
 
-	for (pos = s->connections.next, n = pos->next;
-	     pos != &s->connections; pos = n, n = pos->next) {
+	qb_list_for_each_safe(pos, n, &s->connections) {
 
 		c = qb_list_entry(pos, struct qb_ipcs_connection, list);
 		qb_ipcs_connection_ref(c);
@@ -210,8 +209,7 @@ qb_ipcs_unref(struct qb_ipcs_service *s)
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
 		qb_util_log(LOG_DEBUG, "%s() - destroying", __func__);
-		for (pos = s->connections.next, n = pos->next;
-		     pos != &s->connections; pos = n, n = pos->next) {
+		qb_list_for_each_safe(pos, n, &s->connections) {
 			c = qb_list_entry(pos, struct qb_ipcs_connection, list);
 			if (c == NULL) {
 				continue;
@@ -437,14 +435,12 @@ qb_ipcs_connection_t *
 qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
 {
 	struct qb_ipcs_connection *c;
-	struct qb_list_head *iter;
 
 	if (qb_list_empty(&s->connections)) {
 		return NULL;
 	}
-	iter = s->connections.next;
 
-	c = qb_list_entry(iter, struct qb_ipcs_connection, list);
+	c = qb_list_first_entry(&s->connections, struct qb_ipcs_connection, list);
 	qb_ipcs_connection_ref(c);
 
 	return c;
@@ -455,14 +451,13 @@ qb_ipcs_connection_next_get(struct qb_ipcs_service * s,
 			    struct qb_ipcs_connection * current)
 {
 	struct qb_ipcs_connection *c;
-	struct qb_list_head *iter;
 
-	if (current == NULL || current->list.next == &s->connections) {
+	if (current == NULL ||
+	    qb_list_is_last(&current->list, &s->connections)) {
 		return NULL;
 	}
-	iter = current->list.next;
 
-	c = qb_list_entry(iter, struct qb_ipcs_connection, list);
+	c = qb_list_first_entry(&current->list, struct qb_ipcs_connection, list);
 	qb_ipcs_connection_ref(c);
 
 	return c;
