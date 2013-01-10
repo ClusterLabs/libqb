@@ -132,7 +132,7 @@ qb_poll_fds_usage_check_(struct qb_poll_source *s)
 {
 	struct rlimit lim;
 	static int32_t socks_limit = 0;
-	int32_t send_event = 0;
+	int32_t send_event = QB_FALSE;
 	int32_t socks_used = 0;
 	int32_t socks_avail = 0;
 	struct qb_poll_entry *pe;
@@ -165,16 +165,16 @@ qb_poll_fds_usage_check_(struct qb_poll_source *s)
 	if (socks_avail < 0) {
 		socks_avail = 0;
 	}
-	send_event = 0;
+	send_event = QB_FALSE;
 	if (s->not_enough_fds) {
 		if (socks_avail > 2) {
-			s->not_enough_fds = 0;
-			send_event = 1;
+			s->not_enough_fds = QB_FALSE;
+			send_event = QB_TRUE;
 		}
 	} else {
 		if (socks_avail <= 1) {
-			s->not_enough_fds = 1;
-			send_event = 1;
+			s->not_enough_fds = QB_TRUE;
+			send_event = QB_TRUE;
 		}
 	}
 	if (send_event && s->low_fds_event_fn) {
@@ -196,7 +196,7 @@ qb_loop_poll_create(struct qb_loop *l)
 	s->poll_entries = qb_array_create_2(16, sizeof(struct qb_poll_entry), 16);
 	s->poll_entry_count = 0;
 	s->low_fds_event_fn = NULL;
-	s->not_enough_fds = 0;
+	s->not_enough_fds = QB_FALSE;
 
 #ifdef USE_EPOLL
 	(void)qb_epoll_init(s);
@@ -235,22 +235,22 @@ qb_loop_poll_low_fds_event_set(struct qb_loop *l,
 static int32_t
 _get_empty_array_position_(struct qb_poll_source *s)
 {
-	int32_t found = 0;
+	int32_t found = QB_FALSE;
 	uint32_t install_pos;
 	int32_t res = 0;
 	struct qb_poll_entry *pe;
 
-	for (found = 0, install_pos = 0;
+	for (install_pos = 0;
 	     install_pos < s->poll_entry_count; install_pos++) {
 		assert(qb_array_index
 		       (s->poll_entries, install_pos, (void **)&pe) == 0);
 		if (pe->state == QB_POLL_ENTRY_EMPTY) {
-			found = 1;
+			found = QB_TRUE;
 			break;
 		}
 	}
 
-	if (found == 0) {
+	if (found == QB_FALSE) {
 #ifdef USE_POLL
 		struct pollfd *ufds;
 		int32_t new_size = (s->poll_entry_count + 1) * sizeof(struct pollfd);

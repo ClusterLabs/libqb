@@ -28,9 +28,9 @@
 #include <qb/qbutil.h>
 #include "log_int.h"
 
-static int wthread_active = 0;
+static int wthread_active = QB_FALSE;
 
-static int wthread_should_exit = 0;
+static int wthread_should_exit = QB_FALSE;
 
 static qb_thread_lock_t *logt_wthread_lock = NULL;
 
@@ -129,7 +129,7 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 	} else {
 		logt_sched_param.sched_priority = priority;
 	}
-	if (wthread_active == 0) {
+	if (wthread_active == QB_FALSE) {
 		logt_sched_param_queued = QB_TRUE;
 	} else {
 		res = pthread_setschedparam(logt_thread_id, policy,
@@ -151,13 +151,13 @@ qb_log_thread_start(void)
 		return 0;
 	}
 
-	wthread_active = 1;
+	wthread_active = QB_TRUE;
 	sem_init(&logt_thread_start, 0, 0);
 	sem_init(&logt_print_finished, 0, 0);
 	res = pthread_create(&logt_thread_id, NULL,
 			     qb_logt_worker_thread, NULL);
 	if (res != 0) {
-		wthread_active = 0;
+		wthread_active = QB_FALSE;
 		return -res;
 	}
 	sem_wait(&logt_thread_start);
@@ -178,7 +178,7 @@ qb_log_thread_start(void)
 	return 0;
 
 cleanup_pthread:
-	wthread_should_exit = 1;
+	wthread_should_exit = QB_TRUE;
 	sem_post(&logt_print_finished);
 	pthread_join(logt_thread_id, NULL);
 	sem_destroy(&logt_print_finished);
@@ -242,10 +242,10 @@ qb_log_thread_stop(void)
 	int value;
 	struct qb_log_record *rec;
 
-	if (wthread_active == 0 && logt_wthread_lock == NULL) {
+	if (wthread_active == QB_FALSE && logt_wthread_lock == NULL) {
 		return;
 	}
-	if (wthread_active == 0) {
+	if (wthread_active == QB_FALSE) {
 		for (;;) {
 			res = sem_getvalue(&logt_print_finished, &value);
 			if (res != 0 || value == 0) {
@@ -269,7 +269,7 @@ qb_log_thread_stop(void)
 			free(rec);
 		}
 	} else {
-		wthread_should_exit = 1;
+		wthread_should_exit = QB_TRUE;
 		sem_post(&logt_print_finished);
 		pthread_join(logt_thread_id, NULL);
 	}

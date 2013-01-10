@@ -58,9 +58,8 @@ static inline void timerlist_add(struct timerlist *timerlist,
 {
 	struct qb_list_head *timer_list = 0;
 	struct timerlist_timer *timer_from_list;
-	int32_t found;
+	int32_t found = QB_FALSE;
 
-	found = 0;
 	qb_list_for_each(timer_list, &timerlist->timer_head) {
 
 		timer_from_list = qb_list_entry(timer_list,
@@ -68,11 +67,11 @@ static inline void timerlist_add(struct timerlist *timerlist,
 
 		if (timer_from_list->expire_time > timer->expire_time) {
 			qb_list_add_tail(&timer->list, timer_list);
-			found = 1;
+			found = QB_TRUE;
 			break;	/* for timer iteration */
 		}
 	}
-	if (found == 0) {
+	if (found == QB_FALSE) {
 		qb_list_add_tail(&timer->list, &timerlist->timer_head);
 	}
 }
@@ -92,7 +91,7 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 	}
 
 	timer->expire_time = qb_util_nano_current_get() + nano_duration;
-	timer->is_absolute_timer = 0;
+	timer->is_absolute_timer = QB_FALSE;
 	timer->data = data;
 	timer->timer_fn = timer_fn;
 	timer->handle_addr = handle;
