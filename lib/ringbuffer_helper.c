@@ -94,12 +94,12 @@ my_posix_sem_destroy(qb_ringbuffer_t * rb)
 static int32_t
 my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
 {
-	int32_t pshared = 0;
+	int32_t pshared = QB_FALSE;
 	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
 		if ((flags & QB_RB_FLAG_CREATE) == 0) {
 			return 0;
 		}
-		pshared = 1;
+		pshared = QB_TRUE;
 	}
 	if (rpl_sem_init(&rb->shared_hdr->posix_sem, pshared, 0) == -1) {
 		return -errno;

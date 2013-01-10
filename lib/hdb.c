@@ -32,8 +32,8 @@ enum QB_HDB_HANDLE_STATE {
 static void
 qb_hdb_create_first_run(struct qb_hdb *hdb)
 {
-	if (hdb->first_run == 1) {
-		hdb->first_run = 0;
+	if (hdb->first_run == QB_TRUE) {
+		hdb->first_run = QB_FALSE;
 		qb_atomic_init();
 		hdb->handles = qb_array_create(32, sizeof(struct qb_hdb_handle));
 	}
@@ -43,7 +43,7 @@ void
 qb_hdb_create(struct qb_hdb *hdb)
 {
 	memset(hdb, 0, sizeof(struct qb_hdb));
-	hdb->first_run = 1;
+	hdb->first_run = QB_TRUE;
 	qb_hdb_create_first_run(hdb);
 }
 
@@ -61,7 +61,7 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 	int32_t handle;
 	int32_t res = 0;
 	uint32_t check;
-	int32_t found = 0;
+	int32_t found = QB_FALSE;
 	void *instance;
 	int32_t i;
 	struct qb_hdb_handle *entry = NULL;
@@ -73,13 +73,13 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 	for (handle = 0; handle < handle_count; handle++) {
 		if (qb_array_index(hdb->handles, handle, (void**)&entry) == 0 &&
 		    entry->state == QB_HDB_HANDLE_STATE_EMPTY) {
-			found = 1;
+			found = QB_TRUE;
 			qb_atomic_int_inc(&entry->ref_count);
 			break;
 		}
 	}
 
-	if (found == 0) {
+	if (found == QB_FALSE) {
 		res = qb_array_grow(hdb->handles, handle_count + 1);
 		if (res != 0) {
 			return res;
