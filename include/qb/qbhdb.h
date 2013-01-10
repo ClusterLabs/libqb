@@ -79,7 +79,7 @@ static struct qb_hdb (database_name) = {				\
 	.handles	= NULL,						\
 	.iterator	= 0,						\
 	.destructor	= destructor_function,				\
-	.first_run	= 1						\
+	.first_run	= QB_TRUE					\
 };									\
 
 /**
