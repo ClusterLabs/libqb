@@ -33,6 +33,7 @@ Step 2: Generate the makefiles
 balance: ./autogen.sh
 
 Step 3: Run the configure script
+Note that this will install to /usr by default to install to /usr/local use --prefix=/usr/local
 balance: ./configure
 
 Step 4: build
