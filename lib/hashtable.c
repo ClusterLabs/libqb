@@ -44,8 +44,8 @@ struct hash_table {
 	size_t count;
 	uint32_t order;
 	uint32_t hash_buckets_len;
-	struct hash_bucket hash_buckets[0];
 	struct qb_list_head notifier_head;
+	struct hash_bucket hash_buckets[0];
 };
 
 struct hashtable_iter {
@@ -57,6 +57,8 @@ struct hashtable_iter {
 static void hashtable_notify(struct hash_table *t, struct hash_node *n,
 			     uint32_t event, const char *key,
 			     void *old_value, void *value);
+static void hashtable_node_deref_under_bucket(struct qb_map *map,
+					      int32_t hash_entry);
 
 static uint32_t
 hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
@@ -117,6 +119,9 @@ static void
 hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
 {
 	struct hash_table *t = (struct hash_table *)map;
+	struct qb_list_head *pos;
+	struct qb_list_head *next;
+	struct qb_map_notifier *tn;
 
 	hash_node->refcount--;
 	if (hash_node->refcount > 0) {
@@ -125,6 +130,13 @@ hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
 	hashtable_notify(t, hash_node,
 			 QB_MAP_NOTIFY_DELETED,
 			 hash_node->key, hash_node->value, NULL);
+
+	qb_list_for_each_safe(pos, next, &hash_node->notifier_head) {
+		tn = qb_list_entry(pos, struct qb_map_notifier, list);
+		qb_list_del(&tn->list);
+		free(tn);
+	}
+
 	qb_list_del(&hash_node->list);
 	free(hash_node);
 }
@@ -424,8 +436,38 @@ static void
 hashtable_destroy(struct qb_map *map)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
+	struct qb_list_head *pos;
+	struct qb_list_head *next;
+	struct qb_map_notifier *tn;
+	int32_t i;
+
+	for (i = 0; i < hash_table->hash_buckets_len; i++) {
+		hashtable_node_deref_under_bucket(map, i);
+	}
+
+	qb_list_for_each_safe(pos, next, &hash_table->notifier_head) {
+		tn = qb_list_entry(pos, struct qb_map_notifier, list);
+		qb_list_del(&tn->list);
+		free(tn);
+	}
 
 	free(hash_table);
+}
+
+static void
+hashtable_node_deref_under_bucket(struct qb_map *map, int32_t hash_entry)
+{
+	struct hash_table *hash_table = (struct hash_table *)map;
+	struct hash_node *hash_node;
+	struct qb_list_head *pos;
+	struct qb_list_head *next;
+
+	qb_list_for_each_safe(pos, next,
+			      &hash_table->hash_buckets[hash_entry].list_head) {
+		hash_node = qb_list_entry(pos, struct hash_node, list);
+		hashtable_node_deref(map, hash_node);
+		hash_table->count--;
+	}
 }
 
 qb_map_t *
