@@ -59,6 +59,8 @@ static void hashtable_notify(struct hash_table *t, struct hash_node *n,
 			     void *old_value, void *value);
 static void hashtable_node_deref_under_bucket(struct qb_map *map,
 					      int32_t hash_entry);
+static void hashtable_node_destroy(struct hash_table *t,
+				   struct hash_node *hash_node);
 
 static uint32_t
 hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
@@ -116,17 +118,12 @@ hashtable_get(struct qb_map *map, const char *key)
 }
 
 static void
-hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
+hashtable_node_destroy(struct hash_table *t, struct hash_node *hash_node)
 {
-	struct hash_table *t = (struct hash_table *)map;
 	struct qb_list_head *pos;
 	struct qb_list_head *next;
 	struct qb_map_notifier *tn;
 
-	hash_node->refcount--;
-	if (hash_node->refcount > 0) {
-		return;
-	}
 	hashtable_notify(t, hash_node,
 			 QB_MAP_NOTIFY_DELETED,
 			 hash_node->key, hash_node->value, NULL);
@@ -139,6 +136,18 @@ hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
 
 	qb_list_del(&hash_node->list);
 	free(hash_node);
+}
+
+static void
+hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
+{
+	struct hash_table *t = (struct hash_table *)map;
+
+	hash_node->refcount--;
+	if (hash_node->refcount > 0) {
+		return;
+	}
+	hashtable_node_destroy(t, hash_node);
 }
 
 static int32_t
