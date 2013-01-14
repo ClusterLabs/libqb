@@ -221,9 +221,19 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 static void
 skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 {
+	struct qb_list_head *pos;
+	struct qb_list_head *next;
+	struct qb_map_notifier *tn;
+
 	skiplist_notify(list, node,
 			QB_MAP_NOTIFY_DELETED,
 			(char *)node->key, node->value, NULL);
+
+	qb_list_for_each_safe(pos, next, &node->notifier_head) {
+		tn = qb_list_entry(pos, struct qb_map_notifier, list);
+		qb_list_del(&tn->list);
+		free(tn);
+	}
 
 	free(node->forward);
 	free(node);
