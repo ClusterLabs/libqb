@@ -96,7 +96,7 @@ _blackbox_vlogger(int32_t target,
 
 	/* log message */
 	msg_len = qb_vsnprintf_serialize(chunk, QB_LOG_MAX_LEN, cs->format, ap);
-	if(msg_len >= QB_LOG_MAX_LEN) {
+	if (msg_len >= QB_LOG_MAX_LEN) {
 	    chunk = msg_len_pt + sizeof(uint32_t); /* Reset */
 
 	    msg_len = qb_vsnprintf_serialize(chunk, QB_LOG_MAX_LEN,
@@ -242,12 +242,13 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 
 			/* message content */
 			len = qb_vsnprintf_deserialize(message, QB_LOG_MAX_LEN, ptr);
+			message[len] = '\0';
 			len--;
 			while (message[len] == '\n' || message[len] == '\0') {
 				message[len] = '\0';
 				len--;
 			}
-			message[len] = '\0';
+
 			printf("%-7s %s %s(%u):%u: %s\n",
 				qb_log_priority2str(priority),
 			       time_buf, function, lineno, tags, message);
