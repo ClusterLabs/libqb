@@ -59,7 +59,7 @@ lib_LTLIBRARIES		= libqb.la
 #    it as -version-info 2:0:0. This release has a new, but backwards
 #    incompatible interface.
 #
-libqb_la_LDFLAGS	= -version-info 14:3:14
+libqb_la_LDFLAGS	= -version-info 14:4:14
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
