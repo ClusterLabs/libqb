@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/tests/bench-log.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (c) 2011 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * All rights reserved.
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * Author: Steven Dake &lt;sdake@redhat.com&gt;
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	
+<b><a name="line23">23   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line24">24   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line25">25   </a></b>	#include &lt;qb/qblog.h&gt;
+<b><a name="line26">26   </a></b>	
+<b><a name="line27">27   </a></b>	#define ITERATIONS 50000
+<b><a name="line28">28   </a></b>	static qb_util_stopwatch_t *sw;
+<b><a name="line29">29   </a></b>	
+<b><a name="line30">30   </a></b>	extern void log_dict_words(void);
+<b><a name="line31">31   </a></b>	
+<b><a name="line32">32   </a></b>	static void
+<b><a name="line33">33   </a></b>	bm_finish (const char *operation)
+<b><a name="line34">34   </a></b>	{
+<b><a name="line35">35   </a></b>		qb_util_stopwatch_stop(sw);
+<b><a name="line36">36   </a></b>	
+<b><a name="line37">37   </a></b>		if (strlen (operation) &gt; 22) {
+<b><a name="line38">38   </a></b>			printf (&quot;%s\t\t&quot;, operation);
+<b><a name="line39">39   </a></b>		} else {
+<b><a name="line40">40   </a></b>			printf (&quot;%s\t\t\t&quot;, operation);
+<b><a name="line41">41   </a></b>		}
+<b><a name="line42">42   </a></b>		printf(&quot;%9.3f operations/sec\n&quot;,
+<b><a name="line43">43   </a></b>		       ((float)ITERATIONS) /  qb_util_stopwatch_sec_elapsed_get(sw));
+<b><a name="line44">44   </a></b>	}
+<b><a name="line45">45   </a></b>	
+<b><a name="line46">46   </a></b>	int
+<b><a name="line47">47   </a></b>	main(void)
+<b><a name="line48">48   </a></b>	{
+<b><a name="line49">49   </a></b>		int i;
+<b><a name="line50">50   </a></b>	
+<b><a name="line51">51   </a></b>		sw =  qb_util_stopwatch_create();
+<b><a name="line52">52   </a></b>		qb_log_init(&quot;simple-log&quot;, LOG_USER, LOG_INFO);
+<b><a name="line53">53   </a></b>		qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, QB_TRUE);
+<b><a name="line54">54   </a></b>	
+<b><a name="line55">55   </a></b>		qb_log_filter_ctl(QB_LOG_BLACKBOX, QB_LOG_FILTER_ADD,
+<b><a name="line56">56   </a></b>		QB_LOG_FILTER_FILE, &quot;*&quot;, LOG_DEBUG);
+<b><a name="line57">57   </a></b>		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 128000);
+<b><a name="line58">58   </a></b>		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_THREADED, QB_FALSE);
+<b><a name="line59">59   </a></b>		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
+<b><a name="line60">60   </a></b>	
+<b><a name="line61">61   </a></b>		printf (&quot;heating up cache with qb_log functionality\n&quot;);
+<b><a name="line62">62   </a></b>		for (i = 0; i &lt; ITERATIONS; i++) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<b>(1) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="139log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:1">tainted_string_warning</a>][<a href="#error:2">tainted_string_warning</a>][<a href="#error:3">tainted_string_warning</a>][<a href="#error:4">tainted_string_warning</a>]</font></td></tr>
+</table>
+<pre><b><a name="line63">63   </a></b>			qb_log(LOG_DEBUG, &quot;hello&quot;);
+<b><a name="line64">64   </a></b>		}
+<b><a name="line65">65   </a></b>		qb_util_stopwatch_start(sw);
+<b><a name="line66">66   </a></b>		for (i = 0; i &lt; ITERATIONS; i++) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:1"></a>
+<b>(2) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="139log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:0">tainted_string_warning</a>][<a href="#error:2">tainted_string_warning</a>][<a href="#error:3">tainted_string_warning</a>][<a href="#error:4">tainted_string_warning</a>]</font></td></tr>
+</table>
+<pre><b><a name="line67">67   </a></b>			qb_log(LOG_DEBUG, &quot;RecordA&quot;);
+<b><a name="line68">68   </a></b>		}
+<b><a name="line69">69   </a></b>		bm_finish (&quot;qb_log 1 arguments:&quot;);
+<b><a name="line70">70   </a></b>		qb_util_stopwatch_start(sw);
+<b><a name="line71">71   </a></b>		for (i = 0; i &lt; ITERATIONS; i++) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:2"></a>
+<b>(3) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="139log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:0">tainted_string_warning</a>][<a href="#error:1">tainted_string_warning</a>][<a href="#error:3">tainted_string_warning</a>][<a href="#error:4">tainted_string_warning</a>]</font></td></tr>
+</table>
+<pre><b><a name="line72">72   </a></b>			qb_log(LOG_DEBUG, &quot;%s%s&quot;, &quot;RecordA&quot;, &quot;RecordB&quot;);
+<b><a name="line73">73   </a></b>		}
+<b><a name="line74">74   </a></b>		bm_finish (&quot;qb_log 2 args(str):&quot;);
+<b><a name="line75">75   </a></b>		qb_util_stopwatch_start(sw);
+<b><a name="line76">76   </a></b>		for (i = 0; i &lt; ITERATIONS; i++) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:3"></a>
+<b>(4) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="139log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:0">tainted_string_warning</a>][<a href="#error:1">tainted_string_warning</a>][<a href="#error:2">tainted_string_warning</a>][<a href="#error:4">tainted_string_warning</a>]</font></td></tr>
+</table>
+<pre><b><a name="line77">77   </a></b>			qb_log(LOG_DEBUG, &quot;%s%s%s&quot;, &quot;RecordA&quot;, &quot;RecordB&quot;, &quot;RecordC&quot;);
+<b><a name="line78">78   </a></b>		}
+<b><a name="line79">79   </a></b>		bm_finish (&quot;qb_log 3 args(str):&quot;);
+<b><a name="line80">80   </a></b>		qb_util_stopwatch_start(sw);
+<b><a name="line81">81   </a></b>		for (i = 0; i &lt; ITERATIONS; i++) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:4"></a>
+<a name="error"></a>
+<b>(5) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="139log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:0">tainted_string_warning</a>][<a href="#error:1">tainted_string_warning</a>][<a href="#error:2">tainted_string_warning</a>][<a href="#error:3">tainted_string_warning</a>]</font></td></tr>
+</table>
+<pre><b><a name="line82">82   </a></b>			qb_log(LOG_DEBUG, &quot;%i %u %p&quot;, -534, 4508, &amp;i);
+<b><a name="line83">83   </a></b>		}
+<b><a name="line84">84   </a></b>		bm_finish (&quot;qb_log 3 args(int):&quot;);
+<b><a name="line85">85   </a></b>	#if defined(HAVE_DICT_WORDS) &amp;&amp; defined(HAVE_SLOW_TESTS)
+<b><a name="line86">86   </a></b>		qb_util_stopwatch_start(sw);
+<b><a name="line87">87   </a></b>		log_dict_words();
+<b><a name="line88">88   </a></b>		bm_finish (&quot;qb_log /usr/share/dict/words:&quot;);
+<b><a name="line89">89   </a></b>	#endif /* HAVE_DICT_WORDS */
+<b><a name="line90">90   </a></b>	
+<b><a name="line91">91   </a></b>		/* this will close the ringbuffer
+<b><a name="line92">92   </a></b>		 */
+<b><a name="line93">93   </a></b>		qb_log_fini();
+<b><a name="line94">94   </a></b>	
+<b><a name="line95">95   </a></b>		return 0;
+<b><a name="line96">96   </a></b>	}
+<b><a name="line97">97   </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/tests/loop.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2010 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * This file is part of libqb.
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	#include &lt;sys/poll.h&gt;
+<b><a name="line23">23   </a></b>	
+<b><a name="line24">24   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line25">25   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line26">26   </a></b>	#include &lt;qb/qblog.h&gt;
+<b><a name="line27">27   </a></b>	#include &lt;qb/qbloop.h&gt;
+<b><a name="line28">28   </a></b>	
+<b><a name="line29">29   </a></b>	static struct qb_loop *l;
+<b><a name="line30">30   </a></b>	static qb_loop_timer_handle th;
+<b><a name="line31">31   </a></b>	
+<b><a name="line32">32   </a></b>	static void job_3_9(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<a name="error"></a>
+<b>(1) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="81log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+</table>
+<pre><b><a name="line33">33   </a></b>	static void job_1_2(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line34">34   </a></b>	static void job_2_4(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line35">35   </a></b>	static void job_3_5(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line36">36   </a></b>	static void job_3_6(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line37">37   </a></b>	static void job_1_1(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line38">38   </a></b>	static void job_3_7(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line39">39   </a></b>	static void job_2_3(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line40">40   </a></b>	static void job_2_8(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line41">41   </a></b>	static void job_1_9(void *data) { qb_log(LOG_INFO, &quot;%s\n&quot;, __func__); }
+<b><a name="line42">42   </a></b>	
+<b><a name="line43">43   </a></b>	static void more_important_jobs(void *data)
+<b><a name="line44">44   </a></b>	{
+<b><a name="line45">45   </a></b>		qb_enter();
+<b><a name="line46">46   </a></b>		qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_2);
+<b><a name="line47">47   </a></b>		qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_9);
+<b><a name="line48">48   </a></b>	}
+<b><a name="line49">49   </a></b>	
+<b><a name="line50">50   </a></b>	static int32_t handle_reconf_signal(int32_t sig, void *data)
+<b><a name="line51">51   </a></b>	{
+<b><a name="line52">52   </a></b>		qb_log(LOG_INFO, &quot;signal %d&quot;, sig);
+<b><a name="line53">53   </a></b>		return 0;
+<b><a name="line54">54   </a></b>	}
+<b><a name="line55">55   </a></b>	
+<b><a name="line56">56   </a></b>	static int32_t handle_exit_signal(int32_t sig, void *data)
+<b><a name="line57">57   </a></b>	{
+<b><a name="line58">58   </a></b>		qb_log(LOG_INFO, &quot;exiting (signal %d)... bye&quot;, sig);
+<b><a name="line59">59   </a></b>		qb_loop_stop(l);
+<b><a name="line60">60   </a></b>		return -1;
+<b><a name="line61">61   </a></b>	}
+<b><a name="line62">62   </a></b>	
+<b><a name="line63">63   </a></b>	static void more_jobs(void *data)
+<b><a name="line64">64   </a></b>	{
+<b><a name="line65">65   </a></b>		qb_log(LOG_INFO, &quot;%s\n&quot;, __func__);
+<b><a name="line66">66   </a></b>		qb_loop_timer_add(l, QB_LOOP_HIGH, 3109*QB_TIME_NS_IN_MSEC, NULL, job_1_1, &amp;th);
+<b><a name="line67">67   </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_7);
+<b><a name="line68">68   </a></b>		qb_loop_timer_add(l, QB_LOOP_LOW, 1000*QB_TIME_NS_IN_MSEC, NULL, more_important_jobs, &amp;th);
+<b><a name="line69">69   </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_7);
+<b><a name="line70">70   </a></b>		qb_loop_timer_add(l, QB_LOOP_LOW, 2341*QB_TIME_NS_IN_MSEC, NULL, job_3_7, &amp;th);
+<b><a name="line71">71   </a></b>		qb_loop_timer_add(l, QB_LOOP_LOW, 900, NULL, job_3_6, &amp;th);
+<b><a name="line72">72   </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_5);
+<b><a name="line73">73   </a></b>		qb_loop_timer_add(l, QB_LOOP_MED, 4000*QB_TIME_NS_IN_MSEC, NULL, more_jobs, &amp;th);
+<b><a name="line74">74   </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_9);
+<b><a name="line75">75   </a></b>		qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_9);
+<b><a name="line76">76   </a></b>		qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_2_3);
+<b><a name="line77">77   </a></b>	}
+<b><a name="line78">78   </a></b>	
+<b><a name="line79">79   </a></b>	static int32_t read_stdin(int32_t fd, int32_t revents, void *data)
+<b><a name="line80">80   </a></b>	{
+<b><a name="line81">81   </a></b>		char buf[100];
+<b><a name="line82">82   </a></b>		ssize_t len = read(fd, buf, 100);
+<b><a name="line83">83   </a></b>		buf[len-1] = '\0';
+<b><a name="line84">84   </a></b>		qb_log(LOG_INFO, &quot;typed &gt; \&quot;%s\&quot;\n&quot;, buf);
+<b><a name="line85">85   </a></b>		if (strcmp(buf, &quot;more&quot;) == 0) {
+<b><a name="line86">86   </a></b>			more_jobs(NULL);
+<b><a name="line87">87   </a></b>		}
+<b><a name="line88">88   </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_9);
+<b><a name="line89">89   </a></b>		return 0;
+<b><a name="line90">90   </a></b>	}
+<b><a name="line91">91   </a></b>	
+<b><a name="line92">92   </a></b>	int main(int argc, char * argv[])
+<b><a name="line93">93   </a></b>	{
+<b><a name="line94">94   </a></b>		qb_loop_signal_handle sh;
+<b><a name="line95">95   </a></b>	
+<b><a name="line96">96   </a></b>		qb_log_init(&quot;loop&quot;, LOG_USER, LOG_EMERG);
+<b><a name="line97">97   </a></b>		qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+<b><a name="line98">98   </a></b>		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+<b><a name="line99">99   </a></b>				  QB_LOG_FILTER_FILE, &quot;*&quot;, LOG_DEBUG);
+<b><a name="line100">100  </a></b>		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+<b><a name="line101">101  </a></b>	
+<b><a name="line102">102  </a></b>		l = qb_loop_create();
+<b><a name="line103">103  </a></b>	
+<b><a name="line104">104  </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_9);
+<b><a name="line105">105  </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_2_4);
+<b><a name="line106">106  </a></b>		qb_loop_job_add(l, QB_LOOP_HIGH, NULL, job_1_2);
+<b><a name="line107">107  </a></b>		qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_3_7);
+<b><a name="line108">108  </a></b>	/*
+<b><a name="line109">109  </a></b>	 * 	qb_loop_timer_add(l, QB_LOOP_HIGH, 40*QB_TIME_NS_IN_MSEC, NULL, more_jobs, &amp;th);
+<b><a name="line110">110  </a></b>	 */
+<b><a name="line111">111  </a></b>		qb_loop_job_add(l, QB_LOOP_MED,  NULL, job_2_8);
+<b><a name="line112">112  </a></b>		qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_3_6);
+<b><a name="line113">113  </a></b>	
+<b><a name="line114">114  </a></b>		qb_loop_poll_add(l, QB_LOOP_LOW, 0, POLLIN | POLLPRI | POLLNVAL,
+<b><a name="line115">115  </a></b>				     NULL, read_stdin);
+<b><a name="line116">116  </a></b>	
+<b><a name="line117">117  </a></b>		qb_loop_signal_add(l, QB_LOOP_MED, SIGINT, NULL, handle_exit_signal, &amp;sh);
+<b><a name="line118">118  </a></b>		qb_loop_signal_add(l, QB_LOOP_MED, SIGSEGV, NULL, handle_exit_signal, &amp;sh);
+<b><a name="line119">119  </a></b>		qb_loop_signal_add(l, QB_LOOP_MED, SIGHUP, NULL, handle_reconf_signal, &amp;sh);
+<b><a name="line120">120  </a></b>	
+<b><a name="line121">121  </a></b>		qb_loop_run(l);
+<b><a name="line122">122  </a></b>		return 0;
+<b><a name="line123">123  </a></b>	}
+<b><a name="line124">124  </a></b>	
+<b><a name="line125">125  </a></b>	
+<b><a name="line126">126  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

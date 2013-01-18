@@ -1,0 +1,434 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/examples/ipcserver.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (c) 2011 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * All rights reserved.
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	#include &lt;signal.h&gt;
+<b><a name="line23">23   </a></b>	
+<b><a name="line24">24   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line25">25   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line26">26   </a></b>	#include &lt;qb/qblog.h&gt;
+<b><a name="line27">27   </a></b>	#include &lt;qb/qbloop.h&gt;
+<b><a name="line28">28   </a></b>	#include &lt;qb/qbipcs.h&gt;
+<b><a name="line29">29   </a></b>	
+<b><a name="line30">30   </a></b>	#ifdef HAVE_GLIB
+<b><a name="line31">31   </a></b>	#include &lt;glib.h&gt;
+<b><a name="line32">32   </a></b>	static GMainLoop *glib_loop;
+<b><a name="line33">33   </a></b>	static qb_array_t *gio_map;
+<b><a name="line34">34   </a></b>	#endif /* HAVE_GLIB */
+<b><a name="line35">35   </a></b>	
+<b><a name="line36">36   </a></b>	static int32_t use_glib = QB_FALSE;
+<b><a name="line37">37   </a></b>	static int32_t use_events = QB_FALSE;
+<b><a name="line38">38   </a></b>	static qb_loop_t *bms_loop;
+<b><a name="line39">39   </a></b>	static qb_ipcs_service_t *s1;
+<b><a name="line40">40   </a></b>	
+<b><a name="line41">41   </a></b>	static int32_t
+<b><a name="line42">42   </a></b>	s1_connection_accept_fn(qb_ipcs_connection_t * c, uid_t uid, gid_t gid)
+<b><a name="line43">43   </a></b>	{
+<b><a name="line44">44   </a></b>	#if 0
+<b><a name="line45">45   </a></b>		if (uid == 0 &amp;&amp; gid == 0) {
+<b><a name="line46">46   </a></b>			qb_log(LOG_INFO, &quot;Authenticated connection&quot;);
+<b><a name="line47">47   </a></b>			return 1;
+<b><a name="line48">48   </a></b>		}
+<b><a name="line49">49   </a></b>		qb_log(LOG_NOTICE, &quot;BAD user!&quot;);
+<b><a name="line50">50   </a></b>		return 0;
+<b><a name="line51">51   </a></b>	#else
+<b><a name="line52">52   </a></b>		return 0;
+<b><a name="line53">53   </a></b>	#endif
+<b><a name="line54">54   </a></b>	}
+<b><a name="line55">55   </a></b>	
+<b><a name="line56">56   </a></b>	static void
+<b><a name="line57">57   </a></b>	s1_connection_created_fn(qb_ipcs_connection_t * c)
+<b><a name="line58">58   </a></b>	{
+<b><a name="line59">59   </a></b>		struct qb_ipcs_stats srv_stats;
+<b><a name="line60">60   </a></b>	
+<b><a name="line61">61   </a></b>		qb_ipcs_stats_get(s1, &amp;srv_stats, QB_FALSE);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<a name="error"></a>
+<b>(1) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="75log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+</table>
+<pre><b><a name="line62">62   </a></b>		qb_log(LOG_INFO, &quot;Connection created (active:%d, closed:%d)&quot;,
+<b><a name="line63">63   </a></b>		       srv_stats.active_connections, srv_stats.closed_connections);
+<b><a name="line64">64   </a></b>	}
+<b><a name="line65">65   </a></b>	
+<b><a name="line66">66   </a></b>	static void
+<b><a name="line67">67   </a></b>	s1_connection_destroyed_fn(qb_ipcs_connection_t * c)
+<b><a name="line68">68   </a></b>	{
+<b><a name="line69">69   </a></b>		qb_log(LOG_INFO, &quot;Connection about to be freed&quot;);
+<b><a name="line70">70   </a></b>	}
+<b><a name="line71">71   </a></b>	
+<b><a name="line72">72   </a></b>	static int32_t
+<b><a name="line73">73   </a></b>	s1_connection_closed_fn(qb_ipcs_connection_t * c)
+<b><a name="line74">74   </a></b>	{
+<b><a name="line75">75   </a></b>		struct qb_ipcs_connection_stats stats;
+<b><a name="line76">76   </a></b>		struct qb_ipcs_stats srv_stats;
+<b><a name="line77">77   </a></b>	
+<b><a name="line78">78   </a></b>		qb_ipcs_stats_get(s1, &amp;srv_stats, QB_FALSE);
+<b><a name="line79">79   </a></b>		qb_ipcs_connection_stats_get(c, &amp;stats, QB_FALSE);
+<b><a name="line80">80   </a></b>		qb_log(LOG_INFO,
+<b><a name="line81">81   </a></b>		       &quot;Connection to pid:%d destroyed (active:%d, closed:%d)&quot;,
+<b><a name="line82">82   </a></b>		       stats.client_pid, srv_stats.active_connections,
+<b><a name="line83">83   </a></b>		       srv_stats.closed_connections);
+<b><a name="line84">84   </a></b>	
+<b><a name="line85">85   </a></b>		qb_log(LOG_DEBUG, &quot; Requests     %&quot;PRIu64&quot;&quot;, stats.requests);
+<b><a name="line86">86   </a></b>		qb_log(LOG_DEBUG, &quot; Responses    %&quot;PRIu64&quot;&quot;, stats.responses);
+<b><a name="line87">87   </a></b>		qb_log(LOG_DEBUG, &quot; Events       %&quot;PRIu64&quot;&quot;, stats.events);
+<b><a name="line88">88   </a></b>		qb_log(LOG_DEBUG, &quot; Send retries %&quot;PRIu64&quot;&quot;, stats.send_retries);
+<b><a name="line89">89   </a></b>		qb_log(LOG_DEBUG, &quot; Recv retries %&quot;PRIu64&quot;&quot;, stats.recv_retries);
+<b><a name="line90">90   </a></b>		qb_log(LOG_DEBUG, &quot; FC state     %d&quot;, stats.flow_control_state);
+<b><a name="line91">91   </a></b>		qb_log(LOG_DEBUG, &quot; FC count     %&quot;PRIu64&quot;&quot;, stats.flow_control_count);
+<b><a name="line92">92   </a></b>		return 0;
+<b><a name="line93">93   </a></b>	}
+<b><a name="line94">94   </a></b>	
+<b><a name="line95">95   </a></b>	struct my_req {
+<b><a name="line96">96   </a></b>		struct qb_ipc_request_header hdr;
+<b><a name="line97">97   </a></b>		char message[256];
+<b><a name="line98">98   </a></b>	};
+<b><a name="line99">99   </a></b>	
+<b><a name="line100">100  </a></b>	static int32_t
+<b><a name="line101">101  </a></b>	s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
+<b><a name="line102">102  </a></b>	{
+<b><a name="line103">103  </a></b>		struct qb_ipc_request_header *hdr;
+<b><a name="line104">104  </a></b>		struct my_req *req_pt;
+<b><a name="line105">105  </a></b>		struct qb_ipc_response_header response;
+<b><a name="line106">106  </a></b>		ssize_t res;
+<b><a name="line107">107  </a></b>		struct iovec iov[2];
+<b><a name="line108">108  </a></b>		char resp[100];
+<b><a name="line109">109  </a></b>		int32_t sl;
+<b><a name="line110">110  </a></b>		int32_t send_ten_events = QB_FALSE;
+<b><a name="line111">111  </a></b>	
+<b><a name="line112">112  </a></b>		hdr = (struct qb_ipc_request_header *)data;
+<b><a name="line113">113  </a></b>		if (hdr-&gt;id == (QB_IPC_MSG_USER_START + 1)) {
+<b><a name="line114">114  </a></b>			return 0;
+<b><a name="line115">115  </a></b>		}
+<b><a name="line116">116  </a></b>	
+<b><a name="line117">117  </a></b>		req_pt = (struct my_req *)data;
+<b><a name="line118">118  </a></b>		qb_log(LOG_DEBUG, &quot;msg received (id:%d, size:%d, data:%s)&quot;,
+<b><a name="line119">119  </a></b>		       req_pt-&gt;hdr.id, req_pt-&gt;hdr.size, req_pt-&gt;message);
+<b><a name="line120">120  </a></b>	
+<b><a name="line121">121  </a></b>		if (strcmp(req_pt-&gt;message, &quot;kill&quot;) == 0) {
+<b><a name="line122">122  </a></b>			exit(0);
+<b><a name="line123">123  </a></b>		}
+<b><a name="line124">124  </a></b>		response.size = sizeof(struct qb_ipc_response_header);
+<b><a name="line125">125  </a></b>		response.id = 13;
+<b><a name="line126">126  </a></b>		response.error = 0;
+<b><a name="line127">127  </a></b>	
+<b><a name="line128">128  </a></b>		sl = snprintf(resp, 100, &quot;ACK %zd bytes&quot;, size) + 1;
+<b><a name="line129">129  </a></b>		iov[0].iov_len = sizeof(response);
+<b><a name="line130">130  </a></b>		iov[0].iov_base = &amp;response;
+<b><a name="line131">131  </a></b>		iov[1].iov_len = sl;
+<b><a name="line132">132  </a></b>		iov[1].iov_base = resp;
+<b><a name="line133">133  </a></b>		response.size += sl;
+<b><a name="line134">134  </a></b>	
+<b><a name="line135">135  </a></b>		send_ten_events = (strcmp(req_pt-&gt;message, &quot;events&quot;) == 0);
+<b><a name="line136">136  </a></b>	
+<b><a name="line137">137  </a></b>		if (use_events &amp;&amp; !send_ten_events) {
+<b><a name="line138">138  </a></b>			res = qb_ipcs_event_sendv(c, iov, 2);
+<b><a name="line139">139  </a></b>		} else {
+<b><a name="line140">140  </a></b>			res = qb_ipcs_response_sendv(c, iov, 2);
+<b><a name="line141">141  </a></b>		}
+<b><a name="line142">142  </a></b>		if (res &lt; 0) {
+<b><a name="line143">143  </a></b>			errno = - res;
+<b><a name="line144">144  </a></b>			qb_perror(LOG_ERR, &quot;qb_ipcs_response_send&quot;);
+<b><a name="line145">145  </a></b>		}
+<b><a name="line146">146  </a></b>		if (send_ten_events) {
+<b><a name="line147">147  </a></b>			int32_t i;
+<b><a name="line148">148  </a></b>			qb_log(LOG_INFO, &quot;request to send 10 events&quot;);
+<b><a name="line149">149  </a></b>			for (i = 0; i &lt; 10; i++) {
+<b><a name="line150">150  </a></b>				res = qb_ipcs_event_sendv(c, iov, 2);
+<b><a name="line151">151  </a></b>				qb_log(LOG_INFO, &quot;sent event %d res:%d&quot;, i, res);
+<b><a name="line152">152  </a></b>			}
+<b><a name="line153">153  </a></b>		}
+<b><a name="line154">154  </a></b>		return 0;
+<b><a name="line155">155  </a></b>	}
+<b><a name="line156">156  </a></b>	
+<b><a name="line157">157  </a></b>	static void
+<b><a name="line158">158  </a></b>	sigusr1_handler(int32_t num)
+<b><a name="line159">159  </a></b>	{
+<b><a name="line160">160  </a></b>		qb_log(LOG_DEBUG, &quot;(%d)&quot;, num);
+<b><a name="line161">161  </a></b>		qb_ipcs_destroy(s1);
+<b><a name="line162">162  </a></b>		exit(0);
+<b><a name="line163">163  </a></b>	}
+<b><a name="line164">164  </a></b>	
+<b><a name="line165">165  </a></b>	static void
+<b><a name="line166">166  </a></b>	show_usage(const char *name)
+<b><a name="line167">167  </a></b>	{
+<b><a name="line168">168  </a></b>		printf(&quot;usage: \n&quot;);
+<b><a name="line169">169  </a></b>		printf(&quot;%s &lt;options&gt;\n&quot;, name);
+<b><a name="line170">170  </a></b>		printf(&quot;\n&quot;);
+<b><a name="line171">171  </a></b>		printf(&quot;  options:\n&quot;);
+<b><a name="line172">172  </a></b>		printf(&quot;\n&quot;);
+<b><a name="line173">173  </a></b>		printf(&quot;  -h             show this help text\n&quot;);
+<b><a name="line174">174  </a></b>		printf(&quot;  -m             use shared memory\n&quot;);
+<b><a name="line175">175  </a></b>		printf(&quot;  -u             use unix sockets\n&quot;);
+<b><a name="line176">176  </a></b>		printf(&quot;  -g             use glib mainloop\n&quot;);
+<b><a name="line177">177  </a></b>		printf(&quot;  -e             use events\n&quot;);
+<b><a name="line178">178  </a></b>		printf(&quot;\n&quot;);
+<b><a name="line179">179  </a></b>	}
+<b><a name="line180">180  </a></b>	
+<b><a name="line181">181  </a></b>	#ifdef HAVE_GLIB
+<b><a name="line182">182  </a></b>	struct gio_to_qb_poll {
+<b><a name="line183">183  </a></b>		gboolean is_used;
+<b><a name="line184">184  </a></b>		GIOChannel *channel;
+<b><a name="line185">185  </a></b>		int32_t events;
+<b><a name="line186">186  </a></b>		void *data;
+<b><a name="line187">187  </a></b>		qb_ipcs_dispatch_fn_t fn;
+<b><a name="line188">188  </a></b>		enum qb_loop_priority p;
+<b><a name="line189">189  </a></b>	};
+<b><a name="line190">190  </a></b>	
+<b><a name="line191">191  </a></b>	static gboolean
+<b><a name="line192">192  </a></b>	gio_read_socket(GIOChannel * gio, GIOCondition condition, gpointer data)
+<b><a name="line193">193  </a></b>	{
+<b><a name="line194">194  </a></b>		struct gio_to_qb_poll *adaptor = (struct gio_to_qb_poll *)data;
+<b><a name="line195">195  </a></b>		gint fd = g_io_channel_unix_get_fd(gio);
+<b><a name="line196">196  </a></b>	
+<b><a name="line197">197  </a></b>		return (adaptor-&gt;fn(fd, condition, adaptor-&gt;data) == 0);
+<b><a name="line198">198  </a></b>	}
+<b><a name="line199">199  </a></b>	
+<b><a name="line200">200  </a></b>	static int32_t
+<b><a name="line201">201  </a></b>	my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
+<b><a name="line202">202  </a></b>			  void *data, qb_ipcs_dispatch_fn_t fn)
+<b><a name="line203">203  </a></b>	{
+<b><a name="line204">204  </a></b>		struct gio_to_qb_poll *adaptor;
+<b><a name="line205">205  </a></b>		GIOChannel *channel;
+<b><a name="line206">206  </a></b>		int32_t res = 0;
+<b><a name="line207">207  </a></b>	
+<b><a name="line208">208  </a></b>		res = qb_array_index(gio_map, fd, (void **)&amp;adaptor);
+<b><a name="line209">209  </a></b>		if (res &lt; 0) {
+<b><a name="line210">210  </a></b>			return res;
+<b><a name="line211">211  </a></b>		}
+<b><a name="line212">212  </a></b>		if (adaptor-&gt;is_used) {
+<b><a name="line213">213  </a></b>			return -EEXIST;
+<b><a name="line214">214  </a></b>		}
+<b><a name="line215">215  </a></b>	
+<b><a name="line216">216  </a></b>		channel = g_io_channel_unix_new(fd);
+<b><a name="line217">217  </a></b>		if (!channel) {
+<b><a name="line218">218  </a></b>			return -ENOMEM;
+<b><a name="line219">219  </a></b>		}
+<b><a name="line220">220  </a></b>	
+<b><a name="line221">221  </a></b>		adaptor-&gt;channel = channel;
+<b><a name="line222">222  </a></b>		adaptor-&gt;fn = fn;
+<b><a name="line223">223  </a></b>		adaptor-&gt;events = evts;
+<b><a name="line224">224  </a></b>		adaptor-&gt;data = data;
+<b><a name="line225">225  </a></b>		adaptor-&gt;p = p;
+<b><a name="line226">226  </a></b>		adaptor-&gt;is_used = TRUE;
+<b><a name="line227">227  </a></b>	
+<b><a name="line228">228  </a></b>		g_io_add_watch(channel, evts, gio_read_socket, adaptor);
+<b><a name="line229">229  </a></b>		return 0;
+<b><a name="line230">230  </a></b>	}
+<b><a name="line231">231  </a></b>	
+<b><a name="line232">232  </a></b>	static int32_t
+<b><a name="line233">233  </a></b>	my_g_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
+<b><a name="line234">234  </a></b>			  void *data, qb_ipcs_dispatch_fn_t fn)
+<b><a name="line235">235  </a></b>	{
+<b><a name="line236">236  </a></b>		return 0;
+<b><a name="line237">237  </a></b>	}
+<b><a name="line238">238  </a></b>	
+<b><a name="line239">239  </a></b>	static int32_t
+<b><a name="line240">240  </a></b>	my_g_dispatch_del(int32_t fd)
+<b><a name="line241">241  </a></b>	{
+<b><a name="line242">242  </a></b>		struct gio_to_qb_poll *adaptor;
+<b><a name="line243">243  </a></b>		if (qb_array_index(gio_map, fd, (void **)&amp;adaptor) == 0) {
+<b><a name="line244">244  </a></b>			g_io_channel_unref(adaptor-&gt;channel);
+<b><a name="line245">245  </a></b>			adaptor-&gt;is_used = FALSE;
+<b><a name="line246">246  </a></b>		}
+<b><a name="line247">247  </a></b>		return 0;
+<b><a name="line248">248  </a></b>	}
+<b><a name="line249">249  </a></b>	#endif /* HAVE_GLIB */
+<b><a name="line250">250  </a></b>	
+<b><a name="line251">251  </a></b>	static int32_t
+<b><a name="line252">252  </a></b>	my_job_add(enum qb_loop_priority p, void *data, qb_loop_job_dispatch_fn fn)
+<b><a name="line253">253  </a></b>	{
+<b><a name="line254">254  </a></b>		return qb_loop_job_add(bms_loop, p, data, fn);
+<b><a name="line255">255  </a></b>	}
+<b><a name="line256">256  </a></b>	
+<b><a name="line257">257  </a></b>	static int32_t
+<b><a name="line258">258  </a></b>	my_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
+<b><a name="line259">259  </a></b>			void *data, qb_ipcs_dispatch_fn_t fn)
+<b><a name="line260">260  </a></b>	{
+<b><a name="line261">261  </a></b>		return qb_loop_poll_add(bms_loop, p, fd, evts, data, fn);
+<b><a name="line262">262  </a></b>	}
+<b><a name="line263">263  </a></b>	
+<b><a name="line264">264  </a></b>	static int32_t
+<b><a name="line265">265  </a></b>	my_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
+<b><a name="line266">266  </a></b>			void *data, qb_ipcs_dispatch_fn_t fn)
+<b><a name="line267">267  </a></b>	{
+<b><a name="line268">268  </a></b>		return qb_loop_poll_mod(bms_loop, p, fd, evts, data, fn);
+<b><a name="line269">269  </a></b>	}
+<b><a name="line270">270  </a></b>	
+<b><a name="line271">271  </a></b>	static int32_t
+<b><a name="line272">272  </a></b>	my_dispatch_del(int32_t fd)
+<b><a name="line273">273  </a></b>	{
+<b><a name="line274">274  </a></b>		return qb_loop_poll_del(bms_loop, fd);
+<b><a name="line275">275  </a></b>	}
+<b><a name="line276">276  </a></b>	
+<b><a name="line277">277  </a></b>	int32_t
+<b><a name="line278">278  </a></b>	main(int32_t argc, char *argv[])
+<b><a name="line279">279  </a></b>	{
+<b><a name="line280">280  </a></b>		const char *options = &quot;mpseugh&quot;;
+<b><a name="line281">281  </a></b>		int32_t opt;
+<b><a name="line282">282  </a></b>		int32_t rc;
+<b><a name="line283">283  </a></b>		enum qb_ipc_type ipc_type = QB_IPC_NATIVE;
+<b><a name="line284">284  </a></b>		struct qb_ipcs_service_handlers sh = {
+<b><a name="line285">285  </a></b>			.connection_accept = s1_connection_accept_fn,
+<b><a name="line286">286  </a></b>			.connection_created = s1_connection_created_fn,
+<b><a name="line287">287  </a></b>			.msg_process = s1_msg_process_fn,
+<b><a name="line288">288  </a></b>			.connection_destroyed = s1_connection_destroyed_fn,
+<b><a name="line289">289  </a></b>			.connection_closed = s1_connection_closed_fn,
+<b><a name="line290">290  </a></b>		};
+<b><a name="line291">291  </a></b>		struct qb_ipcs_poll_handlers ph = {
+<b><a name="line292">292  </a></b>			.job_add = my_job_add,
+<b><a name="line293">293  </a></b>			.dispatch_add = my_dispatch_add,
+<b><a name="line294">294  </a></b>			.dispatch_mod = my_dispatch_mod,
+<b><a name="line295">295  </a></b>			.dispatch_del = my_dispatch_del,
+<b><a name="line296">296  </a></b>		};
+<b><a name="line297">297  </a></b>	#ifdef HAVE_GLIB
+<b><a name="line298">298  </a></b>		struct qb_ipcs_poll_handlers glib_ph = {
+<b><a name="line299">299  </a></b>			.job_add = NULL, /* FIXME */
+<b><a name="line300">300  </a></b>			.dispatch_add = my_g_dispatch_add,
+<b><a name="line301">301  </a></b>			.dispatch_mod = my_g_dispatch_mod,
+<b><a name="line302">302  </a></b>			.dispatch_del = my_g_dispatch_del,
+<b><a name="line303">303  </a></b>		};
+<b><a name="line304">304  </a></b>	#endif /* HAVE_GLIB */
+<b><a name="line305">305  </a></b>	
+<b><a name="line306">306  </a></b>		while ((opt = getopt(argc, argv, options)) != -1) {
+<b><a name="line307">307  </a></b>			switch (opt) {
+<b><a name="line308">308  </a></b>			case 'm':
+<b><a name="line309">309  </a></b>				ipc_type = QB_IPC_SHM;
+<b><a name="line310">310  </a></b>				break;
+<b><a name="line311">311  </a></b>			case 'u':
+<b><a name="line312">312  </a></b>				ipc_type = QB_IPC_SOCKET;
+<b><a name="line313">313  </a></b>				break;
+<b><a name="line314">314  </a></b>			case 'g':
+<b><a name="line315">315  </a></b>				use_glib = QB_TRUE;
+<b><a name="line316">316  </a></b>				break;
+<b><a name="line317">317  </a></b>			case 'e':
+<b><a name="line318">318  </a></b>				use_events = QB_TRUE;
+<b><a name="line319">319  </a></b>				break;
+<b><a name="line320">320  </a></b>			case 'h':
+<b><a name="line321">321  </a></b>			default:
+<b><a name="line322">322  </a></b>				show_usage(argv[0]);
+<b><a name="line323">323  </a></b>				exit(0);
+<b><a name="line324">324  </a></b>				break;
+<b><a name="line325">325  </a></b>			}
+<b><a name="line326">326  </a></b>		}
+<b><a name="line327">327  </a></b>		signal(SIGINT, sigusr1_handler);
+<b><a name="line328">328  </a></b>	
+<b><a name="line329">329  </a></b>		qb_log_init(&quot;ipcserver&quot;, LOG_USER, LOG_TRACE);
+<b><a name="line330">330  </a></b>		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+<b><a name="line331">331  </a></b>				  QB_LOG_FILTER_FILE, &quot;*&quot;, LOG_TRACE);
+<b><a name="line332">332  </a></b>		qb_log_format_set(QB_LOG_STDERR, &quot;%f:%l [%p] %b&quot;);
+<b><a name="line333">333  </a></b>		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+<b><a name="line334">334  </a></b>	
+<b><a name="line335">335  </a></b>		s1 = qb_ipcs_create(&quot;ipcserver&quot;, 0, ipc_type, &amp;sh);
+<b><a name="line336">336  </a></b>		if (s1 == 0) {
+<b><a name="line337">337  </a></b>			qb_perror(LOG_ERR, &quot;qb_ipcs_create&quot;);
+<b><a name="line338">338  </a></b>			exit(1);
+<b><a name="line339">339  </a></b>		}
+<b><a name="line340">340  </a></b>		if (!use_glib) {
+<b><a name="line341">341  </a></b>			bms_loop = qb_loop_create();
+<b><a name="line342">342  </a></b>			qb_ipcs_poll_handlers_set(s1, &amp;ph);
+<b><a name="line343">343  </a></b>			rc = qb_ipcs_run(s1);
+<b><a name="line344">344  </a></b>			if (rc != 0) {
+<b><a name="line345">345  </a></b>				errno = -rc;
+<b><a name="line346">346  </a></b>				qb_perror(LOG_ERR, &quot;qb_ipcs_run&quot;);
+<b><a name="line347">347  </a></b>				exit(1);
+<b><a name="line348">348  </a></b>			}
+<b><a name="line349">349  </a></b>			qb_loop_run(bms_loop);
+<b><a name="line350">350  </a></b>		} else {
+<b><a name="line351">351  </a></b>	#ifdef HAVE_GLIB
+<b><a name="line352">352  </a></b>			glib_loop = g_main_loop_new(NULL, FALSE);
+<b><a name="line353">353  </a></b>			gio_map = qb_array_create_2(16, sizeof(struct gio_to_qb_poll), 1);
+<b><a name="line354">354  </a></b>			qb_ipcs_poll_handlers_set(s1, &amp;glib_ph);
+<b><a name="line355">355  </a></b>			rc = qb_ipcs_run(s1);
+<b><a name="line356">356  </a></b>			if (rc != 0) {
+<b><a name="line357">357  </a></b>				errno = -rc;
+<b><a name="line358">358  </a></b>				qb_perror(LOG_ERR, &quot;qb_ipcs_run&quot;);
+<b><a name="line359">359  </a></b>				exit(1);
+<b><a name="line360">360  </a></b>			}
+<b><a name="line361">361  </a></b>			g_main_loop_run(glib_loop);
+<b><a name="line362">362  </a></b>	#else
+<b><a name="line363">363  </a></b>			qb_log(LOG_ERR,
+<b><a name="line364">364  </a></b>			       &quot;You don't seem to have glib-devel installed.\n&quot;);
+<b><a name="line365">365  </a></b>	#endif
+<b><a name="line366">366  </a></b>		}
+<b><a name="line367">367  </a></b>		return EXIT_SUCCESS;
+<b><a name="line368">368  </a></b>	}
+<b><a name="line369">369  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

@@ -1,0 +1,913 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/log_format.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2011 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * All rights reserved.
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	#include &lt;ctype.h&gt;
+<b><a name="line23">23   </a></b>	
+<b><a name="line24">24   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line25">25   </a></b>	#include &quot;log_int.h&quot;
+<b><a name="line26">26   </a></b>	
+<b><a name="line27">27   </a></b>	static qb_log_tags_stringify_fn _user_tags_stringify_fn;
+<b><a name="line28">28   </a></b>	
+<b><a name="line29">29   </a></b>	/*
+<b><a name="line30">30   </a></b>	 * syslog prioritynames, facility names to value mapping
+<b><a name="line31">31   </a></b>	 * Some C libraries build this in to their headers, but it is non-portable
+<b><a name="line32">32   </a></b>	 * so logsys supplies its own version.
+<b><a name="line33">33   </a></b>	 */
+<b><a name="line34">34   </a></b>	struct syslog_names {
+<b><a name="line35">35   </a></b>		const char *c_name;
+<b><a name="line36">36   </a></b>		int32_t c_val;
+<b><a name="line37">37   </a></b>	};
+<b><a name="line38">38   </a></b>	
+<b><a name="line39">39   </a></b>	static struct syslog_names prioritynames[] = {
+<b><a name="line40">40   </a></b>		{&quot;emerg&quot;, LOG_EMERG},
+<b><a name="line41">41   </a></b>		{&quot;alert&quot;, LOG_ALERT},
+<b><a name="line42">42   </a></b>		{&quot;crit&quot;, LOG_CRIT},
+<b><a name="line43">43   </a></b>		{&quot;error&quot;, LOG_ERR},
+<b><a name="line44">44   </a></b>		{&quot;warning&quot;, LOG_WARNING},
+<b><a name="line45">45   </a></b>		{&quot;notice&quot;, LOG_NOTICE},
+<b><a name="line46">46   </a></b>		{&quot;info&quot;, LOG_INFO},
+<b><a name="line47">47   </a></b>		{&quot;debug&quot;, LOG_DEBUG},
+<b><a name="line48">48   </a></b>		{&quot;trace&quot;, LOG_TRACE},
+<b><a name="line49">49   </a></b>		{NULL, -1}
+<b><a name="line50">50   </a></b>	};
+<b><a name="line51">51   </a></b>	
+<b><a name="line52">52   </a></b>	struct syslog_names facilitynames[] = {
+<b><a name="line53">53   </a></b>		{&quot;auth&quot;, LOG_AUTH},
+<b><a name="line54">54   </a></b>	#if defined(LOG_AUTHPRIV)
+<b><a name="line55">55   </a></b>		{&quot;authpriv&quot;, LOG_AUTHPRIV},
+<b><a name="line56">56   </a></b>	#endif
+<b><a name="line57">57   </a></b>		{&quot;cron&quot;, LOG_CRON},
+<b><a name="line58">58   </a></b>		{&quot;daemon&quot;, LOG_DAEMON},
+<b><a name="line59">59   </a></b>	#if defined(LOG_FTP)
+<b><a name="line60">60   </a></b>		{&quot;ftp&quot;, LOG_FTP},
+<b><a name="line61">61   </a></b>	#endif
+<b><a name="line62">62   </a></b>		{&quot;kern&quot;, LOG_KERN},
+<b><a name="line63">63   </a></b>		{&quot;lpr&quot;, LOG_LPR},
+<b><a name="line64">64   </a></b>		{&quot;mail&quot;, LOG_MAIL},
+<b><a name="line65">65   </a></b>		{&quot;news&quot;, LOG_NEWS},
+<b><a name="line66">66   </a></b>		{&quot;syslog&quot;, LOG_SYSLOG},
+<b><a name="line67">67   </a></b>		{&quot;user&quot;, LOG_USER},
+<b><a name="line68">68   </a></b>		{&quot;uucp&quot;, LOG_UUCP},
+<b><a name="line69">69   </a></b>		{&quot;local0&quot;, LOG_LOCAL0},
+<b><a name="line70">70   </a></b>		{&quot;local1&quot;, LOG_LOCAL1},
+<b><a name="line71">71   </a></b>		{&quot;local2&quot;, LOG_LOCAL2},
+<b><a name="line72">72   </a></b>		{&quot;local3&quot;, LOG_LOCAL3},
+<b><a name="line73">73   </a></b>		{&quot;local4&quot;, LOG_LOCAL4},
+<b><a name="line74">74   </a></b>		{&quot;local5&quot;, LOG_LOCAL5},
+<b><a name="line75">75   </a></b>		{&quot;local6&quot;, LOG_LOCAL6},
+<b><a name="line76">76   </a></b>		{&quot;local7&quot;, LOG_LOCAL7},
+<b><a name="line77">77   </a></b>		{NULL, -1}
+<b><a name="line78">78   </a></b>	};
+<b><a name="line79">79   </a></b>	
+<b><a name="line80">80   </a></b>	static const char log_month_name[][4] = {
+<b><a name="line81">81   </a></b>		&quot;Jan&quot;, &quot;Feb&quot;, &quot;Mar&quot;, &quot;Apr&quot;, &quot;May&quot;, &quot;Jun&quot;,
+<b><a name="line82">82   </a></b>		&quot;Jul&quot;, &quot;Aug&quot;, &quot;Sep&quot;, &quot;Oct&quot;, &quot;Nov&quot;, &quot;Dec&quot;
+<b><a name="line83">83   </a></b>	};
+<b><a name="line84">84   </a></b>	
+<b><a name="line85">85   </a></b>	static pthread_rwlock_t _formatlock;
+<b><a name="line86">86   </a></b>	
+<b><a name="line87">87   </a></b>	void
+<b><a name="line88">88   </a></b>	qb_log_format_init(void)
+<b><a name="line89">89   </a></b>	{
+<b><a name="line90">90   </a></b>		int32_t i;
+<b><a name="line91">91   </a></b>		struct qb_log_target *t;
+<b><a name="line92">92   </a></b>	
+<b><a name="line93">93   </a></b>		i = pthread_rwlock_init(&amp;_formatlock, NULL);
+<b><a name="line94">94   </a></b>		assert(i == 0);
+<b><a name="line95">95   </a></b>	
+<b><a name="line96">96   </a></b>		for (i = 0; i &lt; QB_LOG_TARGET_MAX; i++) {
+<b><a name="line97">97   </a></b>			t = qb_log_target_get(i);
+<b><a name="line98">98   </a></b>			t-&gt;format = strdup(&quot;[%p] %b&quot;);
+<b><a name="line99">99   </a></b>		}
+<b><a name="line100">100  </a></b>	}
+<b><a name="line101">101  </a></b>	
+<b><a name="line102">102  </a></b>	void
+<b><a name="line103">103  </a></b>	qb_log_format_fini(void)
+<b><a name="line104">104  </a></b>	{
+<b><a name="line105">105  </a></b>		struct qb_log_target *t;
+<b><a name="line106">106  </a></b>		int32_t i;
+<b><a name="line107">107  </a></b>	
+<b><a name="line108">108  </a></b>		pthread_rwlock_destroy(&amp;_formatlock);
+<b><a name="line109">109  </a></b>	
+<b><a name="line110">110  </a></b>		for (i = 0; i &lt; QB_LOG_TARGET_MAX; i++) {
+<b><a name="line111">111  </a></b>			t = qb_log_target_get(i);
+<b><a name="line112">112  </a></b>			free(t-&gt;format);
+<b><a name="line113">113  </a></b>		}
+<b><a name="line114">114  </a></b>	}
+<b><a name="line115">115  </a></b>	
+<b><a name="line116">116  </a></b>	void
+<b><a name="line117">117  </a></b>	qb_log_format_set(int32_t target, const char *format)
+<b><a name="line118">118  </a></b>	{
+<b><a name="line119">119  </a></b>		char modified_format[256];
+<b><a name="line120">120  </a></b>		struct qb_log_target *t = qb_log_target_get(target);
+<b><a name="line121">121  </a></b>	
+<b><a name="line122">122  </a></b>		pthread_rwlock_wrlock(&amp;_formatlock);
+<b><a name="line123">123  </a></b>	
+<b><a name="line124">124  </a></b>		free(t-&gt;format);
+<b><a name="line125">125  </a></b>	
+<b><a name="line126">126  </a></b>		if (format) {
+<b><a name="line127">127  </a></b>			qb_log_target_format_static(target, format, modified_format);
+<b><a name="line128">128  </a></b>			t-&gt;format = strdup(modified_format);
+<b><a name="line129">129  </a></b>		} else {
+<b><a name="line130">130  </a></b>			t-&gt;format = strdup(&quot;[%p] %b&quot;);
+<b><a name="line131">131  </a></b>		}
+<b><a name="line132">132  </a></b>		assert(t-&gt;format != NULL);
+<b><a name="line133">133  </a></b>	
+<b><a name="line134">134  </a></b>		pthread_rwlock_unlock(&amp;_formatlock);
+<b><a name="line135">135  </a></b>	}
+<b><a name="line136">136  </a></b>	
+<b><a name="line137">137  </a></b>	/* Convert string &quot;auth&quot; to equivalent number &quot;LOG_AUTH&quot; etc. */
+<b><a name="line138">138  </a></b>	int32_t
+<b><a name="line139">139  </a></b>	qb_log_facility2int(const char *fname)
+<b><a name="line140">140  </a></b>	{
+<b><a name="line141">141  </a></b>		int32_t i;
+<b><a name="line142">142  </a></b>	
+<b><a name="line143">143  </a></b>		if (fname == NULL) {
+<b><a name="line144">144  </a></b>			return -EINVAL;
+<b><a name="line145">145  </a></b>		}
+<b><a name="line146">146  </a></b>	
+<b><a name="line147">147  </a></b>		for (i = 0; facilitynames[i].c_name != NULL; i++) {
+<b><a name="line148">148  </a></b>			if (strcmp(fname, facilitynames[i].c_name) == 0) {
+<b><a name="line149">149  </a></b>				return facilitynames[i].c_val;
+<b><a name="line150">150  </a></b>			}
+<b><a name="line151">151  </a></b>		}
+<b><a name="line152">152  </a></b>		return -EINVAL;
+<b><a name="line153">153  </a></b>	}
+<b><a name="line154">154  </a></b>	
+<b><a name="line155">155  </a></b>	/* Convert number &quot;LOG_AUTH&quot; to equivalent string &quot;auth&quot; etc. */
+<b><a name="line156">156  </a></b>	const char *
+<b><a name="line157">157  </a></b>	qb_log_facility2str(int32_t fnum)
+<b><a name="line158">158  </a></b>	{
+<b><a name="line159">159  </a></b>		int32_t i;
+<b><a name="line160">160  </a></b>	
+<b><a name="line161">161  </a></b>		for (i = 0; facilitynames[i].c_name != NULL; i++) {
+<b><a name="line162">162  </a></b>			if (facilitynames[i].c_val == fnum) {
+<b><a name="line163">163  </a></b>				return facilitynames[i].c_name;
+<b><a name="line164">164  </a></b>			}
+<b><a name="line165">165  </a></b>		}
+<b><a name="line166">166  </a></b>		return NULL;
+<b><a name="line167">167  </a></b>	}
+<b><a name="line168">168  </a></b>	
+<b><a name="line169">169  </a></b>	const char *
+<b><a name="line170">170  </a></b>	qb_log_priority2str(uint8_t priority)
+<b><a name="line171">171  </a></b>	{
+<b><a name="line172">172  </a></b>		if (priority &gt; LOG_TRACE) {
+<b><a name="line173">173  </a></b>			return prioritynames[LOG_TRACE].c_name;
+<b><a name="line174">174  </a></b>		}
+<b><a name="line175">175  </a></b>		return prioritynames[priority].c_name;
+<b><a name="line176">176  </a></b>	}
+<b><a name="line177">177  </a></b>	
+<b><a name="line178">178  </a></b>	void
+<b><a name="line179">179  </a></b>	qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn)
+<b><a name="line180">180  </a></b>	{
+<b><a name="line181">181  </a></b>		_user_tags_stringify_fn = fn;
+<b><a name="line182">182  </a></b>	}
+<b><a name="line183">183  </a></b>	
+<b><a name="line184">184  </a></b>	static int
+<b><a name="line185">185  </a></b>	_strcpy_cutoff(char *dest, const char *src, size_t cutoff, int ralign,
+<b><a name="line186">186  </a></b>		       size_t buf_len)
+<b><a name="line187">187  </a></b>	{
+<b><a name="line188">188  </a></b>		size_t len = strlen(src);
+<b><a name="line189">189  </a></b>		if (buf_len &lt;= 1) {
+<b><a name="line190">190  </a></b>			if (buf_len == 0)
+<b><a name="line191">191  </a></b>				dest[0] = 0;
+<b><a name="line192">192  </a></b>			return 0;
+<b><a name="line193">193  </a></b>		}
+<b><a name="line194">194  </a></b>	
+<b><a name="line195">195  </a></b>		if (cutoff == 0) {
+<b><a name="line196">196  </a></b>			cutoff = len;
+<b><a name="line197">197  </a></b>		}
+<b><a name="line198">198  </a></b>	
+<b><a name="line199">199  </a></b>		cutoff = QB_MIN(cutoff, buf_len - 1);
+<b><a name="line200">200  </a></b>		len = QB_MIN(len, cutoff);
+<b><a name="line201">201  </a></b>		if (ralign) {
+<b><a name="line202">202  </a></b>			memset(dest, ' ', cutoff - len);
+<b><a name="line203">203  </a></b>			memcpy(dest + cutoff - len, src, len);
+<b><a name="line204">204  </a></b>		} else {
+<b><a name="line205">205  </a></b>			memcpy(dest, src, len);
+<b><a name="line206">206  </a></b>			memset(dest + len, ' ', cutoff - len);
+<b><a name="line207">207  </a></b>		}
+<b><a name="line208">208  </a></b>	
+<b><a name="line209">209  </a></b>		dest[cutoff] = '\0';
+<b><a name="line210">210  </a></b>	
+<b><a name="line211">211  </a></b>		return cutoff;
+<b><a name="line212">212  </a></b>	}
+<b><a name="line213">213  </a></b>	
+<b><a name="line214">214  </a></b>	/*
+<b><a name="line215">215  </a></b>	 * This function will do static formatting (for things that don't
+<b><a name="line216">216  </a></b>	 * change on each log message).
+<b><a name="line217">217  </a></b>	 *
+<b><a name="line218">218  </a></b>	 * %P PID
+<b><a name="line219">219  </a></b>	 * %N name passed into qb_log_init
+<b><a name="line220">220  </a></b>	 * %H hostname
+<b><a name="line221">221  </a></b>	 *
+<b><a name="line222">222  </a></b>	 * any number between % and character specify field length to pad or chop
+<b><a name="line223">223  </a></b>	 */
+<b><a name="line224">224  </a></b>	void
+<b><a name="line225">225  </a></b>	qb_log_target_format_static(int32_t target, const char * format,
+<b><a name="line226">226  </a></b>				    char *output_buffer)
+<b><a name="line227">227  </a></b>	{
+<b><a name="line228">228  </a></b>		char tmp_buf[255];
+<b><a name="line229">229  </a></b>		unsigned int format_buffer_idx = 0;
+<b><a name="line230">230  </a></b>		unsigned int output_buffer_idx = 0;
+<b><a name="line231">231  </a></b>		size_t cutoff;
+<b><a name="line232">232  </a></b>		uint32_t len;
+<b><a name="line233">233  </a></b>		int ralign;
+<b><a name="line234">234  </a></b>		int c;
+<b><a name="line235">235  </a></b>		struct qb_log_target *t = qb_log_target_get(target);
+<b><a name="line236">236  </a></b>	
+<b><a name="line237">237  </a></b>		if (format == NULL) {
+<b><a name="line238">238  </a></b>			return;
+<b><a name="line239">239  </a></b>		}
+<b><a name="line240">240  </a></b>	
+<b><a name="line241">241  </a></b>		while ((c = format[format_buffer_idx])) {
+<b><a name="line242">242  </a></b>			cutoff = 0;
+<b><a name="line243">243  </a></b>			ralign = QB_FALSE;
+<b><a name="line244">244  </a></b>			if (c != '%') {
+<b><a name="line245">245  </a></b>				output_buffer[output_buffer_idx++] = c;
+<b><a name="line246">246  </a></b>				format_buffer_idx++;
+<b><a name="line247">247  </a></b>			} else {
+<b><a name="line248">248  </a></b>				const char *p;
+<b><a name="line249">249  </a></b>				unsigned int percent_buffer_idx = format_buffer_idx;
+<b><a name="line250">250  </a></b>	
+<b><a name="line251">251  </a></b>				format_buffer_idx += 1;
+<b><a name="line252">252  </a></b>				if (format[format_buffer_idx] == '-') {
+<b><a name="line253">253  </a></b>					ralign = QB_TRUE;
+<b><a name="line254">254  </a></b>					format_buffer_idx += 1;
+<b><a name="line255">255  </a></b>				}
+<b><a name="line256">256  </a></b>	
+<b><a name="line257">257  </a></b>				if (isdigit(format[format_buffer_idx])) {
+<b><a name="line258">258  </a></b>					cutoff = atoi(&amp;format[format_buffer_idx]);
+<b><a name="line259">259  </a></b>				}
+<b><a name="line260">260  </a></b>				while (isdigit(format[format_buffer_idx])) {
+<b><a name="line261">261  </a></b>					format_buffer_idx += 1;
+<b><a name="line262">262  </a></b>				}
+<b><a name="line263">263  </a></b>	
+<b><a name="line264">264  </a></b>				switch (format[format_buffer_idx]) {
+<b><a name="line265">265  </a></b>				case 'P':
+<b><a name="line266">266  </a></b>					snprintf(tmp_buf, 30, &quot;%d&quot;, getpid());
+<b><a name="line267">267  </a></b>					p = tmp_buf;
+<b><a name="line268">268  </a></b>					break;
+<b><a name="line269">269  </a></b>	
+<b><a name="line270">270  </a></b>				case 'N':
+<b><a name="line271">271  </a></b>					p = t-&gt;name;
+<b><a name="line272">272  </a></b>					break;
+<b><a name="line273">273  </a></b>	
+<b><a name="line274">274  </a></b>				case 'H':
+<b><a name="line275">275  </a></b>					if (gethostname(tmp_buf, 255) == 0) {
+<b><a name="line276">276  </a></b>						tmp_buf[254] = '\0';
+<b><a name="line277">277  </a></b>					} else {
+<b><a name="line278">278  </a></b>						(void)strlcpy(tmp_buf, &quot;localhost&quot;, 255);
+<b><a name="line279">279  </a></b>					}
+<b><a name="line280">280  </a></b>					p = tmp_buf;
+<b><a name="line281">281  </a></b>					break;
+<b><a name="line282">282  </a></b>	
+<b><a name="line283">283  </a></b>				default:
+<b><a name="line284">284  </a></b>					p = &amp;format[percent_buffer_idx];
+<b><a name="line285">285  </a></b>					cutoff = (format_buffer_idx - percent_buffer_idx + 1);
+<b><a name="line286">286  </a></b>					ralign = QB_FALSE;
+<b><a name="line287">287  </a></b>					break;
+<b><a name="line288">288  </a></b>				}
+<b><a name="line289">289  </a></b>				len = _strcpy_cutoff(output_buffer + output_buffer_idx,
+<b><a name="line290">290  </a></b>						     p, cutoff, ralign,
+<b><a name="line291">291  </a></b>						     (QB_LOG_MAX_LEN -
+<b><a name="line292">292  </a></b>						      output_buffer_idx));
+<b><a name="line293">293  </a></b>				output_buffer_idx += len;
+<b><a name="line294">294  </a></b>				format_buffer_idx += 1;
+<b><a name="line295">295  </a></b>			}
+<b><a name="line296">296  </a></b>			if (output_buffer_idx &gt;= QB_LOG_MAX_LEN - 1) {
+<b><a name="line297">297  </a></b>				break;
+<b><a name="line298">298  </a></b>			}
+<b><a name="line299">299  </a></b>		}
+<b><a name="line300">300  </a></b>	
+<b><a name="line301">301  </a></b>		output_buffer[output_buffer_idx] = '\0';
+<b><a name="line302">302  </a></b>	}
+<b><a name="line303">303  </a></b>	
+<b><a name="line304">304  </a></b>	/*
+<b><a name="line305">305  </a></b>	 * %n FUNCTION NAME
+<b><a name="line306">306  </a></b>	 * %f FILENAME
+<b><a name="line307">307  </a></b>	 * %l FILELINE
+<b><a name="line308">308  </a></b>	 * %p PRIORITY
+<b><a name="line309">309  </a></b>	 * %t TIMESTAMP
+<b><a name="line310">310  </a></b>	 * %b BUFFER
+<b><a name="line311">311  </a></b>	 * %g SUBSYSTEM
+<b><a name="line312">312  </a></b>	 *
+<b><a name="line313">313  </a></b>	 * any number between % and character specify field length to pad or chop
+<b><a name="line314">314  </a></b>	 */
+<b><a name="line315">315  </a></b>	void
+<b><a name="line316">316  </a></b>	qb_log_target_format(int32_t target,
+<b><a name="line317">317  </a></b>			     struct qb_log_callsite *cs,
+<b><a name="line318">318  </a></b>			     time_t current_time,
+<b><a name="line319">319  </a></b>			     const char *formatted_message, char *output_buffer)
+<b><a name="line320">320  </a></b>	{
+<b><a name="line321">321  </a></b>		char tmp_buf[128];
+<b><a name="line322">322  </a></b>		struct tm tm_res;
+<b><a name="line323">323  </a></b>		unsigned int format_buffer_idx = 0;
+<b><a name="line324">324  </a></b>		unsigned int output_buffer_idx = 0;
+<b><a name="line325">325  </a></b>		size_t cutoff;
+<b><a name="line326">326  </a></b>		uint32_t len;
+<b><a name="line327">327  </a></b>		int ralign;
+<b><a name="line328">328  </a></b>		int c;
+<b><a name="line329">329  </a></b>		struct qb_log_target *t = qb_log_target_get(target);
+<b><a name="line330">330  </a></b>	
+<b><a name="line331">331  </a></b>		pthread_rwlock_rdlock(&amp;_formatlock);
+<b><a name="line332">332  </a></b>		if (t-&gt;format == NULL) {
+<b><a name="line333">333  </a></b>			pthread_rwlock_unlock(&amp;_formatlock);
+<b><a name="line334">334  </a></b>			return;
+<b><a name="line335">335  </a></b>		}
+<b><a name="line336">336  </a></b>	
+<b><a name="line337">337  </a></b>		while ((c = t-&gt;format[format_buffer_idx])) {
+<b><a name="line338">338  </a></b>			cutoff = 0;
+<b><a name="line339">339  </a></b>			ralign = QB_FALSE;
+<b><a name="line340">340  </a></b>			if (c != '%') {
+<b><a name="line341">341  </a></b>				output_buffer[output_buffer_idx++] = c;
+<b><a name="line342">342  </a></b>				format_buffer_idx++;
+<b><a name="line343">343  </a></b>			} else {
+<b><a name="line344">344  </a></b>				const char *p;
+<b><a name="line345">345  </a></b>	
+<b><a name="line346">346  </a></b>				format_buffer_idx += 1;
+<b><a name="line347">347  </a></b>				if (t-&gt;format[format_buffer_idx] == '-') {
+<b><a name="line348">348  </a></b>					ralign = QB_TRUE;
+<b><a name="line349">349  </a></b>					format_buffer_idx += 1;
+<b><a name="line350">350  </a></b>				}
+<b><a name="line351">351  </a></b>	
+<b><a name="line352">352  </a></b>				if (isdigit(t-&gt;format[format_buffer_idx])) {
+<b><a name="line353">353  </a></b>					cutoff = atoi(&amp;t-&gt;format[format_buffer_idx]);
+<b><a name="line354">354  </a></b>				}
+<b><a name="line355">355  </a></b>				while (isdigit(t-&gt;format[format_buffer_idx])) {
+<b><a name="line356">356  </a></b>					format_buffer_idx += 1;
+<b><a name="line357">357  </a></b>				}
+<b><a name="line358">358  </a></b>	
+<b><a name="line359">359  </a></b>				switch (t-&gt;format[format_buffer_idx]) {
+<b><a name="line360">360  </a></b>				case 'g':
+<b><a name="line361">361  </a></b>					if (_user_tags_stringify_fn) {
+<b><a name="line362">362  </a></b>						p = _user_tags_stringify_fn(cs-&gt;tags);
+<b><a name="line363">363  </a></b>					} else {
+<b><a name="line364">364  </a></b>						p = &quot;&quot;;
+<b><a name="line365">365  </a></b>					}
+<b><a name="line366">366  </a></b>					break;
+<b><a name="line367">367  </a></b>	
+<b><a name="line368">368  </a></b>				case 'n':
+<b><a name="line369">369  </a></b>					p = cs-&gt;function;
+<b><a name="line370">370  </a></b>					break;
+<b><a name="line371">371  </a></b>	
+<b><a name="line372">372  </a></b>				case 'f':
+<b><a name="line373">373  </a></b>	#ifdef BUILDING_IN_PLACE
+<b><a name="line374">374  </a></b>					p = cs-&gt;filename;
+<b><a name="line375">375  </a></b>	#else
+<b><a name="line376">376  </a></b>					p = strrchr(cs-&gt;filename, '/');
+<b><a name="line377">377  </a></b>					if (p == NULL) {
+<b><a name="line378">378  </a></b>						p = cs-&gt;filename;
+<b><a name="line379">379  </a></b>					} else {
+<b><a name="line380">380  </a></b>						p++; /* move past the &quot;/&quot; */
+<b><a name="line381">381  </a></b>					}
+<b><a name="line382">382  </a></b>	#endif /* BUILDING_IN_PLACE */
+<b><a name="line383">383  </a></b>					break;
+<b><a name="line384">384  </a></b>	
+<b><a name="line385">385  </a></b>				case 'l':
+<b><a name="line386">386  </a></b>					snprintf(tmp_buf, 30, &quot;%d&quot;, cs-&gt;lineno);
+<b><a name="line387">387  </a></b>					p = tmp_buf;
+<b><a name="line388">388  </a></b>					break;
+<b><a name="line389">389  </a></b>	
+<b><a name="line390">390  </a></b>				case 't':
+<b><a name="line391">391  </a></b>					(void)localtime_r(&amp;current_time, &amp;tm_res);
+<b><a name="line392">392  </a></b>					snprintf(tmp_buf, TIME_STRING_SIZE,
+<b><a name="line393">393  </a></b>						 &quot;%s %02d %02d:%02d:%02d&quot;,
+<b><a name="line394">394  </a></b>						 log_month_name[tm_res.tm_mon],
+<b><a name="line395">395  </a></b>						 tm_res.tm_mday, tm_res.tm_hour,
+<b><a name="line396">396  </a></b>						 tm_res.tm_min, tm_res.tm_sec);
+<b><a name="line397">397  </a></b>					p = tmp_buf;
+<b><a name="line398">398  </a></b>					break;
+<b><a name="line399">399  </a></b>	
+<b><a name="line400">400  </a></b>				case 'b':
+<b><a name="line401">401  </a></b>					p = formatted_message;
+<b><a name="line402">402  </a></b>					break;
+<b><a name="line403">403  </a></b>	
+<b><a name="line404">404  </a></b>				case 'p':
+<b><a name="line405">405  </a></b>					if (cs-&gt;priority &gt; LOG_TRACE) {
+<b><a name="line406">406  </a></b>						p = prioritynames[LOG_TRACE].c_name;
+<b><a name="line407">407  </a></b>					} else {
+<b><a name="line408">408  </a></b>						p = prioritynames[cs-&gt;priority].c_name;
+<b><a name="line409">409  </a></b>					}
+<b><a name="line410">410  </a></b>					break;
+<b><a name="line411">411  </a></b>	
+<b><a name="line412">412  </a></b>				default:
+<b><a name="line413">413  </a></b>					p = &quot;&quot;;
+<b><a name="line414">414  </a></b>					break;
+<b><a name="line415">415  </a></b>				}
+<b><a name="line416">416  </a></b>				len = _strcpy_cutoff(output_buffer + output_buffer_idx,
+<b><a name="line417">417  </a></b>						     p, cutoff, ralign,
+<b><a name="line418">418  </a></b>						     (QB_LOG_MAX_LEN -
+<b><a name="line419">419  </a></b>						      output_buffer_idx));
+<b><a name="line420">420  </a></b>				output_buffer_idx += len;
+<b><a name="line421">421  </a></b>				format_buffer_idx += 1;
+<b><a name="line422">422  </a></b>			}
+<b><a name="line423">423  </a></b>			if (output_buffer_idx &gt;= QB_LOG_MAX_LEN - 1) {
+<b><a name="line424">424  </a></b>				break;
+<b><a name="line425">425  </a></b>			}
+<b><a name="line426">426  </a></b>		}
+<b><a name="line427">427  </a></b>		pthread_rwlock_unlock(&amp;_formatlock);
+<b><a name="line428">428  </a></b>	
+<b><a name="line429">429  </a></b>		if (output_buffer[output_buffer_idx - 1] == '\n') {
+<b><a name="line430">430  </a></b>			output_buffer[output_buffer_idx - 1] = '\0';
+<b><a name="line431">431  </a></b>		} else {
+<b><a name="line432">432  </a></b>			output_buffer[output_buffer_idx] = '\0';
+<b><a name="line433">433  </a></b>		}
+<b><a name="line434">434  </a></b>	}
+<b><a name="line435">435  </a></b>	
+<b><a name="line436">436  </a></b>	
+<b><a name="line437">437  </a></b>	/*
+<b><a name="line438">438  </a></b>	 * These wrappers around strl* functions just return the
+<b><a name="line439">439  </a></b>	 * number of characters written, not the number of characters
+<b><a name="line440">440  </a></b>	 * requested to be written.
+<b><a name="line441">441  </a></b>	 */
+<b><a name="line442">442  </a></b>	static size_t
+<b><a name="line443">443  </a></b>	my_strlcpy(char *dest, const char * src, size_t maxlen)
+<b><a name="line444">444  </a></b>	{
+<b><a name="line445">445  </a></b>		size_t rc = strlcpy(dest, src, maxlen);
+<b><a name="line446">446  </a></b>		/* maxlen includes NUL, so -1 */
+<b><a name="line447">447  </a></b>		return QB_MIN(rc, maxlen-1);
+<b><a name="line448">448  </a></b>	}
+<b><a name="line449">449  </a></b>	
+<b><a name="line450">450  </a></b>	static size_t
+<b><a name="line451">451  </a></b>	my_strlcat(char *dest, const char * src, size_t maxlen)
+<b><a name="line452">452  </a></b>	{
+<b><a name="line453">453  </a></b>		size_t rc = strlcat(dest, src, maxlen);
+<b><a name="line454">454  </a></b>		return QB_MIN(rc, maxlen-1);
+<b><a name="line455">455  </a></b>	}
+<b><a name="line456">456  </a></b>	
+<b><a name="line457">457  </a></b>	size_t
+<b><a name="line458">458  </a></b>	qb_vsnprintf_serialize(char *serialize, size_t max_len,
+<b><a name="line459">459  </a></b>			       const char *fmt, va_list ap)
+<b><a name="line460">460  </a></b>	{
+<b><a name="line461">461  </a></b>		char *format;
+<b><a name="line462">462  </a></b>		char *p;
+<b><a name="line463">463  </a></b>		int type_long = QB_FALSE;
+<b><a name="line464">464  </a></b>		int type_longlong = QB_FALSE;
+<b><a name="line465">465  </a></b>	        int sformat_length = 0;
+<b><a name="line466">466  </a></b>	        int sformat_precision = QB_FALSE;
+<b><a name="line467">467  </a></b>		uint32_t location = my_strlcpy(serialize, fmt, max_len) + 1;
+<b><a name="line468">468  </a></b>	
+<b><a name="line469">469  </a></b>		format = (char *)fmt;
+<b><a name="line470">470  </a></b>		for (;;) {
+<b><a name="line471">471  </a></b>			type_long = QB_FALSE;
+<b><a name="line472">472  </a></b>			type_longlong = QB_FALSE;
+<b><a name="line473">473  </a></b>			p = strchrnul((const char *)format, '%');
+<b><a name="line474">474  </a></b>			if (*p == '\0') {
+<b><a name="line475">475  </a></b>				break;
+<b><a name="line476">476  </a></b>			}
+<b><a name="line477">477  </a></b>			format = p + 1;
+<b><a name="line478">478  </a></b>	reprocess:
+<b><a name="line479">479  </a></b>			switch (format[0]) {
+<b><a name="line480">480  </a></b>			case '#': /* alternate form conversion, ignore */
+<b><a name="line481">481  </a></b>			case '-': /* left adjust, ignore */
+<b><a name="line482">482  </a></b>			case ' ': /* a space, ignore */
+<b><a name="line483">483  </a></b>			case '+': /* a sign should be used, ignore */
+<b><a name="line484">484  </a></b>			case '\'': /* group in thousands, ignore */
+<b><a name="line485">485  </a></b>			case 'I': /* glibc-ism locale alternative, ignore */
+<b><a name="line486">486  </a></b>	                    format++;
+<b><a name="line487">487  </a></b>	                    goto reprocess;
+<b><a name="line488">488  </a></b>			case '.': /* precision, ignore */
+<b><a name="line489">489  </a></b>	                    format++;
+<b><a name="line490">490  </a></b>	                    sformat_precision = QB_TRUE;
+<b><a name="line491">491  </a></b>	                    goto reprocess;
+<b><a name="line492">492  </a></b>			case '0': /* field width, ignore */
+<b><a name="line493">493  </a></b>			case '1': /* field width, ignore */
+<b><a name="line494">494  </a></b>			case '2': /* field width, ignore */
+<b><a name="line495">495  </a></b>			case '3': /* field width, ignore */
+<b><a name="line496">496  </a></b>			case '4': /* field width, ignore */
+<b><a name="line497">497  </a></b>			case '5': /* field width, ignore */
+<b><a name="line498">498  </a></b>			case '6': /* field width, ignore */
+<b><a name="line499">499  </a></b>			case '7': /* field width, ignore */
+<b><a name="line500">500  </a></b>			case '8': /* field width, ignore */
+<b><a name="line501">501  </a></b>			case '9': /* field width, ignore */
+<b><a name="line502">502  </a></b>	                        if (sformat_precision) {
+<b><a name="line503">503  </a></b>	                            sformat_length *= 10;
+<b><a name="line504">504  </a></b>	                            sformat_length += (format[0] - '0');
+<b><a name="line505">505  </a></b>	                        }
+<b><a name="line506">506  </a></b>				format++;
+<b><a name="line507">507  </a></b>				goto reprocess;
+<b><a name="line508">508  </a></b>			case '*': /* variable field width, save */ {
+<b><a name="line509">509  </a></b>				int arg_int = va_arg(ap, int);
+<b><a name="line510">510  </a></b>				if (location + sizeof (int) &gt; max_len) {
+<b><a name="line511">511  </a></b>					return max_len;
+<b><a name="line512">512  </a></b>				}
+<b><a name="line513">513  </a></b>				memcpy(&amp;serialize[location], &amp;arg_int, sizeof (int));
+<b><a name="line514">514  </a></b>				location += sizeof(int);
+<b><a name="line515">515  </a></b>				format++;
+<b><a name="line516">516  </a></b>				goto reprocess;
+<b><a name="line517">517  </a></b>			}
+<b><a name="line518">518  </a></b>			case 'l':
+<b><a name="line519">519  </a></b>				format++;
+<b><a name="line520">520  </a></b>				type_long = QB_TRUE;
+<b><a name="line521">521  </a></b>				if (*format == 'l') {
+<b><a name="line522">522  </a></b>					type_long = QB_FALSE;
+<b><a name="line523">523  </a></b>					type_longlong = QB_TRUE;
+<b><a name="line524">524  </a></b>					format++;
+<b><a name="line525">525  </a></b>				}
+<b><a name="line526">526  </a></b>				goto reprocess;
+<b><a name="line527">527  </a></b>			case 'd': /* int argument */
+<b><a name="line528">528  </a></b>			case 'i': /* int argument */
+<b><a name="line529">529  </a></b>			case 'o': /* unsigned int argument */
+<b><a name="line530">530  </a></b>			case 'u':
+<b><a name="line531">531  </a></b>			case 'x':
+<b><a name="line532">532  </a></b>			case 'X':
+<b><a name="line533">533  </a></b>				if (type_long) {
+<b><a name="line534">534  </a></b>					long int arg_int;
+<b><a name="line535">535  </a></b>	
+<b><a name="line536">536  </a></b>					if (location + sizeof (long int) &gt; max_len) {
+<b><a name="line537">537  </a></b>						return max_len;
+<b><a name="line538">538  </a></b>					}
+<b><a name="line539">539  </a></b>					arg_int = va_arg(ap, long int);
+<b><a name="line540">540  </a></b>					memcpy(&amp;serialize[location], &amp;arg_int,
+<b><a name="line541">541  </a></b>					       sizeof(long int));
+<b><a name="line542">542  </a></b>					location += sizeof(long int);
+<b><a name="line543">543  </a></b>					format++;
+<b><a name="line544">544  </a></b>					break;
+<b><a name="line545">545  </a></b>				} else if (type_longlong) {
+<b><a name="line546">546  </a></b>					long long int arg_int;
+<b><a name="line547">547  </a></b>	
+<b><a name="line548">548  </a></b>					if (location + sizeof (long long int) &gt; max_len) {
+<b><a name="line549">549  </a></b>						return max_len;
+<b><a name="line550">550  </a></b>					}
+<b><a name="line551">551  </a></b>					arg_int = va_arg(ap, long long int);
+<b><a name="line552">552  </a></b>					memcpy(&amp;serialize[location], &amp;arg_int,
+<b><a name="line553">553  </a></b>					       sizeof(long long int));
+<b><a name="line554">554  </a></b>					location += sizeof(long long int);
+<b><a name="line555">555  </a></b>					format++;
+<b><a name="line556">556  </a></b>					break;
+<b><a name="line557">557  </a></b>				} else {
+<b><a name="line558">558  </a></b>					int arg_int;
+<b><a name="line559">559  </a></b>	
+<b><a name="line560">560  </a></b>					if (location + sizeof (int) &gt; max_len) {
+<b><a name="line561">561  </a></b>						return max_len;
+<b><a name="line562">562  </a></b>					}
+<b><a name="line563">563  </a></b>					arg_int = va_arg(ap, int);
+<b><a name="line564">564  </a></b>					memcpy(&amp;serialize[location], &amp;arg_int,
+<b><a name="line565">565  </a></b>					       sizeof(int));
+<b><a name="line566">566  </a></b>					location += sizeof(int);
+<b><a name="line567">567  </a></b>					format++;
+<b><a name="line568">568  </a></b>					break;
+<b><a name="line569">569  </a></b>				}
+<b><a name="line570">570  </a></b>			case 'e':
+<b><a name="line571">571  </a></b>			case 'E':
+<b><a name="line572">572  </a></b>			case 'f':
+<b><a name="line573">573  </a></b>			case 'F':
+<b><a name="line574">574  </a></b>			case 'g':
+<b><a name="line575">575  </a></b>			case 'G':
+<b><a name="line576">576  </a></b>			case 'a':
+<b><a name="line577">577  </a></b>			case 'A':
+<b><a name="line578">578  </a></b>				{
+<b><a name="line579">579  </a></b>				double arg_double;
+<b><a name="line580">580  </a></b>	
+<b><a name="line581">581  </a></b>				if (location + sizeof (double) &gt; max_len) {
+<b><a name="line582">582  </a></b>					return max_len;
+<b><a name="line583">583  </a></b>				}
+<b><a name="line584">584  </a></b>				arg_double = va_arg(ap, double);
+<b><a name="line585">585  </a></b>				memcpy (&amp;serialize[location], &amp;arg_double, sizeof (double));
+<b><a name="line586">586  </a></b>				location += sizeof(double);
+<b><a name="line587">587  </a></b>				format++;
+<b><a name="line588">588  </a></b>				break;
+<b><a name="line589">589  </a></b>				}
+<b><a name="line590">590  </a></b>			case 'c':
+<b><a name="line591">591  </a></b>				{
+<b><a name="line592">592  </a></b>				int arg_int;
+<b><a name="line593">593  </a></b>				unsigned char arg_char;
+<b><a name="line594">594  </a></b>	
+<b><a name="line595">595  </a></b>				if (location + sizeof (unsigned int) &gt; max_len) {
+<b><a name="line596">596  </a></b>					return max_len;
+<b><a name="line597">597  </a></b>				}
+<b><a name="line598">598  </a></b>				arg_int = va_arg(ap, unsigned int);
+<b><a name="line599">599  </a></b>				arg_char = (unsigned char)arg_int;
+<b><a name="line600">600  </a></b>				memcpy (&amp;serialize[location], &amp;arg_char, sizeof (unsigned char));
+<b><a name="line601">601  </a></b>				location += sizeof(unsigned char);
+<b><a name="line602">602  </a></b>				break;
+<b><a name="line603">603  </a></b>				}
+<b><a name="line604">604  </a></b>			case 's':
+<b><a name="line605">605  </a></b>				{
+<b><a name="line606">606  </a></b>				char *arg_string;
+<b><a name="line607">607  </a></b>				arg_string = va_arg(ap, char *);
+<b><a name="line608">608  </a></b>				if (arg_string == NULL) {
+<b><a name="line609">609  </a></b>					location += my_strlcpy(&amp;serialize[location],
+<b><a name="line610">610  </a></b>							   &quot;(null)&quot;,
+<b><a name="line611">611  </a></b>							   QB_MIN(strlen(&quot;(null)&quot;) + 1,
+<b><a name="line612">612  </a></b>								  max_len - location));
+<b><a name="line613">613  </a></b>				} else if (sformat_length) {
+<b><a name="line614">614  </a></b>					location += my_strlcpy(&amp;serialize[location],
+<b><a name="line615">615  </a></b>							   arg_string,
+<b><a name="line616">616  </a></b>							   QB_MIN(sformat_length + 1,
+<b><a name="line617">617  </a></b>							   (max_len - location)));
+<b><a name="line618">618  </a></b>				} else {
+<b><a name="line619">619  </a></b>					location += my_strlcpy(&amp;serialize[location],
+<b><a name="line620">620  </a></b>							   arg_string,
+<b><a name="line621">621  </a></b>							   QB_MIN(strlen(arg_string) + 1,
+<b><a name="line622">622  </a></b>								  max_len - location));
+<b><a name="line623">623  </a></b>				}
+<b><a name="line624">624  </a></b>				location++;
+<b><a name="line625">625  </a></b>				break;
+<b><a name="line626">626  </a></b>				}
+<b><a name="line627">627  </a></b>			case 'p':
+<b><a name="line628">628  </a></b>				{
+<b><a name="line629">629  </a></b>				ptrdiff_t arg_pointer = va_arg(ap, ptrdiff_t);
+<b><a name="line630">630  </a></b>				if (location + sizeof (ptrdiff_t) &gt; max_len) {
+<b><a name="line631">631  </a></b>					return max_len;
+<b><a name="line632">632  </a></b>				}
+<b><a name="line633">633  </a></b>				memcpy(&amp;serialize[location], &amp;arg_pointer, sizeof(ptrdiff_t));
+<b><a name="line634">634  </a></b>				location += sizeof(ptrdiff_t);
+<b><a name="line635">635  </a></b>				break;
+<b><a name="line636">636  </a></b>				}
+<b><a name="line637">637  </a></b>			case '%':
+<b><a name="line638">638  </a></b>				if (location + 1 &gt; max_len) {
+<b><a name="line639">639  </a></b>					return max_len;
+<b><a name="line640">640  </a></b>				}
+<b><a name="line641">641  </a></b>				serialize[location++] = '%';
+<b><a name="line642">642  </a></b>	                        sformat_length = 0;
+<b><a name="line643">643  </a></b>	                        sformat_precision = QB_FALSE;
+<b><a name="line644">644  </a></b>				break;
+<b><a name="line645">645  </a></b>	
+<b><a name="line646">646  </a></b>			}
+<b><a name="line647">647  </a></b>		}
+<b><a name="line648">648  </a></b>		return (location);
+<b><a name="line649">649  </a></b>	}
+<b><a name="line650">650  </a></b>	
+<b><a name="line651">651  </a></b>	#define MINI_FORMAT_STR_LEN 20
+<b><a name="line652">652  </a></b>	
+<b><a name="line653">653  </a></b>	size_t
+<b><a name="line654">654  </a></b>	qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
+<b><a name="line655">655  </a></b>	{
+<b><a name="line656">656  </a></b>		char *p;
+<b><a name="line657">657  </a></b>		char *format;
+<b><a name="line658">658  </a></b>		char fmt[MINI_FORMAT_STR_LEN];
+<b><a name="line659">659  </a></b>		int fmt_pos;
+<b><a name="line660">660  </a></b>	
+<b><a name="line661">661  </a></b>		uint32_t location = 0;
+<b><a name="line662">662  </a></b>		uint32_t data_pos = strlen(buf) + 1;
+<b><a name="line663">663  </a></b>		int type_long = QB_FALSE;
+<b><a name="line664">664  </a></b>		int type_longlong = QB_FALSE;
+<b><a name="line665">665  </a></b>		int len;
+<b><a name="line666">666  </a></b>	
+<b><a name="line667">667  </a></b>		string[0] = '\0';
+<b><a name="line668">668  </a></b>		format = (char *)buf;
+<b><a name="line669">669  </a></b>		for (;;) {
+<b><a name="line670">670  </a></b>			type_long = QB_FALSE;
+<b><a name="line671">671  </a></b>			type_longlong = QB_FALSE;
+<b><a name="line672">672  </a></b>			p = strchrnul((const char *)format, '%');
+<b><a name="line673">673  </a></b>			if (*p == '\0') {
+<b><a name="line674">674  </a></b>				return my_strlcat(string, format, str_len) + 1;
+<b><a name="line675">675  </a></b>			}
+<b><a name="line676">676  </a></b>			/* copy from current to the next % */
+<b><a name="line677">677  </a></b>			len = p - format;
+<b><a name="line678">678  </a></b>			memcpy(&amp;string[location], format, len);
+<b><a name="line679">679  </a></b>			location += len;
+<b><a name="line680">680  </a></b>			format = p;
+<b><a name="line681">681  </a></b>	
+<b><a name="line682">682  </a></b>			/* start building up the format for snprintf */
+<b><a name="line683">683  </a></b>			fmt_pos = 0;
+<b><a name="line684">684  </a></b>			fmt[fmt_pos++] = *format;
+<b><a name="line685">685  </a></b>			format++;
+<b><a name="line686">686  </a></b>	reprocess:
+<b><a name="line687">687  </a></b>			switch (format[0]) {
+<b><a name="line688">688  </a></b>			case '#': /* alternate form conversion, ignore */
+<b><a name="line689">689  </a></b>			case '-': /* left adjust, ignore */
+<b><a name="line690">690  </a></b>			case ' ': /* a space, ignore */
+<b><a name="line691">691  </a></b>			case '+': /* a sign should be used, ignore */
+<b><a name="line692">692  </a></b>			case '\'': /* group in thousands, ignore */
+<b><a name="line693">693  </a></b>			case 'I': /* glibc-ism locale alternative, ignore */
+<b><a name="line694">694  </a></b>			case '.': /* precision, ignore */
+<b><a name="line695">695  </a></b>			case '0': /* field width, ignore */
+<b><a name="line696">696  </a></b>			case '1': /* field width, ignore */
+<b><a name="line697">697  </a></b>			case '2': /* field width, ignore */
+<b><a name="line698">698  </a></b>			case '3': /* field width, ignore */
+<b><a name="line699">699  </a></b>			case '4': /* field width, ignore */
+<b><a name="line700">700  </a></b>			case '5': /* field width, ignore */
+<b><a name="line701">701  </a></b>			case '6': /* field width, ignore */
+<b><a name="line702">702  </a></b>			case '7': /* field width, ignore */
+<b><a name="line703">703  </a></b>			case '8': /* field width, ignore */
+<b><a name="line704">704  </a></b>			case '9': /* field width, ignore */
+<b><a name="line705">705  </a></b>				fmt[fmt_pos++] = *format;
+<b><a name="line706">706  </a></b>				format++;
+<b><a name="line707">707  </a></b>				goto reprocess;
+<b><a name="line708">708  </a></b>	
+<b><a name="line709">709  </a></b>			case '*': {
+<b><a name="line710">710  </a></b>				int arg_int;
+<b><a name="line711">711  </a></b>				memcpy(&amp;arg_int, &amp;buf[data_pos], sizeof(int));
+<b><a name="line712">712  </a></b>				data_pos += sizeof(int);
+<b><a name="line713">713  </a></b>				fmt_pos += snprintf(&amp;fmt[fmt_pos],
+<b><a name="line714">714  </a></b>						   MINI_FORMAT_STR_LEN - fmt_pos,
+<b><a name="line715">715  </a></b>						   &quot;%d&quot;, arg_int);
+<b><a name="line716">716  </a></b>				format++;
+<b><a name="line717">717  </a></b>				goto reprocess;
+<b><a name="line718">718  </a></b>			}
+<b><a name="line719">719  </a></b>			case 'l':
+<b><a name="line720">720  </a></b>				fmt[fmt_pos++] = *format;
+<b><a name="line721">721  </a></b>				format++;
+<b><a name="line722">722  </a></b>				type_long = QB_TRUE;
+<b><a name="line723">723  </a></b>				if (*format == 'l') {
+<b><a name="line724">724  </a></b>					type_long = QB_FALSE;
+<b><a name="line725">725  </a></b>					type_longlong = QB_TRUE;
+<b><a name="line726">726  </a></b>				}
+<b><a name="line727">727  </a></b>				goto reprocess;
+<b><a name="line728">728  </a></b>			case 'd': /* int argument */
+<b><a name="line729">729  </a></b>			case 'i': /* int argument */
+<b><a name="line730">730  </a></b>			case 'o': /* unsigned int argument */
+<b><a name="line731">731  </a></b>			case 'u':
+<b><a name="line732">732  </a></b>			case 'x':
+<b><a name="line733">733  </a></b>			case 'X':
+<b><a name="line734">734  </a></b>				if (type_long) {
+<b><a name="line735">735  </a></b>					long int arg_int;
+<b><a name="line736">736  </a></b>	
+<b><a name="line737">737  </a></b>					fmt[fmt_pos++] = *format;
+<b><a name="line738">738  </a></b>					fmt[fmt_pos++] = '\0';
+<b><a name="line739">739  </a></b>					memcpy(&amp;arg_int, &amp;buf[data_pos], sizeof(long int));
+<b><a name="line740">740  </a></b>					location += snprintf(&amp;string[location],
+<b><a name="line741">741  </a></b>							     str_len - location,
+<b><a name="line742">742  </a></b>							     fmt, arg_int);
+<b><a name="line743">743  </a></b>					data_pos += sizeof(long int);
+<b><a name="line744">744  </a></b>					format++;
+<b><a name="line745">745  </a></b>					break;
+<b><a name="line746">746  </a></b>				} else if (type_longlong) {
+<b><a name="line747">747  </a></b>					long long int arg_int;
+<b><a name="line748">748  </a></b>	
+<b><a name="line749">749  </a></b>					fmt[fmt_pos++] = *format;
+<b><a name="line750">750  </a></b>					fmt[fmt_pos++] = '\0';
+<b><a name="line751">751  </a></b>					memcpy(&amp;arg_int, &amp;buf[data_pos], sizeof(long long int));
+<b><a name="line752">752  </a></b>					location += snprintf(&amp;string[location],
+<b><a name="line753">753  </a></b>							     str_len - location,
+<b><a name="line754">754  </a></b>							     fmt, arg_int);
+<b><a name="line755">755  </a></b>					data_pos += sizeof(long long int);
+<b><a name="line756">756  </a></b>					format++;
+<b><a name="line757">757  </a></b>					break;
+<b><a name="line758">758  </a></b>				} else {
+<b><a name="line759">759  </a></b>					int arg_int;
+<b><a name="line760">760  </a></b>	
+<b><a name="line761">761  </a></b>					fmt[fmt_pos++] = *format;
+<b><a name="line762">762  </a></b>					fmt[fmt_pos++] = '\0';
+<b><a name="line763">763  </a></b>					memcpy(&amp;arg_int, &amp;buf[data_pos], sizeof(int));
+<b><a name="line764">764  </a></b>					location += snprintf(&amp;string[location],
+<b><a name="line765">765  </a></b>							     str_len - location,
+<b><a name="line766">766  </a></b>							     fmt, arg_int);
+<b><a name="line767">767  </a></b>					data_pos += sizeof(int);
+<b><a name="line768">768  </a></b>					format++;
+<b><a name="line769">769  </a></b>					break;
+<b><a name="line770">770  </a></b>				}
+<b><a name="line771">771  </a></b>			case 'e':
+<b><a name="line772">772  </a></b>			case 'E':
+<b><a name="line773">773  </a></b>			case 'f':
+<b><a name="line774">774  </a></b>			case 'F':
+<b><a name="line775">775  </a></b>			case 'g':
+<b><a name="line776">776  </a></b>			case 'G':
+<b><a name="line777">777  </a></b>			case 'a':
+<b><a name="line778">778  </a></b>			case 'A':
+<b><a name="line779">779  </a></b>				{
+<b><a name="line780">780  </a></b>				double arg_double;
+<b><a name="line781">781  </a></b>	
+<b><a name="line782">782  </a></b>				fmt[fmt_pos++] = *format;
+<b><a name="line783">783  </a></b>				fmt[fmt_pos++] = '\0';
+<b><a name="line784">784  </a></b>				memcpy(&amp;arg_double, &amp;buf[data_pos], sizeof(double));
+<b><a name="line785">785  </a></b>				location += snprintf(&amp;string[location],
+<b><a name="line786">786  </a></b>						     str_len - location,
+<b><a name="line787">787  </a></b>						     fmt, arg_double);
+<b><a name="line788">788  </a></b>				data_pos += sizeof(double);
+<b><a name="line789">789  </a></b>				format++;
+<b><a name="line790">790  </a></b>				break;
+<b><a name="line791">791  </a></b>				}
+<b><a name="line792">792  </a></b>			case 'c':
+<b><a name="line793">793  </a></b>				{
+<b><a name="line794">794  </a></b>				unsigned char *arg_char;
+<b><a name="line795">795  </a></b>	
+<b><a name="line796">796  </a></b>				fmt[fmt_pos++] = *format;
+<b><a name="line797">797  </a></b>				fmt[fmt_pos++] = '\0';
+<b><a name="line798">798  </a></b>				arg_char = (unsigned char*)&amp;buf[data_pos];
+<b><a name="line799">799  </a></b>				location += snprintf(&amp;string[location],
+<b><a name="line800">800  </a></b>						     str_len - location,
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<b>(1) Event non_const_printf_format_string</b>: </font></td>
+<td><font color="red">format string is not a string literal, potential security vulnerability if user controlled</font></td>
+</tr>
+<tr><td><font color="red">
+<a name="error:1"></a>
+<a name="error"></a>
+<b>(2) Event caretline</b>: </font></td>
+<td><font color="red">                                                           ^</font></td>
+</tr>
+</table>
+<pre><b><a name="line801">801  </a></b>						     fmt, *arg_char);
+<b><a name="line802">802  </a></b>				data_pos += sizeof(unsigned char);
+<b><a name="line803">803  </a></b>				format++;
+<b><a name="line804">804  </a></b>				break;
+<b><a name="line805">805  </a></b>				}
+<b><a name="line806">806  </a></b>			case 's':
+<b><a name="line807">807  </a></b>				{
+<b><a name="line808">808  </a></b>				fmt[fmt_pos++] = *format;
+<b><a name="line809">809  </a></b>				fmt[fmt_pos++] = '\0';
+<b><a name="line810">810  </a></b>				len = snprintf(&amp;string[location],
+<b><a name="line811">811  </a></b>					       str_len - location,
+<b><a name="line812">812  </a></b>					       fmt, &amp;buf[data_pos]);
+<b><a name="line813">813  </a></b>				location += len;
+<b><a name="line814">814  </a></b>				/* don't use len as there might be a len modifier */
+<b><a name="line815">815  </a></b>				data_pos += strlen(&amp;buf[data_pos]) + 1;
+<b><a name="line816">816  </a></b>				format++;
+<b><a name="line817">817  </a></b>				break;
+<b><a name="line818">818  </a></b>				}
+<b><a name="line819">819  </a></b>			case 'p':
+<b><a name="line820">820  </a></b>				{
+<b><a name="line821">821  </a></b>				ptrdiff_t pt;
+<b><a name="line822">822  </a></b>				memcpy(&amp;pt, &amp;buf[data_pos],
+<b><a name="line823">823  </a></b>				       sizeof(ptrdiff_t));
+<b><a name="line824">824  </a></b>				fmt[fmt_pos++] = *format;
+<b><a name="line825">825  </a></b>				fmt[fmt_pos++] = '\0';
+<b><a name="line826">826  </a></b>				location += snprintf(&amp;string[location],
+<b><a name="line827">827  </a></b>						     str_len - location,
+<b><a name="line828">828  </a></b>						     fmt, pt);
+<b><a name="line829">829  </a></b>				data_pos += sizeof(void*);
+<b><a name="line830">830  </a></b>				format++;
+<b><a name="line831">831  </a></b>				break;
+<b><a name="line832">832  </a></b>				}
+<b><a name="line833">833  </a></b>			case '%':
+<b><a name="line834">834  </a></b>				string[location++] = '%';
+<b><a name="line835">835  </a></b>				format++;
+<b><a name="line836">836  </a></b>				break;
+<b><a name="line837">837  </a></b>	
+<b><a name="line838">838  </a></b>			}
+<b><a name="line839">839  </a></b>		}
+<b><a name="line840">840  </a></b>		return location;
+<b><a name="line841">841  </a></b>	}
+<b><a name="line842">842  </a></b>	
+<b><a name="line843">843  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

@@ -1,0 +1,415 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/array.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2010 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * This file is part of libqb.
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	
+<b><a name="line23">23   </a></b>	#include &lt;qb/qbarray.h&gt;
+<b><a name="line24">24   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line25">25   </a></b>	
+<b><a name="line26">26   </a></b>	#define MAX_ELEMENTS_PER_BIN 16
+<b><a name="line27">27   </a></b>	#define MAX_BINS 4096
+<b><a name="line28">28   </a></b>	
+<b><a name="line29">29   </a></b>	#define BIN_NUM_GET(_idx_) (_idx_ &gt;&gt; 4)
+<b><a name="line30">30   </a></b>	#define ELEM_NUM_GET(_idx_) (_idx_ &amp; 0x0F)
+<b><a name="line31">31   </a></b>	
+<b><a name="line32">32   </a></b>	struct qb_array {
+<b><a name="line33">33   </a></b>		void **bin;
+<b><a name="line34">34   </a></b>		size_t max_elements;
+<b><a name="line35">35   </a></b>		size_t element_size;
+<b><a name="line36">36   </a></b>		size_t num_bins;
+<b><a name="line37">37   </a></b>		size_t autogrow_elements;
+<b><a name="line38">38   </a></b>		qb_thread_lock_t *grow_lock;
+<b><a name="line39">39   </a></b>		qb_array_new_bin_cb_fn new_bin_cb;
+<b><a name="line40">40   </a></b>	};
+<b><a name="line41">41   </a></b>	
+<b><a name="line42">42   </a></b>	qb_array_t *
+<b><a name="line43">43   </a></b>	qb_array_create(size_t max_elements, size_t element_size)
+<b><a name="line44">44   </a></b>	{
+<b><a name="line45">45   </a></b>		return qb_array_create_2(max_elements, element_size, 0);
+<b><a name="line46">46   </a></b>	}
+<b><a name="line47">47   </a></b>	
+<b><a name="line48">48   </a></b>	static int32_t
+<b><a name="line49">49   </a></b>	_grow_bin_array(struct qb_array * a, int32_t new_bin_size)
+<b><a name="line50">50   </a></b>	{
+<b><a name="line51">51   </a></b>		int32_t b;
+<b><a name="line52">52   </a></b>	
+<b><a name="line53">53   </a></b>		a-&gt;bin = realloc(a-&gt;bin, sizeof(void*) * new_bin_size);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="model:_grow_bin_array:uninit:6:0"></a>
+<b>(1) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;a-&gt;bin == NULL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line54">54   </a></b>		if (a-&gt;bin == NULL) {
+<b><a name="line55">55   </a></b>			return -ENOMEM;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="model:_grow_bin_array:uninit:6:1"></a>
+<b>(2) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line56">56   </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:_grow_bin_array:uninit:6:2"></a>
+<a name="model:_grow_bin_array:uninit:6"></a>
+<b>(3) Event read_parm_fld</b>: </font></td>
+<td><font color="red">Reading a parameter field.</font></td>
+</tr>
+</table>
+<pre><b><a name="line57">57   </a></b>		for (b = a-&gt;num_bins; b &lt; new_bin_size; b++) {
+<b><a name="line58">58   </a></b>			a-&gt;bin[b] = NULL;
+<b><a name="line59">59   </a></b>		}
+<b><a name="line60">60   </a></b>		a-&gt;num_bins = new_bin_size;
+<b><a name="line61">61   </a></b>	
+<b><a name="line62">62   </a></b>		return 0;
+<b><a name="line63">63   </a></b>	}
+<b><a name="line64">64   </a></b>	
+<b><a name="line65">65   </a></b>	qb_array_t *
+<b><a name="line66">66   </a></b>	qb_array_create_2(size_t max_elements, size_t element_size,
+<b><a name="line67">67   </a></b>			  size_t autogrow_elements)
+<b><a name="line68">68   </a></b>	{
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<b>(1) Event var_decl</b>: </font></td>
+<td><font color="red">Declaring variable &quot;a&quot;.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:7">alloc_fn</a>][<a href="#error:11">uninit_use_in_call</a>]</font></td></tr>
+</table>
+<pre><b><a name="line69">69   </a></b>		struct qb_array *a = NULL;
+<b><a name="line70">70   </a></b>		int32_t b;
+<b><a name="line71">71   </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:1"></a>
+<b>(2) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;max_elements &gt; 65536UL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line72">72   </a></b>		if (max_elements &gt; (MAX_ELEMENTS_PER_BIN * MAX_BINS)) {
+<b><a name="line73">73   </a></b>			errno = -EINVAL;
+<b><a name="line74">74   </a></b>			return NULL;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:2"></a>
+<b>(3) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line75">75   </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:3"></a>
+<b>(4) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;element_size &lt; 1UL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line76">76   </a></b>		if (element_size &lt; 1) {
+<b><a name="line77">77   </a></b>			errno = -EINVAL;
+<b><a name="line78">78   </a></b>			return NULL;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:4"></a>
+<b>(5) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line79">79   </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:5"></a>
+<b>(6) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;autogrow_elements &gt; 16UL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line80">80   </a></b>		if (autogrow_elements &gt; MAX_ELEMENTS_PER_BIN) {
+<b><a name="line81">81   </a></b>			errno = -EINVAL;
+<b><a name="line82">82   </a></b>			return NULL;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:6"></a>
+<b>(7) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line83">83   </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:7"></a>
+<b>(8) Event alloc_fn</b>: </font></td>
+<td><font color="red">Assigning: &quot;a&quot; = &quot;calloc(1UL, 56UL)&quot;, which is allocated but not initialized.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:0">var_decl</a>][<a href="#error:11">uninit_use_in_call</a>]</font></td></tr>
+</table>
+<pre><b><a name="line84">84   </a></b>		a = calloc(1, sizeof(struct qb_array));
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:8"></a>
+<b>(9) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;a == NULL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line85">85   </a></b>		if (a == NULL) {
+<b><a name="line86">86   </a></b>			return NULL;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:9"></a>
+<b>(10) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line87">87   </a></b>		}
+<b><a name="line88">88   </a></b>		a-&gt;element_size = element_size;
+<b><a name="line89">89   </a></b>		a-&gt;max_elements = max_elements;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:10"></a>
+<b>(11) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;max_elements / 16UL + 1UL &lt; 4096UL&quot;, taking true branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line90">90   </a></b>		b = QB_MIN((max_elements / MAX_ELEMENTS_PER_BIN) + 1, MAX_BINS);
+<b><a name="line91">91   </a></b>		a-&gt;autogrow_elements = autogrow_elements;
+<b><a name="line92">92   </a></b>		a-&gt;bin = NULL;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:11"></a>
+<a name="error"></a>
+<b>(12) Event uninit_use_in_call</b>: </font></td>
+<td><font color="red">Using uninitialized value &quot;a-&gt;num_bins&quot; when calling &quot;_grow_bin_array(struct qb_array *, int32_t)&quot;. [<a href="#model:_grow_bin_array:uninit:6">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:0">var_decl</a>][<a href="#error:7">alloc_fn</a>]</font></td></tr>
+</table>
+<pre><b><a name="line93">93   </a></b>		if (_grow_bin_array(a, b) &lt; 0) {
+<b><a name="line94">94   </a></b>			free(a);
+<b><a name="line95">95   </a></b>			return NULL;
+<b><a name="line96">96   </a></b>		}
+<b><a name="line97">97   </a></b>		a-&gt;grow_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
+<b><a name="line98">98   </a></b>		return a;
+<b><a name="line99">99   </a></b>	}
+<b><a name="line100">100  </a></b>	
+<b><a name="line101">101  </a></b>	int32_t
+<b><a name="line102">102  </a></b>	qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
+<b><a name="line103">103  </a></b>	{
+<b><a name="line104">104  </a></b>		int32_t b;
+<b><a name="line105">105  </a></b>		int32_t elem;
+<b><a name="line106">106  </a></b>		char *bin;
+<b><a name="line107">107  </a></b>		int32_t rc = 0;
+<b><a name="line108">108  </a></b>	
+<b><a name="line109">109  </a></b>		if (a == NULL || element_out == NULL) {
+<b><a name="line110">110  </a></b>			return -EINVAL;
+<b><a name="line111">111  </a></b>		}
+<b><a name="line112">112  </a></b>		if (idx &lt; 0) {
+<b><a name="line113">113  </a></b>			return -ERANGE;
+<b><a name="line114">114  </a></b>		}
+<b><a name="line115">115  </a></b>		if (idx &gt;= a-&gt;max_elements) {
+<b><a name="line116">116  </a></b>			if (a-&gt;autogrow_elements == 0) {
+<b><a name="line117">117  </a></b>				return -ERANGE;
+<b><a name="line118">118  </a></b>			} else {
+<b><a name="line119">119  </a></b>				rc = qb_array_grow(a, idx + 1);
+<b><a name="line120">120  </a></b>				if (rc != 0) {
+<b><a name="line121">121  </a></b>					return rc;
+<b><a name="line122">122  </a></b>				}
+<b><a name="line123">123  </a></b>			}
+<b><a name="line124">124  </a></b>		}
+<b><a name="line125">125  </a></b>		b = BIN_NUM_GET(idx);
+<b><a name="line126">126  </a></b>		assert(b &lt; MAX_BINS);
+<b><a name="line127">127  </a></b>	
+<b><a name="line128">128  </a></b>		if (b &gt;= a-&gt;num_bins || a-&gt;bin[b] == NULL) {
+<b><a name="line129">129  </a></b>			int32_t bin_alloced = QB_FALSE;
+<b><a name="line130">130  </a></b>	
+<b><a name="line131">131  </a></b>			(void)qb_thread_lock(a-&gt;grow_lock);
+<b><a name="line132">132  </a></b>	
+<b><a name="line133">133  </a></b>			if (b &gt;= a-&gt;num_bins) {
+<b><a name="line134">134  </a></b>				rc = _grow_bin_array(a, b + 1);
+<b><a name="line135">135  </a></b>				if (rc &lt; 0) {
+<b><a name="line136">136  </a></b>					goto unlock_error;
+<b><a name="line137">137  </a></b>				}
+<b><a name="line138">138  </a></b>			}
+<b><a name="line139">139  </a></b>			if (a-&gt;bin[b] == NULL) {
+<b><a name="line140">140  </a></b>				a-&gt;bin[b] = calloc(MAX_ELEMENTS_PER_BIN, a-&gt;element_size);
+<b><a name="line141">141  </a></b>				if (a-&gt;bin[b] == NULL) {
+<b><a name="line142">142  </a></b>					rc = -errno;
+<b><a name="line143">143  </a></b>					goto unlock_error;
+<b><a name="line144">144  </a></b>				}
+<b><a name="line145">145  </a></b>				bin_alloced = QB_TRUE;
+<b><a name="line146">146  </a></b>			}
+<b><a name="line147">147  </a></b>	
+<b><a name="line148">148  </a></b>			(void)qb_thread_unlock(a-&gt;grow_lock);
+<b><a name="line149">149  </a></b>			if (bin_alloced &amp;&amp; a-&gt;new_bin_cb) {
+<b><a name="line150">150  </a></b>				a-&gt;new_bin_cb(a, b);
+<b><a name="line151">151  </a></b>			}
+<b><a name="line152">152  </a></b>		}
+<b><a name="line153">153  </a></b>	
+<b><a name="line154">154  </a></b>		elem = ELEM_NUM_GET(idx);
+<b><a name="line155">155  </a></b>		assert(elem &lt; MAX_ELEMENTS_PER_BIN);
+<b><a name="line156">156  </a></b>	
+<b><a name="line157">157  </a></b>		bin = a-&gt;bin[b];
+<b><a name="line158">158  </a></b>		*element_out = (bin + (a-&gt;element_size * elem));
+<b><a name="line159">159  </a></b>	
+<b><a name="line160">160  </a></b>		return 0;
+<b><a name="line161">161  </a></b>	
+<b><a name="line162">162  </a></b>	unlock_error:
+<b><a name="line163">163  </a></b>	
+<b><a name="line164">164  </a></b>		(void)qb_thread_unlock(a-&gt;grow_lock);
+<b><a name="line165">165  </a></b>		return rc;
+<b><a name="line166">166  </a></b>	}
+<b><a name="line167">167  </a></b>	
+<b><a name="line168">168  </a></b>	int32_t
+<b><a name="line169">169  </a></b>	qb_array_new_bin_cb_set(struct qb_array * a, qb_array_new_bin_cb_fn fn)
+<b><a name="line170">170  </a></b>	{
+<b><a name="line171">171  </a></b>		if (a == NULL) {
+<b><a name="line172">172  </a></b>			return -EINVAL;
+<b><a name="line173">173  </a></b>		}
+<b><a name="line174">174  </a></b>		a-&gt;new_bin_cb = fn;
+<b><a name="line175">175  </a></b>		return 0;
+<b><a name="line176">176  </a></b>	}
+<b><a name="line177">177  </a></b>	
+<b><a name="line178">178  </a></b>	size_t
+<b><a name="line179">179  </a></b>	qb_array_num_bins_get(struct qb_array * a)
+<b><a name="line180">180  </a></b>	{
+<b><a name="line181">181  </a></b>		if (a == NULL) {
+<b><a name="line182">182  </a></b>			return -EINVAL;
+<b><a name="line183">183  </a></b>		}
+<b><a name="line184">184  </a></b>		return a-&gt;num_bins;
+<b><a name="line185">185  </a></b>	}
+<b><a name="line186">186  </a></b>	
+<b><a name="line187">187  </a></b>	size_t
+<b><a name="line188">188  </a></b>	qb_array_elems_per_bin_get(struct qb_array * a)
+<b><a name="line189">189  </a></b>	{
+<b><a name="line190">190  </a></b>		if (a == NULL) {
+<b><a name="line191">191  </a></b>			return -EINVAL;
+<b><a name="line192">192  </a></b>		}
+<b><a name="line193">193  </a></b>		return MAX_ELEMENTS_PER_BIN;
+<b><a name="line194">194  </a></b>	}
+<b><a name="line195">195  </a></b>	
+<b><a name="line196">196  </a></b>	int32_t
+<b><a name="line197">197  </a></b>	qb_array_grow(struct qb_array * a, size_t max_elements)
+<b><a name="line198">198  </a></b>	{
+<b><a name="line199">199  </a></b>		int32_t b;
+<b><a name="line200">200  </a></b>		int32_t rc = 0;
+<b><a name="line201">201  </a></b>	
+<b><a name="line202">202  </a></b>		if (a == NULL || max_elements &gt; (MAX_ELEMENTS_PER_BIN * MAX_BINS)) {
+<b><a name="line203">203  </a></b>			return -EINVAL;
+<b><a name="line204">204  </a></b>		}
+<b><a name="line205">205  </a></b>		if (max_elements &lt;= a-&gt;max_elements) {
+<b><a name="line206">206  </a></b>			return 0;
+<b><a name="line207">207  </a></b>		}
+<b><a name="line208">208  </a></b>		a-&gt;max_elements = max_elements;
+<b><a name="line209">209  </a></b>		b = QB_MIN((max_elements / MAX_ELEMENTS_PER_BIN) + 1, MAX_BINS);
+<b><a name="line210">210  </a></b>		if (b &gt; a-&gt;num_bins) {
+<b><a name="line211">211  </a></b>			(void)qb_thread_lock(a-&gt;grow_lock);
+<b><a name="line212">212  </a></b>			if (b &gt;= a-&gt;num_bins) {
+<b><a name="line213">213  </a></b>				rc = _grow_bin_array(a, b + 1);
+<b><a name="line214">214  </a></b>			}
+<b><a name="line215">215  </a></b>			(void)qb_thread_unlock(a-&gt;grow_lock);
+<b><a name="line216">216  </a></b>		}
+<b><a name="line217">217  </a></b>		return rc;
+<b><a name="line218">218  </a></b>	}
+<b><a name="line219">219  </a></b>	
+<b><a name="line220">220  </a></b>	void
+<b><a name="line221">221  </a></b>	qb_array_free(struct qb_array *a)
+<b><a name="line222">222  </a></b>	{
+<b><a name="line223">223  </a></b>		int32_t i;
+<b><a name="line224">224  </a></b>		for (i = 0; i &lt; a-&gt;num_bins; i++) {
+<b><a name="line225">225  </a></b>			free(a-&gt;bin[i]);
+<b><a name="line226">226  </a></b>		}
+<b><a name="line227">227  </a></b>		free(a-&gt;bin);
+<b><a name="line228">228  </a></b>		(void)qb_thread_lock_destroy(a-&gt;grow_lock);
+<b><a name="line229">229  </a></b>		free(a);
+<b><a name="line230">230  </a></b>	}
+<b><a name="line231">231  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

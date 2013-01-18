@@ -1,0 +1,880 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/ringbuffer.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2010-2011 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * This file is part of libqb.
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;ringbuffer_int.h&quot;
+<b><a name="line22">22   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line23">23   </a></b>	#include &lt;qb/qbatomic.h&gt;
+<b><a name="line24">24   </a></b>	
+<b><a name="line25">25   </a></b>	/*
+<b><a name="line26">26   </a></b>	 * #define CRAZY_DEBUG_PRINTFS 1
+<b><a name="line27">27   </a></b>	 */
+<b><a name="line28">28   </a></b>	#ifdef CRAZY_DEBUG_PRINTFS
+<b><a name="line29">29   </a></b>	#define DEBUG_PRINTF(format, args...)	\
+<b><a name="line30">30   </a></b>	do {				\
+<b><a name="line31">31   </a></b>		printf(format, ##args);	\
+<b><a name="line32">32   </a></b>	} while(0)
+<b><a name="line33">33   </a></b>	#else
+<b><a name="line34">34   </a></b>	#define DEBUG_PRINTF(format, args...)
+<b><a name="line35">35   </a></b>	#endif /* CRAZY_DEBUG_PRINTFS */
+<b><a name="line36">36   </a></b>	
+<b><a name="line37">37   </a></b>	/*
+<b><a name="line38">38   </a></b>	 * move the write pointer to the next 128 byte boundary
+<b><a name="line39">39   </a></b>	 * write_pt goes in 4 bytes (sizeof(uint32_t))
+<b><a name="line40">40   </a></b>	 * #define USE_CACHE_LINE_ALIGNMENT 1
+<b><a name="line41">41   </a></b>	 */
+<b><a name="line42">42   </a></b>	#ifdef USE_CACHE_LINE_ALIGNMENT
+<b><a name="line43">43   </a></b>	#define QB_CACHE_LINE_SIZE 128
+<b><a name="line44">44   </a></b>	#define QB_CACHE_LINE_WORDS (QB_CACHE_LINE_SIZE/sizeof(uint32_t))
+<b><a name="line45">45   </a></b>	#define idx_cache_line_step(idx)	\
+<b><a name="line46">46   </a></b>	do {					\
+<b><a name="line47">47   </a></b>		if (idx % QB_CACHE_LINE_WORDS) {			\
+<b><a name="line48">48   </a></b>			idx += (QB_CACHE_LINE_WORDS - (idx % QB_CACHE_LINE_WORDS));	\
+<b><a name="line49">49   </a></b>		}				\
+<b><a name="line50">50   </a></b>		if (idx &gt; (rb-&gt;shared_hdr-&gt;word_size - 1)) {		\
+<b><a name="line51">51   </a></b>			idx = ((idx) % (rb-&gt;shared_hdr-&gt;word_size));	\
+<b><a name="line52">52   </a></b>		}						\
+<b><a name="line53">53   </a></b>	} while (0)
+<b><a name="line54">54   </a></b>	#else
+<b><a name="line55">55   </a></b>	#define QB_CACHE_LINE_SIZE 0
+<b><a name="line56">56   </a></b>	#define QB_CACHE_LINE_WORDS 0
+<b><a name="line57">57   </a></b>	#define idx_cache_line_step(idx)			\
+<b><a name="line58">58   </a></b>	do {							\
+<b><a name="line59">59   </a></b>		if (idx &gt; (rb-&gt;shared_hdr-&gt;word_size - 1)) {		\
+<b><a name="line60">60   </a></b>			idx = ((idx) % (rb-&gt;shared_hdr-&gt;word_size));	\
+<b><a name="line61">61   </a></b>		}						\
+<b><a name="line62">62   </a></b>	} while (0)
+<b><a name="line63">63   </a></b>	#endif
+<b><a name="line64">64   </a></b>	
+<b><a name="line65">65   </a></b>	
+<b><a name="line66">66   </a></b>	/* the chunk header is two words
+<b><a name="line67">67   </a></b>	 * 1) the chunk data size
+<b><a name="line68">68   </a></b>	 * 2) the magic number
+<b><a name="line69">69   </a></b>	 */
+<b><a name="line70">70   </a></b>	#define QB_RB_CHUNK_HEADER_WORDS 2
+<b><a name="line71">71   </a></b>	#define QB_RB_CHUNK_HEADER_SIZE (sizeof(uint32_t) * QB_RB_CHUNK_HEADER_WORDS)
+<b><a name="line72">72   </a></b>	/*
+<b><a name="line73">73   </a></b>	 * margin is the gap we leave when checking to see if we have enough
+<b><a name="line74">74   </a></b>	 * space for a new chunk.
+<b><a name="line75">75   </a></b>	 * So:
+<b><a name="line76">76   </a></b>	 * qb_rb_space_free() &gt;= QB_RB_CHUNK_MARGIN + new data chunk
+<b><a name="line77">77   </a></b>	 * The extra word size is to allow for non word sized data chunks.
+<b><a name="line78">78   </a></b>	 * QB_CACHE_LINE_WORDS is to make sure we have space to align the
+<b><a name="line79">79   </a></b>	 * chunk.
+<b><a name="line80">80   </a></b>	 */
+<b><a name="line81">81   </a></b>	#define QB_RB_WORD_ALIGN 1
+<b><a name="line82">82   </a></b>	#define QB_RB_CHUNK_MARGIN (sizeof(uint32_t) * (QB_RB_CHUNK_HEADER_WORDS +\
+<b><a name="line83">83   </a></b>							QB_RB_WORD_ALIGN +\
+<b><a name="line84">84   </a></b>							QB_CACHE_LINE_WORDS))
+<b><a name="line85">85   </a></b>	#define QB_RB_CHUNK_MAGIC		0xA1A1A1A1
+<b><a name="line86">86   </a></b>	#define QB_RB_CHUNK_MAGIC_DEAD		0xD0D0D0D0
+<b><a name="line87">87   </a></b>	#define QB_RB_CHUNK_MAGIC_ALLOC		0xA110CED0
+<b><a name="line88">88   </a></b>	#define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
+<b><a name="line89">89   </a></b>		rb-&gt;shared_data[pointer]
+<b><a name="line90">90   </a></b>	#define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
+<b><a name="line91">91   </a></b>		rb-&gt;shared_data[(pointer + 1) % rb-&gt;shared_hdr-&gt;word_size]
+<b><a name="line92">92   </a></b>	#define QB_RB_CHUNK_MAGIC_SET(rb, pointer, new_val) \
+<b><a name="line93">93   </a></b>		rb-&gt;shared_data[(pointer + 1) % rb-&gt;shared_hdr-&gt;word_size] = new_val;
+<b><a name="line94">94   </a></b>	#define QB_RB_CHUNK_DATA_GET(rb, pointer) \
+<b><a name="line95">95   </a></b>		&amp;rb-&gt;shared_data[(pointer + QB_RB_CHUNK_HEADER_WORDS) % rb-&gt;shared_hdr-&gt;word_size]
+<b><a name="line96">96   </a></b>	
+<b><a name="line97">97   </a></b>	#define QB_MAGIC_ASSERT(_ptr_) \
+<b><a name="line98">98   </a></b>	do {							\
+<b><a name="line99">99   </a></b>		uint32_t chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, _ptr_); \
+<b><a name="line100">100  </a></b>		if (chunk_magic != QB_RB_CHUNK_MAGIC) print_header(rb); \
+<b><a name="line101">101  </a></b>		assert(chunk_magic == QB_RB_CHUNK_MAGIC); \
+<b><a name="line102">102  </a></b>	} while (0)
+<b><a name="line103">103  </a></b>	
+<b><a name="line104">104  </a></b>	#define idx_step(idx)					\
+<b><a name="line105">105  </a></b>	do {							\
+<b><a name="line106">106  </a></b>		if (idx &gt; (rb-&gt;shared_hdr-&gt;word_size - 1)) {		\
+<b><a name="line107">107  </a></b>			idx = ((idx) % (rb-&gt;shared_hdr-&gt;word_size));	\
+<b><a name="line108">108  </a></b>		}						\
+<b><a name="line109">109  </a></b>	} while (0)
+<b><a name="line110">110  </a></b>	
+<b><a name="line111">111  </a></b>	static void print_header(struct qb_ringbuffer_s * rb);
+<b><a name="line112">112  </a></b>	static void _rb_chunk_reclaim(struct qb_ringbuffer_s * rb);
+<b><a name="line113">113  </a></b>	
+<b><a name="line114">114  </a></b>	qb_ringbuffer_t *
+<b><a name="line115">115  </a></b>	qb_rb_open(const char *name, size_t size, uint32_t flags,
+<b><a name="line116">116  </a></b>		   size_t shared_user_data_size)
+<b><a name="line117">117  </a></b>	{
+<b><a name="line118">118  </a></b>		struct qb_ringbuffer_s *rb;
+<b><a name="line119">119  </a></b>		size_t real_size;
+<b><a name="line120">120  </a></b>		size_t shared_size;
+<b><a name="line121">121  </a></b>		char path[PATH_MAX];
+<b><a name="line122">122  </a></b>		int32_t fd_hdr;
+<b><a name="line123">123  </a></b>		int32_t fd_data;
+<b><a name="line124">124  </a></b>		uint32_t file_flags = O_RDWR;
+<b><a name="line125">125  </a></b>		char filename[PATH_MAX];
+<b><a name="line126">126  </a></b>		int32_t error = 0;
+<b><a name="line127">127  </a></b>		void *shm_addr;
+<b><a name="line128">128  </a></b>		long page_size = sysconf(_SC_PAGESIZE);
+<b><a name="line129">129  </a></b>	
+<b><a name="line130">130  </a></b>	#ifdef QB_FORCE_SHM_ALIGN
+<b><a name="line131">131  </a></b>		page_size = QB_MAX(page_size, 16 * 1024);
+<b><a name="line132">132  </a></b>	#endif /* QB_FORCE_SHM_ALIGN */
+<b><a name="line133">133  </a></b>		real_size = QB_ROUNDUP(size, page_size);
+<b><a name="line134">134  </a></b>		shared_size =
+<b><a name="line135">135  </a></b>		    sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
+<b><a name="line136">136  </a></b>	
+<b><a name="line137">137  </a></b>		if (flags &amp; QB_RB_FLAG_CREATE) {
+<b><a name="line138">138  </a></b>			file_flags |= O_CREAT | O_TRUNC;
+<b><a name="line139">139  </a></b>		}
+<b><a name="line140">140  </a></b>	
+<b><a name="line141">141  </a></b>		rb = calloc(1, sizeof(struct qb_ringbuffer_s));
+<b><a name="line142">142  </a></b>		if (rb == NULL) {
+<b><a name="line143">143  </a></b>			return NULL;
+<b><a name="line144">144  </a></b>		}
+<b><a name="line145">145  </a></b>	
+<b><a name="line146">146  </a></b>		/*
+<b><a name="line147">147  </a></b>		 * Create a shared_hdr memory segment for the header.
+<b><a name="line148">148  </a></b>		 */
+<b><a name="line149">149  </a></b>		snprintf(filename, PATH_MAX, &quot;qb-%s-header&quot;, name);
+<b><a name="line150">150  </a></b>		fd_hdr = qb_sys_mmap_file_open(path, filename,
+<b><a name="line151">151  </a></b>					       shared_size, file_flags);
+<b><a name="line152">152  </a></b>		if (fd_hdr &lt; 0) {
+<b><a name="line153">153  </a></b>			error = fd_hdr;
+<b><a name="line154">154  </a></b>			qb_util_log(LOG_ERR, &quot;couldn't create file for mmap&quot;);
+<b><a name="line155">155  </a></b>			goto cleanup_hdr;
+<b><a name="line156">156  </a></b>		}
+<b><a name="line157">157  </a></b>	
+<b><a name="line158">158  </a></b>		rb-&gt;shared_hdr = mmap(0,
+<b><a name="line159">159  </a></b>				      shared_size,
+<b><a name="line160">160  </a></b>				      PROT_READ | PROT_WRITE, MAP_SHARED, fd_hdr, 0);
+<b><a name="line161">161  </a></b>	
+<b><a name="line162">162  </a></b>		if (rb-&gt;shared_hdr == MAP_FAILED) {
+<b><a name="line163">163  </a></b>			error = -errno;
+<b><a name="line164">164  </a></b>			qb_util_log(LOG_ERR, &quot;couldn't create mmap for header&quot;);
+<b><a name="line165">165  </a></b>			goto cleanup_hdr;
+<b><a name="line166">166  </a></b>		}
+<b><a name="line167">167  </a></b>		qb_atomic_init();
+<b><a name="line168">168  </a></b>	
+<b><a name="line169">169  </a></b>		rb-&gt;flags = flags;
+<b><a name="line170">170  </a></b>	
+<b><a name="line171">171  </a></b>		/*
+<b><a name="line172">172  </a></b>		 * create the semaphore
+<b><a name="line173">173  </a></b>		 */
+<b><a name="line174">174  </a></b>		if (flags &amp; QB_RB_FLAG_CREATE) {
+<b><a name="line175">175  </a></b>			rb-&gt;shared_data = NULL;
+<b><a name="line176">176  </a></b>			/* rb-&gt;shared_hdr-&gt;word_size tracks data by ints and not bytes/chars. */
+<b><a name="line177">177  </a></b>			rb-&gt;shared_hdr-&gt;word_size = real_size / sizeof(uint32_t);
+<b><a name="line178">178  </a></b>			rb-&gt;shared_hdr-&gt;write_pt = 0;
+<b><a name="line179">179  </a></b>			rb-&gt;shared_hdr-&gt;read_pt = 0;
+<b><a name="line180">180  </a></b>			(void)strlcpy(rb-&gt;shared_hdr-&gt;hdr_path, path, PATH_MAX);
+<b><a name="line181">181  </a></b>		}
+<b><a name="line182">182  </a></b>		error = qb_rb_sem_create(rb, flags);
+<b><a name="line183">183  </a></b>		if (error &lt; 0) {
+<b><a name="line184">184  </a></b>			qb_util_perror(LOG_ERR, &quot;couldn't get a semaphore&quot;);
+<b><a name="line185">185  </a></b>			goto cleanup_hdr;
+<b><a name="line186">186  </a></b>		}
+<b><a name="line187">187  </a></b>	
+<b><a name="line188">188  </a></b>		/* Create the shared_data memory segment for the actual ringbuffer.
+<b><a name="line189">189  </a></b>		 * They have to be separate.
+<b><a name="line190">190  </a></b>		 */
+<b><a name="line191">191  </a></b>		if (flags &amp; QB_RB_FLAG_CREATE) {
+<b><a name="line192">192  </a></b>			snprintf(filename, PATH_MAX, &quot;qb-%s-data&quot;, name);
+<b><a name="line193">193  </a></b>			fd_data = qb_sys_mmap_file_open(path,
+<b><a name="line194">194  </a></b>							filename,
+<b><a name="line195">195  </a></b>							real_size, file_flags);
+<b><a name="line196">196  </a></b>			(void)strlcpy(rb-&gt;shared_hdr-&gt;data_path, path, PATH_MAX);
+<b><a name="line197">197  </a></b>		} else {
+<b><a name="line198">198  </a></b>			fd_data = qb_sys_mmap_file_open(path,
+<b><a name="line199">199  </a></b>							rb-&gt;shared_hdr-&gt;data_path,
+<b><a name="line200">200  </a></b>							real_size, file_flags);
+<b><a name="line201">201  </a></b>		}
+<b><a name="line202">202  </a></b>		if (fd_data &lt; 0) {
+<b><a name="line203">203  </a></b>			error = fd_data;
+<b><a name="line204">204  </a></b>			qb_util_log(LOG_ERR, &quot;couldn't create file for mmap&quot;);
+<b><a name="line205">205  </a></b>			goto cleanup_hdr;
+<b><a name="line206">206  </a></b>		}
+<b><a name="line207">207  </a></b>	
+<b><a name="line208">208  </a></b>		qb_util_log(LOG_DEBUG,
+<b><a name="line209">209  </a></b>			    &quot;shm size:%zd; real_size:%zd; rb-&gt;word_size:%d&quot;, size,
+<b><a name="line210">210  </a></b>			    real_size, rb-&gt;shared_hdr-&gt;word_size);
+<b><a name="line211">211  </a></b>	
+<b><a name="line212">212  </a></b>		error = qb_sys_circular_mmap(fd_data, &amp;shm_addr, real_size);
+<b><a name="line213">213  </a></b>		rb-&gt;shared_data = shm_addr;
+<b><a name="line214">214  </a></b>		if (error != 0) {
+<b><a name="line215">215  </a></b>			qb_util_log(LOG_ERR, &quot;couldn't create circular mmap on %s&quot;,
+<b><a name="line216">216  </a></b>				    rb-&gt;shared_hdr-&gt;data_path);
+<b><a name="line217">217  </a></b>			goto cleanup_data;
+<b><a name="line218">218  </a></b>		}
+<b><a name="line219">219  </a></b>	
+<b><a name="line220">220  </a></b>		if (flags &amp; QB_RB_FLAG_CREATE) {
+<b><a name="line221">221  </a></b>			memset(rb-&gt;shared_data, 0, real_size);
+<b><a name="line222">222  </a></b>			rb-&gt;shared_data[rb-&gt;shared_hdr-&gt;word_size] = 5;
+<b><a name="line223">223  </a></b>			rb-&gt;shared_hdr-&gt;ref_count = 1;
+<b><a name="line224">224  </a></b>		} else {
+<b><a name="line225">225  </a></b>			qb_atomic_int_inc(&amp;rb-&gt;shared_hdr-&gt;ref_count);
+<b><a name="line226">226  </a></b>		}
+<b><a name="line227">227  </a></b>	
+<b><a name="line228">228  </a></b>		close(fd_hdr);
+<b><a name="line229">229  </a></b>		close(fd_data);
+<b><a name="line230">230  </a></b>		return rb;
+<b><a name="line231">231  </a></b>	
+<b><a name="line232">232  </a></b>	cleanup_data:
+<b><a name="line233">233  </a></b>		close(fd_data);
+<b><a name="line234">234  </a></b>		if (flags &amp; QB_RB_FLAG_CREATE) {
+<b><a name="line235">235  </a></b>			unlink(rb-&gt;shared_hdr-&gt;data_path);
+<b><a name="line236">236  </a></b>		}
+<b><a name="line237">237  </a></b>	
+<b><a name="line238">238  </a></b>	cleanup_hdr:
+<b><a name="line239">239  </a></b>		if (fd_hdr &gt;= 0) {
+<b><a name="line240">240  </a></b>			close(fd_hdr);
+<b><a name="line241">241  </a></b>		}
+<b><a name="line242">242  </a></b>		if (rb &amp;&amp; (flags &amp; QB_RB_FLAG_CREATE)) {
+<b><a name="line243">243  </a></b>			unlink(rb-&gt;shared_hdr-&gt;hdr_path);
+<b><a name="line244">244  </a></b>			if (rb-&gt;sem_destroy_fn) {
+<b><a name="line245">245  </a></b>				(void)rb-&gt;sem_destroy_fn(rb);
+<b><a name="line246">246  </a></b>			}
+<b><a name="line247">247  </a></b>		}
+<b><a name="line248">248  </a></b>		if (rb &amp;&amp; (rb-&gt;shared_hdr != MAP_FAILED &amp;&amp; rb-&gt;shared_hdr != NULL)) {
+<b><a name="line249">249  </a></b>			munmap(rb-&gt;shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
+<b><a name="line250">250  </a></b>		}
+<b><a name="line251">251  </a></b>		free(rb);
+<b><a name="line252">252  </a></b>		errno = -error;
+<b><a name="line253">253  </a></b>		return NULL;
+<b><a name="line254">254  </a></b>	}
+<b><a name="line255">255  </a></b>	
+<b><a name="line256">256  </a></b>	void
+<b><a name="line257">257  </a></b>	qb_rb_close(struct qb_ringbuffer_s * rb)
+<b><a name="line258">258  </a></b>	{
+<b><a name="line259">259  </a></b>		if (rb == NULL) {
+<b><a name="line260">260  </a></b>			return;
+<b><a name="line261">261  </a></b>		}
+<b><a name="line262">262  </a></b>	
+<b><a name="line263">263  </a></b>		(void)qb_atomic_int_dec_and_test(&amp;rb-&gt;shared_hdr-&gt;ref_count);
+<b><a name="line264">264  </a></b>		if (rb-&gt;flags &amp; QB_RB_FLAG_CREATE) {
+<b><a name="line265">265  </a></b>			if (rb-&gt;sem_destroy_fn) {
+<b><a name="line266">266  </a></b>				(void)rb-&gt;sem_destroy_fn(rb);
+<b><a name="line267">267  </a></b>			}
+<b><a name="line268">268  </a></b>			unlink(rb-&gt;shared_hdr-&gt;data_path);
+<b><a name="line269">269  </a></b>			unlink(rb-&gt;shared_hdr-&gt;hdr_path);
+<b><a name="line270">270  </a></b>			qb_util_log(LOG_DEBUG,
+<b><a name="line271">271  </a></b>				    &quot;Free'ing ringbuffer: %s&quot;,
+<b><a name="line272">272  </a></b>				    rb-&gt;shared_hdr-&gt;hdr_path);
+<b><a name="line273">273  </a></b>		} else {
+<b><a name="line274">274  </a></b>			qb_util_log(LOG_DEBUG,
+<b><a name="line275">275  </a></b>				    &quot;Closing ringbuffer: %s&quot;, rb-&gt;shared_hdr-&gt;hdr_path);
+<b><a name="line276">276  </a></b>		}
+<b><a name="line277">277  </a></b>		munmap(rb-&gt;shared_data, (rb-&gt;shared_hdr-&gt;word_size * sizeof(uint32_t)) &lt;&lt; 1);
+<b><a name="line278">278  </a></b>		munmap(rb-&gt;shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
+<b><a name="line279">279  </a></b>		free(rb);
+<b><a name="line280">280  </a></b>	}
+<b><a name="line281">281  </a></b>	
+<b><a name="line282">282  </a></b>	void
+<b><a name="line283">283  </a></b>	qb_rb_force_close(struct qb_ringbuffer_s * rb)
+<b><a name="line284">284  </a></b>	{
+<b><a name="line285">285  </a></b>		if (rb == NULL) {
+<b><a name="line286">286  </a></b>			return;
+<b><a name="line287">287  </a></b>		}
+<b><a name="line288">288  </a></b>	
+<b><a name="line289">289  </a></b>		if (rb-&gt;sem_destroy_fn) {
+<b><a name="line290">290  </a></b>			(void)rb-&gt;sem_destroy_fn(rb);
+<b><a name="line291">291  </a></b>		}
+<b><a name="line292">292  </a></b>		unlink(rb-&gt;shared_hdr-&gt;data_path);
+<b><a name="line293">293  </a></b>		unlink(rb-&gt;shared_hdr-&gt;hdr_path);
+<b><a name="line294">294  </a></b>		qb_util_log(LOG_DEBUG,
+<b><a name="line295">295  </a></b>			    &quot;Force free'ing ringbuffer: %s&quot;,
+<b><a name="line296">296  </a></b>			    rb-&gt;shared_hdr-&gt;hdr_path);
+<b><a name="line297">297  </a></b>		munmap(rb-&gt;shared_data, (rb-&gt;shared_hdr-&gt;word_size * sizeof(uint32_t)) &lt;&lt; 1);
+<b><a name="line298">298  </a></b>		munmap(rb-&gt;shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
+<b><a name="line299">299  </a></b>		free(rb);
+<b><a name="line300">300  </a></b>	}
+<b><a name="line301">301  </a></b>	
+<b><a name="line302">302  </a></b>	char *
+<b><a name="line303">303  </a></b>	qb_rb_name_get(struct qb_ringbuffer_s * rb)
+<b><a name="line304">304  </a></b>	{
+<b><a name="line305">305  </a></b>		if (rb == NULL) {
+<b><a name="line306">306  </a></b>			return NULL;
+<b><a name="line307">307  </a></b>		}
+<b><a name="line308">308  </a></b>		return rb-&gt;shared_hdr-&gt;hdr_path;
+<b><a name="line309">309  </a></b>	}
+<b><a name="line310">310  </a></b>	
+<b><a name="line311">311  </a></b>	void *
+<b><a name="line312">312  </a></b>	qb_rb_shared_user_data_get(struct qb_ringbuffer_s * rb)
+<b><a name="line313">313  </a></b>	{
+<b><a name="line314">314  </a></b>		if (rb == NULL) {
+<b><a name="line315">315  </a></b>			return NULL;
+<b><a name="line316">316  </a></b>		}
+<b><a name="line317">317  </a></b>		return rb-&gt;shared_hdr-&gt;user_data;
+<b><a name="line318">318  </a></b>	}
+<b><a name="line319">319  </a></b>	
+<b><a name="line320">320  </a></b>	int32_t
+<b><a name="line321">321  </a></b>	qb_rb_refcount_get(struct qb_ringbuffer_s * rb)
+<b><a name="line322">322  </a></b>	{
+<b><a name="line323">323  </a></b>		if (rb == NULL) {
+<b><a name="line324">324  </a></b>			return -EINVAL;
+<b><a name="line325">325  </a></b>		}
+<b><a name="line326">326  </a></b>		return qb_atomic_int_get(&amp;rb-&gt;shared_hdr-&gt;ref_count);
+<b><a name="line327">327  </a></b>	}
+<b><a name="line328">328  </a></b>	
+<b><a name="line329">329  </a></b>	ssize_t
+<b><a name="line330">330  </a></b>	qb_rb_space_free(struct qb_ringbuffer_s * rb)
+<b><a name="line331">331  </a></b>	{
+<b><a name="line332">332  </a></b>		uint32_t write_size;
+<b><a name="line333">333  </a></b>		uint32_t read_size;
+<b><a name="line334">334  </a></b>		size_t space_free = 0;
+<b><a name="line335">335  </a></b>	
+<b><a name="line336">336  </a></b>		if (rb == NULL) {
+<b><a name="line337">337  </a></b>			return -EINVAL;
+<b><a name="line338">338  </a></b>		}
+<b><a name="line339">339  </a></b>		write_size = rb-&gt;shared_hdr-&gt;write_pt;
+<b><a name="line340">340  </a></b>		read_size = rb-&gt;shared_hdr-&gt;read_pt;
+<b><a name="line341">341  </a></b>	
+<b><a name="line342">342  </a></b>		if (write_size &gt; read_size) {
+<b><a name="line343">343  </a></b>			space_free =
+<b><a name="line344">344  </a></b>			    (read_size - write_size + rb-&gt;shared_hdr-&gt;word_size) - 1;
+<b><a name="line345">345  </a></b>		} else if (write_size &lt; read_size) {
+<b><a name="line346">346  </a></b>			space_free = (read_size - write_size) - 1;
+<b><a name="line347">347  </a></b>		} else {
+<b><a name="line348">348  </a></b>			if (rb-&gt;sem_getvalue_fn &amp;&amp; rb-&gt;sem_getvalue_fn(rb) &gt; 0) {
+<b><a name="line349">349  </a></b>				space_free = 0;
+<b><a name="line350">350  </a></b>			} else {
+<b><a name="line351">351  </a></b>				space_free = rb-&gt;shared_hdr-&gt;word_size;
+<b><a name="line352">352  </a></b>			}
+<b><a name="line353">353  </a></b>		}
+<b><a name="line354">354  </a></b>	
+<b><a name="line355">355  </a></b>		/* word -&gt; bytes */
+<b><a name="line356">356  </a></b>		return (space_free * sizeof(uint32_t));
+<b><a name="line357">357  </a></b>	}
+<b><a name="line358">358  </a></b>	
+<b><a name="line359">359  </a></b>	ssize_t
+<b><a name="line360">360  </a></b>	qb_rb_space_used(struct qb_ringbuffer_s * rb)
+<b><a name="line361">361  </a></b>	{
+<b><a name="line362">362  </a></b>		uint32_t write_size;
+<b><a name="line363">363  </a></b>		uint32_t read_size;
+<b><a name="line364">364  </a></b>		size_t space_used;
+<b><a name="line365">365  </a></b>	
+<b><a name="line366">366  </a></b>		if (rb == NULL) {
+<b><a name="line367">367  </a></b>			return -EINVAL;
+<b><a name="line368">368  </a></b>		}
+<b><a name="line369">369  </a></b>		write_size = rb-&gt;shared_hdr-&gt;write_pt;
+<b><a name="line370">370  </a></b>		read_size = rb-&gt;shared_hdr-&gt;read_pt;
+<b><a name="line371">371  </a></b>	
+<b><a name="line372">372  </a></b>		if (write_size &gt; read_size) {
+<b><a name="line373">373  </a></b>			space_used = write_size - read_size;
+<b><a name="line374">374  </a></b>		} else if (write_size &lt; read_size) {
+<b><a name="line375">375  </a></b>			space_used =
+<b><a name="line376">376  </a></b>			    (write_size - read_size + rb-&gt;shared_hdr-&gt;word_size) - 1;
+<b><a name="line377">377  </a></b>		} else {
+<b><a name="line378">378  </a></b>			space_used = 0;
+<b><a name="line379">379  </a></b>		}
+<b><a name="line380">380  </a></b>		/* word -&gt; bytes */
+<b><a name="line381">381  </a></b>		return (space_used * sizeof(uint32_t));
+<b><a name="line382">382  </a></b>	}
+<b><a name="line383">383  </a></b>	
+<b><a name="line384">384  </a></b>	ssize_t
+<b><a name="line385">385  </a></b>	qb_rb_chunks_used(struct qb_ringbuffer_s *rb)
+<b><a name="line386">386  </a></b>	{
+<b><a name="line387">387  </a></b>		if (rb == NULL) {
+<b><a name="line388">388  </a></b>			return -EINVAL;
+<b><a name="line389">389  </a></b>		}
+<b><a name="line390">390  </a></b>		if (rb-&gt;sem_getvalue_fn) {
+<b><a name="line391">391  </a></b>			return rb-&gt;sem_getvalue_fn(rb);
+<b><a name="line392">392  </a></b>		} else {
+<b><a name="line393">393  </a></b>			return -ENOTSUP;
+<b><a name="line394">394  </a></b>		}
+<b><a name="line395">395  </a></b>	}
+<b><a name="line396">396  </a></b>	
+<b><a name="line397">397  </a></b>	void *
+<b><a name="line398">398  </a></b>	qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
+<b><a name="line399">399  </a></b>	{
+<b><a name="line400">400  </a></b>		uint32_t write_pt;
+<b><a name="line401">401  </a></b>	
+<b><a name="line402">402  </a></b>		if (rb == NULL) {
+<b><a name="line403">403  </a></b>			errno = EINVAL;
+<b><a name="line404">404  </a></b>			return NULL;
+<b><a name="line405">405  </a></b>		}
+<b><a name="line406">406  </a></b>		/*
+<b><a name="line407">407  </a></b>		 * Reclaim data if we are over writing and we need space
+<b><a name="line408">408  </a></b>		 */
+<b><a name="line409">409  </a></b>		if (rb-&gt;flags &amp; QB_RB_FLAG_OVERWRITE) {
+<b><a name="line410">410  </a></b>			while (qb_rb_space_free(rb) &lt; (len + QB_RB_CHUNK_MARGIN)) {
+<b><a name="line411">411  </a></b>				_rb_chunk_reclaim(rb);
+<b><a name="line412">412  </a></b>			}
+<b><a name="line413">413  </a></b>		} else {
+<b><a name="line414">414  </a></b>			if (qb_rb_space_free(rb) &lt; (len + QB_RB_CHUNK_MARGIN)) {
+<b><a name="line415">415  </a></b>				errno = EAGAIN;
+<b><a name="line416">416  </a></b>				return NULL;
+<b><a name="line417">417  </a></b>			}
+<b><a name="line418">418  </a></b>		}
+<b><a name="line419">419  </a></b>	
+<b><a name="line420">420  </a></b>		write_pt = rb-&gt;shared_hdr-&gt;write_pt;
+<b><a name="line421">421  </a></b>		/*
+<b><a name="line422">422  </a></b>		 * insert the chunk header
+<b><a name="line423">423  </a></b>		 */
+<b><a name="line424">424  </a></b>		rb-&gt;shared_data[write_pt] = 0;
+<b><a name="line425">425  </a></b>		QB_RB_CHUNK_MAGIC_SET(rb, write_pt, QB_RB_CHUNK_MAGIC_ALLOC);
+<b><a name="line426">426  </a></b>	
+<b><a name="line427">427  </a></b>		/*
+<b><a name="line428">428  </a></b>		 * return a pointer to the beginning of the chunk data
+<b><a name="line429">429  </a></b>		 */
+<b><a name="line430">430  </a></b>		return (void *)QB_RB_CHUNK_DATA_GET(rb, write_pt);
+<b><a name="line431">431  </a></b>	
+<b><a name="line432">432  </a></b>	}
+<b><a name="line433">433  </a></b>	
+<b><a name="line434">434  </a></b>	static uint32_t
+<b><a name="line435">435  </a></b>	qb_rb_chunk_step(struct qb_ringbuffer_s * rb, uint32_t pointer)
+<b><a name="line436">436  </a></b>	{
+<b><a name="line437">437  </a></b>		uint32_t chunk_size = QB_RB_CHUNK_SIZE_GET(rb, pointer);
+<b><a name="line438">438  </a></b>		/*
+<b><a name="line439">439  </a></b>		 * skip over the chunk header
+<b><a name="line440">440  </a></b>		 */
+<b><a name="line441">441  </a></b>		pointer += QB_RB_CHUNK_HEADER_WORDS;
+<b><a name="line442">442  </a></b>	
+<b><a name="line443">443  </a></b>		/*
+<b><a name="line444">444  </a></b>		 * skip over the user's data.
+<b><a name="line445">445  </a></b>		 */
+<b><a name="line446">446  </a></b>		pointer += (chunk_size / sizeof(uint32_t));
+<b><a name="line447">447  </a></b>		/* make allowance for non-word sizes */
+<b><a name="line448">448  </a></b>		if ((chunk_size % (sizeof(uint32_t) * QB_RB_WORD_ALIGN)) != 0) {
+<b><a name="line449">449  </a></b>			pointer++;
+<b><a name="line450">450  </a></b>		}
+<b><a name="line451">451  </a></b>	
+<b><a name="line452">452  </a></b>		idx_cache_line_step(pointer);
+<b><a name="line453">453  </a></b>		return pointer;
+<b><a name="line454">454  </a></b>	}
+<b><a name="line455">455  </a></b>	
+<b><a name="line456">456  </a></b>	int32_t
+<b><a name="line457">457  </a></b>	qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
+<b><a name="line458">458  </a></b>	{
+<b><a name="line459">459  </a></b>		uint32_t old_write_pt;
+<b><a name="line460">460  </a></b>	
+<b><a name="line461">461  </a></b>		if (rb == NULL) {
+<b><a name="line462">462  </a></b>			return -EINVAL;
+<b><a name="line463">463  </a></b>		}
+<b><a name="line464">464  </a></b>		/*
+<b><a name="line465">465  </a></b>		 * commit the magic &amp; chunk_size
+<b><a name="line466">466  </a></b>		 */
+<b><a name="line467">467  </a></b>		old_write_pt = rb-&gt;shared_hdr-&gt;write_pt;
+<b><a name="line468">468  </a></b>		rb-&gt;shared_data[old_write_pt] = len;
+<b><a name="line469">469  </a></b>	
+<b><a name="line470">470  </a></b>		/*
+<b><a name="line471">471  </a></b>		 * commit the new write pointer
+<b><a name="line472">472  </a></b>		 */
+<b><a name="line473">473  </a></b>		rb-&gt;shared_hdr-&gt;write_pt = qb_rb_chunk_step(rb, old_write_pt);
+<b><a name="line474">474  </a></b>		QB_RB_CHUNK_MAGIC_SET(rb, old_write_pt, QB_RB_CHUNK_MAGIC);
+<b><a name="line475">475  </a></b>	
+<b><a name="line476">476  </a></b>		DEBUG_PRINTF(&quot;commit [%zd] read: %u, write: %u -&gt; %u (%u)\n&quot;,
+<b><a name="line477">477  </a></b>			     (rb-&gt;sem_getvalue_fn ? rb-&gt;sem_getvalue_fn(rb) : 0),
+<b><a name="line478">478  </a></b>			     rb-&gt;shared_hdr-&gt;read_pt,
+<b><a name="line479">479  </a></b>			     old_write_pt,
+<b><a name="line480">480  </a></b>			     rb-&gt;shared_hdr-&gt;write_pt,
+<b><a name="line481">481  </a></b>			     rb-&gt;shared_hdr-&gt;word_size);
+<b><a name="line482">482  </a></b>	
+<b><a name="line483">483  </a></b>		/*
+<b><a name="line484">484  </a></b>		 * post the notification to the reader
+<b><a name="line485">485  </a></b>		 */
+<b><a name="line486">486  </a></b>		if (rb-&gt;sem_post_fn) {
+<b><a name="line487">487  </a></b>			return rb-&gt;sem_post_fn(rb);
+<b><a name="line488">488  </a></b>		} else {
+<b><a name="line489">489  </a></b>			return 0;
+<b><a name="line490">490  </a></b>		}
+<b><a name="line491">491  </a></b>	}
+<b><a name="line492">492  </a></b>	
+<b><a name="line493">493  </a></b>	ssize_t
+<b><a name="line494">494  </a></b>	qb_rb_chunk_write(struct qb_ringbuffer_s * rb, const void *data, size_t len)
+<b><a name="line495">495  </a></b>	{
+<b><a name="line496">496  </a></b>		char *dest = qb_rb_chunk_alloc(rb, len);
+<b><a name="line497">497  </a></b>		int32_t res = 0;
+<b><a name="line498">498  </a></b>	
+<b><a name="line499">499  </a></b>		if (rb == NULL) {
+<b><a name="line500">500  </a></b>			return -EINVAL;
+<b><a name="line501">501  </a></b>		}
+<b><a name="line502">502  </a></b>	
+<b><a name="line503">503  </a></b>		if (dest == NULL) {
+<b><a name="line504">504  </a></b>			return -errno;
+<b><a name="line505">505  </a></b>		}
+<b><a name="line506">506  </a></b>	
+<b><a name="line507">507  </a></b>		memcpy(dest, data, len);
+<b><a name="line508">508  </a></b>	
+<b><a name="line509">509  </a></b>		res = qb_rb_chunk_commit(rb, len);
+<b><a name="line510">510  </a></b>		if (res &lt; 0) {
+<b><a name="line511">511  </a></b>			return res;
+<b><a name="line512">512  </a></b>		}
+<b><a name="line513">513  </a></b>	
+<b><a name="line514">514  </a></b>		return len;
+<b><a name="line515">515  </a></b>	}
+<b><a name="line516">516  </a></b>	
+<b><a name="line517">517  </a></b>	static void
+<b><a name="line518">518  </a></b>	_rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
+<b><a name="line519">519  </a></b>	{
+<b><a name="line520">520  </a></b>		uint32_t old_read_pt;
+<b><a name="line521">521  </a></b>		uint32_t new_read_pt;
+<b><a name="line522">522  </a></b>		uint32_t chunk_magic;
+<b><a name="line523">523  </a></b>	
+<b><a name="line524">524  </a></b>		old_read_pt = rb-&gt;shared_hdr-&gt;read_pt;
+<b><a name="line525">525  </a></b>		chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, old_read_pt);
+<b><a name="line526">526  </a></b>		if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+<b><a name="line527">527  </a></b>			return;
+<b><a name="line528">528  </a></b>		}
+<b><a name="line529">529  </a></b>	
+<b><a name="line530">530  </a></b>		new_read_pt = qb_rb_chunk_step(rb, old_read_pt);
+<b><a name="line531">531  </a></b>	
+<b><a name="line532">532  </a></b>		/*
+<b><a name="line533">533  </a></b>		 * clear the header
+<b><a name="line534">534  </a></b>		 */
+<b><a name="line535">535  </a></b>		rb-&gt;shared_data[old_read_pt] = 0;
+<b><a name="line536">536  </a></b>		QB_RB_CHUNK_MAGIC_SET(rb, old_read_pt, QB_RB_CHUNK_MAGIC_DEAD);
+<b><a name="line537">537  </a></b>	
+<b><a name="line538">538  </a></b>		/*
+<b><a name="line539">539  </a></b>		 * set the new read pointer after clearing the header
+<b><a name="line540">540  </a></b>		 * to prevent a situation where a fast writer will write their
+<b><a name="line541">541  </a></b>		 * new chunk between setting the new read pointer and clearing the
+<b><a name="line542">542  </a></b>		 * header.
+<b><a name="line543">543  </a></b>		 */
+<b><a name="line544">544  </a></b>		rb-&gt;shared_hdr-&gt;read_pt = new_read_pt;
+<b><a name="line545">545  </a></b>	
+<b><a name="line546">546  </a></b>		DEBUG_PRINTF(&quot;reclaim [%zd]: read: %u -&gt; %u, write: %u\n&quot;,
+<b><a name="line547">547  </a></b>			     (rb-&gt;sem_getvalue_fn ? rb-&gt;sem_getvalue_fn(rb) : 0),
+<b><a name="line548">548  </a></b>			     old_read_pt,
+<b><a name="line549">549  </a></b>			     rb-&gt;shared_hdr-&gt;read_pt,
+<b><a name="line550">550  </a></b>			     rb-&gt;shared_hdr-&gt;write_pt);
+<b><a name="line551">551  </a></b>	}
+<b><a name="line552">552  </a></b>	
+<b><a name="line553">553  </a></b>	void
+<b><a name="line554">554  </a></b>	qb_rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
+<b><a name="line555">555  </a></b>	{
+<b><a name="line556">556  </a></b>		if (rb == NULL) {
+<b><a name="line557">557  </a></b>			return;
+<b><a name="line558">558  </a></b>		}
+<b><a name="line559">559  </a></b>		_rb_chunk_reclaim(rb);
+<b><a name="line560">560  </a></b>	}
+<b><a name="line561">561  </a></b>	
+<b><a name="line562">562  </a></b>	ssize_t
+<b><a name="line563">563  </a></b>	qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
+<b><a name="line564">564  </a></b>	{
+<b><a name="line565">565  </a></b>		uint32_t read_pt;
+<b><a name="line566">566  </a></b>		uint32_t chunk_size;
+<b><a name="line567">567  </a></b>		uint32_t chunk_magic;
+<b><a name="line568">568  </a></b>		int32_t res = 0;
+<b><a name="line569">569  </a></b>	
+<b><a name="line570">570  </a></b>		if (rb == NULL) {
+<b><a name="line571">571  </a></b>			return -EINVAL;
+<b><a name="line572">572  </a></b>		}
+<b><a name="line573">573  </a></b>		if (rb-&gt;sem_timedwait_fn) {
+<b><a name="line574">574  </a></b>			res = rb-&gt;sem_timedwait_fn(rb, timeout);
+<b><a name="line575">575  </a></b>		}
+<b><a name="line576">576  </a></b>		if (res &lt; 0 &amp;&amp; res != -EIDRM) {
+<b><a name="line577">577  </a></b>			if (res == -ETIMEDOUT) {
+<b><a name="line578">578  </a></b>				return 0;
+<b><a name="line579">579  </a></b>			} else {
+<b><a name="line580">580  </a></b>				errno = -res;
+<b><a name="line581">581  </a></b>				qb_util_perror(LOG_ERR, &quot;sem_timedwait&quot;);
+<b><a name="line582">582  </a></b>			}
+<b><a name="line583">583  </a></b>			return res;
+<b><a name="line584">584  </a></b>		}
+<b><a name="line585">585  </a></b>		read_pt = rb-&gt;shared_hdr-&gt;read_pt;
+<b><a name="line586">586  </a></b>		chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
+<b><a name="line587">587  </a></b>		if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+<b><a name="line588">588  </a></b>			if (rb-&gt;sem_post_fn) {
+<b><a name="line589">589  </a></b>				(void)rb-&gt;sem_post_fn(rb);
+<b><a name="line590">590  </a></b>			}
+<b><a name="line591">591  </a></b>			return 0;
+<b><a name="line592">592  </a></b>		}
+<b><a name="line593">593  </a></b>		chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
+<b><a name="line594">594  </a></b>		*data_out = QB_RB_CHUNK_DATA_GET(rb, read_pt);
+<b><a name="line595">595  </a></b>		return chunk_size;
+<b><a name="line596">596  </a></b>	}
+<b><a name="line597">597  </a></b>	
+<b><a name="line598">598  </a></b>	ssize_t
+<b><a name="line599">599  </a></b>	qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
+<b><a name="line600">600  </a></b>			 int32_t timeout)
+<b><a name="line601">601  </a></b>	{
+<b><a name="line602">602  </a></b>		uint32_t read_pt;
+<b><a name="line603">603  </a></b>		uint32_t chunk_size;
+<b><a name="line604">604  </a></b>		uint32_t chunk_magic;
+<b><a name="line605">605  </a></b>		int32_t res = 0;
+<b><a name="line606">606  </a></b>	
+<b><a name="line607">607  </a></b>		if (rb == NULL) {
+<b><a name="line608">608  </a></b>			return -EINVAL;
+<b><a name="line609">609  </a></b>		}
+<b><a name="line610">610  </a></b>		if (rb-&gt;sem_timedwait_fn) {
+<b><a name="line611">611  </a></b>			res = rb-&gt;sem_timedwait_fn(rb, timeout);
+<b><a name="line612">612  </a></b>		}
+<b><a name="line613">613  </a></b>		if (res &lt; 0 &amp;&amp; res != -EIDRM) {
+<b><a name="line614">614  </a></b>			if (res != -ETIMEDOUT) {
+<b><a name="line615">615  </a></b>				qb_util_perror(LOG_ERR, &quot;sem_timedwait&quot;);
+<b><a name="line616">616  </a></b>			}
+<b><a name="line617">617  </a></b>			return res;
+<b><a name="line618">618  </a></b>		}
+<b><a name="line619">619  </a></b>	
+<b><a name="line620">620  </a></b>		read_pt = rb-&gt;shared_hdr-&gt;read_pt;
+<b><a name="line621">621  </a></b>		chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
+<b><a name="line622">622  </a></b>	
+<b><a name="line623">623  </a></b>		if (chunk_magic != QB_RB_CHUNK_MAGIC) {
+<b><a name="line624">624  </a></b>			if (rb-&gt;sem_timedwait_fn == NULL) {
+<b><a name="line625">625  </a></b>				return -ETIMEDOUT;
+<b><a name="line626">626  </a></b>			} else {
+<b><a name="line627">627  </a></b>				(void)rb-&gt;sem_post_fn(rb);
+<b><a name="line628">628  </a></b>	#ifdef EBADMSG
+<b><a name="line629">629  </a></b>				return -EBADMSG;
+<b><a name="line630">630  </a></b>	#else
+<b><a name="line631">631  </a></b>				return -EINVAL;
+<b><a name="line632">632  </a></b>	#endif
+<b><a name="line633">633  </a></b>			}
+<b><a name="line634">634  </a></b>		}
+<b><a name="line635">635  </a></b>	
+<b><a name="line636">636  </a></b>		chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
+<b><a name="line637">637  </a></b>		if (len &lt; chunk_size) {
+<b><a name="line638">638  </a></b>			qb_util_log(LOG_ERR,
+<b><a name="line639">639  </a></b>				    &quot;trying to recv chunk of size %d but %d available&quot;,
+<b><a name="line640">640  </a></b>				    len, chunk_size);
+<b><a name="line641">641  </a></b>			(void)rb-&gt;sem_post_fn(rb);
+<b><a name="line642">642  </a></b>			return -ENOBUFS;
+<b><a name="line643">643  </a></b>		}
+<b><a name="line644">644  </a></b>		;
+<b><a name="line645">645  </a></b>		memcpy(data_out,
+<b><a name="line646">646  </a></b>		       QB_RB_CHUNK_DATA_GET(rb, read_pt),
+<b><a name="line647">647  </a></b>		       chunk_size);
+<b><a name="line648">648  </a></b>	
+<b><a name="line649">649  </a></b>		_rb_chunk_reclaim(rb);
+<b><a name="line650">650  </a></b>	
+<b><a name="line651">651  </a></b>		return chunk_size;
+<b><a name="line652">652  </a></b>	}
+<b><a name="line653">653  </a></b>	
+<b><a name="line654">654  </a></b>	static void
+<b><a name="line655">655  </a></b>	print_header(struct qb_ringbuffer_s * rb)
+<b><a name="line656">656  </a></b>	{
+<b><a name="line657">657  </a></b>		printf(&quot;Ringbuffer: \n&quot;);
+<b><a name="line658">658  </a></b>		if (rb-&gt;flags &amp; QB_RB_FLAG_OVERWRITE) {
+<b><a name="line659">659  </a></b>			printf(&quot; -&gt;OVERWRITE\n&quot;);
+<b><a name="line660">660  </a></b>		} else {
+<b><a name="line661">661  </a></b>			printf(&quot; -&gt;NORMAL\n&quot;);
+<b><a name="line662">662  </a></b>		}
+<b><a name="line663">663  </a></b>		printf(&quot; -&gt;write_pt [%d]\n&quot;, rb-&gt;shared_hdr-&gt;write_pt);
+<b><a name="line664">664  </a></b>		printf(&quot; -&gt;read_pt [%d]\n&quot;, rb-&gt;shared_hdr-&gt;read_pt);
+<b><a name="line665">665  </a></b>		printf(&quot; -&gt;size [%d words]\n&quot;, rb-&gt;shared_hdr-&gt;word_size);
+<b><a name="line666">666  </a></b>	#ifndef S_SPLINT_S
+<b><a name="line667">667  </a></b>		printf(&quot; =&gt;free [%zu bytes]\n&quot;, qb_rb_space_free(rb));
+<b><a name="line668">668  </a></b>		printf(&quot; =&gt;used [%zu bytes]\n&quot;, qb_rb_space_used(rb));
+<b><a name="line669">669  </a></b>	#endif /* S_SPLINT_S */
+<b><a name="line670">670  </a></b>	}
+<b><a name="line671">671  </a></b>	
+<b><a name="line672">672  </a></b>	ssize_t
+<b><a name="line673">673  </a></b>	qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
+<b><a name="line674">674  </a></b>	{
+<b><a name="line675">675  </a></b>		ssize_t result;
+<b><a name="line676">676  </a></b>		ssize_t written_size = 0;
+<b><a name="line677">677  </a></b>	
+<b><a name="line678">678  </a></b>		if (rb == NULL) {
+<b><a name="line679">679  </a></b>			return -EINVAL;
+<b><a name="line680">680  </a></b>		}
+<b><a name="line681">681  </a></b>		print_header(rb);
+<b><a name="line682">682  </a></b>	
+<b><a name="line683">683  </a></b>		result = write(fd, &amp;rb-&gt;shared_hdr-&gt;word_size, sizeof(uint32_t));
+<b><a name="line684">684  </a></b>		if (result != sizeof(uint32_t)) {
+<b><a name="line685">685  </a></b>			return -errno;
+<b><a name="line686">686  </a></b>		}
+<b><a name="line687">687  </a></b>		written_size += result;
+<b><a name="line688">688  </a></b>	
+<b><a name="line689">689  </a></b>		/*
+<b><a name="line690">690  </a></b>		 * store the read &amp; write pointers
+<b><a name="line691">691  </a></b>		 */
+<b><a name="line692">692  </a></b>		result = write(fd, (void *)&amp;rb-&gt;shared_hdr-&gt;write_pt, sizeof(uint32_t));
+<b><a name="line693">693  </a></b>		if (result != sizeof(uint32_t)) {
+<b><a name="line694">694  </a></b>			return -errno;
+<b><a name="line695">695  </a></b>		}
+<b><a name="line696">696  </a></b>		written_size += result;
+<b><a name="line697">697  </a></b>		result = write(fd, (void *)&amp;rb-&gt;shared_hdr-&gt;read_pt, sizeof(uint32_t));
+<b><a name="line698">698  </a></b>		if (result != sizeof(uint32_t)) {
+<b><a name="line699">699  </a></b>			return -errno;
+<b><a name="line700">700  </a></b>		}
+<b><a name="line701">701  </a></b>		written_size += result;
+<b><a name="line702">702  </a></b>	
+<b><a name="line703">703  </a></b>		result = write(fd, rb-&gt;shared_data,
+<b><a name="line704">704  </a></b>			       rb-&gt;shared_hdr-&gt;word_size * sizeof(uint32_t));
+<b><a name="line705">705  </a></b>		if (result != rb-&gt;shared_hdr-&gt;word_size * sizeof(uint32_t)) {
+<b><a name="line706">706  </a></b>			return -errno;
+<b><a name="line707">707  </a></b>		}
+<b><a name="line708">708  </a></b>		written_size += result;
+<b><a name="line709">709  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<a name="error"></a>
+<b>(1) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="108log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+</table>
+<pre><b><a name="line710">710  </a></b>		qb_util_log(LOG_DEBUG, &quot; writing total of: %zd\n&quot;, written_size);
+<b><a name="line711">711  </a></b>	
+<b><a name="line712">712  </a></b>		return written_size;
+<b><a name="line713">713  </a></b>	}
+<b><a name="line714">714  </a></b>	
+<b><a name="line715">715  </a></b>	qb_ringbuffer_t *
+<b><a name="line716">716  </a></b>	qb_rb_create_from_file(int32_t fd, uint32_t flags)
+<b><a name="line717">717  </a></b>	{
+<b><a name="line718">718  </a></b>		ssize_t n_read;
+<b><a name="line719">719  </a></b>		size_t n_required;
+<b><a name="line720">720  </a></b>		size_t total_read = 0;
+<b><a name="line721">721  </a></b>		uint32_t read_pt;
+<b><a name="line722">722  </a></b>		uint32_t write_pt;
+<b><a name="line723">723  </a></b>		struct qb_ringbuffer_s *rb;
+<b><a name="line724">724  </a></b>		uint32_t word_size = 0;
+<b><a name="line725">725  </a></b>	
+<b><a name="line726">726  </a></b>		if (fd &lt; 0) {
+<b><a name="line727">727  </a></b>			return NULL;
+<b><a name="line728">728  </a></b>		}
+<b><a name="line729">729  </a></b>	
+<b><a name="line730">730  </a></b>		n_required = sizeof(uint32_t);
+<b><a name="line731">731  </a></b>		n_read = read(fd, &amp;word_size, n_required);
+<b><a name="line732">732  </a></b>		if (n_read != n_required) {
+<b><a name="line733">733  </a></b>			qb_util_perror(LOG_ERR, &quot;Unable to read blackbox file header&quot;);
+<b><a name="line734">734  </a></b>			return NULL;
+<b><a name="line735">735  </a></b>		}
+<b><a name="line736">736  </a></b>		total_read += n_read;
+<b><a name="line737">737  </a></b>	
+<b><a name="line738">738  </a></b>		n_read = read(fd, &amp;write_pt, sizeof(uint32_t));
+<b><a name="line739">739  </a></b>		assert(n_read == sizeof(uint32_t));
+<b><a name="line740">740  </a></b>		total_read += n_read;
+<b><a name="line741">741  </a></b>	
+<b><a name="line742">742  </a></b>		n_read = read(fd, &amp;read_pt, sizeof(uint32_t));
+<b><a name="line743">743  </a></b>		assert(n_read == sizeof(uint32_t));
+<b><a name="line744">744  </a></b>		total_read += n_read;
+<b><a name="line745">745  </a></b>	
+<b><a name="line746">746  </a></b>		n_required = (word_size * sizeof(uint32_t));
+<b><a name="line747">747  </a></b>		rb = qb_rb_open(&quot;create_from_file&quot;, n_required,
+<b><a name="line748">748  </a></b>				QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
+<b><a name="line749">749  </a></b>		if (rb == NULL) {
+<b><a name="line750">750  </a></b>			return NULL;
+<b><a name="line751">751  </a></b>		}
+<b><a name="line752">752  </a></b>		rb-&gt;shared_hdr-&gt;read_pt = read_pt;
+<b><a name="line753">753  </a></b>		rb-&gt;shared_hdr-&gt;write_pt = write_pt;
+<b><a name="line754">754  </a></b>	
+<b><a name="line755">755  </a></b>		n_read = read(fd, rb-&gt;shared_data, n_required);
+<b><a name="line756">756  </a></b>		if (n_read &lt; 0) {
+<b><a name="line757">757  </a></b>			qb_util_perror(LOG_ERR, &quot;Unable to read blackbox file data&quot;);
+<b><a name="line758">758  </a></b>			goto cleanup_fail;
+<b><a name="line759">759  </a></b>		}
+<b><a name="line760">760  </a></b>		total_read += n_read;
+<b><a name="line761">761  </a></b>	
+<b><a name="line762">762  </a></b>		if (n_read != n_required) {
+<b><a name="line763">763  </a></b>			qb_util_log(LOG_WARNING, &quot;read %zd bytes, but expected %zu&quot;,
+<b><a name="line764">764  </a></b>				    n_read, n_required);
+<b><a name="line765">765  </a></b>			goto cleanup_fail;
+<b><a name="line766">766  </a></b>		}
+<b><a name="line767">767  </a></b>	
+<b><a name="line768">768  </a></b>		qb_util_log(LOG_DEBUG, &quot;read total of: %zd&quot;, total_read);
+<b><a name="line769">769  </a></b>		print_header(rb);
+<b><a name="line770">770  </a></b>	
+<b><a name="line771">771  </a></b>		return rb;
+<b><a name="line772">772  </a></b>	
+<b><a name="line773">773  </a></b>	cleanup_fail:
+<b><a name="line774">774  </a></b>		qb_rb_close(rb);
+<b><a name="line775">775  </a></b>		return NULL;
+<b><a name="line776">776  </a></b>	}
+<b><a name="line777">777  </a></b>	
+<b><a name="line778">778  </a></b>	int32_t
+<b><a name="line779">779  </a></b>	qb_rb_chown(struct qb_ringbuffer_s * rb, uid_t owner, gid_t group)
+<b><a name="line780">780  </a></b>	{
+<b><a name="line781">781  </a></b>		int32_t res;
+<b><a name="line782">782  </a></b>	
+<b><a name="line783">783  </a></b>		if (rb == NULL) {
+<b><a name="line784">784  </a></b>			return -EINVAL;
+<b><a name="line785">785  </a></b>		}
+<b><a name="line786">786  </a></b>		res = chown(rb-&gt;shared_hdr-&gt;data_path, owner, group);
+<b><a name="line787">787  </a></b>		if (res &lt; 0 &amp;&amp; errno != EPERM) {
+<b><a name="line788">788  </a></b>			return -errno;
+<b><a name="line789">789  </a></b>		}
+<b><a name="line790">790  </a></b>		res = chown(rb-&gt;shared_hdr-&gt;hdr_path, owner, group);
+<b><a name="line791">791  </a></b>		if (res &lt; 0 &amp;&amp; errno != EPERM) {
+<b><a name="line792">792  </a></b>			return -errno;
+<b><a name="line793">793  </a></b>		}
+<b><a name="line794">794  </a></b>		return 0;
+<b><a name="line795">795  </a></b>	}
+<b><a name="line796">796  </a></b>	
+<b><a name="line797">797  </a></b>	int32_t
+<b><a name="line798">798  </a></b>	qb_rb_chmod(qb_ringbuffer_t * rb, mode_t mode)
+<b><a name="line799">799  </a></b>	{
+<b><a name="line800">800  </a></b>		int32_t res;
+<b><a name="line801">801  </a></b>	
+<b><a name="line802">802  </a></b>		if (rb == NULL) {
+<b><a name="line803">803  </a></b>			return -EINVAL;
+<b><a name="line804">804  </a></b>		}
+<b><a name="line805">805  </a></b>		res = chmod(rb-&gt;shared_hdr-&gt;data_path, mode);
+<b><a name="line806">806  </a></b>		if (res &lt; 0) {
+<b><a name="line807">807  </a></b>			return -errno;
+<b><a name="line808">808  </a></b>		}
+<b><a name="line809">809  </a></b>		res = chmod(rb-&gt;shared_hdr-&gt;hdr_path, mode);
+<b><a name="line810">810  </a></b>		if (res &lt; 0) {
+<b><a name="line811">811  </a></b>			return -errno;
+<b><a name="line812">812  </a></b>		}
+<b><a name="line813">813  </a></b>		return 0;
+<b><a name="line814">814  </a></b>	}
+<b><a name="line815">815  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

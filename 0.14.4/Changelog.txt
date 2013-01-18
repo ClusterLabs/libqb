@@ -1,0 +1,56 @@
+2012-02-07  The Quarterback Library Release Team  <quarterback-devel@fedorahosted.org>
+
+	Bump the lib version to 0.10.0
+
+2012-02-07  Angus Salkeld  <asalkeld@redhat.com>
+
+	LOOP: handle errors from the poll function
+
+	LOOP: make the item type applicable to jobs too.
+	Mainly for diagnostics
+
+	LOOP: fix the todo calculations.
+	The todo system was sucky as it was calculated in different
+	places in the mainloop and at each level. This was exposed by
+	calls to qb_loop_level_item_del() which decremented the level->todo
+	but not the mainloop one. So now we re-calculate it each time.
+
+	TEST: check for a single job causing a cpu spin
+
+	LOOP: prevent jobs from consuming too much cpu.
+
+2012-02-03  Angus Salkeld  <asalkeld@redhat.com>
+
+	Get coverity to ignore this warning.
+	"Using uninitialized element of array"
+
+	Change example code to use fgets instead of gets
+
+	LOG: pass the result of qb_log_thread_start() back to the user
+
+	Fix some issues found by clang
+
+	Add clang-analyzer check
+
+2012-02-01  Angus Salkeld  <asalkeld@redhat.com>
+
+	Add a split timer to the stopwatch.
+	This is just a re-work of Steve's sample patch.
+
+	You set the number of splits and whether they overwrite using
+	qb_util_stopwatch_split_ctl().
+
+2012-01-31  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: merge common code into new function
+	This also fixes a regression caused by:
+	42c92fb675a29bb1ec9f718c17daede82d5de3e2
+
+	IPC: better handle a disconnect been called from within connection_created()
+
+2012-01-27  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: fix scary typo
+	Not sure how this happened
+
+	IPC: fix server error handling

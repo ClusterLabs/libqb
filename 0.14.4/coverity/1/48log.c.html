@@ -1,0 +1,1416 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/log.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2011 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * All rights reserved.
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	#include &lt;ctype.h&gt;
+<b><a name="line23">23   </a></b>	#ifdef HAVE_LINK_H
+<b><a name="line24">24   </a></b>	#include &lt;link.h&gt;
+<b><a name="line25">25   </a></b>	#endif /* HAVE_LINK_H */
+<b><a name="line26">26   </a></b>	#include &lt;stdarg.h&gt;
+<b><a name="line27">27   </a></b>	#include &lt;pthread.h&gt;
+<b><a name="line28">28   </a></b>	#ifdef HAVE_DLFCN_H
+<b><a name="line29">29   </a></b>	#include &lt;dlfcn.h&gt;
+<b><a name="line30">30   </a></b>	#endif /* HAVE_DLFCN_H */
+<b><a name="line31">31   </a></b>	#include &lt;stdarg.h&gt;
+<b><a name="line32">32   </a></b>	
+<b><a name="line33">33   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line34">34   </a></b>	#include &lt;qb/qblist.h&gt;
+<b><a name="line35">35   </a></b>	#include &lt;qb/qblog.h&gt;
+<b><a name="line36">36   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line37">37   </a></b>	#include &lt;qb/qbarray.h&gt;
+<b><a name="line38">38   </a></b>	#include &quot;log_int.h&quot;
+<b><a name="line39">39   </a></b>	#include &quot;util_int.h&quot;
+<b><a name="line40">40   </a></b>	
+<b><a name="line41">41   </a></b>	static struct qb_log_target conf[QB_LOG_TARGET_MAX];
+<b><a name="line42">42   </a></b>	static uint32_t conf_active_max = 0;
+<b><a name="line43">43   </a></b>	static int32_t in_logger = QB_FALSE;
+<b><a name="line44">44   </a></b>	static int32_t logger_inited = QB_FALSE;
+<b><a name="line45">45   </a></b>	static pthread_rwlock_t _listlock;
+<b><a name="line46">46   </a></b>	static qb_log_filter_fn _custom_filter_fn = NULL;
+<b><a name="line47">47   </a></b>	
+<b><a name="line48">48   </a></b>	static QB_LIST_DECLARE(tags_head);
+<b><a name="line49">49   </a></b>	static QB_LIST_DECLARE(callsite_sections);
+<b><a name="line50">50   </a></b>	
+<b><a name="line51">51   </a></b>	struct callsite_section {
+<b><a name="line52">52   </a></b>		struct qb_log_callsite *start;
+<b><a name="line53">53   </a></b>		struct qb_log_callsite *stop;
+<b><a name="line54">54   </a></b>		struct qb_list_head list;
+<b><a name="line55">55   </a></b>	};
+<b><a name="line56">56   </a></b>	
+<b><a name="line57">57   </a></b>	static int32_t _log_target_enable(struct qb_log_target *t);
+<b><a name="line58">58   </a></b>	static void _log_target_disable(struct qb_log_target *t);
+<b><a name="line59">59   </a></b>	static void _log_filter_apply(struct callsite_section *sect,
+<b><a name="line60">60   </a></b>				      uint32_t t, enum qb_log_filter_conf c,
+<b><a name="line61">61   </a></b>				      enum qb_log_filter_type type,
+<b><a name="line62">62   </a></b>				      const char *text,
+<b><a name="line63">63   </a></b>				      uint8_t high_priority, uint8_t low_priority);
+<b><a name="line64">64   </a></b>	static void _log_filter_apply_to_cs(struct qb_log_callsite *cs,
+<b><a name="line65">65   </a></b>					    uint32_t t, enum qb_log_filter_conf c,
+<b><a name="line66">66   </a></b>					    enum qb_log_filter_type type,
+<b><a name="line67">67   </a></b>					    const char *text,
+<b><a name="line68">68   </a></b>					    uint8_t high_priority, uint8_t low_priority);
+<b><a name="line69">69   </a></b>	
+<b><a name="line70">70   </a></b>	/* deprecated method of getting internal log messages */
+<b><a name="line71">71   </a></b>	static qb_util_log_fn_t old_internal_log_fn = NULL;
+<b><a name="line72">72   </a></b>	void
+<b><a name="line73">73   </a></b>	qb_util_set_log_function(qb_util_log_fn_t fn)
+<b><a name="line74">74   </a></b>	{
+<b><a name="line75">75   </a></b>		old_internal_log_fn = fn;
+<b><a name="line76">76   </a></b>	}
+<b><a name="line77">77   </a></b>	
+<b><a name="line78">78   </a></b>	static int32_t
+<b><a name="line79">79   </a></b>	_cs_matches_filter_(struct qb_log_callsite *cs,
+<b><a name="line80">80   </a></b>			    enum qb_log_filter_type type,
+<b><a name="line81">81   </a></b>			    const char *text,
+<b><a name="line82">82   </a></b>			    uint8_t high_priority,
+<b><a name="line83">83   </a></b>			    uint8_t low_priority)
+<b><a name="line84">84   </a></b>	{
+<b><a name="line85">85   </a></b>		int32_t match = QB_FALSE;
+<b><a name="line86">86   </a></b>	
+<b><a name="line87">87   </a></b>		if (cs-&gt;priority &gt; low_priority ||
+<b><a name="line88">88   </a></b>		    cs-&gt;priority &lt; high_priority) {
+<b><a name="line89">89   </a></b>			return QB_FALSE;
+<b><a name="line90">90   </a></b>		}
+<b><a name="line91">91   </a></b>		if (strcmp(text, &quot;*&quot;) == 0) {
+<b><a name="line92">92   </a></b>			return QB_TRUE;
+<b><a name="line93">93   </a></b>		}
+<b><a name="line94">94   </a></b>		if (type == QB_LOG_FILTER_FILE ||
+<b><a name="line95">95   </a></b>		    type == QB_LOG_FILTER_FUNCTION) {
+<b><a name="line96">96   </a></b>			char token[500];
+<b><a name="line97">97   </a></b>			const char *offset = NULL;
+<b><a name="line98">98   </a></b>			const char *next = text;
+<b><a name="line99">99   </a></b>	
+<b><a name="line100">100  </a></b>			do {
+<b><a name="line101">101  </a></b>				offset = next;
+<b><a name="line102">102  </a></b>				next = strchrnul(offset, ',');
+<b><a name="line103">103  </a></b>				snprintf(token, 499, &quot;%.*s&quot;, (int)(next - offset), offset);
+<b><a name="line104">104  </a></b>	
+<b><a name="line105">105  </a></b>				if (type == QB_LOG_FILTER_FILE) {
+<b><a name="line106">106  </a></b>					match = (strstr(cs-&gt;filename, token) != NULL);
+<b><a name="line107">107  </a></b>				} else {
+<b><a name="line108">108  </a></b>					match = (strstr(cs-&gt;function, token) != NULL);
+<b><a name="line109">109  </a></b>				}
+<b><a name="line110">110  </a></b>				if (!match &amp;&amp; next[0] != 0) {
+<b><a name="line111">111  </a></b>					next++;
+<b><a name="line112">112  </a></b>				}
+<b><a name="line113">113  </a></b>	
+<b><a name="line114">114  </a></b>			} while (match == QB_FALSE &amp;&amp; next != NULL &amp;&amp; next[0] != 0);
+<b><a name="line115">115  </a></b>		} else if (type == QB_LOG_FILTER_FORMAT) {
+<b><a name="line116">116  </a></b>			if (strstr(cs-&gt;format, text)) {
+<b><a name="line117">117  </a></b>				match = QB_TRUE;
+<b><a name="line118">118  </a></b>			}
+<b><a name="line119">119  </a></b>		}
+<b><a name="line120">120  </a></b>		return match;
+<b><a name="line121">121  </a></b>	}
+<b><a name="line122">122  </a></b>	
+<b><a name="line123">123  </a></b>	void
+<b><a name="line124">124  </a></b>	qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
+<b><a name="line125">125  </a></b>	{
+<b><a name="line126">126  </a></b>		int32_t found_threaded;
+<b><a name="line127">127  </a></b>		struct qb_log_target *t;
+<b><a name="line128">128  </a></b>		struct timespec tv;
+<b><a name="line129">129  </a></b>		int32_t pos;
+<b><a name="line130">130  </a></b>		int len;
+<b><a name="line131">131  </a></b>		int32_t formatted = QB_FALSE;
+<b><a name="line132">132  </a></b>		char buf[QB_LOG_MAX_LEN];
+<b><a name="line133">133  </a></b>		char *str = buf;
+<b><a name="line134">134  </a></b>		va_list ap_copy;
+<b><a name="line135">135  </a></b>	
+<b><a name="line136">136  </a></b>		if (in_logger || cs == NULL) {
+<b><a name="line137">137  </a></b>			return;
+<b><a name="line138">138  </a></b>		}
+<b><a name="line139">139  </a></b>		in_logger = QB_TRUE;
+<b><a name="line140">140  </a></b>	
+<b><a name="line141">141  </a></b>		if (old_internal_log_fn) {
+<b><a name="line142">142  </a></b>			if (qb_bit_is_set(cs-&gt;tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
+<b><a name="line143">143  </a></b>				if (!formatted) {
+<b><a name="line144">144  </a></b>					va_copy(ap_copy, ap);
+<b><a name="line145">145  </a></b>					len = vsnprintf(str, QB_LOG_MAX_LEN, cs-&gt;format, ap_copy);
+<b><a name="line146">146  </a></b>					va_end(ap_copy);
+<b><a name="line147">147  </a></b>					if (str[len - 1] == '\n') str[len - 1] = '\0';
+<b><a name="line148">148  </a></b>					formatted = QB_TRUE;
+<b><a name="line149">149  </a></b>				}
+<b><a name="line150">150  </a></b>				old_internal_log_fn(cs-&gt;filename, cs-&gt;lineno,
+<b><a name="line151">151  </a></b>						    cs-&gt;priority, str);
+<b><a name="line152">152  </a></b>			}
+<b><a name="line153">153  </a></b>		}
+<b><a name="line154">154  </a></b>	
+<b><a name="line155">155  </a></b>		qb_util_timespec_from_epoch_get(&amp;tv);
+<b><a name="line156">156  </a></b>	
+<b><a name="line157">157  </a></b>		/*
+<b><a name="line158">158  </a></b>		 * 1 if we can find a threaded target that needs this log then post it
+<b><a name="line159">159  </a></b>		 * 2 foreach non-threaded target call it's logger function
+<b><a name="line160">160  </a></b>		 */
+<b><a name="line161">161  </a></b>		found_threaded = QB_FALSE;
+<b><a name="line162">162  </a></b>	
+<b><a name="line163">163  </a></b>		for (pos = 0; pos &lt;= conf_active_max; pos++) {
+<b><a name="line164">164  </a></b>			t = &amp;conf[pos];
+<b><a name="line165">165  </a></b>			if (t-&gt;state != QB_LOG_STATE_ENABLED) {
+<b><a name="line166">166  </a></b>				continue;
+<b><a name="line167">167  </a></b>			}
+<b><a name="line168">168  </a></b>			if (t-&gt;threaded) {
+<b><a name="line169">169  </a></b>				if (!found_threaded
+<b><a name="line170">170  </a></b>				    &amp;&amp; qb_bit_is_set(cs-&gt;targets, t-&gt;pos)) {
+<b><a name="line171">171  </a></b>					found_threaded = QB_TRUE;
+<b><a name="line172">172  </a></b>					if (!formatted) {
+<b><a name="line173">173  </a></b>						va_copy(ap_copy, ap);
+<b><a name="line174">174  </a></b>						len = vsnprintf(str, QB_LOG_MAX_LEN, cs-&gt;format, ap_copy);
+<b><a name="line175">175  </a></b>						va_end(ap_copy);
+<b><a name="line176">176  </a></b>						if (str[len - 1] == '\n') str[len - 1] = '\0';
+<b><a name="line177">177  </a></b>						formatted = QB_TRUE;
+<b><a name="line178">178  </a></b>					}
+<b><a name="line179">179  </a></b>				}
+<b><a name="line180">180  </a></b>			} else {
+<b><a name="line181">181  </a></b>				if (qb_bit_is_set(cs-&gt;targets, t-&gt;pos)) {
+<b><a name="line182">182  </a></b>					if (t-&gt;vlogger) {
+<b><a name="line183">183  </a></b>						va_copy(ap_copy, ap);
+<b><a name="line184">184  </a></b>						t-&gt;vlogger(t-&gt;pos, cs, tv.tv_sec, ap_copy);
+<b><a name="line185">185  </a></b>						va_end(ap_copy);
+<b><a name="line186">186  </a></b>					} else if (t-&gt;logger) {
+<b><a name="line187">187  </a></b>						if (!formatted) {
+<b><a name="line188">188  </a></b>							va_copy(ap_copy, ap);
+<b><a name="line189">189  </a></b>							len = vsnprintf(str, QB_LOG_MAX_LEN, cs-&gt;format, ap_copy);
+<b><a name="line190">190  </a></b>							va_end(ap_copy);
+<b><a name="line191">191  </a></b>							if (str[len - 1] == '\n') str[len - 1] = '\0';
+<b><a name="line192">192  </a></b>							formatted = QB_TRUE;
+<b><a name="line193">193  </a></b>						}
+<b><a name="line194">194  </a></b>						t-&gt;logger(t-&gt;pos, cs, tv.tv_sec, str);
+<b><a name="line195">195  </a></b>					}
+<b><a name="line196">196  </a></b>				}
+<b><a name="line197">197  </a></b>			}
+<b><a name="line198">198  </a></b>		}
+<b><a name="line199">199  </a></b>	
+<b><a name="line200">200  </a></b>		if (found_threaded) {
+<b><a name="line201">201  </a></b>			qb_log_thread_log_post(cs, tv.tv_sec, str);
+<b><a name="line202">202  </a></b>		}
+<b><a name="line203">203  </a></b>		in_logger = QB_FALSE;
+<b><a name="line204">204  </a></b>	}
+<b><a name="line205">205  </a></b>	
+<b><a name="line206">206  </a></b>	void
+<b><a name="line207">207  </a></b>	qb_log_real_(struct qb_log_callsite *cs, ...)
+<b><a name="line208">208  </a></b>	{
+<b><a name="line209">209  </a></b>		va_list ap;
+<b><a name="line210">210  </a></b>	
+<b><a name="line211">211  </a></b>		va_start(ap, cs);
+<b><a name="line212">212  </a></b>		qb_log_real_va_(cs, ap);
+<b><a name="line213">213  </a></b>		va_end(ap);
+<b><a name="line214">214  </a></b>	}
+<b><a name="line215">215  </a></b>	
+<b><a name="line216">216  </a></b>	void
+<b><a name="line217">217  </a></b>	qb_log_thread_log_write(struct qb_log_callsite *cs,
+<b><a name="line218">218  </a></b>				time_t timestamp, const char *buffer)
+<b><a name="line219">219  </a></b>	{
+<b><a name="line220">220  </a></b>		struct qb_log_target *t;
+<b><a name="line221">221  </a></b>		int32_t pos;
+<b><a name="line222">222  </a></b>	
+<b><a name="line223">223  </a></b>		for (pos = 0; pos &lt;= conf_active_max; pos++) {
+<b><a name="line224">224  </a></b>			t = &amp;conf[pos];
+<b><a name="line225">225  </a></b>			if (t-&gt;state != QB_LOG_STATE_ENABLED) {
+<b><a name="line226">226  </a></b>				continue;
+<b><a name="line227">227  </a></b>			}
+<b><a name="line228">228  </a></b>			if (!t-&gt;threaded) {
+<b><a name="line229">229  </a></b>				continue;
+<b><a name="line230">230  </a></b>			}
+<b><a name="line231">231  </a></b>			if (qb_bit_is_set(cs-&gt;targets, t-&gt;pos)) {
+<b><a name="line232">232  </a></b>				t-&gt;logger(t-&gt;pos, cs, timestamp, buffer);
+<b><a name="line233">233  </a></b>			}
+<b><a name="line234">234  </a></b>		}
+<b><a name="line235">235  </a></b>	}
+<b><a name="line236">236  </a></b>	
+<b><a name="line237">237  </a></b>	struct qb_log_callsite*
+<b><a name="line238">238  </a></b>	qb_log_callsite_get(const char *function,
+<b><a name="line239">239  </a></b>			    const char *filename,
+<b><a name="line240">240  </a></b>			    const char *format,
+<b><a name="line241">241  </a></b>			    uint8_t priority,
+<b><a name="line242">242  </a></b>			    uint32_t lineno,
+<b><a name="line243">243  </a></b>			    uint32_t tags)
+<b><a name="line244">244  </a></b>	{
+<b><a name="line245">245  </a></b>		struct qb_log_target *t;
+<b><a name="line246">246  </a></b>		struct qb_log_filter *flt;
+<b><a name="line247">247  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line248">248  </a></b>		int32_t new_dcs = QB_FALSE;
+<b><a name="line249">249  </a></b>		struct qb_list_head *f_item;
+<b><a name="line250">250  </a></b>		int32_t pos;
+<b><a name="line251">251  </a></b>	
+<b><a name="line252">252  </a></b>		if (!logger_inited) {
+<b><a name="line253">253  </a></b>			return NULL;
+<b><a name="line254">254  </a></b>		}
+<b><a name="line255">255  </a></b>	
+<b><a name="line256">256  </a></b>		cs = qb_log_dcs_get(&amp;new_dcs, function, filename,
+<b><a name="line257">257  </a></b>				    format, priority, lineno, tags);
+<b><a name="line258">258  </a></b>		if (cs == NULL) {
+<b><a name="line259">259  </a></b>			return NULL;
+<b><a name="line260">260  </a></b>		}
+<b><a name="line261">261  </a></b>	
+<b><a name="line262">262  </a></b>		if (new_dcs) {
+<b><a name="line263">263  </a></b>			pthread_rwlock_rdlock(&amp;_listlock);
+<b><a name="line264">264  </a></b>			for (pos = 0; pos &lt;= conf_active_max; pos++) {
+<b><a name="line265">265  </a></b>				t = &amp;conf[pos];
+<b><a name="line266">266  </a></b>				if (t-&gt;state != QB_LOG_STATE_ENABLED) {
+<b><a name="line267">267  </a></b>					continue;
+<b><a name="line268">268  </a></b>				}
+<b><a name="line269">269  </a></b>				qb_list_for_each(f_item, &amp;t-&gt;filter_head) {
+<b><a name="line270">270  </a></b>					flt = qb_list_entry(f_item, struct qb_log_filter, list);
+<b><a name="line271">271  </a></b>					_log_filter_apply_to_cs(cs, t-&gt;pos, flt-&gt;conf, flt-&gt;type,
+<b><a name="line272">272  </a></b>								flt-&gt;text, flt-&gt;high_priority,
+<b><a name="line273">273  </a></b>								flt-&gt;low_priority);
+<b><a name="line274">274  </a></b>				}
+<b><a name="line275">275  </a></b>			}
+<b><a name="line276">276  </a></b>			if (tags == 0) {
+<b><a name="line277">277  </a></b>				qb_list_for_each(f_item, &amp;tags_head) {
+<b><a name="line278">278  </a></b>					flt = qb_list_entry(f_item, struct qb_log_filter, list);
+<b><a name="line279">279  </a></b>					_log_filter_apply_to_cs(cs, flt-&gt;new_value, flt-&gt;conf, flt-&gt;type,
+<b><a name="line280">280  </a></b>								flt-&gt;text, flt-&gt;high_priority,
+<b><a name="line281">281  </a></b>								flt-&gt;low_priority);
+<b><a name="line282">282  </a></b>				}
+<b><a name="line283">283  </a></b>			} else {
+<b><a name="line284">284  </a></b>				cs-&gt;tags = tags;
+<b><a name="line285">285  </a></b>			}
+<b><a name="line286">286  </a></b>			if (_custom_filter_fn) {
+<b><a name="line287">287  </a></b>				_custom_filter_fn(cs);
+<b><a name="line288">288  </a></b>			}
+<b><a name="line289">289  </a></b>			pthread_rwlock_unlock(&amp;_listlock);
+<b><a name="line290">290  </a></b>		} else if (cs-&gt;tags != tags) {
+<b><a name="line291">291  </a></b>			cs-&gt;tags = tags;
+<b><a name="line292">292  </a></b>			if (_custom_filter_fn) {
+<b><a name="line293">293  </a></b>				_custom_filter_fn(cs);
+<b><a name="line294">294  </a></b>			}
+<b><a name="line295">295  </a></b>		}
+<b><a name="line296">296  </a></b>		return cs;
+<b><a name="line297">297  </a></b>	}
+<b><a name="line298">298  </a></b>	
+<b><a name="line299">299  </a></b>	void
+<b><a name="line300">300  </a></b>	qb_log_from_external_source_va(const char *function,
+<b><a name="line301">301  </a></b>				       const char *filename,
+<b><a name="line302">302  </a></b>				       const char *format,
+<b><a name="line303">303  </a></b>				       uint8_t priority,
+<b><a name="line304">304  </a></b>				       uint32_t lineno, uint32_t tags, va_list ap)
+<b><a name="line305">305  </a></b>	{
+<b><a name="line306">306  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line307">307  </a></b>	
+<b><a name="line308">308  </a></b>		if (!logger_inited) {
+<b><a name="line309">309  </a></b>			return;
+<b><a name="line310">310  </a></b>		}
+<b><a name="line311">311  </a></b>	
+<b><a name="line312">312  </a></b>		cs = qb_log_callsite_get(function, filename,
+<b><a name="line313">313  </a></b>					 format, priority, lineno, tags);
+<b><a name="line314">314  </a></b>		qb_log_real_va_(cs, ap);
+<b><a name="line315">315  </a></b>	}
+<b><a name="line316">316  </a></b>	
+<b><a name="line317">317  </a></b>	void
+<b><a name="line318">318  </a></b>	qb_log_from_external_source(const char *function,
+<b><a name="line319">319  </a></b>				    const char *filename,
+<b><a name="line320">320  </a></b>				    const char *format,
+<b><a name="line321">321  </a></b>				    uint8_t priority,
+<b><a name="line322">322  </a></b>				    uint32_t lineno, uint32_t tags, ...)
+<b><a name="line323">323  </a></b>	{
+<b><a name="line324">324  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line325">325  </a></b>		va_list ap;
+<b><a name="line326">326  </a></b>	
+<b><a name="line327">327  </a></b>		if (!logger_inited) {
+<b><a name="line328">328  </a></b>			return;
+<b><a name="line329">329  </a></b>		}
+<b><a name="line330">330  </a></b>	
+<b><a name="line331">331  </a></b>		cs = qb_log_callsite_get(function, filename,
+<b><a name="line332">332  </a></b>					 format, priority, lineno, tags);
+<b><a name="line333">333  </a></b>		va_start(ap, tags);
+<b><a name="line334">334  </a></b>		qb_log_real_va_(cs, ap);
+<b><a name="line335">335  </a></b>		va_end(ap);
+<b><a name="line336">336  </a></b>	}
+<b><a name="line337">337  </a></b>	
+<b><a name="line338">338  </a></b>	int32_t
+<b><a name="line339">339  </a></b>	qb_log_callsites_register(struct qb_log_callsite *_start,
+<b><a name="line340">340  </a></b>				  struct qb_log_callsite *_stop)
+<b><a name="line341">341  </a></b>	{
+<b><a name="line342">342  </a></b>		struct callsite_section *sect;
+<b><a name="line343">343  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line344">344  </a></b>		struct qb_log_target *t;
+<b><a name="line345">345  </a></b>		struct qb_log_filter *flt;
+<b><a name="line346">346  </a></b>		int32_t pos;
+<b><a name="line347">347  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:0"></a>
+<b>(1) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;_start == NULL&quot;, taking false branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:1"></a>
+<b>(2) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;_stop == NULL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line348">348  </a></b>		if (_start == NULL || _stop == NULL) {
+<b><a name="line349">349  </a></b>			return -EINVAL;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:2"></a>
+<b>(3) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line350">350  </a></b>		}
+<b><a name="line351">351  </a></b>	
+<b><a name="line352">352  </a></b>		pthread_rwlock_rdlock(&amp;_listlock);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:3"></a>
+<b>(4) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;&amp;sect-&gt;list != &amp;callsite_sections&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:8"></a>
+<b>(9) Event loop_begin</b>: </font></td>
+<td><font color="green">Jumped back to beginning of loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:9"></a>
+<b>(10) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;&amp;sect-&gt;list != &amp;callsite_sections&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line353">353  </a></b>		qb_list_for_each_entry(sect, &amp;callsite_sections, list) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:4"></a>
+<b>(5) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;sect-&gt;start == _start&quot;, taking false branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:5"></a>
+<b>(6) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;sect-&gt;stop == _stop&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line354">354  </a></b>			if (sect-&gt;start == _start || sect-&gt;stop == _stop) {
+<b><a name="line355">355  </a></b>				pthread_rwlock_unlock(&amp;_listlock);
+<b><a name="line356">356  </a></b>				return -EEXIST;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:6"></a>
+<b>(7) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line357">357  </a></b>			}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:7"></a>
+<b>(8) Event loop</b>: </font></td>
+<td><font color="green">Jumping back to the beginning of the loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:10"></a>
+<b>(11) Event loop_end</b>: </font></td>
+<td><font color="green">Reached end of loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line358">358  </a></b>		}
+<b><a name="line359">359  </a></b>		pthread_rwlock_unlock(&amp;_listlock);
+<b><a name="line360">360  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:11"></a>
+<b>(12) Event alloc_fn</b>: </font></td>
+<td><font color="red">Storage is returned from allocation function &quot;calloc(size_t, size_t)&quot;.</font></td>
+</tr>
+<tr><td><font color="red">
+<a name="error:12"></a>
+<b>(13) Event var_assign</b>: </font></td>
+<td><font color="red">Assigning: &quot;sect&quot; = storage returned from &quot;calloc(1UL, 32UL)&quot;.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:27">noescape</a>][<a href="#error:37">noescape</a>][<a href="#error:49">leaked_storage</a>]</font></td></tr>
+</table>
+<pre><b><a name="line361">361  </a></b>		sect = calloc(1, sizeof(struct callsite_section));
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:13"></a>
+<b>(14) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;sect == NULL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line362">362  </a></b>		if (sect == NULL) {
+<b><a name="line363">363  </a></b>			return -ENOMEM;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:14"></a>
+<b>(15) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line364">364  </a></b>		}
+<b><a name="line365">365  </a></b>		sect-&gt;start = _start;
+<b><a name="line366">366  </a></b>		sect-&gt;stop = _stop;
+<b><a name="line367">367  </a></b>		qb_list_init(&amp;sect-&gt;list);
+<b><a name="line368">368  </a></b>	
+<b><a name="line369">369  </a></b>		pthread_rwlock_wrlock(&amp;_listlock);
+<b><a name="line370">370  </a></b>		qb_list_add(&amp;sect-&gt;list, &amp;callsite_sections);
+<b><a name="line371">371  </a></b>	
+<b><a name="line372">372  </a></b>		/*
+<b><a name="line373">373  </a></b>		 * Now apply the filters on these new callsites
+<b><a name="line374">374  </a></b>		 */
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:15"></a>
+<b>(16) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;pos &lt;= conf_active_max&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:19"></a>
+<b>(20) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;pos &lt;= conf_active_max&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:23"></a>
+<b>(24) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;pos &lt;= conf_active_max&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:33"></a>
+<b>(34) Event loop_begin</b>: </font></td>
+<td><font color="green">Jumped back to beginning of loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:34"></a>
+<b>(35) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;pos &lt;= conf_active_max&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line375">375  </a></b>		for (pos = 0; pos &lt;= conf_active_max; pos++) {
+<b><a name="line376">376  </a></b>			t = &amp;conf[pos];
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:16"></a>
+<b>(17) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;t-&gt;state != 3U&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:20"></a>
+<b>(21) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;t-&gt;state != 3U&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:24"></a>
+<b>(25) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;t-&gt;state != 3U&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line377">377  </a></b>			if (t-&gt;state != QB_LOG_STATE_ENABLED) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:17"></a>
+<b>(18) Event continue</b>: </font></td>
+<td><font color="green">Continuing loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:21"></a>
+<b>(22) Event continue</b>: </font></td>
+<td><font color="green">Continuing loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line378">378  </a></b>				continue;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:25"></a>
+<b>(26) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line379">379  </a></b>			}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:26"></a>
+<b>(27) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;&amp;flt-&gt;list != &amp;t-&gt;filter_head&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:29"></a>
+<b>(30) Event loop_begin</b>: </font></td>
+<td><font color="green">Jumped back to beginning of loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:30"></a>
+<b>(31) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;&amp;flt-&gt;list != &amp;t-&gt;filter_head&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line380">380  </a></b>			qb_list_for_each_entry(flt, &amp;t-&gt;filter_head, list) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:27"></a>
+<b>(28) Event noescape</b>: </font></td>
+<td><font color="red">Resource &quot;sect&quot; is not freed or pointed-to in function &quot;_log_filter_apply(struct callsite_section *, uint32_t, enum qb_log_filter_conf, enum qb_log_filter_type, char const *, uint8_t, uint8_t)&quot;. [<a href="#model:_log_filter_apply:generic:1">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:11">alloc_fn</a>][<a href="#error:12">var_assign</a>][<a href="#error:37">noescape</a>][<a href="#error:49">leaked_storage</a>]</font></td></tr>
+</table>
+<pre><b><a name="line381">381  </a></b>				_log_filter_apply(sect, t-&gt;pos, flt-&gt;conf,
+<b><a name="line382">382  </a></b>						  flt-&gt;type, flt-&gt;text,
+<b><a name="line383">383  </a></b>						  flt-&gt;high_priority, flt-&gt;low_priority);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:28"></a>
+<b>(29) Event loop</b>: </font></td>
+<td><font color="green">Jumping back to the beginning of the loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:31"></a>
+<b>(32) Event loop_end</b>: </font></td>
+<td><font color="green">Reached end of loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line384">384  </a></b>			}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:18"></a>
+<b>(19) Event loop</b>: </font></td>
+<td><font color="green">Looping back</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:22"></a>
+<b>(23) Event loop</b>: </font></td>
+<td><font color="green">Looping back</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:32"></a>
+<b>(33) Event loop</b>: </font></td>
+<td><font color="green">Jumping back to the beginning of the loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:35"></a>
+<b>(36) Event loop_end</b>: </font></td>
+<td><font color="green">Reached end of loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line385">385  </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:36"></a>
+<b>(37) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;&amp;flt-&gt;list != &amp;tags_head&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:39"></a>
+<b>(40) Event loop_begin</b>: </font></td>
+<td><font color="green">Jumped back to beginning of loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:40"></a>
+<b>(41) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;&amp;flt-&gt;list != &amp;tags_head&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line386">386  </a></b>		qb_list_for_each_entry(flt, &amp;tags_head, list) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:37"></a>
+<b>(38) Event noescape</b>: </font></td>
+<td><font color="red">Resource &quot;sect&quot; is not freed or pointed-to in function &quot;_log_filter_apply(struct callsite_section *, uint32_t, enum qb_log_filter_conf, enum qb_log_filter_type, char const *, uint8_t, uint8_t)&quot;. [<a href="#model:_log_filter_apply:generic:1">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:11">alloc_fn</a>][<a href="#error:12">var_assign</a>][<a href="#error:27">noescape</a>][<a href="#error:49">leaked_storage</a>]</font></td></tr>
+</table>
+<pre><b><a name="line387">387  </a></b>			_log_filter_apply(sect, flt-&gt;new_value, flt-&gt;conf,
+<b><a name="line388">388  </a></b>					  flt-&gt;type, flt-&gt;text,
+<b><a name="line389">389  </a></b>					  flt-&gt;high_priority, flt-&gt;low_priority);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:38"></a>
+<b>(39) Event loop</b>: </font></td>
+<td><font color="green">Jumping back to the beginning of the loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:41"></a>
+<b>(42) Event loop_end</b>: </font></td>
+<td><font color="green">Reached end of loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line390">390  </a></b>		}
+<b><a name="line391">391  </a></b>		pthread_rwlock_unlock(&amp;_listlock);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:42"></a>
+<b>(43) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;_custom_filter_fn&quot;, taking true branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line392">392  </a></b>		if (_custom_filter_fn) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:43"></a>
+<b>(44) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;cs &lt; sect-&gt;stop&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:46"></a>
+<b>(47) Event loop_begin</b>: </font></td>
+<td><font color="green">Jumped back to beginning of loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:47"></a>
+<b>(48) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;cs &lt; sect-&gt;stop&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line393">393  </a></b>			for (cs = sect-&gt;start; cs &lt; sect-&gt;stop; cs++) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:44"></a>
+<b>(45) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;cs-&gt;lineno &gt; 0U&quot;, taking true branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line394">394  </a></b>				if (cs-&gt;lineno &gt; 0) {
+<b><a name="line395">395  </a></b>					_custom_filter_fn(cs);
+<b><a name="line396">396  </a></b>				}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:45"></a>
+<b>(46) Event loop</b>: </font></td>
+<td><font color="green">Jumping back to the beginning of the loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:48"></a>
+<b>(49) Event loop_end</b>: </font></td>
+<td><font color="green">Reached end of loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line397">397  </a></b>			}
+<b><a name="line398">398  </a></b>		}
+<b><a name="line399">399  </a></b>		/* qb_log_callsites_dump_sect(sect); */
+<b><a name="line400">400  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:49"></a>
+<a name="error"></a>
+<b>(50) Event leaked_storage</b>: </font></td>
+<td><font color="red">Variable &quot;sect&quot; going out of scope leaks the storage it points to.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:11">alloc_fn</a>][<a href="#error:12">var_assign</a>][<a href="#error:27">noescape</a>][<a href="#error:37">noescape</a>]</font></td></tr>
+</table>
+<pre><b><a name="line401">401  </a></b>		return 0;
+<b><a name="line402">402  </a></b>	}
+<b><a name="line403">403  </a></b>	
+<b><a name="line404">404  </a></b>	static void
+<b><a name="line405">405  </a></b>	qb_log_callsites_dump_sect(struct callsite_section *sect)
+<b><a name="line406">406  </a></b>	{
+<b><a name="line407">407  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line408">408  </a></b>	
+<b><a name="line409">409  </a></b>		printf(&quot; start %p - stop %p\n&quot;, sect-&gt;start, sect-&gt;stop);
+<b><a name="line410">410  </a></b>		printf(&quot;filename    lineno targets         tags\n&quot;);
+<b><a name="line411">411  </a></b>		for (cs = sect-&gt;start; cs &lt; sect-&gt;stop; cs++) {
+<b><a name="line412">412  </a></b>			if (cs-&gt;lineno &gt; 0) {
+<b><a name="line413">413  </a></b>				printf(&quot;%12s %6d %16d %16d\n&quot;, cs-&gt;filename, cs-&gt;lineno,
+<b><a name="line414">414  </a></b>				       cs-&gt;targets, cs-&gt;tags);
+<b><a name="line415">415  </a></b>			}
+<b><a name="line416">416  </a></b>		}
+<b><a name="line417">417  </a></b>	}
+<b><a name="line418">418  </a></b>	
+<b><a name="line419">419  </a></b>	void
+<b><a name="line420">420  </a></b>	qb_log_callsites_dump(void)
+<b><a name="line421">421  </a></b>	{
+<b><a name="line422">422  </a></b>		struct callsite_section *sect;
+<b><a name="line423">423  </a></b>		int32_t l;
+<b><a name="line424">424  </a></b>	
+<b><a name="line425">425  </a></b>		pthread_rwlock_rdlock(&amp;_listlock);
+<b><a name="line426">426  </a></b>		l = qb_list_length(&amp;callsite_sections);
+<b><a name="line427">427  </a></b>		printf(&quot;Callsite Database [%d]\n&quot;, l);
+<b><a name="line428">428  </a></b>		printf(&quot;---------------------\n&quot;);
+<b><a name="line429">429  </a></b>		qb_list_for_each_entry(sect, &amp;callsite_sections, list) {
+<b><a name="line430">430  </a></b>			qb_log_callsites_dump_sect(sect);
+<b><a name="line431">431  </a></b>		}
+<b><a name="line432">432  </a></b>		pthread_rwlock_unlock(&amp;_listlock);
+<b><a name="line433">433  </a></b>	}
+<b><a name="line434">434  </a></b>	
+<b><a name="line435">435  </a></b>	static int32_t
+<b><a name="line436">436  </a></b>	_log_filter_exists(struct qb_list_head *list_head,
+<b><a name="line437">437  </a></b>			   enum qb_log_filter_type type,
+<b><a name="line438">438  </a></b>			   const char *text,
+<b><a name="line439">439  </a></b>			   uint8_t high_priority,
+<b><a name="line440">440  </a></b>			   uint8_t low_priority,
+<b><a name="line441">441  </a></b>			   uint32_t new_value)
+<b><a name="line442">442  </a></b>	{
+<b><a name="line443">443  </a></b>		struct qb_log_filter *flt;
+<b><a name="line444">444  </a></b>	
+<b><a name="line445">445  </a></b>		qb_list_for_each_entry(flt, list_head, list) {
+<b><a name="line446">446  </a></b>			if (flt-&gt;type == type &amp;&amp;
+<b><a name="line447">447  </a></b>			    flt-&gt;high_priority == high_priority &amp;&amp;
+<b><a name="line448">448  </a></b>			    flt-&gt;low_priority == low_priority &amp;&amp;
+<b><a name="line449">449  </a></b>			    flt-&gt;new_value == new_value &amp;&amp;
+<b><a name="line450">450  </a></b>			    strcmp(flt-&gt;text, text) == 0) {
+<b><a name="line451">451  </a></b>				return QB_TRUE;
+<b><a name="line452">452  </a></b>			}
+<b><a name="line453">453  </a></b>		}
+<b><a name="line454">454  </a></b>		return QB_FALSE;
+<b><a name="line455">455  </a></b>	}
+<b><a name="line456">456  </a></b>	
+<b><a name="line457">457  </a></b>	static int32_t
+<b><a name="line458">458  </a></b>	_log_filter_store(uint32_t t, enum qb_log_filter_conf c,
+<b><a name="line459">459  </a></b>			  enum qb_log_filter_type type,
+<b><a name="line460">460  </a></b>			  const char *text,
+<b><a name="line461">461  </a></b>			  uint8_t high_priority,
+<b><a name="line462">462  </a></b>			  uint8_t low_priority)
+<b><a name="line463">463  </a></b>	{
+<b><a name="line464">464  </a></b>		struct qb_log_filter *flt;
+<b><a name="line465">465  </a></b>		struct qb_list_head *iter;
+<b><a name="line466">466  </a></b>		struct qb_list_head *next;
+<b><a name="line467">467  </a></b>		struct qb_list_head *list_head;
+<b><a name="line468">468  </a></b>	
+<b><a name="line469">469  </a></b>		switch (c) {
+<b><a name="line470">470  </a></b>		case QB_LOG_FILTER_ADD:
+<b><a name="line471">471  </a></b>		case QB_LOG_FILTER_REMOVE:
+<b><a name="line472">472  </a></b>		case QB_LOG_FILTER_CLEAR_ALL:
+<b><a name="line473">473  </a></b>			list_head = &amp;conf[t].filter_head;
+<b><a name="line474">474  </a></b>			break;
+<b><a name="line475">475  </a></b>	
+<b><a name="line476">476  </a></b>		case QB_LOG_TAG_SET:
+<b><a name="line477">477  </a></b>		case QB_LOG_TAG_CLEAR:
+<b><a name="line478">478  </a></b>		case QB_LOG_TAG_CLEAR_ALL:
+<b><a name="line479">479  </a></b>			list_head = &amp;tags_head;
+<b><a name="line480">480  </a></b>			break;
+<b><a name="line481">481  </a></b>		default:
+<b><a name="line482">482  </a></b>			return -ENOSYS;
+<b><a name="line483">483  </a></b>		}
+<b><a name="line484">484  </a></b>	
+<b><a name="line485">485  </a></b>		if (c == QB_LOG_FILTER_ADD || c == QB_LOG_TAG_SET) {
+<b><a name="line486">486  </a></b>			if (text == NULL) {
+<b><a name="line487">487  </a></b>				return -EINVAL;
+<b><a name="line488">488  </a></b>			}
+<b><a name="line489">489  </a></b>			if (_log_filter_exists(list_head, type, text,
+<b><a name="line490">490  </a></b>					       high_priority, low_priority, t)) {
+<b><a name="line491">491  </a></b>				return -EEXIST;
+<b><a name="line492">492  </a></b>			}
+<b><a name="line493">493  </a></b>			flt = calloc(1, sizeof(struct qb_log_filter));
+<b><a name="line494">494  </a></b>			if (flt == NULL) {
+<b><a name="line495">495  </a></b>				return -ENOMEM;
+<b><a name="line496">496  </a></b>			}
+<b><a name="line497">497  </a></b>			qb_list_init(&amp;flt-&gt;list);
+<b><a name="line498">498  </a></b>			flt-&gt;conf = c;
+<b><a name="line499">499  </a></b>			flt-&gt;type = type;
+<b><a name="line500">500  </a></b>			flt-&gt;text = strdup(text);
+<b><a name="line501">501  </a></b>			if (flt-&gt;text == NULL) {
+<b><a name="line502">502  </a></b>				free(flt);
+<b><a name="line503">503  </a></b>				return -ENOMEM;
+<b><a name="line504">504  </a></b>			}
+<b><a name="line505">505  </a></b>			flt-&gt;high_priority = high_priority;
+<b><a name="line506">506  </a></b>			flt-&gt;low_priority = low_priority;
+<b><a name="line507">507  </a></b>			flt-&gt;new_value = t;
+<b><a name="line508">508  </a></b>			qb_list_add_tail(&amp;flt-&gt;list, list_head);
+<b><a name="line509">509  </a></b>		} else if (c == QB_LOG_FILTER_REMOVE || c == QB_LOG_TAG_CLEAR) {
+<b><a name="line510">510  </a></b>			qb_list_for_each_safe(iter, next, list_head) {
+<b><a name="line511">511  </a></b>				flt = qb_list_entry(iter, struct qb_log_filter, list);
+<b><a name="line512">512  </a></b>				if (flt-&gt;type == type &amp;&amp;
+<b><a name="line513">513  </a></b>				    flt-&gt;low_priority &lt;= low_priority &amp;&amp;
+<b><a name="line514">514  </a></b>				    flt-&gt;high_priority &gt;= high_priority &amp;&amp;
+<b><a name="line515">515  </a></b>				    (strcmp(flt-&gt;text, text) == 0 ||
+<b><a name="line516">516  </a></b>				     strcmp(&quot;*&quot;, text) == 0)) {
+<b><a name="line517">517  </a></b>					qb_list_del(iter);
+<b><a name="line518">518  </a></b>					free(flt-&gt;text);
+<b><a name="line519">519  </a></b>					free(flt);
+<b><a name="line520">520  </a></b>					return 0;
+<b><a name="line521">521  </a></b>				}
+<b><a name="line522">522  </a></b>			}
+<b><a name="line523">523  </a></b>	
+<b><a name="line524">524  </a></b>		} else if (c == QB_LOG_FILTER_CLEAR_ALL || c == QB_LOG_TAG_CLEAR_ALL) {
+<b><a name="line525">525  </a></b>			qb_list_for_each_safe(iter, next, list_head) {
+<b><a name="line526">526  </a></b>				flt = qb_list_entry(iter, struct qb_log_filter, list);
+<b><a name="line527">527  </a></b>				qb_list_del(iter);
+<b><a name="line528">528  </a></b>				free(flt-&gt;text);
+<b><a name="line529">529  </a></b>				free(flt);
+<b><a name="line530">530  </a></b>			}
+<b><a name="line531">531  </a></b>		}
+<b><a name="line532">532  </a></b>		return 0;
+<b><a name="line533">533  </a></b>	}
+<b><a name="line534">534  </a></b>	
+<b><a name="line535">535  </a></b>	static void
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:_log_filter_apply:generic:1:0"></a>
+<a name="model:_log_filter_apply:generic:1"></a>
+<b>(1) Event noescape</b>: </font></td>
+<td><font color="red">&quot;_log_filter_apply(struct callsite_section *, uint32_t, enum qb_log_filter_conf, enum qb_log_filter_type, char const *, uint8_t, uint8_t)&quot; does not free or save its pointer parameter &quot;sect&quot;.</font></td>
+</tr>
+<tr><td><font color="red">
+<a name="model:_log_filter_apply:generic:1:0"></a>
+<a name="model:_log_filter_apply:generic:1"></a>
+<b>(1) Event noescape</b>: </font></td>
+<td><font color="red">&quot;_log_filter_apply(struct callsite_section *, uint32_t, enum qb_log_filter_conf, enum qb_log_filter_type, char const *, uint8_t, uint8_t)&quot; does not free or save its pointer parameter &quot;sect&quot;.</font></td>
+</tr>
+</table>
+<pre><b><a name="line536">536  </a></b>	_log_filter_apply(struct callsite_section *sect,
+<b><a name="line537">537  </a></b>			  uint32_t t, enum qb_log_filter_conf c,
+<b><a name="line538">538  </a></b>			  enum qb_log_filter_type type,
+<b><a name="line539">539  </a></b>			  const char *text,
+<b><a name="line540">540  </a></b>			  uint8_t high_priority, uint8_t low_priority)
+<b><a name="line541">541  </a></b>	{
+<b><a name="line542">542  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line543">543  </a></b>	
+<b><a name="line544">544  </a></b>		for (cs = sect-&gt;start; cs &lt; sect-&gt;stop; cs++) {
+<b><a name="line545">545  </a></b>			if (cs-&gt;lineno &gt; 0) {
+<b><a name="line546">546  </a></b>				_log_filter_apply_to_cs(cs, t, c, type, text,
+<b><a name="line547">547  </a></b>						    high_priority, low_priority);
+<b><a name="line548">548  </a></b>			}
+<b><a name="line549">549  </a></b>		}
+<b><a name="line550">550  </a></b>	}
+<b><a name="line551">551  </a></b>	
+<b><a name="line552">552  </a></b>	/* #define _QB_FILTER_DEBUGGING_ 1 */
+<b><a name="line553">553  </a></b>	static void
+<b><a name="line554">554  </a></b>	_log_filter_apply_to_cs(struct qb_log_callsite *cs,
+<b><a name="line555">555  </a></b>				uint32_t t, enum qb_log_filter_conf c,
+<b><a name="line556">556  </a></b>				enum qb_log_filter_type type,
+<b><a name="line557">557  </a></b>				const char *text,
+<b><a name="line558">558  </a></b>				uint8_t high_priority, uint8_t low_priority)
+<b><a name="line559">559  </a></b>	{
+<b><a name="line560">560  </a></b>	
+<b><a name="line561">561  </a></b>		if (c == QB_LOG_FILTER_CLEAR_ALL) {
+<b><a name="line562">562  </a></b>			qb_bit_clear(cs-&gt;targets, t);
+<b><a name="line563">563  </a></b>			return;
+<b><a name="line564">564  </a></b>		} else if (c == QB_LOG_TAG_CLEAR_ALL) {
+<b><a name="line565">565  </a></b>			cs-&gt;tags = 0;
+<b><a name="line566">566  </a></b>			return;
+<b><a name="line567">567  </a></b>		}
+<b><a name="line568">568  </a></b>	
+<b><a name="line569">569  </a></b>		if (_cs_matches_filter_(cs, type, text, high_priority, low_priority)) {
+<b><a name="line570">570  </a></b>	#ifdef _QB_FILTER_DEBUGGING_
+<b><a name="line571">571  </a></b>			uint32_t old_targets = cs-&gt;targets;
+<b><a name="line572">572  </a></b>			uint32_t old_tags = cs-&gt;tags;
+<b><a name="line573">573  </a></b>	#endif /* _QB_FILTER_DEBUGGING_ */
+<b><a name="line574">574  </a></b>			if (c == QB_LOG_FILTER_ADD) {
+<b><a name="line575">575  </a></b>				qb_bit_set(cs-&gt;targets, t);
+<b><a name="line576">576  </a></b>			} else if (c == QB_LOG_FILTER_REMOVE) {
+<b><a name="line577">577  </a></b>				qb_bit_clear(cs-&gt;targets, t);
+<b><a name="line578">578  </a></b>			} else if (c == QB_LOG_TAG_SET) {
+<b><a name="line579">579  </a></b>				cs-&gt;tags = t;
+<b><a name="line580">580  </a></b>			} else if (c == QB_LOG_TAG_CLEAR) {
+<b><a name="line581">581  </a></b>				cs-&gt;tags = 0;
+<b><a name="line582">582  </a></b>			}
+<b><a name="line583">583  </a></b>	#ifdef _QB_FILTER_DEBUGGING_
+<b><a name="line584">584  </a></b>			if (old_targets != cs-&gt;targets) {
+<b><a name="line585">585  </a></b>				printf(&quot;targets: %s:%u value(%d) %d -&gt; %d\n&quot;,
+<b><a name="line586">586  </a></b>				       cs-&gt;filename, cs-&gt;lineno, t,
+<b><a name="line587">587  </a></b>				       old_targets, cs-&gt;targets);
+<b><a name="line588">588  </a></b>			}
+<b><a name="line589">589  </a></b>			if (old_tags != cs-&gt;tags) {
+<b><a name="line590">590  </a></b>				printf(&quot;tags: %s:%u value(%d) %d -&gt; %d\n&quot;,
+<b><a name="line591">591  </a></b>				       cs-&gt;filename, cs-&gt;lineno, t, old_tags, cs-&gt;tags);
+<b><a name="line592">592  </a></b>			}
+<b><a name="line593">593  </a></b>	#endif /* _QB_FILTER_DEBUGGING_ */
+<b><a name="line594">594  </a></b>		}
+<b><a name="line595">595  </a></b>	}
+<b><a name="line596">596  </a></b>	
+<b><a name="line597">597  </a></b>	int32_t
+<b><a name="line598">598  </a></b>	qb_log_filter_ctl2(int32_t t, enum qb_log_filter_conf c,
+<b><a name="line599">599  </a></b>			   enum qb_log_filter_type type, const char * text,
+<b><a name="line600">600  </a></b>			   uint8_t high_priority, uint8_t low_priority)
+<b><a name="line601">601  </a></b>	{
+<b><a name="line602">602  </a></b>		struct callsite_section *sect;
+<b><a name="line603">603  </a></b>		int32_t rc;
+<b><a name="line604">604  </a></b>	
+<b><a name="line605">605  </a></b>		if (!logger_inited) {
+<b><a name="line606">606  </a></b>			return -EINVAL;
+<b><a name="line607">607  </a></b>		}
+<b><a name="line608">608  </a></b>	
+<b><a name="line609">609  </a></b>		if (c == QB_LOG_FILTER_ADD ||
+<b><a name="line610">610  </a></b>		    c == QB_LOG_FILTER_CLEAR_ALL ||
+<b><a name="line611">611  </a></b>		    c == QB_LOG_FILTER_REMOVE) {
+<b><a name="line612">612  </a></b>			if (t &lt; 0 || t &gt;= QB_LOG_TARGET_MAX ||
+<b><a name="line613">613  </a></b>			    conf[t].state == QB_LOG_STATE_UNUSED) {
+<b><a name="line614">614  </a></b>				return -EBADF;
+<b><a name="line615">615  </a></b>			}
+<b><a name="line616">616  </a></b>		}
+<b><a name="line617">617  </a></b>	
+<b><a name="line618">618  </a></b>		if (text == NULL ||
+<b><a name="line619">619  </a></b>		    low_priority &lt; high_priority ||
+<b><a name="line620">620  </a></b>		    type &gt; QB_LOG_FILTER_FORMAT ||
+<b><a name="line621">621  </a></b>		    c &gt; QB_LOG_TAG_CLEAR_ALL) {
+<b><a name="line622">622  </a></b>			return -EINVAL;
+<b><a name="line623">623  </a></b>		}
+<b><a name="line624">624  </a></b>		pthread_rwlock_rdlock(&amp;_listlock);
+<b><a name="line625">625  </a></b>		rc = _log_filter_store(t, c, type, text, high_priority, low_priority);
+<b><a name="line626">626  </a></b>		if (rc &lt; 0) {
+<b><a name="line627">627  </a></b>			pthread_rwlock_unlock(&amp;_listlock);
+<b><a name="line628">628  </a></b>			return rc;
+<b><a name="line629">629  </a></b>		}
+<b><a name="line630">630  </a></b>	
+<b><a name="line631">631  </a></b>		qb_list_for_each_entry(sect, &amp;callsite_sections, list) {
+<b><a name="line632">632  </a></b>			_log_filter_apply(sect, t, c, type, text, high_priority, low_priority);
+<b><a name="line633">633  </a></b>		}
+<b><a name="line634">634  </a></b>		pthread_rwlock_unlock(&amp;_listlock);
+<b><a name="line635">635  </a></b>		return 0;
+<b><a name="line636">636  </a></b>	}
+<b><a name="line637">637  </a></b>	
+<b><a name="line638">638  </a></b>	int32_t
+<b><a name="line639">639  </a></b>	qb_log_filter_fn_set(qb_log_filter_fn fn)
+<b><a name="line640">640  </a></b>	{
+<b><a name="line641">641  </a></b>		struct callsite_section *sect;
+<b><a name="line642">642  </a></b>		struct qb_log_callsite *cs;
+<b><a name="line643">643  </a></b>	
+<b><a name="line644">644  </a></b>		if (!logger_inited) {
+<b><a name="line645">645  </a></b>			return -EINVAL;
+<b><a name="line646">646  </a></b>		}
+<b><a name="line647">647  </a></b>		_custom_filter_fn = fn;
+<b><a name="line648">648  </a></b>		if (_custom_filter_fn == NULL) {
+<b><a name="line649">649  </a></b>			return 0;
+<b><a name="line650">650  </a></b>		}
+<b><a name="line651">651  </a></b>	
+<b><a name="line652">652  </a></b>		qb_list_for_each_entry(sect, &amp;callsite_sections, list) {
+<b><a name="line653">653  </a></b>			for (cs = sect-&gt;start; cs &lt; sect-&gt;stop; cs++) {
+<b><a name="line654">654  </a></b>				if (cs-&gt;lineno &gt; 0) {
+<b><a name="line655">655  </a></b>					_custom_filter_fn(cs);
+<b><a name="line656">656  </a></b>				}
+<b><a name="line657">657  </a></b>			}
+<b><a name="line658">658  </a></b>		}
+<b><a name="line659">659  </a></b>		return 0;
+<b><a name="line660">660  </a></b>	}
+<b><a name="line661">661  </a></b>	
+<b><a name="line662">662  </a></b>	int32_t
+<b><a name="line663">663  </a></b>	qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
+<b><a name="line664">664  </a></b>			  enum qb_log_filter_type type,
+<b><a name="line665">665  </a></b>			  const char *text, uint8_t priority)
+<b><a name="line666">666  </a></b>	{
+<b><a name="line667">667  </a></b>		return qb_log_filter_ctl2(t, c, type, text, LOG_EMERG, priority);
+<b><a name="line668">668  </a></b>	}
+<b><a name="line669">669  </a></b>	
+<b><a name="line670">670  </a></b>	#ifdef QB_HAVE_ATTRIBUTE_SECTION
+<b><a name="line671">671  </a></b>	static int32_t
+<b><a name="line672">672  </a></b>	_log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
+<b><a name="line673">673  </a></b>	{
+<b><a name="line674">674  </a></b>		if (strlen(info-&gt;dlpi_name) &gt; 0) {
+<b><a name="line675">675  </a></b>			void *handle;
+<b><a name="line676">676  </a></b>			void *start;
+<b><a name="line677">677  </a></b>			void *stop;
+<b><a name="line678">678  </a></b>			const char *error;
+<b><a name="line679">679  </a></b>	
+<b><a name="line680">680  </a></b>			handle = dlopen(info-&gt;dlpi_name, RTLD_LAZY);
+<b><a name="line681">681  </a></b>			error = dlerror();
+<b><a name="line682">682  </a></b>			if (!handle || error) {
+<b><a name="line683">683  </a></b>				qb_log(LOG_ERR, &quot;%s&quot;, error);
+<b><a name="line684">684  </a></b>				if (handle) {
+<b><a name="line685">685  </a></b>					dlclose(handle);
+<b><a name="line686">686  </a></b>				}
+<b><a name="line687">687  </a></b>				return 0;
+<b><a name="line688">688  </a></b>			}
+<b><a name="line689">689  </a></b>	
+<b><a name="line690">690  </a></b>			start = dlsym(handle, &quot;__start___verbose&quot;);
+<b><a name="line691">691  </a></b>			error = dlerror();
+<b><a name="line692">692  </a></b>			if (error) {
+<b><a name="line693">693  </a></b>				goto done;
+<b><a name="line694">694  </a></b>			}
+<b><a name="line695">695  </a></b>	
+<b><a name="line696">696  </a></b>			stop = dlsym(handle, &quot;__stop___verbose&quot;);
+<b><a name="line697">697  </a></b>			error = dlerror();
+<b><a name="line698">698  </a></b>			if (error) {
+<b><a name="line699">699  </a></b>				goto done;
+<b><a name="line700">700  </a></b>	
+<b><a name="line701">701  </a></b>			} else {
+<b><a name="line702">702  </a></b>				qb_log_callsites_register(start, stop);
+<b><a name="line703">703  </a></b>			}
+<b><a name="line704">704  </a></b>	done:
+<b><a name="line705">705  </a></b>			dlclose(handle);
+<b><a name="line706">706  </a></b>		}
+<b><a name="line707">707  </a></b>		return 0;
+<b><a name="line708">708  </a></b>	}
+<b><a name="line709">709  </a></b>	#endif /* QB_HAVE_ATTRIBUTE_SECTION */
+<b><a name="line710">710  </a></b>	
+<b><a name="line711">711  </a></b>	static void
+<b><a name="line712">712  </a></b>	_log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
+<b><a name="line713">713  </a></b>	{
+<b><a name="line714">714  </a></b>		int32_t i;
+<b><a name="line715">715  </a></b>		int32_t a_set = QB_FALSE;
+<b><a name="line716">716  </a></b>		int32_t u_set = QB_FALSE;
+<b><a name="line717">717  </a></b>	
+<b><a name="line718">718  </a></b>		t-&gt;state = s;
+<b><a name="line719">719  </a></b>	
+<b><a name="line720">720  </a></b>		for (i = 31; i &gt;= 0; i--) {
+<b><a name="line721">721  </a></b>			if (!a_set &amp;&amp; conf[i].state == QB_LOG_STATE_ENABLED) {
+<b><a name="line722">722  </a></b>				a_set = QB_TRUE;
+<b><a name="line723">723  </a></b>				conf_active_max = i;
+<b><a name="line724">724  </a></b>			}
+<b><a name="line725">725  </a></b>			if (!u_set &amp;&amp; conf[i].state != QB_LOG_STATE_UNUSED) {
+<b><a name="line726">726  </a></b>				u_set = QB_TRUE;
+<b><a name="line727">727  </a></b>			}
+<b><a name="line728">728  </a></b>		}
+<b><a name="line729">729  </a></b>	}
+<b><a name="line730">730  </a></b>	
+<b><a name="line731">731  </a></b>	void
+<b><a name="line732">732  </a></b>	qb_log_init(const char *name, int32_t facility, uint8_t priority)
+<b><a name="line733">733  </a></b>	{
+<b><a name="line734">734  </a></b>		int32_t i;
+<b><a name="line735">735  </a></b>	
+<b><a name="line736">736  </a></b>		i = pthread_rwlock_init(&amp;_listlock, NULL);
+<b><a name="line737">737  </a></b>		assert(i == 0);
+<b><a name="line738">738  </a></b>		qb_log_format_init();
+<b><a name="line739">739  </a></b>	
+<b><a name="line740">740  </a></b>		for (i = 0; i &lt; QB_LOG_TARGET_MAX; i++) {
+<b><a name="line741">741  </a></b>			conf[i].pos = i;
+<b><a name="line742">742  </a></b>			conf[i].debug = QB_FALSE;
+<b><a name="line743">743  </a></b>			conf[i].file_sync = QB_FALSE;
+<b><a name="line744">744  </a></b>			conf[i].state = QB_LOG_STATE_UNUSED;
+<b><a name="line745">745  </a></b>			(void)strlcpy(conf[i].name, name, PATH_MAX);
+<b><a name="line746">746  </a></b>			conf[i].facility = facility;
+<b><a name="line747">747  </a></b>			qb_list_init(&amp;conf[i].filter_head);
+<b><a name="line748">748  </a></b>		}
+<b><a name="line749">749  </a></b>	
+<b><a name="line750">750  </a></b>		qb_log_dcs_init();
+<b><a name="line751">751  </a></b>	#ifdef QB_HAVE_ATTRIBUTE_SECTION
+<b><a name="line752">752  </a></b>		qb_log_callsites_register(__start___verbose, __stop___verbose);
+<b><a name="line753">753  </a></b>		dl_iterate_phdr(_log_so_walk_callback, NULL);
+<b><a name="line754">754  </a></b>	#endif /* QB_HAVE_ATTRIBUTE_SECTION */
+<b><a name="line755">755  </a></b>	
+<b><a name="line756">756  </a></b>		conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
+<b><a name="line757">757  </a></b>		conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
+<b><a name="line758">758  </a></b>		conf[QB_LOG_STDOUT].state = QB_LOG_STATE_DISABLED;
+<b><a name="line759">759  </a></b>	
+<b><a name="line760">760  </a></b>		logger_inited = QB_TRUE;
+<b><a name="line761">761  </a></b>		(void)qb_log_syslog_open(&amp;conf[QB_LOG_SYSLOG]);
+<b><a name="line762">762  </a></b>		_log_target_state_set(&amp;conf[QB_LOG_SYSLOG], QB_LOG_STATE_ENABLED);
+<b><a name="line763">763  </a></b>		(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
+<b><a name="line764">764  </a></b>					QB_LOG_FILTER_FILE, &quot;*&quot;, priority);
+<b><a name="line765">765  </a></b>	}
+<b><a name="line766">766  </a></b>	
+<b><a name="line767">767  </a></b>	void
+<b><a name="line768">768  </a></b>	qb_log_fini(void)
+<b><a name="line769">769  </a></b>	{
+<b><a name="line770">770  </a></b>		struct qb_log_target *t;
+<b><a name="line771">771  </a></b>		struct qb_log_filter *flt;
+<b><a name="line772">772  </a></b>		struct callsite_section *s;
+<b><a name="line773">773  </a></b>		struct qb_list_head *iter;
+<b><a name="line774">774  </a></b>		struct qb_list_head *iter2;
+<b><a name="line775">775  </a></b>		struct qb_list_head *next;
+<b><a name="line776">776  </a></b>		struct qb_list_head *next2;
+<b><a name="line777">777  </a></b>		int32_t pos;
+<b><a name="line778">778  </a></b>	
+<b><a name="line779">779  </a></b>		if (!logger_inited) {
+<b><a name="line780">780  </a></b>			return;
+<b><a name="line781">781  </a></b>		}
+<b><a name="line782">782  </a></b>		logger_inited = QB_FALSE;
+<b><a name="line783">783  </a></b>		qb_log_thread_stop();
+<b><a name="line784">784  </a></b>		pthread_rwlock_destroy(&amp;_listlock);
+<b><a name="line785">785  </a></b>	
+<b><a name="line786">786  </a></b>		for (pos = 0; pos &lt;= conf_active_max; pos++) {
+<b><a name="line787">787  </a></b>			t = &amp;conf[pos];
+<b><a name="line788">788  </a></b>			_log_target_disable(t);
+<b><a name="line789">789  </a></b>			qb_list_for_each_safe(iter2, next2, &amp;t-&gt;filter_head) {
+<b><a name="line790">790  </a></b>				flt = qb_list_entry(iter2, struct qb_log_filter, list);
+<b><a name="line791">791  </a></b>				qb_list_del(iter2);
+<b><a name="line792">792  </a></b>				free(flt-&gt;text);
+<b><a name="line793">793  </a></b>				free(flt);
+<b><a name="line794">794  </a></b>			}
+<b><a name="line795">795  </a></b>		}
+<b><a name="line796">796  </a></b>		qb_log_format_fini();
+<b><a name="line797">797  </a></b>		qb_log_dcs_fini();
+<b><a name="line798">798  </a></b>		qb_list_for_each_safe(iter, next, &amp;callsite_sections) {
+<b><a name="line799">799  </a></b>			s = qb_list_entry(iter, struct callsite_section, list);
+<b><a name="line800">800  </a></b>			qb_list_del(iter);
+<b><a name="line801">801  </a></b>			free(s);
+<b><a name="line802">802  </a></b>		}
+<b><a name="line803">803  </a></b>		qb_list_for_each_safe(iter, next, &amp;tags_head) {
+<b><a name="line804">804  </a></b>			flt = qb_list_entry(iter, struct qb_log_filter, list);
+<b><a name="line805">805  </a></b>			qb_list_del(iter);
+<b><a name="line806">806  </a></b>			free(flt-&gt;text);
+<b><a name="line807">807  </a></b>			free(flt);
+<b><a name="line808">808  </a></b>		}
+<b><a name="line809">809  </a></b>	}
+<b><a name="line810">810  </a></b>	
+<b><a name="line811">811  </a></b>	struct qb_log_target *
+<b><a name="line812">812  </a></b>	qb_log_target_alloc(void)
+<b><a name="line813">813  </a></b>	{
+<b><a name="line814">814  </a></b>		int32_t i;
+<b><a name="line815">815  </a></b>		for (i = 0; i &lt; QB_LOG_TARGET_MAX; i++) {
+<b><a name="line816">816  </a></b>			if (conf[i].state == QB_LOG_STATE_UNUSED) {
+<b><a name="line817">817  </a></b>				_log_target_state_set(&amp;conf[i], QB_LOG_STATE_DISABLED);
+<b><a name="line818">818  </a></b>				return &amp;conf[i];
+<b><a name="line819">819  </a></b>			}
+<b><a name="line820">820  </a></b>		}
+<b><a name="line821">821  </a></b>		return NULL;
+<b><a name="line822">822  </a></b>	}
+<b><a name="line823">823  </a></b>	
+<b><a name="line824">824  </a></b>	void
+<b><a name="line825">825  </a></b>	qb_log_target_free(struct qb_log_target *t)
+<b><a name="line826">826  </a></b>	{
+<b><a name="line827">827  </a></b>		(void)qb_log_filter_ctl(t-&gt;pos, QB_LOG_FILTER_CLEAR_ALL,
+<b><a name="line828">828  </a></b>					QB_LOG_FILTER_FILE, NULL, 0);
+<b><a name="line829">829  </a></b>		t-&gt;debug = QB_FALSE;
+<b><a name="line830">830  </a></b>		t-&gt;filename[0] = '\0';
+<b><a name="line831">831  </a></b>		qb_log_format_set(t-&gt;pos, NULL);
+<b><a name="line832">832  </a></b>		_log_target_state_set(t, QB_LOG_STATE_UNUSED);
+<b><a name="line833">833  </a></b>	}
+<b><a name="line834">834  </a></b>	
+<b><a name="line835">835  </a></b>	struct qb_log_target *
+<b><a name="line836">836  </a></b>	qb_log_target_get(int32_t pos)
+<b><a name="line837">837  </a></b>	{
+<b><a name="line838">838  </a></b>		return &amp;conf[pos];
+<b><a name="line839">839  </a></b>	}
+<b><a name="line840">840  </a></b>	
+<b><a name="line841">841  </a></b>	void *
+<b><a name="line842">842  </a></b>	qb_log_target_user_data_get(int32_t t)
+<b><a name="line843">843  </a></b>	{
+<b><a name="line844">844  </a></b>		if (t &lt; 0 || t &gt;= QB_LOG_TARGET_MAX ||
+<b><a name="line845">845  </a></b>		    conf[t].state == QB_LOG_STATE_UNUSED) {
+<b><a name="line846">846  </a></b>			errno = -EBADF;
+<b><a name="line847">847  </a></b>			return NULL;
+<b><a name="line848">848  </a></b>		}
+<b><a name="line849">849  </a></b>	
+<b><a name="line850">850  </a></b>		return conf[t].instance;
+<b><a name="line851">851  </a></b>	}
+<b><a name="line852">852  </a></b>	
+<b><a name="line853">853  </a></b>	int32_t
+<b><a name="line854">854  </a></b>	qb_log_target_user_data_set(int32_t t, void *user_data)
+<b><a name="line855">855  </a></b>	{
+<b><a name="line856">856  </a></b>		if (!logger_inited) {
+<b><a name="line857">857  </a></b>			return -EINVAL;
+<b><a name="line858">858  </a></b>		}
+<b><a name="line859">859  </a></b>		if (t &lt; 0 || t &gt;= QB_LOG_TARGET_MAX ||
+<b><a name="line860">860  </a></b>		    conf[t].state == QB_LOG_STATE_UNUSED) {
+<b><a name="line861">861  </a></b>			return -EBADF;
+<b><a name="line862">862  </a></b>		}
+<b><a name="line863">863  </a></b>	
+<b><a name="line864">864  </a></b>		conf[t].instance = user_data;
+<b><a name="line865">865  </a></b>		return 0;
+<b><a name="line866">866  </a></b>	}
+<b><a name="line867">867  </a></b>	
+<b><a name="line868">868  </a></b>	int32_t
+<b><a name="line869">869  </a></b>	qb_log_custom_open(qb_log_logger_fn log_fn,
+<b><a name="line870">870  </a></b>			   qb_log_close_fn close_fn,
+<b><a name="line871">871  </a></b>			   qb_log_reload_fn reload_fn, void *user_data)
+<b><a name="line872">872  </a></b>	{
+<b><a name="line873">873  </a></b>		struct qb_log_target *t;
+<b><a name="line874">874  </a></b>	
+<b><a name="line875">875  </a></b>		t = qb_log_target_alloc();
+<b><a name="line876">876  </a></b>		if (t == NULL) {
+<b><a name="line877">877  </a></b>			return -errno;
+<b><a name="line878">878  </a></b>		}
+<b><a name="line879">879  </a></b>	
+<b><a name="line880">880  </a></b>		t-&gt;instance = user_data;
+<b><a name="line881">881  </a></b>		snprintf(t-&gt;filename, PATH_MAX, &quot;custom-%d&quot;, t-&gt;pos);
+<b><a name="line882">882  </a></b>	
+<b><a name="line883">883  </a></b>		t-&gt;logger = log_fn;
+<b><a name="line884">884  </a></b>		t-&gt;vlogger = NULL;
+<b><a name="line885">885  </a></b>		t-&gt;reload = reload_fn;
+<b><a name="line886">886  </a></b>		t-&gt;close = close_fn;
+<b><a name="line887">887  </a></b>	
+<b><a name="line888">888  </a></b>		return t-&gt;pos;
+<b><a name="line889">889  </a></b>	}
+<b><a name="line890">890  </a></b>	
+<b><a name="line891">891  </a></b>	void
+<b><a name="line892">892  </a></b>	qb_log_custom_close(int32_t t)
+<b><a name="line893">893  </a></b>	{
+<b><a name="line894">894  </a></b>		struct qb_log_target *target;
+<b><a name="line895">895  </a></b>	
+<b><a name="line896">896  </a></b>		if (!logger_inited) {
+<b><a name="line897">897  </a></b>			return;
+<b><a name="line898">898  </a></b>		}
+<b><a name="line899">899  </a></b>		if (t &lt; 0 || t &gt;= QB_LOG_TARGET_MAX ||
+<b><a name="line900">900  </a></b>		    conf[t].state == QB_LOG_STATE_UNUSED) {
+<b><a name="line901">901  </a></b>			return;
+<b><a name="line902">902  </a></b>		}
+<b><a name="line903">903  </a></b>	
+<b><a name="line904">904  </a></b>		target = qb_log_target_get(t);
+<b><a name="line905">905  </a></b>	
+<b><a name="line906">906  </a></b>		if (target-&gt;close) {
+<b><a name="line907">907  </a></b>			in_logger = QB_TRUE;
+<b><a name="line908">908  </a></b>			target-&gt;close(t);
+<b><a name="line909">909  </a></b>			in_logger = QB_FALSE;
+<b><a name="line910">910  </a></b>		}
+<b><a name="line911">911  </a></b>		qb_log_target_free(target);
+<b><a name="line912">912  </a></b>	}
+<b><a name="line913">913  </a></b>	
+<b><a name="line914">914  </a></b>	static int32_t
+<b><a name="line915">915  </a></b>	_log_target_enable(struct qb_log_target *t)
+<b><a name="line916">916  </a></b>	{
+<b><a name="line917">917  </a></b>		int32_t rc = 0;
+<b><a name="line918">918  </a></b>	
+<b><a name="line919">919  </a></b>		if (t-&gt;state == QB_LOG_STATE_ENABLED) {
+<b><a name="line920">920  </a></b>			return 0;
+<b><a name="line921">921  </a></b>		}
+<b><a name="line922">922  </a></b>		if (t-&gt;pos == QB_LOG_STDERR ||
+<b><a name="line923">923  </a></b>		    t-&gt;pos == QB_LOG_STDOUT) {
+<b><a name="line924">924  </a></b>			rc = qb_log_stderr_open(t);
+<b><a name="line925">925  </a></b>		} else if (t-&gt;pos == QB_LOG_SYSLOG) {
+<b><a name="line926">926  </a></b>			rc = qb_log_syslog_open(t);
+<b><a name="line927">927  </a></b>		} else if (t-&gt;pos == QB_LOG_BLACKBOX) {
+<b><a name="line928">928  </a></b>			rc = qb_log_blackbox_open(t);
+<b><a name="line929">929  </a></b>		}
+<b><a name="line930">930  </a></b>		if (rc == 0) {
+<b><a name="line931">931  </a></b>			_log_target_state_set(t, QB_LOG_STATE_ENABLED);
+<b><a name="line932">932  </a></b>		}
+<b><a name="line933">933  </a></b>		return rc;
+<b><a name="line934">934  </a></b>	}
+<b><a name="line935">935  </a></b>	
+<b><a name="line936">936  </a></b>	static void
+<b><a name="line937">937  </a></b>	_log_target_disable(struct qb_log_target *t)
+<b><a name="line938">938  </a></b>	{
+<b><a name="line939">939  </a></b>		if (t-&gt;state != QB_LOG_STATE_ENABLED) {
+<b><a name="line940">940  </a></b>			return;
+<b><a name="line941">941  </a></b>		}
+<b><a name="line942">942  </a></b>		_log_target_state_set(t, QB_LOG_STATE_DISABLED);
+<b><a name="line943">943  </a></b>		if (t-&gt;close) {
+<b><a name="line944">944  </a></b>			in_logger = QB_TRUE;
+<b><a name="line945">945  </a></b>			t-&gt;close(t-&gt;pos);
+<b><a name="line946">946  </a></b>			in_logger = QB_FALSE;
+<b><a name="line947">947  </a></b>		}
+<b><a name="line948">948  </a></b>	}
+<b><a name="line949">949  </a></b>	
+<b><a name="line950">950  </a></b>	int32_t
+<b><a name="line951">951  </a></b>	qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
+<b><a name="line952">952  </a></b>	{
+<b><a name="line953">953  </a></b>		int32_t rc = 0;
+<b><a name="line954">954  </a></b>		int32_t need_reload = QB_FALSE;
+<b><a name="line955">955  </a></b>	
+<b><a name="line956">956  </a></b>		if (!logger_inited) {
+<b><a name="line957">957  </a></b>			return -EINVAL;
+<b><a name="line958">958  </a></b>		}
+<b><a name="line959">959  </a></b>		if (t &lt; 0 || t &gt;= QB_LOG_TARGET_MAX ||
+<b><a name="line960">960  </a></b>		    conf[t].state == QB_LOG_STATE_UNUSED) {
+<b><a name="line961">961  </a></b>			return -EBADF;
+<b><a name="line962">962  </a></b>		}
+<b><a name="line963">963  </a></b>		switch (c) {
+<b><a name="line964">964  </a></b>		case QB_LOG_CONF_ENABLED:
+<b><a name="line965">965  </a></b>			if (arg) {
+<b><a name="line966">966  </a></b>				rc = _log_target_enable(&amp;conf[t]);
+<b><a name="line967">967  </a></b>			} else {
+<b><a name="line968">968  </a></b>				_log_target_disable(&amp;conf[t]);
+<b><a name="line969">969  </a></b>			}
+<b><a name="line970">970  </a></b>			break;
+<b><a name="line971">971  </a></b>		case QB_LOG_CONF_STATE_GET:
+<b><a name="line972">972  </a></b>			rc = conf[t].state;
+<b><a name="line973">973  </a></b>			break;
+<b><a name="line974">974  </a></b>		case QB_LOG_CONF_FACILITY:
+<b><a name="line975">975  </a></b>			conf[t].facility = arg;
+<b><a name="line976">976  </a></b>			if (t == QB_LOG_SYSLOG) {
+<b><a name="line977">977  </a></b>				need_reload = QB_TRUE;
+<b><a name="line978">978  </a></b>			}
+<b><a name="line979">979  </a></b>			break;
+<b><a name="line980">980  </a></b>		case QB_LOG_CONF_FILE_SYNC:
+<b><a name="line981">981  </a></b>			conf[t].file_sync = arg;
+<b><a name="line982">982  </a></b>			break;
+<b><a name="line983">983  </a></b>		case QB_LOG_CONF_PRIORITY_BUMP:
+<b><a name="line984">984  </a></b>			conf[t].priority_bump = arg;
+<b><a name="line985">985  </a></b>			break;
+<b><a name="line986">986  </a></b>		case QB_LOG_CONF_SIZE:
+<b><a name="line987">987  </a></b>			if (t == QB_LOG_BLACKBOX) {
+<b><a name="line988">988  </a></b>				if (arg &lt;= 0) {
+<b><a name="line989">989  </a></b>					return -EINVAL;
+<b><a name="line990">990  </a></b>				}
+<b><a name="line991">991  </a></b>				conf[t].size = arg;
+<b><a name="line992">992  </a></b>				need_reload = QB_TRUE;
+<b><a name="line993">993  </a></b>			} else {
+<b><a name="line994">994  </a></b>				return -ENOSYS;
+<b><a name="line995">995  </a></b>			}
+<b><a name="line996">996  </a></b>			break;
+<b><a name="line997">997  </a></b>		case QB_LOG_CONF_THREADED:
+<b><a name="line998">998  </a></b>			conf[t].threaded = arg;
+<b><a name="line999">999  </a></b>			break;
+<b><a name="line1000">1000 </a></b>	
+<b><a name="line1001">1001 </a></b>		default:
+<b><a name="line1002">1002 </a></b>			rc = -EINVAL;
+<b><a name="line1003">1003 </a></b>		}
+<b><a name="line1004">1004 </a></b>		if (rc == 0 &amp;&amp; need_reload &amp;&amp; conf[t].reload) {
+<b><a name="line1005">1005 </a></b>			in_logger = QB_TRUE;
+<b><a name="line1006">1006 </a></b>			conf[t].reload(t);
+<b><a name="line1007">1007 </a></b>			in_logger = QB_FALSE;
+<b><a name="line1008">1008 </a></b>		}
+<b><a name="line1009">1009 </a></b>		return rc;
+<b><a name="line1010">1010 </a></b>	}
+<b><a name="line1011">1011 </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

@@ -1,0 +1,461 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/util.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2010 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * All rights reserved.
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	
+<b><a name="line23">23   </a></b>	#include &quot;util_int.h&quot;
+<b><a name="line24">24   </a></b>	#include &lt;pthread.h&gt;
+<b><a name="line25">25   </a></b>	#include &lt;sys/stat.h&gt;
+<b><a name="line26">26   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line27">27   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line28">28   </a></b>	
+<b><a name="line29">29   </a></b>	struct qb_thread_lock_s {
+<b><a name="line30">30   </a></b>		qb_thread_lock_type_t type;
+<b><a name="line31">31   </a></b>	#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
+<b><a name="line32">32   </a></b>		pthread_spinlock_t spinlock;
+<b><a name="line33">33   </a></b>	#endif /* HAVE_PTHREAD_SHARED_SPIN_LOCK */
+<b><a name="line34">34   </a></b>		pthread_mutex_t mutex;
+<b><a name="line35">35   </a></b>	};
+<b><a name="line36">36   </a></b>	
+<b><a name="line37">37   </a></b>	qb_thread_lock_t *
+<b><a name="line38">38   </a></b>	qb_thread_lock_create(qb_thread_lock_type_t type)
+<b><a name="line39">39   </a></b>	{
+<b><a name="line40">40   </a></b>		struct qb_thread_lock_s *tl = malloc(sizeof(struct qb_thread_lock_s));
+<b><a name="line41">41   </a></b>		int32_t res;
+<b><a name="line42">42   </a></b>	
+<b><a name="line43">43   </a></b>		if (tl == NULL) {
+<b><a name="line44">44   </a></b>			return NULL;
+<b><a name="line45">45   </a></b>		}
+<b><a name="line46">46   </a></b>	#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
+<b><a name="line47">47   </a></b>		if (type == QB_THREAD_LOCK_SHORT) {
+<b><a name="line48">48   </a></b>			tl-&gt;type = QB_THREAD_LOCK_SHORT;
+<b><a name="line49">49   </a></b>			res = pthread_spin_init(&amp;tl-&gt;spinlock, 1);
+<b><a name="line50">50   </a></b>		} else
+<b><a name="line51">51   </a></b>	#endif /* HAVE_PTHREAD_SHARED_SPIN_LOCK */
+<b><a name="line52">52   </a></b>		{
+<b><a name="line53">53   </a></b>			tl-&gt;type = QB_THREAD_LOCK_LONG;
+<b><a name="line54">54   </a></b>			res = pthread_mutex_init(&amp;tl-&gt;mutex, NULL);
+<b><a name="line55">55   </a></b>		}
+<b><a name="line56">56   </a></b>		if (res == 0) {
+<b><a name="line57">57   </a></b>			return tl;
+<b><a name="line58">58   </a></b>		} else {
+<b><a name="line59">59   </a></b>			free(tl);
+<b><a name="line60">60   </a></b>			return NULL;
+<b><a name="line61">61   </a></b>		}
+<b><a name="line62">62   </a></b>	}
+<b><a name="line63">63   </a></b>	
+<b><a name="line64">64   </a></b>	int32_t
+<b><a name="line65">65   </a></b>	qb_thread_lock(qb_thread_lock_t * tl)
+<b><a name="line66">66   </a></b>	{
+<b><a name="line67">67   </a></b>		int32_t res;
+<b><a name="line68">68   </a></b>	#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
+<b><a name="line69">69   </a></b>		if (tl-&gt;type == QB_THREAD_LOCK_SHORT) {
+<b><a name="line70">70   </a></b>			res = -pthread_spin_lock(&amp;tl-&gt;spinlock);
+<b><a name="line71">71   </a></b>		} else
+<b><a name="line72">72   </a></b>	#endif /* HAVE_PTHREAD_SHARED_SPIN_LOCK */
+<b><a name="line73">73   </a></b>		{
+<b><a name="line74">74   </a></b>			res = -pthread_mutex_lock(&amp;tl-&gt;mutex);
+<b><a name="line75">75   </a></b>		}
+<b><a name="line76">76   </a></b>		return res;
+<b><a name="line77">77   </a></b>	}
+<b><a name="line78">78   </a></b>	
+<b><a name="line79">79   </a></b>	int32_t
+<b><a name="line80">80   </a></b>	qb_thread_unlock(qb_thread_lock_t * tl)
+<b><a name="line81">81   </a></b>	{
+<b><a name="line82">82   </a></b>		int32_t res;
+<b><a name="line83">83   </a></b>	#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
+<b><a name="line84">84   </a></b>		if (tl-&gt;type == QB_THREAD_LOCK_SHORT) {
+<b><a name="line85">85   </a></b>			res = -pthread_spin_unlock(&amp;tl-&gt;spinlock);
+<b><a name="line86">86   </a></b>		} else
+<b><a name="line87">87   </a></b>	#endif
+<b><a name="line88">88   </a></b>		{
+<b><a name="line89">89   </a></b>			res = -pthread_mutex_unlock(&amp;tl-&gt;mutex);
+<b><a name="line90">90   </a></b>		}
+<b><a name="line91">91   </a></b>		return res;
+<b><a name="line92">92   </a></b>	}
+<b><a name="line93">93   </a></b>	
+<b><a name="line94">94   </a></b>	int32_t
+<b><a name="line95">95   </a></b>	qb_thread_trylock(qb_thread_lock_t * tl)
+<b><a name="line96">96   </a></b>	{
+<b><a name="line97">97   </a></b>		int32_t res;
+<b><a name="line98">98   </a></b>	#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
+<b><a name="line99">99   </a></b>		if (tl-&gt;type == QB_THREAD_LOCK_SHORT) {
+<b><a name="line100">100  </a></b>			res = -pthread_spin_trylock(&amp;tl-&gt;spinlock);
+<b><a name="line101">101  </a></b>		} else
+<b><a name="line102">102  </a></b>	#endif
+<b><a name="line103">103  </a></b>		{
+<b><a name="line104">104  </a></b>			res = -pthread_mutex_trylock(&amp;tl-&gt;mutex);
+<b><a name="line105">105  </a></b>		}
+<b><a name="line106">106  </a></b>		return res;
+<b><a name="line107">107  </a></b>	}
+<b><a name="line108">108  </a></b>	
+<b><a name="line109">109  </a></b>	int32_t
+<b><a name="line110">110  </a></b>	qb_thread_lock_destroy(qb_thread_lock_t * tl)
+<b><a name="line111">111  </a></b>	{
+<b><a name="line112">112  </a></b>		int32_t res;
+<b><a name="line113">113  </a></b>	#ifdef HAVE_PTHREAD_SHARED_SPIN_LOCK
+<b><a name="line114">114  </a></b>		if (tl-&gt;type == QB_THREAD_LOCK_SHORT) {
+<b><a name="line115">115  </a></b>			res = -pthread_spin_destroy(&amp;tl-&gt;spinlock);
+<b><a name="line116">116  </a></b>		} else
+<b><a name="line117">117  </a></b>	#endif
+<b><a name="line118">118  </a></b>		{
+<b><a name="line119">119  </a></b>			res = -pthread_mutex_destroy(&amp;tl-&gt;mutex);
+<b><a name="line120">120  </a></b>		}
+<b><a name="line121">121  </a></b>		free(tl);
+<b><a name="line122">122  </a></b>		return res;
+<b><a name="line123">123  </a></b>	}
+<b><a name="line124">124  </a></b>	
+<b><a name="line125">125  </a></b>	void
+<b><a name="line126">126  </a></b>	qb_timespec_add_ms(struct timespec *ts, int32_t ms)
+<b><a name="line127">127  </a></b>	{
+<b><a name="line128">128  </a></b>	#ifndef S_SPLINT_S
+<b><a name="line129">129  </a></b>		ts-&gt;tv_sec += ms / 1000;
+<b><a name="line130">130  </a></b>		ts-&gt;tv_nsec += (ms % 1000) * QB_TIME_NS_IN_MSEC;
+<b><a name="line131">131  </a></b>		if (ts-&gt;tv_nsec &gt;= 1000000000L) {
+<b><a name="line132">132  </a></b>			ts-&gt;tv_sec++;
+<b><a name="line133">133  </a></b>			ts-&gt;tv_nsec = ts-&gt;tv_nsec - 1000000000L;
+<b><a name="line134">134  </a></b>		}
+<b><a name="line135">135  </a></b>	#endif /* S_SPLINT_S */
+<b><a name="line136">136  </a></b>	}
+<b><a name="line137">137  </a></b>	
+<b><a name="line138">138  </a></b>	#ifdef HAVE_MONOTONIC_CLOCK
+<b><a name="line139">139  </a></b>	uint64_t
+<b><a name="line140">140  </a></b>	qb_util_nano_current_get(void)
+<b><a name="line141">141  </a></b>	{
+<b><a name="line142">142  </a></b>		uint64_t nano_monotonic;
+<b><a name="line143">143  </a></b>		struct timespec ts;
+<b><a name="line144">144  </a></b>	
+<b><a name="line145">145  </a></b>		clock_gettime(CLOCK_MONOTONIC, &amp;ts);
+<b><a name="line146">146  </a></b>		nano_monotonic =
+<b><a name="line147">147  </a></b>		    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
+<b><a name="line148">148  </a></b>		return (nano_monotonic);
+<b><a name="line149">149  </a></b>	}
+<b><a name="line150">150  </a></b>	
+<b><a name="line151">151  </a></b>	uint64_t
+<b><a name="line152">152  </a></b>	qb_util_nano_from_epoch_get(void)
+<b><a name="line153">153  </a></b>	{
+<b><a name="line154">154  </a></b>		uint64_t nano_monotonic;
+<b><a name="line155">155  </a></b>		struct timespec ts;
+<b><a name="line156">156  </a></b>	#ifdef CLOCK_REALTIME_COARSE
+<b><a name="line157">157  </a></b>		clock_gettime(CLOCK_REALTIME_COARSE, &amp;ts);
+<b><a name="line158">158  </a></b>	#else
+<b><a name="line159">159  </a></b>		clock_gettime(CLOCK_REALTIME, &amp;ts);
+<b><a name="line160">160  </a></b>	#endif
+<b><a name="line161">161  </a></b>		nano_monotonic =
+<b><a name="line162">162  </a></b>		    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
+<b><a name="line163">163  </a></b>		return (nano_monotonic);
+<b><a name="line164">164  </a></b>	}
+<b><a name="line165">165  </a></b>	
+<b><a name="line166">166  </a></b>	uint64_t
+<b><a name="line167">167  </a></b>	qb_util_nano_monotonic_hz(void)
+<b><a name="line168">168  </a></b>	{
+<b><a name="line169">169  </a></b>		uint64_t nano_monotonic_hz;
+<b><a name="line170">170  </a></b>		struct timespec ts;
+<b><a name="line171">171  </a></b>	
+<b><a name="line172">172  </a></b>		clock_getres(CLOCK_MONOTONIC, &amp;ts);
+<b><a name="line173">173  </a></b>	
+<b><a name="line174">174  </a></b>		nano_monotonic_hz =
+<b><a name="line175">175  </a></b>		    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) + ts.tv_nsec);
+<b><a name="line176">176  </a></b>	
+<b><a name="line177">177  </a></b>		return (nano_monotonic_hz);
+<b><a name="line178">178  </a></b>	}
+<b><a name="line179">179  </a></b>	
+<b><a name="line180">180  </a></b>	void
+<b><a name="line181">181  </a></b>	qb_util_timespec_from_epoch_get(struct timespec *ts)
+<b><a name="line182">182  </a></b>	{
+<b><a name="line183">183  </a></b>	#ifdef CLOCK_REALTIME_COARSE
+<b><a name="line184">184  </a></b>		clock_gettime(CLOCK_REALTIME_COARSE, ts);
+<b><a name="line185">185  </a></b>	#else
+<b><a name="line186">186  </a></b>		clock_gettime(CLOCK_REALTIME, ts);
+<b><a name="line187">187  </a></b>	#endif
+<b><a name="line188">188  </a></b>	}
+<b><a name="line189">189  </a></b>	
+<b><a name="line190">190  </a></b>	#else
+<b><a name="line191">191  </a></b>	uint64_t
+<b><a name="line192">192  </a></b>	qb_util_nano_current_get(void)
+<b><a name="line193">193  </a></b>	{
+<b><a name="line194">194  </a></b>		return qb_util_nano_from_epoch_get();
+<b><a name="line195">195  </a></b>	}
+<b><a name="line196">196  </a></b>	
+<b><a name="line197">197  </a></b>	uint64_t
+<b><a name="line198">198  </a></b>	qb_util_nano_monotonic_hz(void)
+<b><a name="line199">199  </a></b>	{
+<b><a name="line200">200  </a></b>		return sysconf(_SC_CLK_TCK);
+<b><a name="line201">201  </a></b>	}
+<b><a name="line202">202  </a></b>	
+<b><a name="line203">203  </a></b>	void
+<b><a name="line204">204  </a></b>	qb_util_timespec_from_epoch_get(struct timespec *ts)
+<b><a name="line205">205  </a></b>	{
+<b><a name="line206">206  </a></b>		struct timeval time_from_epoch;
+<b><a name="line207">207  </a></b>		gettimeofday(&amp;time_from_epoch, 0);
+<b><a name="line208">208  </a></b>	
+<b><a name="line209">209  </a></b>	#ifndef S_SPLINT_S
+<b><a name="line210">210  </a></b>		ts-&gt;tv_sec = time_from_epoch.tv_sec;
+<b><a name="line211">211  </a></b>		ts-&gt;tv_nsec = time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC;
+<b><a name="line212">212  </a></b>	#endif /* S_SPLINT_S */
+<b><a name="line213">213  </a></b>	}
+<b><a name="line214">214  </a></b>	
+<b><a name="line215">215  </a></b>	uint64_t
+<b><a name="line216">216  </a></b>	qb_util_nano_from_epoch_get(void)
+<b><a name="line217">217  </a></b>	{
+<b><a name="line218">218  </a></b>		uint64_t nano_from_epoch;
+<b><a name="line219">219  </a></b>		struct timeval time_from_epoch;
+<b><a name="line220">220  </a></b>		gettimeofday(&amp;time_from_epoch, 0);
+<b><a name="line221">221  </a></b>	
+<b><a name="line222">222  </a></b>		nano_from_epoch = ((time_from_epoch.tv_sec * QB_TIME_NS_IN_SEC) +
+<b><a name="line223">223  </a></b>				   (time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
+<b><a name="line224">224  </a></b>	
+<b><a name="line225">225  </a></b>		return (nano_from_epoch);
+<b><a name="line226">226  </a></b>	}
+<b><a name="line227">227  </a></b>	#endif /* HAVE_MONOTONIC_CLOCK */
+<b><a name="line228">228  </a></b>	
+<b><a name="line229">229  </a></b>	struct qb_util_stopwatch {
+<b><a name="line230">230  </a></b>		uint64_t started;
+<b><a name="line231">231  </a></b>		uint64_t stopped;
+<b><a name="line232">232  </a></b>		uint32_t split_options;
+<b><a name="line233">233  </a></b>		uint32_t split_size;
+<b><a name="line234">234  </a></b>		uint32_t split_entries;
+<b><a name="line235">235  </a></b>		uint64_t *split_entry_list;
+<b><a name="line236">236  </a></b>	};
+<b><a name="line237">237  </a></b>	
+<b><a name="line238">238  </a></b>	qb_util_stopwatch_t *
+<b><a name="line239">239  </a></b>	qb_util_stopwatch_create(void)
+<b><a name="line240">240  </a></b>	{
+<b><a name="line241">241  </a></b>		struct qb_util_stopwatch *sw;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:qb_util_stopwatch_create:generic:2:0"></a>
+<b>(1) Event null_return</b>: </font></td>
+<td><font color="red">Calling &quot;calloc(size_t, size_t)&quot; which might return null.</font></td>
+</tr>
+<tr><td><font color="red">
+<a name="model:qb_util_stopwatch_create:generic:2:1"></a>
+<b>(2) Event var_assign</b>: </font></td>
+<td><font color="red">Assigning: &quot;sw&quot; = &quot;calloc(1UL, 40UL)&quot;, which might be null.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#model:qb_util_stopwatch_create:generic:2:2">return_null_var</a>]</font></td></tr>
+</table>
+<pre><b><a name="line242">242  </a></b>		sw = (struct qb_util_stopwatch *)calloc(1, sizeof(struct qb_util_stopwatch));
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:qb_util_stopwatch_create:generic:2:2"></a>
+<a name="model:qb_util_stopwatch_create:generic:2"></a>
+<b>(3) Event return_null_var</b>: </font></td>
+<td><font color="red">Returning &quot;sw&quot;, which is null.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#model:qb_util_stopwatch_create:generic:2:0">null_return</a>][<a href="#model:qb_util_stopwatch_create:generic:2:1">var_assign</a>]</font></td></tr>
+</table>
+<pre><b><a name="line243">243  </a></b>		return sw;
+<b><a name="line244">244  </a></b>	}
+<b><a name="line245">245  </a></b>	
+<b><a name="line246">246  </a></b>	void
+<b><a name="line247">247  </a></b>	qb_util_stopwatch_free(qb_util_stopwatch_t * sw)
+<b><a name="line248">248  </a></b>	{
+<b><a name="line249">249  </a></b>		free(sw-&gt;split_entry_list);
+<b><a name="line250">250  </a></b>		free(sw);
+<b><a name="line251">251  </a></b>	}
+<b><a name="line252">252  </a></b>	
+<b><a name="line253">253  </a></b>	void
+<b><a name="line254">254  </a></b>	qb_util_stopwatch_start(qb_util_stopwatch_t * sw)
+<b><a name="line255">255  </a></b>	{
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:qb_util_stopwatch_start:generic:6:0"></a>
+<a name="model:qb_util_stopwatch_start:generic:6"></a>
+<b>(1) Event deref_parm</b>: </font></td>
+<td><font color="red">Directly dereferencing parameter &quot;sw&quot;.</font></td>
+</tr>
+</table>
+<pre><b><a name="line256">256  </a></b>		sw-&gt;started = qb_util_nano_current_get();
+<b><a name="line257">257  </a></b>		sw-&gt;stopped = 0;
+<b><a name="line258">258  </a></b>		sw-&gt;split_entries = 0;
+<b><a name="line259">259  </a></b>	}
+<b><a name="line260">260  </a></b>	
+<b><a name="line261">261  </a></b>	void
+<b><a name="line262">262  </a></b>	qb_util_stopwatch_stop(qb_util_stopwatch_t * sw)
+<b><a name="line263">263  </a></b>	{
+<b><a name="line264">264  </a></b>		sw-&gt;stopped = qb_util_nano_current_get();
+<b><a name="line265">265  </a></b>	}
+<b><a name="line266">266  </a></b>	
+<b><a name="line267">267  </a></b>	uint64_t
+<b><a name="line268">268  </a></b>	qb_util_stopwatch_us_elapsed_get(qb_util_stopwatch_t * sw)
+<b><a name="line269">269  </a></b>	{
+<b><a name="line270">270  </a></b>		if (sw-&gt;stopped == 0 || sw-&gt;started == 0) {
+<b><a name="line271">271  </a></b>			return 0;
+<b><a name="line272">272  </a></b>		}
+<b><a name="line273">273  </a></b>		return ((sw-&gt;stopped - sw-&gt;started) / QB_TIME_NS_IN_USEC);
+<b><a name="line274">274  </a></b>	}
+<b><a name="line275">275  </a></b>	
+<b><a name="line276">276  </a></b>	float
+<b><a name="line277">277  </a></b>	qb_util_stopwatch_sec_elapsed_get(qb_util_stopwatch_t * sw)
+<b><a name="line278">278  </a></b>	{
+<b><a name="line279">279  </a></b>		uint64_t e6;
+<b><a name="line280">280  </a></b>		if (sw-&gt;stopped == 0 || sw-&gt;started == 0) {
+<b><a name="line281">281  </a></b>			return 0;
+<b><a name="line282">282  </a></b>		}
+<b><a name="line283">283  </a></b>		e6 = qb_util_stopwatch_us_elapsed_get(sw);
+<b><a name="line284">284  </a></b>		return ((float)e6 / (float)QB_TIME_US_IN_SEC);
+<b><a name="line285">285  </a></b>	}
+<b><a name="line286">286  </a></b>	
+<b><a name="line287">287  </a></b>	int32_t
+<b><a name="line288">288  </a></b>	qb_util_stopwatch_split_ctl(qb_util_stopwatch_t *sw,
+<b><a name="line289">289  </a></b>	        uint32_t max_splits, uint32_t options)
+<b><a name="line290">290  </a></b>	{
+<b><a name="line291">291  </a></b>		sw-&gt;split_size = max_splits;
+<b><a name="line292">292  </a></b>		sw-&gt;split_options = options;
+<b><a name="line293">293  </a></b>		sw-&gt;split_entry_list = (uint64_t *)calloc(1, sizeof (uint64_t) * max_splits);
+<b><a name="line294">294  </a></b>		if (sw-&gt;split_entry_list == NULL) {
+<b><a name="line295">295  </a></b>			return -errno;
+<b><a name="line296">296  </a></b>		}
+<b><a name="line297">297  </a></b>		return 0;
+<b><a name="line298">298  </a></b>	}
+<b><a name="line299">299  </a></b>	
+<b><a name="line300">300  </a></b>	uint64_t
+<b><a name="line301">301  </a></b>	qb_util_stopwatch_split(qb_util_stopwatch_t *sw)
+<b><a name="line302">302  </a></b>	{
+<b><a name="line303">303  </a></b>		uint32_t new_entry_pos;
+<b><a name="line304">304  </a></b>		uint64_t time_start;
+<b><a name="line305">305  </a></b>		uint64_t time_end;
+<b><a name="line306">306  </a></b>	
+<b><a name="line307">307  </a></b>		if (sw-&gt;split_size == 0) {
+<b><a name="line308">308  </a></b>			return 0;
+<b><a name="line309">309  </a></b>		}
+<b><a name="line310">310  </a></b>		if (!(sw-&gt;split_options &amp; QB_UTIL_SW_OVERWRITE) &amp;&amp;
+<b><a name="line311">311  </a></b>		    sw-&gt;split_entries == sw-&gt;split_size) {
+<b><a name="line312">312  </a></b>			return 0;
+<b><a name="line313">313  </a></b>		}
+<b><a name="line314">314  </a></b>		if (sw-&gt;started == 0) {
+<b><a name="line315">315  </a></b>			qb_util_stopwatch_start(sw);
+<b><a name="line316">316  </a></b>		}
+<b><a name="line317">317  </a></b>		new_entry_pos = sw-&gt;split_entries % (sw-&gt;split_size);
+<b><a name="line318">318  </a></b>		sw-&gt;split_entry_list[new_entry_pos] = qb_util_nano_current_get();
+<b><a name="line319">319  </a></b>		sw-&gt;split_entries++;
+<b><a name="line320">320  </a></b>	
+<b><a name="line321">321  </a></b>		time_start = sw-&gt;split_entry_list[new_entry_pos];
+<b><a name="line322">322  </a></b>		if (sw-&gt;split_entries == 1) {
+<b><a name="line323">323  </a></b>			/* first entry */
+<b><a name="line324">324  </a></b>			time_end = sw-&gt;started;
+<b><a name="line325">325  </a></b>		} else if (new_entry_pos == 0) {
+<b><a name="line326">326  </a></b>			/* wrap around */
+<b><a name="line327">327  </a></b>			time_end = sw-&gt;split_entry_list[sw-&gt;split_size - 1];
+<b><a name="line328">328  </a></b>		} else {
+<b><a name="line329">329  </a></b>			time_end = sw-&gt;split_entry_list[(new_entry_pos - 1) % sw-&gt;split_size];
+<b><a name="line330">330  </a></b>		}
+<b><a name="line331">331  </a></b>		return (time_start - time_end) / QB_TIME_NS_IN_USEC;
+<b><a name="line332">332  </a></b>	}
+<b><a name="line333">333  </a></b>	
+<b><a name="line334">334  </a></b>	uint32_t
+<b><a name="line335">335  </a></b>	qb_util_stopwatch_split_last(qb_util_stopwatch_t *sw)
+<b><a name="line336">336  </a></b>	{
+<b><a name="line337">337  </a></b>		if (sw-&gt;split_entries) {
+<b><a name="line338">338  </a></b>			return sw-&gt;split_entries - 1;
+<b><a name="line339">339  </a></b>		}
+<b><a name="line340">340  </a></b>		return sw-&gt;split_entries;
+<b><a name="line341">341  </a></b>	}
+<b><a name="line342">342  </a></b>	
+<b><a name="line343">343  </a></b>	uint64_t
+<b><a name="line344">344  </a></b>	qb_util_stopwatch_time_split_get(qb_util_stopwatch_t *sw,
+<b><a name="line345">345  </a></b>					 uint32_t receint, uint32_t older)
+<b><a name="line346">346  </a></b>	{
+<b><a name="line347">347  </a></b>		uint64_t time_start;
+<b><a name="line348">348  </a></b>		uint64_t time_end;
+<b><a name="line349">349  </a></b>	
+<b><a name="line350">350  </a></b>		if (sw-&gt;started == 0 ||
+<b><a name="line351">351  </a></b>		    receint &gt;= sw-&gt;split_entries ||
+<b><a name="line352">352  </a></b>		    older &gt;= sw-&gt;split_entries ||
+<b><a name="line353">353  </a></b>		    receint &lt; older) {
+<b><a name="line354">354  </a></b>			return 0;
+<b><a name="line355">355  </a></b>		}
+<b><a name="line356">356  </a></b>		if (sw-&gt;split_options &amp; QB_UTIL_SW_OVERWRITE &amp;&amp;
+<b><a name="line357">357  </a></b>		    (receint &lt; (sw-&gt;split_entries - sw-&gt;split_size) ||
+<b><a name="line358">358  </a></b>		     older &lt; (sw-&gt;split_entries - sw-&gt;split_size))) {
+<b><a name="line359">359  </a></b>			return 0;
+<b><a name="line360">360  </a></b>		}
+<b><a name="line361">361  </a></b>	
+<b><a name="line362">362  </a></b>		time_start = sw-&gt;split_entry_list[receint % (sw-&gt;split_size)];
+<b><a name="line363">363  </a></b>		if (older == receint) {
+<b><a name="line364">364  </a></b>			time_end = sw-&gt;started;
+<b><a name="line365">365  </a></b>		} else {
+<b><a name="line366">366  </a></b>			time_end = sw-&gt;split_entry_list[older % (sw-&gt;split_size)];
+<b><a name="line367">367  </a></b>		}
+<b><a name="line368">368  </a></b>		return (time_start - time_end) / QB_TIME_NS_IN_USEC;
+<b><a name="line369">369  </a></b>	}
+<b><a name="line370">370  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>
