@@ -1,56 +1,140 @@
-2012-02-07  The Quarterback Library Release Team  <quarterback-devel@fedorahosted.org>
+2013-01-17  The Quarterback Library Release Team  <quarterback-devel@fedorahosted.org>
 
-	Bump the lib version to 0.10.0
+	Bump the version to 0.14.4
 
-2012-02-07  Angus Salkeld  <asalkeld@redhat.com>
+2013-01-17  Angus Salkeld  <asalkeld@redhat.com>
 
-	LOOP: handle errors from the poll function
+	LOG: prevent the last char of the blackbox message from getting lost.
 
-	LOOP: make the item type applicable to jobs too.
-	Mainly for diagnostics
+2013-01-15  Angus Salkeld  <asalkeld@redhat.com>
 
-	LOOP: fix the todo calculations.
-	The todo system was sucky as it was calculated in different
-	places in the mainloop and at each level. This was exposed by
-	calls to qb_loop_level_item_del() which decremented the level->todo
-	but not the mainloop one. So now we re-calculate it each time.
+	Example: make the blackbox example more practical.
 
-	TEST: check for a single job causing a cpu spin
+	Merge pull request #52 from miz-take/prototype
+	Add the processing which remove notifier at skiplist_destroy function
 
-	LOOP: prevent jobs from consuming too much cpu.
+2013-01-15  Takeshi MIZUTA  <miz.take4@gmail.com>
 
-2012-02-03  Angus Salkeld  <asalkeld@redhat.com>
+	Add the processing which remove notifier at skiplist_destroy function
 
-	Get coverity to ignore this warning.
-	"Using uninitialized element of array"
+2013-01-14  Angus Salkeld  <asalkeld@redhat.com>
 
-	Change example code to use fgets instead of gets
+	Merge pull request #51 from miz-take/prototype
+	Add the processing which remove hash node and notifier at hashtable_destroy function
 
-	LOG: pass the result of qb_log_thread_start() back to the user
+2013-01-14  Takeshi MIZUTA  <miz.take4@gmail.com>
 
-	Fix some issues found by clang
+	Add the processing which remove hash node and notifier at hashtable_destroy function
 
-	Add clang-analyzer check
+2013-01-11  Angus Salkeld  <asalkeld@redhat.com>
 
-2012-02-01  Angus Salkeld  <asalkeld@redhat.com>
+	Merge pull request #50 from miz-take/prototype
+	Unify to QB_TRUE/QB_FALSE a boolean value
 
-	Add a split timer to the stopwatch.
-	This is just a re-work of Steve's sample patch.
+2013-01-11  Takeshi MIZUTA  <miz.take4@gmail.com>
 
-	You set the number of splits and whether they overwrite using
-	qb_util_stopwatch_split_ctl().
+	Unify to QB_TRUE/QB_FALSE a boolean value
 
-2012-01-31  Angus Salkeld  <asalkeld@redhat.com>
+2013-01-10  Angus Salkeld  <asalkeld@redhat.com>
 
-	IPC: merge common code into new function
-	This also fixes a regression caused by:
-	42c92fb675a29bb1ec9f718c17daede82d5de3e2
+	Document the default prefix in INSTALL
 
-	IPC: better handle a disconnect been called from within connection_created()
+2013-01-09  Angus Salkeld  <asalkeld@redhat.com>
 
-2012-01-27  Angus Salkeld  <asalkeld@redhat.com>
+	Merge pull request #49 from miz-take/prototype
+	Unify the list processing with qb_list function
 
-	IPC: fix scary typo
-	Not sure how this happened
+2013-01-09  Takeshi MIZUTA  <miz.take4@gmail.com>
 
-	IPC: fix server error handling
+	Unify the list processing with qb_list function
+
+2013-01-08  Angus Salkeld  <asalkeld@redhat.com>
+
+	Add travis link to the readme.
+
+2013-01-06  Angus Salkeld  <asalkeld@redhat.com>
+
+	Merge pull request #48 from miz-take/prototype
+	Fix return code which is an error occurred at pthread function
+
+2013-01-06  miz-take  <miz-take4@gmail.com>
+
+	Fix return code which is an error occurred at pthread function
+
+2013-01-04  Angus Salkeld  <asalkeld@redhat.com>
+
+	TEST: add a progam to compare the speed of vsnprintf and qb_vsnprintf_serialize
+	On my system I get:
+
+	qb store] Duration:     8.289 OPs/sec: 1206381.250
+	snprintf] Duration:    16.712 OPs/sec: 598368.000
+
+	LOG: add a test for a padded hex int.
+
+	Fedora's splint has a strange syntax error, don't fail on it.
+
+	LOG: fix truncation in some messages that get padded.
+
+2012-12-19  Angus Salkeld  <asalkeld@redhat.com>
+
+	Fix the blackbox formatter when specifing the string len/precision
+
+	Fix strlcpy and strlcat functions
+	These were not behaving as the man pages described.
+
+2012-12-10  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: don't over log on disconnect
+	Thanks grueni: https://github.com/asalkeld/libqb/pull/43
+
+	Make sure we don't use the format string whilst it is getting changed.
+	Just add a rwlock around the usage.
+	Move qb_log_format_set() to log_format.c to make this easier.
+
+	Fixes #45
+
+2012-12-06  Angus Salkeld  <asalkeld@redhat.com>
+
+	ptrie: deref the current node in trie_iter_free()
+	If free'ing the iterator before getting to the last
+	node make sure we de-ref the current node. Else we
+	will not be able to delete the node.
+
+	fixes #44
+
+2012-11-29  Angus Salkeld  <asalkeld@redhat.com>
+
+	LOG: fix the format comparison to avoid generating multiple entries.
+
+2012-11-23  Angus Salkeld  <asalkeld@redhat.com>
+
+	LOG: set the return code when calloc fails
+
+2012-11-12  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: call poll if we are mid message and get EAGAIN
+	So just manually call us_ready (poll) with a timeout of 50ms
+	to prevent cpu spin.
+
+	Also update qb_ipc_us_recv() to be simerlar.
+
+2012-11-09  Angus Salkeld  <asalkeld@redhat.com>
+
+	Remove extra ";"
+
+	IPC: set the error more correctly when qb_sys_mmap_file_open() fails.
+
+	Make sure that mmap'ed files smaller than a page size are written to.
+	This is a test to make sure that there is actually enough memory
+	to back the requested shared memory.
+
+2012-11-08  Angus Salkeld  <asalkeld@redhat.com>
+
+	example/test: check for error in qb_ipc_run()
+	Hopefully all of them this time.
+
+	example: check for error in qb_ipc_run()
+
+2012-10-29  Angus Salkeld  <asalkeld@redhat.com>
+
+	TEST: fix typo s/,/; in check_ipc.c
