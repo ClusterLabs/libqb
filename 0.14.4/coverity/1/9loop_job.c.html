@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/loop_job.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2006-2010 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * This file is part of libqb.
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	
+<b><a name="line23">23   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line24">24   </a></b>	#include &lt;qb/qblist.h&gt;
+<b><a name="line25">25   </a></b>	#include &lt;qb/qbloop.h&gt;
+<b><a name="line26">26   </a></b>	#include &quot;loop_int.h&quot;
+<b><a name="line27">27   </a></b>	#include &quot;util_int.h&quot;
+<b><a name="line28">28   </a></b>	
+<b><a name="line29">29   </a></b>	struct qb_loop_job {
+<b><a name="line30">30   </a></b>		struct qb_loop_item item;
+<b><a name="line31">31   </a></b>		qb_loop_job_dispatch_fn dispatch_fn;
+<b><a name="line32">32   </a></b>	};
+<b><a name="line33">33   </a></b>	
+<b><a name="line34">34   </a></b>	static void
+<b><a name="line35">35   </a></b>	job_dispatch(struct qb_loop_item *item, enum qb_loop_priority p)
+<b><a name="line36">36   </a></b>	{
+<b><a name="line37">37   </a></b>		struct qb_loop_job *job = qb_list_entry(item, struct qb_loop_job, item);
+<b><a name="line38">38   </a></b>	
+<b><a name="line39">39   </a></b>		job-&gt;dispatch_fn(job-&gt;item.user_data);
+<b><a name="line40">40   </a></b>		free(job);
+<b><a name="line41">41   </a></b>	
+<b><a name="line42">42   </a></b>		/*
+<b><a name="line43">43   </a></b>		 * this is a one-shot so don't re-add
+<b><a name="line44">44   </a></b>		 */
+<b><a name="line45">45   </a></b>	}
+<b><a name="line46">46   </a></b>	
+<b><a name="line47">47   </a></b>	static int32_t
+<b><a name="line48">48   </a></b>	get_more_jobs(struct qb_loop_source *s, int32_t ms_timeout)
+<b><a name="line49">49   </a></b>	{
+<b><a name="line50">50   </a></b>		int32_t p;
+<b><a name="line51">51   </a></b>		int32_t new_jobs = 0;
+<b><a name="line52">52   </a></b>		int32_t level_jobs = 0;
+<b><a name="line53">53   </a></b>	
+<b><a name="line54">54   </a></b>		/*
+<b><a name="line55">55   </a></b>		 * this is simple, move jobs from wait_head to job_head
+<b><a name="line56">56   </a></b>		 */
+<b><a name="line57">57   </a></b>		for (p = QB_LOOP_LOW; p &lt;= QB_LOOP_HIGH; p++) {
+<b><a name="line58">58   </a></b>			if (!qb_list_empty(&amp;s-&gt;l-&gt;level[p].wait_head)) {
+<b><a name="line59">59   </a></b>				level_jobs = qb_list_length(&amp;s-&gt;l-&gt;level[p].wait_head);
+<b><a name="line60">60   </a></b>				new_jobs += level_jobs;
+<b><a name="line61">61   </a></b>				qb_list_splice_tail(&amp;s-&gt;l-&gt;level[p].wait_head,
+<b><a name="line62">62   </a></b>					            &amp;s-&gt;l-&gt;level[p].job_head);
+<b><a name="line63">63   </a></b>				qb_list_init(&amp;s-&gt;l-&gt;level[p].wait_head);
+<b><a name="line64">64   </a></b>				s-&gt;l-&gt;level[p].todo += level_jobs;
+<b><a name="line65">65   </a></b>			}
+<b><a name="line66">66   </a></b>		}
+<b><a name="line67">67   </a></b>		return new_jobs;
+<b><a name="line68">68   </a></b>	}
+<b><a name="line69">69   </a></b>	
+<b><a name="line70">70   </a></b>	struct qb_loop_source *
+<b><a name="line71">71   </a></b>	qb_loop_jobs_create(struct qb_loop *l)
+<b><a name="line72">72   </a></b>	{
+<b><a name="line73">73   </a></b>		struct qb_loop_source *s = malloc(sizeof(struct qb_loop_source));
+<b><a name="line74">74   </a></b>		if (s == NULL) {
+<b><a name="line75">75   </a></b>			return NULL;
+<b><a name="line76">76   </a></b>		}
+<b><a name="line77">77   </a></b>		s-&gt;l = l;
+<b><a name="line78">78   </a></b>		s-&gt;dispatch_and_take_back = job_dispatch;
+<b><a name="line79">79   </a></b>		s-&gt;poll = get_more_jobs;
+<b><a name="line80">80   </a></b>	
+<b><a name="line81">81   </a></b>		return s;
+<b><a name="line82">82   </a></b>	}
+<b><a name="line83">83   </a></b>	
+<b><a name="line84">84   </a></b>	void
+<b><a name="line85">85   </a></b>	qb_loop_jobs_destroy(struct qb_loop *l)
+<b><a name="line86">86   </a></b>	{
+<b><a name="line87">87   </a></b>		free(l-&gt;job_source);
+<b><a name="line88">88   </a></b>	}
+<b><a name="line89">89   </a></b>	
+<b><a name="line90">90   </a></b>	int32_t
+<b><a name="line91">91   </a></b>	qb_loop_job_add(struct qb_loop *lp,
+<b><a name="line92">92   </a></b>			enum qb_loop_priority p,
+<b><a name="line93">93   </a></b>			void *data, qb_loop_job_dispatch_fn dispatch_fn)
+<b><a name="line94">94   </a></b>	{
+<b><a name="line95">95   </a></b>		struct qb_loop_job *job;
+<b><a name="line96">96   </a></b>		struct qb_loop *l = lp;
+<b><a name="line97">97   </a></b>	
+<b><a name="line98">98   </a></b>		if (l == NULL) {
+<b><a name="line99">99   </a></b>			l = qb_loop_default_get();
+<b><a name="line100">100  </a></b>		}
+<b><a name="line101">101  </a></b>		if (l == NULL || dispatch_fn == NULL) {
+<b><a name="line102">102  </a></b>			return -EINVAL;
+<b><a name="line103">103  </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<a name="error"></a>
+<b>(1) Event unsigned_compare</b>: </font></td>
+<td><font color="red">This less-than-zero comparison of an unsigned value is never true. &quot;p &lt; 0U&quot;.</font></td>
+</tr>
+</table>
+<pre><b><a name="line104">104  </a></b>		if (p &lt; QB_LOOP_LOW || p &gt; QB_LOOP_HIGH) {
+<b><a name="line105">105  </a></b>			return -EINVAL;
+<b><a name="line106">106  </a></b>		}
+<b><a name="line107">107  </a></b>		job = malloc(sizeof(struct qb_loop_job));
+<b><a name="line108">108  </a></b>		if (job == NULL) {
+<b><a name="line109">109  </a></b>			return -ENOMEM;
+<b><a name="line110">110  </a></b>		}
+<b><a name="line111">111  </a></b>	
+<b><a name="line112">112  </a></b>		job-&gt;dispatch_fn = dispatch_fn;
+<b><a name="line113">113  </a></b>		job-&gt;item.user_data = data;
+<b><a name="line114">114  </a></b>		job-&gt;item.source = l-&gt;job_source;
+<b><a name="line115">115  </a></b>		job-&gt;item.type = QB_LOOP_JOB;
+<b><a name="line116">116  </a></b>	
+<b><a name="line117">117  </a></b>		qb_list_init(&amp;job-&gt;item.list);
+<b><a name="line118">118  </a></b>		qb_list_add_tail(&amp;job-&gt;item.list, &amp;l-&gt;level[p].wait_head);
+<b><a name="line119">119  </a></b>	
+<b><a name="line120">120  </a></b>		return 0;
+<b><a name="line121">121  </a></b>	}
+<b><a name="line122">122  </a></b>	
+<b><a name="line123">123  </a></b>	int32_t
+<b><a name="line124">124  </a></b>	qb_loop_job_del(struct qb_loop *lp,
+<b><a name="line125">125  </a></b>			enum qb_loop_priority p,
+<b><a name="line126">126  </a></b>			void *data, qb_loop_job_dispatch_fn dispatch_fn)
+<b><a name="line127">127  </a></b>	{
+<b><a name="line128">128  </a></b>		struct qb_loop_job *job;
+<b><a name="line129">129  </a></b>		struct qb_loop_item *item;
+<b><a name="line130">130  </a></b>		struct qb_loop *l = lp;
+<b><a name="line131">131  </a></b>	
+<b><a name="line132">132  </a></b>		if (l == NULL) {
+<b><a name="line133">133  </a></b>			l = qb_loop_default_get();
+<b><a name="line134">134  </a></b>		}
+<b><a name="line135">135  </a></b>		if (l == NULL || dispatch_fn == NULL) {
+<b><a name="line136">136  </a></b>			return -EINVAL;
+<b><a name="line137">137  </a></b>		}
+<b><a name="line138">138  </a></b>		if (p &gt; QB_LOOP_HIGH) {
+<b><a name="line139">139  </a></b>			return -EINVAL;
+<b><a name="line140">140  </a></b>		}
+<b><a name="line141">141  </a></b>	
+<b><a name="line142">142  </a></b>		qb_list_for_each_entry(item, &amp;l-&gt;level[p].wait_head, list) {
+<b><a name="line143">143  </a></b>			job = (struct qb_loop_job *)item;
+<b><a name="line144">144  </a></b>			if (job-&gt;dispatch_fn == dispatch_fn &amp;&amp;
+<b><a name="line145">145  </a></b>			    job-&gt;item.user_data == data &amp;&amp;
+<b><a name="line146">146  </a></b>			    job-&gt;item.type == QB_LOOP_JOB) {
+<b><a name="line147">147  </a></b>				qb_list_del(&amp;job-&gt;item.list);
+<b><a name="line148">148  </a></b>				free(job);
+<b><a name="line149">149  </a></b>				return 0;
+<b><a name="line150">150  </a></b>			}
+<b><a name="line151">151  </a></b>		}
+<b><a name="line152">152  </a></b>	
+<b><a name="line153">153  </a></b>		qb_list_for_each_entry(item, &amp;l-&gt;level[p].job_head, list) {
+<b><a name="line154">154  </a></b>	
+<b><a name="line155">155  </a></b>			if (item-&gt;type != QB_LOOP_JOB) {
+<b><a name="line156">156  </a></b>				continue;
+<b><a name="line157">157  </a></b>			}
+<b><a name="line158">158  </a></b>			job = (struct qb_loop_job *)item;
+<b><a name="line159">159  </a></b>			if (job-&gt;dispatch_fn == dispatch_fn &amp;&amp;
+<b><a name="line160">160  </a></b>			    job-&gt;item.user_data == data) {
+<b><a name="line161">161  </a></b>				qb_loop_level_item_del(&amp;l-&gt;level[p], item);
+<b><a name="line162">162  </a></b>				qb_util_log(LOG_DEBUG, &quot;deleting job in JOBLIST&quot;);
+<b><a name="line163">163  </a></b>				return 0;
+<b><a name="line164">164  </a></b>			}
+<b><a name="line165">165  </a></b>		}
+<b><a name="line166">166  </a></b>	
+<b><a name="line167">167  </a></b>		return -ENOENT;
+<b><a name="line168">168  </a></b>	}
+<b><a name="line169">169  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

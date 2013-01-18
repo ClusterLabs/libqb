@@ -1,0 +1,712 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/hashtable.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2010 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Steven Dake &lt;sdake@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * This file is part of libqb.
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	
+<b><a name="line23">23   </a></b>	#include &lt;qb/qbmap.h&gt;
+<b><a name="line24">24   </a></b>	#include &quot;util_int.h&quot;
+<b><a name="line25">25   </a></b>	#include &quot;map_int.h&quot;
+<b><a name="line26">26   </a></b>	#include &lt;qb/qblist.h&gt;
+<b><a name="line27">27   </a></b>	
+<b><a name="line28">28   </a></b>	#define FNV_32_PRIME ((uint32_t)0x01000193)
+<b><a name="line29">29   </a></b>	
+<b><a name="line30">30   </a></b>	struct hash_node {
+<b><a name="line31">31   </a></b>		struct qb_list_head list;
+<b><a name="line32">32   </a></b>		void *value;
+<b><a name="line33">33   </a></b>		const char *key;
+<b><a name="line34">34   </a></b>		uint32_t refcount;
+<b><a name="line35">35   </a></b>		struct qb_list_head notifier_head;
+<b><a name="line36">36   </a></b>	};
+<b><a name="line37">37   </a></b>	
+<b><a name="line38">38   </a></b>	struct hash_bucket {
+<b><a name="line39">39   </a></b>		struct qb_list_head list_head;
+<b><a name="line40">40   </a></b>	};
+<b><a name="line41">41   </a></b>	
+<b><a name="line42">42   </a></b>	struct hash_table {
+<b><a name="line43">43   </a></b>		struct qb_map map;
+<b><a name="line44">44   </a></b>		size_t count;
+<b><a name="line45">45   </a></b>		uint32_t order;
+<b><a name="line46">46   </a></b>		uint32_t hash_buckets_len;
+<b><a name="line47">47   </a></b>		struct qb_list_head notifier_head;
+<b><a name="line48">48   </a></b>		struct hash_bucket hash_buckets[0];
+<b><a name="line49">49   </a></b>	};
+<b><a name="line50">50   </a></b>	
+<b><a name="line51">51   </a></b>	struct hashtable_iter {
+<b><a name="line52">52   </a></b>		struct qb_map_iter i;
+<b><a name="line53">53   </a></b>		struct hash_node *node;
+<b><a name="line54">54   </a></b>		uint32_t bucket;
+<b><a name="line55">55   </a></b>	};
+<b><a name="line56">56   </a></b>	
+<b><a name="line57">57   </a></b>	static void hashtable_notify(struct hash_table *t, struct hash_node *n,
+<b><a name="line58">58   </a></b>				     uint32_t event, const char *key,
+<b><a name="line59">59   </a></b>				     void *old_value, void *value);
+<b><a name="line60">60   </a></b>	static void hashtable_node_deref_under_bucket(struct qb_map *map,
+<b><a name="line61">61   </a></b>						      int32_t hash_entry);
+<b><a name="line62">62   </a></b>	static void hashtable_node_destroy(struct hash_table *t,
+<b><a name="line63">63   </a></b>					   struct hash_node *hash_node);
+<b><a name="line64">64   </a></b>	
+<b><a name="line65">65   </a></b>	static uint32_t
+<b><a name="line66">66   </a></b>	hash_fnv(const void *value, uint32_t valuelen, uint32_t order)
+<b><a name="line67">67   </a></b>	{
+<b><a name="line68">68   </a></b>		uint8_t *cd = (uint8_t *) value;
+<b><a name="line69">69   </a></b>		uint8_t *ed = (uint8_t *) value + valuelen;
+<b><a name="line70">70   </a></b>		uint32_t hash_result = 0x811c9dc5;
+<b><a name="line71">71   </a></b>		int32_t res;
+<b><a name="line72">72   </a></b>	
+<b><a name="line73">73   </a></b>		while (cd &lt; ed) {
+<b><a name="line74">74   </a></b>			hash_result ^= *cd;
+<b><a name="line75">75   </a></b>			hash_result *= FNV_32_PRIME;
+<b><a name="line76">76   </a></b>			cd++;
+<b><a name="line77">77   </a></b>		}
+<b><a name="line78">78   </a></b>		res = ((hash_result &gt;&gt; order) ^ hash_result) &amp; ((1 &lt;&lt; order) - 1);
+<b><a name="line79">79   </a></b>		return (res);
+<b><a name="line80">80   </a></b>	}
+<b><a name="line81">81   </a></b>	
+<b><a name="line82">82   </a></b>	static uint32_t
+<b><a name="line83">83   </a></b>	qb_hash_string(const void *key, uint32_t order)
+<b><a name="line84">84   </a></b>	{
+<b><a name="line85">85   </a></b>		char *str = (char *)key;
+<b><a name="line86">86   </a></b>		return hash_fnv(key, strlen(str), order);
+<b><a name="line87">87   </a></b>	}
+<b><a name="line88">88   </a></b>	
+<b><a name="line89">89   </a></b>	static struct hash_node *
+<b><a name="line90">90   </a></b>	hashtable_lookup(struct hash_table *t, const char *key)
+<b><a name="line91">91   </a></b>	{
+<b><a name="line92">92   </a></b>		uint32_t hash_entry;
+<b><a name="line93">93   </a></b>		struct qb_list_head *list;
+<b><a name="line94">94   </a></b>		struct hash_node *hash_node;
+<b><a name="line95">95   </a></b>	
+<b><a name="line96">96   </a></b>		hash_entry = qb_hash_string(key, t-&gt;order);
+<b><a name="line97">97   </a></b>	
+<b><a name="line98">98   </a></b>		qb_list_for_each(list, &amp;t-&gt;hash_buckets[hash_entry].list_head) {
+<b><a name="line99">99   </a></b>	
+<b><a name="line100">100  </a></b>			hash_node = qb_list_entry(list, struct hash_node, list);
+<b><a name="line101">101  </a></b>			if (strcmp(hash_node-&gt;key, key) == 0) {
+<b><a name="line102">102  </a></b>				return hash_node;
+<b><a name="line103">103  </a></b>			}
+<b><a name="line104">104  </a></b>		}
+<b><a name="line105">105  </a></b>	
+<b><a name="line106">106  </a></b>		return NULL;
+<b><a name="line107">107  </a></b>	}
+<b><a name="line108">108  </a></b>	
+<b><a name="line109">109  </a></b>	static void *
+<b><a name="line110">110  </a></b>	hashtable_get(struct qb_map *map, const char *key)
+<b><a name="line111">111  </a></b>	{
+<b><a name="line112">112  </a></b>		struct hash_table *t = (struct hash_table *)map;
+<b><a name="line113">113  </a></b>		struct hash_node *n = hashtable_lookup(t, key);
+<b><a name="line114">114  </a></b>		if (n) {
+<b><a name="line115">115  </a></b>			return n-&gt;value;
+<b><a name="line116">116  </a></b>		}
+<b><a name="line117">117  </a></b>		return NULL;
+<b><a name="line118">118  </a></b>	}
+<b><a name="line119">119  </a></b>	
+<b><a name="line120">120  </a></b>	static void
+<b><a name="line121">121  </a></b>	hashtable_node_destroy(struct hash_table *t, struct hash_node *hash_node)
+<b><a name="line122">122  </a></b>	{
+<b><a name="line123">123  </a></b>		struct qb_list_head *pos;
+<b><a name="line124">124  </a></b>		struct qb_list_head *next;
+<b><a name="line125">125  </a></b>		struct qb_map_notifier *tn;
+<b><a name="line126">126  </a></b>	
+<b><a name="line127">127  </a></b>		hashtable_notify(t, hash_node,
+<b><a name="line128">128  </a></b>				 QB_MAP_NOTIFY_DELETED,
+<b><a name="line129">129  </a></b>				 hash_node-&gt;key, hash_node-&gt;value, NULL);
+<b><a name="line130">130  </a></b>	
+<b><a name="line131">131  </a></b>		qb_list_for_each_safe(pos, next, &amp;hash_node-&gt;notifier_head) {
+<b><a name="line132">132  </a></b>			tn = qb_list_entry(pos, struct qb_map_notifier, list);
+<b><a name="line133">133  </a></b>			qb_list_del(&amp;tn-&gt;list);
+<b><a name="line134">134  </a></b>			free(tn);
+<b><a name="line135">135  </a></b>		}
+<b><a name="line136">136  </a></b>	
+<b><a name="line137">137  </a></b>		qb_list_del(&amp;hash_node-&gt;list);
+<b><a name="line138">138  </a></b>		free(hash_node);
+<b><a name="line139">139  </a></b>	}
+<b><a name="line140">140  </a></b>	
+<b><a name="line141">141  </a></b>	static void
+<b><a name="line142">142  </a></b>	hashtable_node_deref(struct qb_map *map, struct hash_node *hash_node)
+<b><a name="line143">143  </a></b>	{
+<b><a name="line144">144  </a></b>		struct hash_table *t = (struct hash_table *)map;
+<b><a name="line145">145  </a></b>	
+<b><a name="line146">146  </a></b>		hash_node-&gt;refcount--;
+<b><a name="line147">147  </a></b>		if (hash_node-&gt;refcount &gt; 0) {
+<b><a name="line148">148  </a></b>			return;
+<b><a name="line149">149  </a></b>		}
+<b><a name="line150">150  </a></b>		hashtable_node_destroy(t, hash_node);
+<b><a name="line151">151  </a></b>	}
+<b><a name="line152">152  </a></b>	
+<b><a name="line153">153  </a></b>	static int32_t
+<b><a name="line154">154  </a></b>	hashtable_rm_with_hash(struct qb_map *map, const char *key, uint32_t hash_entry)
+<b><a name="line155">155  </a></b>	{
+<b><a name="line156">156  </a></b>		struct hash_table *hash_table = (struct hash_table *)map;
+<b><a name="line157">157  </a></b>		struct qb_list_head *list;
+<b><a name="line158">158  </a></b>		struct qb_list_head *next;
+<b><a name="line159">159  </a></b>		struct hash_node *hash_node;
+<b><a name="line160">160  </a></b>	
+<b><a name="line161">161  </a></b>		qb_list_for_each_safe(list, next,
+<b><a name="line162">162  </a></b>		                      &amp;hash_table-&gt;hash_buckets[hash_entry].list_head) {
+<b><a name="line163">163  </a></b>	
+<b><a name="line164">164  </a></b>			hash_node = qb_list_entry(list, struct hash_node, list);
+<b><a name="line165">165  </a></b>			if (strcmp(hash_node-&gt;key, key) == 0) {
+<b><a name="line166">166  </a></b>				hashtable_node_deref(map, hash_node);
+<b><a name="line167">167  </a></b>				hash_table-&gt;count--;
+<b><a name="line168">168  </a></b>				return QB_TRUE;
+<b><a name="line169">169  </a></b>			}
+<b><a name="line170">170  </a></b>		}
+<b><a name="line171">171  </a></b>	
+<b><a name="line172">172  </a></b>		return QB_FALSE;
+<b><a name="line173">173  </a></b>	}
+<b><a name="line174">174  </a></b>	
+<b><a name="line175">175  </a></b>	static int32_t
+<b><a name="line176">176  </a></b>	hashtable_rm(struct qb_map *map, const char *key)
+<b><a name="line177">177  </a></b>	{
+<b><a name="line178">178  </a></b>		struct hash_table *hash_table = (struct hash_table *)map;
+<b><a name="line179">179  </a></b>		uint32_t hash_entry;
+<b><a name="line180">180  </a></b>	
+<b><a name="line181">181  </a></b>		hash_entry = qb_hash_string(key, hash_table-&gt;order);
+<b><a name="line182">182  </a></b>		return hashtable_rm_with_hash(map, key, hash_entry);
+<b><a name="line183">183  </a></b>	}
+<b><a name="line184">184  </a></b>	
+<b><a name="line185">185  </a></b>	static void
+<b><a name="line186">186  </a></b>	hashtable_put(struct qb_map *map, const char *key, const void *value)
+<b><a name="line187">187  </a></b>	{
+<b><a name="line188">188  </a></b>		struct hash_table *hash_table = (struct hash_table *)map;
+<b><a name="line189">189  </a></b>		uint32_t hash_entry;
+<b><a name="line190">190  </a></b>		struct hash_node *hash_node = NULL;
+<b><a name="line191">191  </a></b>		struct hash_node *node_try;
+<b><a name="line192">192  </a></b>		struct qb_list_head *list;
+<b><a name="line193">193  </a></b>	
+<b><a name="line194">194  </a></b>		hash_entry = qb_hash_string(key, hash_table-&gt;order);
+<b><a name="line195">195  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:0"></a>
+<b>(1) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;list != &amp;hash_table-&gt;hash_buckets[hash_entry].list_head&quot;, taking true branch</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:4"></a>
+<b>(5) Event loop_begin</b>: </font></td>
+<td><font color="green">Jumped back to beginning of loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:5"></a>
+<b>(6) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;list != &amp;hash_table-&gt;hash_buckets[hash_entry].list_head&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line196">196  </a></b>		qb_list_for_each(list, &amp;hash_table-&gt;hash_buckets[hash_entry].list_head) {
+<b><a name="line197">197  </a></b>	
+<b><a name="line198">198  </a></b>			node_try = qb_list_entry(list, struct hash_node, list);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:1"></a>
+<b>(2) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;__coverity_strcmp(node_try-&gt;key, key) == 0&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line199">199  </a></b>			if (strcmp(node_try-&gt;key, key) == 0) {
+<b><a name="line200">200  </a></b>				hash_node = node_try;
+<b><a name="line201">201  </a></b>				break;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:2"></a>
+<b>(3) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line202">202  </a></b>			}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:3"></a>
+<b>(4) Event loop</b>: </font></td>
+<td><font color="green">Jumping back to the beginning of the loop</font></td>
+</tr>
+<tr><td><font color="green">
+<a name="error:6"></a>
+<b>(7) Event loop_end</b>: </font></td>
+<td><font color="green">Reached end of loop</font></td>
+</tr>
+</table>
+<pre><b><a name="line203">203  </a></b>		}
+<b><a name="line204">204  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:7"></a>
+<b>(8) Event cond_true</b>: </font></td>
+<td><font color="green">Condition &quot;hash_node == NULL&quot;, taking true branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line205">205  </a></b>		if (hash_node == NULL) {
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:8"></a>
+<b>(9) Event alloc_fn</b>: </font></td>
+<td><font color="red">Storage is returned from allocation function &quot;calloc(size_t, size_t)&quot;.</font></td>
+</tr>
+<tr><td><font color="red">
+<a name="error:9"></a>
+<b>(10) Event var_assign</b>: </font></td>
+<td><font color="red">Assigning: &quot;hash_node&quot; = storage returned from &quot;calloc(1UL, 56UL)&quot;.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:12">noescape</a>][<a href="#error:15">leaked_storage</a>]</font></td></tr>
+</table>
+<pre><b><a name="line206">206  </a></b>			hash_node = calloc(1, sizeof(struct hash_node));
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:10"></a>
+<b>(11) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;hash_node == NULL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line207">207  </a></b>			if (hash_node == NULL) {
+<b><a name="line208">208  </a></b>				errno = ENOMEM;
+<b><a name="line209">209  </a></b>				return;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:11"></a>
+<b>(12) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line210">210  </a></b>			}
+<b><a name="line211">211  </a></b>	
+<b><a name="line212">212  </a></b>			hash_table-&gt;count++;
+<b><a name="line213">213  </a></b>			hash_node-&gt;refcount = 1;
+<b><a name="line214">214  </a></b>			hash_node-&gt;key = key;
+<b><a name="line215">215  </a></b>			hash_node-&gt;value = (void *)value;
+<b><a name="line216">216  </a></b>			qb_list_init(&amp;hash_node-&gt;list);
+<b><a name="line217">217  </a></b>			qb_list_add_tail(&amp;hash_node-&gt;list,
+<b><a name="line218">218  </a></b>					 &amp;hash_table-&gt;hash_buckets[hash_entry].
+<b><a name="line219">219  </a></b>					 list_head);
+<b><a name="line220">220  </a></b>			qb_list_init(&amp;hash_node-&gt;notifier_head);
+<b><a name="line221">221  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:12"></a>
+<b>(13) Event noescape</b>: </font></td>
+<td><font color="red">Resource &quot;hash_node&quot; is not freed or pointed-to in function &quot;hashtable_notify(struct hash_table *, struct hash_node *, uint32_t, char const *, void *, void *)&quot;. [<a href="#model:hashtable_notify:generic:3">details</a>]</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:8">alloc_fn</a>][<a href="#error:9">var_assign</a>][<a href="#error:15">leaked_storage</a>]</font></td></tr>
+</table>
+<pre><b><a name="line222">222  </a></b>			hashtable_notify(hash_table, hash_node,
+<b><a name="line223">223  </a></b>					 QB_MAP_NOTIFY_INSERTED,
+<b><a name="line224">224  </a></b>					 hash_node-&gt;key, NULL, hash_node-&gt;value);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:13"></a>
+<b>(14) Event if_fallthrough</b>: </font></td>
+<td><font color="green">Falling through to end of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line225">225  </a></b>		} else {
+<b><a name="line226">226  </a></b>			char *old_k = (char *)hash_node-&gt;key;
+<b><a name="line227">227  </a></b>			char *old_v = (void *)hash_node-&gt;value;
+<b><a name="line228">228  </a></b>			hash_node-&gt;key = key;
+<b><a name="line229">229  </a></b>			hash_node-&gt;value = (void *)value;
+<b><a name="line230">230  </a></b>	
+<b><a name="line231">231  </a></b>			hashtable_notify(hash_table, hash_node,
+<b><a name="line232">232  </a></b>					 QB_MAP_NOTIFY_REPLACED,
+<b><a name="line233">233  </a></b>					 old_k, old_v, hash_node-&gt;value);
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="error:14"></a>
+<b>(15) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line234">234  </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:15"></a>
+<a name="error"></a>
+<b>(16) Event leaked_storage</b>: </font></td>
+<td><font color="red">Variable &quot;hash_node&quot; going out of scope leaks the storage it points to.</font></td>
+</tr>
+<tr><td><font color="red">Also see events: </font></td>
+<td><font color="red">[<a href="#error:8">alloc_fn</a>][<a href="#error:9">var_assign</a>][<a href="#error:12">noescape</a>]</font></td></tr>
+</table>
+<pre><b><a name="line235">235  </a></b>	}
+<b><a name="line236">236  </a></b>	
+<b><a name="line237">237  </a></b>	static void
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:hashtable_notify:generic:3:0"></a>
+<a name="model:hashtable_notify:generic:3"></a>
+<b>(1) Event noescape</b>: </font></td>
+<td><font color="red">&quot;hashtable_notify(struct hash_table *, struct hash_node *, uint32_t, char const *, void *, void *)&quot; does not free or save its pointer parameter &quot;n&quot;.</font></td>
+</tr>
+</table>
+<pre><b><a name="line238">238  </a></b>	hashtable_notify(struct hash_table *t, struct hash_node *n,
+<b><a name="line239">239  </a></b>			 uint32_t event, const char *key,
+<b><a name="line240">240  </a></b>			 void *old_value, void *value)
+<b><a name="line241">241  </a></b>	{
+<b><a name="line242">242  </a></b>		struct qb_list_head *list;
+<b><a name="line243">243  </a></b>		struct qb_map_notifier *tn;
+<b><a name="line244">244  </a></b>	
+<b><a name="line245">245  </a></b>		qb_list_for_each(list, &amp;n-&gt;notifier_head) {
+<b><a name="line246">246  </a></b>			tn = qb_list_entry(list, struct qb_map_notifier, list);
+<b><a name="line247">247  </a></b>	
+<b><a name="line248">248  </a></b>			if (tn-&gt;events &amp; event) {
+<b><a name="line249">249  </a></b>				tn-&gt;callback(event, (char *)key, old_value, value,
+<b><a name="line250">250  </a></b>					     tn-&gt;user_data);
+<b><a name="line251">251  </a></b>			}
+<b><a name="line252">252  </a></b>		}
+<b><a name="line253">253  </a></b>		qb_list_for_each(list, &amp;t-&gt;notifier_head) {
+<b><a name="line254">254  </a></b>			tn = qb_list_entry(list, struct qb_map_notifier, list);
+<b><a name="line255">255  </a></b>	
+<b><a name="line256">256  </a></b>			if (tn-&gt;events &amp; event) {
+<b><a name="line257">257  </a></b>				tn-&gt;callback(event, (char *)key, old_value, value,
+<b><a name="line258">258  </a></b>					     tn-&gt;user_data);
+<b><a name="line259">259  </a></b>			}
+<b><a name="line260">260  </a></b>			if (((event &amp; QB_MAP_NOTIFY_DELETED) ||
+<b><a name="line261">261  </a></b>			     (event &amp; QB_MAP_NOTIFY_REPLACED)) &amp;&amp;
+<b><a name="line262">262  </a></b>			    (tn-&gt;events &amp; QB_MAP_NOTIFY_FREE)) {
+<b><a name="line263">263  </a></b>				tn-&gt;callback(QB_MAP_NOTIFY_FREE, (char *)key,
+<b><a name="line264">264  </a></b>					     old_value, value, tn-&gt;user_data);
+<b><a name="line265">265  </a></b>			}
+<b><a name="line266">266  </a></b>		}
+<b><a name="line267">267  </a></b>	}
+<b><a name="line268">268  </a></b>	
+<b><a name="line269">269  </a></b>	static int32_t
+<b><a name="line270">270  </a></b>	hashtable_notify_add(qb_map_t * m, const char *key,
+<b><a name="line271">271  </a></b>			     qb_map_notify_fn fn, int32_t events, void *user_data)
+<b><a name="line272">272  </a></b>	{
+<b><a name="line273">273  </a></b>		struct hash_table *t = (struct hash_table *)m;
+<b><a name="line274">274  </a></b>		struct qb_map_notifier *f;
+<b><a name="line275">275  </a></b>		struct hash_node *n;
+<b><a name="line276">276  </a></b>		struct qb_list_head *head = NULL;
+<b><a name="line277">277  </a></b>		struct qb_list_head *list;
+<b><a name="line278">278  </a></b>		int add_to_tail = QB_FALSE;
+<b><a name="line279">279  </a></b>	
+<b><a name="line280">280  </a></b>		if (key) {
+<b><a name="line281">281  </a></b>			n = hashtable_lookup(t, key);
+<b><a name="line282">282  </a></b>			if (n) {
+<b><a name="line283">283  </a></b>				head = &amp;n-&gt;notifier_head;
+<b><a name="line284">284  </a></b>			}
+<b><a name="line285">285  </a></b>		} else {
+<b><a name="line286">286  </a></b>			head = &amp;t-&gt;notifier_head;
+<b><a name="line287">287  </a></b>		}
+<b><a name="line288">288  </a></b>		if (head == NULL) {
+<b><a name="line289">289  </a></b>			return -ENOENT;
+<b><a name="line290">290  </a></b>		}
+<b><a name="line291">291  </a></b>		if (events &amp; QB_MAP_NOTIFY_FREE) {
+<b><a name="line292">292  </a></b>			add_to_tail = QB_TRUE;
+<b><a name="line293">293  </a></b>		}
+<b><a name="line294">294  </a></b>	
+<b><a name="line295">295  </a></b>		qb_list_for_each(list, head) {
+<b><a name="line296">296  </a></b>			f = qb_list_entry(list, struct qb_map_notifier, list);
+<b><a name="line297">297  </a></b>	
+<b><a name="line298">298  </a></b>			if (events &amp; QB_MAP_NOTIFY_FREE &amp;&amp;
+<b><a name="line299">299  </a></b>			    f-&gt;events == events) {
+<b><a name="line300">300  </a></b>				/* only one free notifier */
+<b><a name="line301">301  </a></b>				return -EEXIST;
+<b><a name="line302">302  </a></b>			}
+<b><a name="line303">303  </a></b>			if (f-&gt;events == events &amp;&amp;
+<b><a name="line304">304  </a></b>			    f-&gt;user_data == user_data &amp;&amp;
+<b><a name="line305">305  </a></b>			    f-&gt;callback == fn) {
+<b><a name="line306">306  </a></b>				return -EEXIST;
+<b><a name="line307">307  </a></b>			}
+<b><a name="line308">308  </a></b>		}
+<b><a name="line309">309  </a></b>	
+<b><a name="line310">310  </a></b>		f = malloc(sizeof(struct qb_map_notifier));
+<b><a name="line311">311  </a></b>		if (f == NULL) {
+<b><a name="line312">312  </a></b>			return -errno;
+<b><a name="line313">313  </a></b>		}
+<b><a name="line314">314  </a></b>		f-&gt;events = events;
+<b><a name="line315">315  </a></b>		f-&gt;user_data = user_data;
+<b><a name="line316">316  </a></b>		f-&gt;callback = fn;
+<b><a name="line317">317  </a></b>		qb_list_init(&amp;f-&gt;list);
+<b><a name="line318">318  </a></b>	
+<b><a name="line319">319  </a></b>		if (add_to_tail) {
+<b><a name="line320">320  </a></b>			qb_list_add_tail(&amp;f-&gt;list, head);
+<b><a name="line321">321  </a></b>		} else {
+<b><a name="line322">322  </a></b>			qb_list_add(&amp;f-&gt;list, head);
+<b><a name="line323">323  </a></b>		}
+<b><a name="line324">324  </a></b>		return 0;
+<b><a name="line325">325  </a></b>	}
+<b><a name="line326">326  </a></b>	
+<b><a name="line327">327  </a></b>	static int32_t
+<b><a name="line328">328  </a></b>	hashtable_notify_del(qb_map_t * m, const char *key,
+<b><a name="line329">329  </a></b>			     qb_map_notify_fn fn, int32_t events,
+<b><a name="line330">330  </a></b>			     int32_t cmp_userdata, void *user_data)
+<b><a name="line331">331  </a></b>	{
+<b><a name="line332">332  </a></b>		struct hash_table *t = (struct hash_table *)m;
+<b><a name="line333">333  </a></b>		struct qb_map_notifier *f;
+<b><a name="line334">334  </a></b>		struct hash_node *n;
+<b><a name="line335">335  </a></b>		struct qb_list_head *head = NULL;
+<b><a name="line336">336  </a></b>		struct qb_list_head *list;
+<b><a name="line337">337  </a></b>		struct qb_list_head *next;
+<b><a name="line338">338  </a></b>		int32_t found = QB_FALSE;
+<b><a name="line339">339  </a></b>	
+<b><a name="line340">340  </a></b>		if (key) {
+<b><a name="line341">341  </a></b>			n = hashtable_lookup(t, key);
+<b><a name="line342">342  </a></b>			if (n) {
+<b><a name="line343">343  </a></b>				head = &amp;n-&gt;notifier_head;
+<b><a name="line344">344  </a></b>			}
+<b><a name="line345">345  </a></b>		} else {
+<b><a name="line346">346  </a></b>			head = &amp;t-&gt;notifier_head;
+<b><a name="line347">347  </a></b>		}
+<b><a name="line348">348  </a></b>		if (head == NULL) {
+<b><a name="line349">349  </a></b>			return -ENOENT;
+<b><a name="line350">350  </a></b>		}
+<b><a name="line351">351  </a></b>	
+<b><a name="line352">352  </a></b>		qb_list_for_each_safe(list, next, head) {
+<b><a name="line353">353  </a></b>			f = qb_list_entry(list, struct qb_map_notifier, list);
+<b><a name="line354">354  </a></b>	
+<b><a name="line355">355  </a></b>			if (f-&gt;events == events &amp;&amp; f-&gt;callback == fn) {
+<b><a name="line356">356  </a></b>				if (cmp_userdata &amp;&amp; (f-&gt;user_data == user_data)) {
+<b><a name="line357">357  </a></b>					found = QB_TRUE;
+<b><a name="line358">358  </a></b>					qb_list_del(&amp;f-&gt;list);
+<b><a name="line359">359  </a></b>					free(f);
+<b><a name="line360">360  </a></b>				} else if (!cmp_userdata) {
+<b><a name="line361">361  </a></b>					found = QB_TRUE;
+<b><a name="line362">362  </a></b>					qb_list_del(&amp;f-&gt;list);
+<b><a name="line363">363  </a></b>					free(f);
+<b><a name="line364">364  </a></b>				}
+<b><a name="line365">365  </a></b>			}
+<b><a name="line366">366  </a></b>		}
+<b><a name="line367">367  </a></b>		if (found) {
+<b><a name="line368">368  </a></b>			return 0;
+<b><a name="line369">369  </a></b>		} else {
+<b><a name="line370">370  </a></b>			return -ENOENT;
+<b><a name="line371">371  </a></b>		}
+<b><a name="line372">372  </a></b>	}
+<b><a name="line373">373  </a></b>	
+<b><a name="line374">374  </a></b>	static size_t
+<b><a name="line375">375  </a></b>	hashtable_count_get(struct qb_map *map)
+<b><a name="line376">376  </a></b>	{
+<b><a name="line377">377  </a></b>		struct hash_table *hash_table = (struct hash_table *)map;
+<b><a name="line378">378  </a></b>		return hash_table-&gt;count;
+<b><a name="line379">379  </a></b>	}
+<b><a name="line380">380  </a></b>	
+<b><a name="line381">381  </a></b>	static qb_map_iter_t *
+<b><a name="line382">382  </a></b>	hashtable_iter_create(struct qb_map *map, const char *prefix)
+<b><a name="line383">383  </a></b>	{
+<b><a name="line384">384  </a></b>		struct hashtable_iter *i = malloc(sizeof(struct hashtable_iter));
+<b><a name="line385">385  </a></b>		if (i == NULL) {
+<b><a name="line386">386  </a></b>			return NULL;
+<b><a name="line387">387  </a></b>		}
+<b><a name="line388">388  </a></b>		i-&gt;i.m = map;
+<b><a name="line389">389  </a></b>		i-&gt;node = NULL;
+<b><a name="line390">390  </a></b>		i-&gt;bucket = 0;
+<b><a name="line391">391  </a></b>		return (qb_map_iter_t *) i;
+<b><a name="line392">392  </a></b>	}
+<b><a name="line393">393  </a></b>	
+<b><a name="line394">394  </a></b>	static const char *
+<b><a name="line395">395  </a></b>	hashtable_iter_next(qb_map_iter_t * it, void **value)
+<b><a name="line396">396  </a></b>	{
+<b><a name="line397">397  </a></b>		struct hashtable_iter *hi = (struct hashtable_iter *)it;
+<b><a name="line398">398  </a></b>		struct hash_table *hash_table = (struct hash_table *)hi-&gt;i.m;
+<b><a name="line399">399  </a></b>		struct qb_list_head *ln;
+<b><a name="line400">400  </a></b>		struct hash_node *hash_node = NULL;
+<b><a name="line401">401  </a></b>		int found = QB_FALSE;
+<b><a name="line402">402  </a></b>		int cont = QB_TRUE;
+<b><a name="line403">403  </a></b>		int b;
+<b><a name="line404">404  </a></b>	
+<b><a name="line405">405  </a></b>		if (hi-&gt;node == NULL) {
+<b><a name="line406">406  </a></b>			cont = QB_FALSE;
+<b><a name="line407">407  </a></b>		}
+<b><a name="line408">408  </a></b>		for (b = hi-&gt;bucket; b &lt; hash_table-&gt;hash_buckets_len &amp;&amp; !found; b++) {
+<b><a name="line409">409  </a></b>			if (cont) {
+<b><a name="line410">410  </a></b>				ln = &amp;hi-&gt;node-&gt;list;
+<b><a name="line411">411  </a></b>				cont = QB_FALSE;
+<b><a name="line412">412  </a></b>			} else {
+<b><a name="line413">413  </a></b>				ln = &amp;hash_table-&gt;hash_buckets[b].list_head;
+<b><a name="line414">414  </a></b>			}
+<b><a name="line415">415  </a></b>			hash_node = qb_list_first_entry(ln, struct hash_node, list);
+<b><a name="line416">416  </a></b>			qb_list_for_each_entry_from(hash_node,
+<b><a name="line417">417  </a></b>			                &amp;hash_table-&gt;hash_buckets[b].list_head, list) {
+<b><a name="line418">418  </a></b>				if (hash_node-&gt;refcount &gt; 0) {
+<b><a name="line419">419  </a></b>					found = QB_TRUE;
+<b><a name="line420">420  </a></b>					hash_node-&gt;refcount++;
+<b><a name="line421">421  </a></b>					hi-&gt;bucket = b;
+<b><a name="line422">422  </a></b>					*value = hash_node-&gt;value;
+<b><a name="line423">423  </a></b>					break;
+<b><a name="line424">424  </a></b>				}
+<b><a name="line425">425  </a></b>			}
+<b><a name="line426">426  </a></b>		}
+<b><a name="line427">427  </a></b>	
+<b><a name="line428">428  </a></b>		if (hi-&gt;node) {
+<b><a name="line429">429  </a></b>			hashtable_node_deref(hi-&gt;i.m, hi-&gt;node);
+<b><a name="line430">430  </a></b>		}
+<b><a name="line431">431  </a></b>		if (!found) {
+<b><a name="line432">432  </a></b>			return NULL;
+<b><a name="line433">433  </a></b>		}
+<b><a name="line434">434  </a></b>		hi-&gt;node = hash_node;
+<b><a name="line435">435  </a></b>		return hash_node-&gt;key;
+<b><a name="line436">436  </a></b>	}
+<b><a name="line437">437  </a></b>	
+<b><a name="line438">438  </a></b>	static void
+<b><a name="line439">439  </a></b>	hashtable_iter_free(qb_map_iter_t * i)
+<b><a name="line440">440  </a></b>	{
+<b><a name="line441">441  </a></b>		free(i);
+<b><a name="line442">442  </a></b>	}
+<b><a name="line443">443  </a></b>	
+<b><a name="line444">444  </a></b>	static void
+<b><a name="line445">445  </a></b>	hashtable_destroy(struct qb_map *map)
+<b><a name="line446">446  </a></b>	{
+<b><a name="line447">447  </a></b>		struct hash_table *hash_table = (struct hash_table *)map;
+<b><a name="line448">448  </a></b>		struct qb_list_head *pos;
+<b><a name="line449">449  </a></b>		struct qb_list_head *next;
+<b><a name="line450">450  </a></b>		struct qb_map_notifier *tn;
+<b><a name="line451">451  </a></b>		int32_t i;
+<b><a name="line452">452  </a></b>	
+<b><a name="line453">453  </a></b>		for (i = 0; i &lt; hash_table-&gt;hash_buckets_len; i++) {
+<b><a name="line454">454  </a></b>			hashtable_node_deref_under_bucket(map, i);
+<b><a name="line455">455  </a></b>		}
+<b><a name="line456">456  </a></b>	
+<b><a name="line457">457  </a></b>		qb_list_for_each_safe(pos, next, &amp;hash_table-&gt;notifier_head) {
+<b><a name="line458">458  </a></b>			tn = qb_list_entry(pos, struct qb_map_notifier, list);
+<b><a name="line459">459  </a></b>			qb_list_del(&amp;tn-&gt;list);
+<b><a name="line460">460  </a></b>			free(tn);
+<b><a name="line461">461  </a></b>		}
+<b><a name="line462">462  </a></b>	
+<b><a name="line463">463  </a></b>		free(hash_table);
+<b><a name="line464">464  </a></b>	}
+<b><a name="line465">465  </a></b>	
+<b><a name="line466">466  </a></b>	static void
+<b><a name="line467">467  </a></b>	hashtable_node_deref_under_bucket(struct qb_map *map, int32_t hash_entry)
+<b><a name="line468">468  </a></b>	{
+<b><a name="line469">469  </a></b>		struct hash_table *hash_table = (struct hash_table *)map;
+<b><a name="line470">470  </a></b>		struct hash_node *hash_node;
+<b><a name="line471">471  </a></b>		struct qb_list_head *pos;
+<b><a name="line472">472  </a></b>		struct qb_list_head *next;
+<b><a name="line473">473  </a></b>	
+<b><a name="line474">474  </a></b>		qb_list_for_each_safe(pos, next,
+<b><a name="line475">475  </a></b>				      &amp;hash_table-&gt;hash_buckets[hash_entry].list_head) {
+<b><a name="line476">476  </a></b>			hash_node = qb_list_entry(pos, struct hash_node, list);
+<b><a name="line477">477  </a></b>			hashtable_node_deref(map, hash_node);
+<b><a name="line478">478  </a></b>			hash_table-&gt;count--;
+<b><a name="line479">479  </a></b>		}
+<b><a name="line480">480  </a></b>	}
+<b><a name="line481">481  </a></b>	
+<b><a name="line482">482  </a></b>	qb_map_t *
+<b><a name="line483">483  </a></b>	qb_hashtable_create(size_t max_size)
+<b><a name="line484">484  </a></b>	{
+<b><a name="line485">485  </a></b>		int32_t i;
+<b><a name="line486">486  </a></b>		int32_t order;
+<b><a name="line487">487  </a></b>		int32_t n = max_size;
+<b><a name="line488">488  </a></b>		uint64_t size;
+<b><a name="line489">489  </a></b>		struct hash_table *ht;
+<b><a name="line490">490  </a></b>	
+<b><a name="line491">491  </a></b>		for (i = 0; n; i++) {
+<b><a name="line492">492  </a></b>			n &gt;&gt;= 1;
+<b><a name="line493">493  </a></b>		}
+<b><a name="line494">494  </a></b>		order = QB_MAX(i, 3);
+<b><a name="line495">495  </a></b>	
+<b><a name="line496">496  </a></b>		size = sizeof(struct hash_table) +
+<b><a name="line497">497  </a></b>		    (sizeof(struct hash_bucket) * (1 &lt;&lt; order));
+<b><a name="line498">498  </a></b>	
+<b><a name="line499">499  </a></b>		ht = calloc(1, size);
+<b><a name="line500">500  </a></b>		if (ht == NULL) {
+<b><a name="line501">501  </a></b>			return NULL;
+<b><a name="line502">502  </a></b>		}
+<b><a name="line503">503  </a></b>	
+<b><a name="line504">504  </a></b>		ht-&gt;map.put = hashtable_put;
+<b><a name="line505">505  </a></b>		ht-&gt;map.get = hashtable_get;
+<b><a name="line506">506  </a></b>		ht-&gt;map.rm = hashtable_rm;
+<b><a name="line507">507  </a></b>		ht-&gt;map.count_get = hashtable_count_get;
+<b><a name="line508">508  </a></b>		ht-&gt;map.iter_create = hashtable_iter_create;
+<b><a name="line509">509  </a></b>		ht-&gt;map.iter_next = hashtable_iter_next;
+<b><a name="line510">510  </a></b>		ht-&gt;map.iter_free = hashtable_iter_free;
+<b><a name="line511">511  </a></b>		ht-&gt;map.destroy = hashtable_destroy;
+<b><a name="line512">512  </a></b>		ht-&gt;map.notify_add = hashtable_notify_add;
+<b><a name="line513">513  </a></b>		ht-&gt;map.notify_del = hashtable_notify_del;
+<b><a name="line514">514  </a></b>		ht-&gt;count = 0;
+<b><a name="line515">515  </a></b>		ht-&gt;order = order;
+<b><a name="line516">516  </a></b>		qb_list_init(&amp;ht-&gt;notifier_head);
+<b><a name="line517">517  </a></b>	
+<b><a name="line518">518  </a></b>		ht-&gt;hash_buckets_len = 1 &lt;&lt; order;
+<b><a name="line519">519  </a></b>		for (i = 0; i &lt; ht-&gt;hash_buckets_len; i++) {
+<b><a name="line520">520  </a></b>			qb_list_init(&amp;ht-&gt;hash_buckets[i].list_head);
+<b><a name="line521">521  </a></b>		}
+<b><a name="line522">522  </a></b>		return (qb_map_t *) ht;
+<b><a name="line523">523  </a></b>	}
+<b><a name="line524">524  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

@@ -1,0 +1,956 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/lib/ipcs.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2010 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * This file is part of libqb.
+<b><a name="line7">7    </a></b>	 *
+<b><a name="line8">8    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line9">9    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line10">10   </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line11">11   </a></b>	 * (at your option) any later version.
+<b><a name="line12">12   </a></b>	 *
+<b><a name="line13">13   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line14">14   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line15">15   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line16">16   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line17">17   </a></b>	 *
+<b><a name="line18">18   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line19">19   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line20">20   </a></b>	 */
+<b><a name="line21">21   </a></b>	#include &quot;os_base.h&quot;
+<b><a name="line22">22   </a></b>	
+<b><a name="line23">23   </a></b>	#include &quot;util_int.h&quot;
+<b><a name="line24">24   </a></b>	#include &quot;ipc_int.h&quot;
+<b><a name="line25">25   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line26">26   </a></b>	#include &lt;qb/qbatomic.h&gt;
+<b><a name="line27">27   </a></b>	#include &lt;qb/qbipcs.h&gt;
+<b><a name="line28">28   </a></b>	
+<b><a name="line29">29   </a></b>	static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
+<b><a name="line30">30   </a></b>					    int32_t fc_enable);
+<b><a name="line31">31   </a></b>	static int32_t
+<b><a name="line32">32   </a></b>	new_event_notification(struct qb_ipcs_connection * c);
+<b><a name="line33">33   </a></b>	
+<b><a name="line34">34   </a></b>	static QB_LIST_DECLARE(qb_ipc_services);
+<b><a name="line35">35   </a></b>	
+<b><a name="line36">36   </a></b>	qb_ipcs_service_t *
+<b><a name="line37">37   </a></b>	qb_ipcs_create(const char *name,
+<b><a name="line38">38   </a></b>		       int32_t service_id,
+<b><a name="line39">39   </a></b>		       enum qb_ipc_type type, struct qb_ipcs_service_handlers *handlers)
+<b><a name="line40">40   </a></b>	{
+<b><a name="line41">41   </a></b>		struct qb_ipcs_service *s;
+<b><a name="line42">42   </a></b>	
+<b><a name="line43">43   </a></b>		s = calloc(1, sizeof(struct qb_ipcs_service));
+<b><a name="line44">44   </a></b>		if (s == NULL) {
+<b><a name="line45">45   </a></b>			return NULL;
+<b><a name="line46">46   </a></b>		}
+<b><a name="line47">47   </a></b>		if (type == QB_IPC_NATIVE) {
+<b><a name="line48">48   </a></b>	#ifdef DISABLE_IPC_SHM
+<b><a name="line49">49   </a></b>			s-&gt;type = QB_IPC_SOCKET;
+<b><a name="line50">50   </a></b>	#else
+<b><a name="line51">51   </a></b>			s-&gt;type = QB_IPC_SHM;
+<b><a name="line52">52   </a></b>	#endif /* DISABLE_IPC_SHM */
+<b><a name="line53">53   </a></b>		} else {
+<b><a name="line54">54   </a></b>			s-&gt;type = type;
+<b><a name="line55">55   </a></b>		}
+<b><a name="line56">56   </a></b>	
+<b><a name="line57">57   </a></b>		s-&gt;pid = getpid();
+<b><a name="line58">58   </a></b>		s-&gt;needs_sock_for_poll = QB_FALSE;
+<b><a name="line59">59   </a></b>		s-&gt;poll_priority = QB_LOOP_MED;
+<b><a name="line60">60   </a></b>		s-&gt;ref_count = 1;
+<b><a name="line61">61   </a></b>	
+<b><a name="line62">62   </a></b>		s-&gt;service_id = service_id;
+<b><a name="line63">63   </a></b>		(void)strlcpy(s-&gt;name, name, NAME_MAX);
+<b><a name="line64">64   </a></b>	
+<b><a name="line65">65   </a></b>		s-&gt;serv_fns.connection_accept = handlers-&gt;connection_accept;
+<b><a name="line66">66   </a></b>		s-&gt;serv_fns.connection_created = handlers-&gt;connection_created;
+<b><a name="line67">67   </a></b>		s-&gt;serv_fns.msg_process = handlers-&gt;msg_process;
+<b><a name="line68">68   </a></b>		s-&gt;serv_fns.connection_closed = handlers-&gt;connection_closed;
+<b><a name="line69">69   </a></b>		s-&gt;serv_fns.connection_destroyed = handlers-&gt;connection_destroyed;
+<b><a name="line70">70   </a></b>	
+<b><a name="line71">71   </a></b>		qb_list_init(&amp;s-&gt;connections);
+<b><a name="line72">72   </a></b>		qb_list_init(&amp;s-&gt;list);
+<b><a name="line73">73   </a></b>		qb_list_add(&amp;s-&gt;list, &amp;qb_ipc_services);
+<b><a name="line74">74   </a></b>	
+<b><a name="line75">75   </a></b>		return s;
+<b><a name="line76">76   </a></b>	}
+<b><a name="line77">77   </a></b>	
+<b><a name="line78">78   </a></b>	void
+<b><a name="line79">79   </a></b>	qb_ipcs_poll_handlers_set(struct qb_ipcs_service *s,
+<b><a name="line80">80   </a></b>				  struct qb_ipcs_poll_handlers *handlers)
+<b><a name="line81">81   </a></b>	{
+<b><a name="line82">82   </a></b>		s-&gt;poll_fns.job_add = handlers-&gt;job_add;
+<b><a name="line83">83   </a></b>		s-&gt;poll_fns.dispatch_add = handlers-&gt;dispatch_add;
+<b><a name="line84">84   </a></b>		s-&gt;poll_fns.dispatch_mod = handlers-&gt;dispatch_mod;
+<b><a name="line85">85   </a></b>		s-&gt;poll_fns.dispatch_del = handlers-&gt;dispatch_del;
+<b><a name="line86">86   </a></b>	}
+<b><a name="line87">87   </a></b>	
+<b><a name="line88">88   </a></b>	int32_t
+<b><a name="line89">89   </a></b>	qb_ipcs_run(struct qb_ipcs_service *s)
+<b><a name="line90">90   </a></b>	{
+<b><a name="line91">91   </a></b>		int32_t res = 0;
+<b><a name="line92">92   </a></b>	
+<b><a name="line93">93   </a></b>		if (s-&gt;poll_fns.dispatch_add == NULL ||
+<b><a name="line94">94   </a></b>		    s-&gt;poll_fns.dispatch_mod == NULL ||
+<b><a name="line95">95   </a></b>		    s-&gt;poll_fns.dispatch_del == NULL) {
+<b><a name="line96">96   </a></b>			return -EINVAL;
+<b><a name="line97">97   </a></b>		}
+<b><a name="line98">98   </a></b>	
+<b><a name="line99">99   </a></b>		switch (s-&gt;type) {
+<b><a name="line100">100  </a></b>		case QB_IPC_SOCKET:
+<b><a name="line101">101  </a></b>			qb_ipcs_us_init((struct qb_ipcs_service *)s);
+<b><a name="line102">102  </a></b>			break;
+<b><a name="line103">103  </a></b>		case QB_IPC_SHM:
+<b><a name="line104">104  </a></b>	#ifdef DISABLE_IPC_SHM
+<b><a name="line105">105  </a></b>			res = -ENOTSUP;
+<b><a name="line106">106  </a></b>	#else
+<b><a name="line107">107  </a></b>			qb_ipcs_shm_init((struct qb_ipcs_service *)s);
+<b><a name="line108">108  </a></b>	#endif /* DISABLE_IPC_SHM */
+<b><a name="line109">109  </a></b>			break;
+<b><a name="line110">110  </a></b>		case QB_IPC_POSIX_MQ:
+<b><a name="line111">111  </a></b>		case QB_IPC_SYSV_MQ:
+<b><a name="line112">112  </a></b>			res = -ENOTSUP;
+<b><a name="line113">113  </a></b>			break;
+<b><a name="line114">114  </a></b>		default:
+<b><a name="line115">115  </a></b>			res = -EINVAL;
+<b><a name="line116">116  </a></b>			break;
+<b><a name="line117">117  </a></b>		}
+<b><a name="line118">118  </a></b>		if (res &lt; 0) {
+<b><a name="line119">119  </a></b>			qb_ipcs_unref(s);
+<b><a name="line120">120  </a></b>			return res;
+<b><a name="line121">121  </a></b>		}
+<b><a name="line122">122  </a></b>		res = qb_ipcs_us_publish(s);
+<b><a name="line123">123  </a></b>		if (res &lt; 0) {
+<b><a name="line124">124  </a></b>			(void)qb_ipcs_us_withdraw(s);
+<b><a name="line125">125  </a></b>			qb_ipcs_unref(s);
+<b><a name="line126">126  </a></b>			return res;
+<b><a name="line127">127  </a></b>		}
+<b><a name="line128">128  </a></b>	
+<b><a name="line129">129  </a></b>		return res;
+<b><a name="line130">130  </a></b>	}
+<b><a name="line131">131  </a></b>	
+<b><a name="line132">132  </a></b>	static int32_t
+<b><a name="line133">133  </a></b>	_modify_dispatch_descriptor_(struct qb_ipcs_connection *c)
+<b><a name="line134">134  </a></b>	{
+<b><a name="line135">135  </a></b>		qb_ipcs_dispatch_mod_fn disp_mod = c-&gt;service-&gt;poll_fns.dispatch_mod;
+<b><a name="line136">136  </a></b>	
+<b><a name="line137">137  </a></b>		if (c-&gt;service-&gt;type == QB_IPC_SOCKET) {
+<b><a name="line138">138  </a></b>			return disp_mod(c-&gt;service-&gt;poll_priority,
+<b><a name="line139">139  </a></b>					c-&gt;event.u.us.sock,
+<b><a name="line140">140  </a></b>					c-&gt;poll_events, c,
+<b><a name="line141">141  </a></b>					qb_ipcs_dispatch_connection_request);
+<b><a name="line142">142  </a></b>		} else {
+<b><a name="line143">143  </a></b>			return disp_mod(c-&gt;service-&gt;poll_priority,
+<b><a name="line144">144  </a></b>					c-&gt;setup.u.us.sock,
+<b><a name="line145">145  </a></b>					c-&gt;poll_events, c,
+<b><a name="line146">146  </a></b>					qb_ipcs_dispatch_connection_request);
+<b><a name="line147">147  </a></b>		}
+<b><a name="line148">148  </a></b>		return -EINVAL;
+<b><a name="line149">149  </a></b>	}
+<b><a name="line150">150  </a></b>	
+<b><a name="line151">151  </a></b>	void
+<b><a name="line152">152  </a></b>	qb_ipcs_request_rate_limit(struct qb_ipcs_service *s,
+<b><a name="line153">153  </a></b>				   enum qb_ipcs_rate_limit rl)
+<b><a name="line154">154  </a></b>	{
+<b><a name="line155">155  </a></b>		struct qb_ipcs_connection *c;
+<b><a name="line156">156  </a></b>		enum qb_loop_priority old_p = s-&gt;poll_priority;
+<b><a name="line157">157  </a></b>		struct qb_list_head *pos;
+<b><a name="line158">158  </a></b>		struct qb_list_head *n;
+<b><a name="line159">159  </a></b>	
+<b><a name="line160">160  </a></b>		switch (rl) {
+<b><a name="line161">161  </a></b>		case QB_IPCS_RATE_FAST:
+<b><a name="line162">162  </a></b>			s-&gt;poll_priority = QB_LOOP_HIGH;
+<b><a name="line163">163  </a></b>			break;
+<b><a name="line164">164  </a></b>		case QB_IPCS_RATE_SLOW:
+<b><a name="line165">165  </a></b>		case QB_IPCS_RATE_OFF:
+<b><a name="line166">166  </a></b>		case QB_IPCS_RATE_OFF_2:
+<b><a name="line167">167  </a></b>			s-&gt;poll_priority = QB_LOOP_LOW;
+<b><a name="line168">168  </a></b>			break;
+<b><a name="line169">169  </a></b>		default:
+<b><a name="line170">170  </a></b>		case QB_IPCS_RATE_NORMAL:
+<b><a name="line171">171  </a></b>			s-&gt;poll_priority = QB_LOOP_MED;
+<b><a name="line172">172  </a></b>			break;
+<b><a name="line173">173  </a></b>		}
+<b><a name="line174">174  </a></b>	
+<b><a name="line175">175  </a></b>		qb_list_for_each_safe(pos, n, &amp;s-&gt;connections) {
+<b><a name="line176">176  </a></b>	
+<b><a name="line177">177  </a></b>			c = qb_list_entry(pos, struct qb_ipcs_connection, list);
+<b><a name="line178">178  </a></b>			qb_ipcs_connection_ref(c);
+<b><a name="line179">179  </a></b>	
+<b><a name="line180">180  </a></b>			if (rl == QB_IPCS_RATE_OFF) {
+<b><a name="line181">181  </a></b>				qb_ipcs_flowcontrol_set(c, 1);
+<b><a name="line182">182  </a></b>			} else if (rl == QB_IPCS_RATE_OFF_2) {
+<b><a name="line183">183  </a></b>				qb_ipcs_flowcontrol_set(c, 2);
+<b><a name="line184">184  </a></b>			} else {
+<b><a name="line185">185  </a></b>				qb_ipcs_flowcontrol_set(c, QB_FALSE);
+<b><a name="line186">186  </a></b>			}
+<b><a name="line187">187  </a></b>			if (old_p != s-&gt;poll_priority) {
+<b><a name="line188">188  </a></b>				(void)_modify_dispatch_descriptor_(c);
+<b><a name="line189">189  </a></b>			}
+<b><a name="line190">190  </a></b>			qb_ipcs_connection_unref(c);
+<b><a name="line191">191  </a></b>		}
+<b><a name="line192">192  </a></b>	}
+<b><a name="line193">193  </a></b>	
+<b><a name="line194">194  </a></b>	void
+<b><a name="line195">195  </a></b>	qb_ipcs_ref(struct qb_ipcs_service *s)
+<b><a name="line196">196  </a></b>	{
+<b><a name="line197">197  </a></b>		qb_atomic_int_inc(&amp;s-&gt;ref_count);
+<b><a name="line198">198  </a></b>	}
+<b><a name="line199">199  </a></b>	
+<b><a name="line200">200  </a></b>	void
+<b><a name="line201">201  </a></b>	qb_ipcs_unref(struct qb_ipcs_service *s)
+<b><a name="line202">202  </a></b>	{
+<b><a name="line203">203  </a></b>		int32_t free_it;
+<b><a name="line204">204  </a></b>		struct qb_ipcs_connection *c = NULL;
+<b><a name="line205">205  </a></b>		struct qb_list_head *pos;
+<b><a name="line206">206  </a></b>		struct qb_list_head *n;
+<b><a name="line207">207  </a></b>	
+<b><a name="line208">208  </a></b>		assert(s-&gt;ref_count &gt; 0);
+<b><a name="line209">209  </a></b>		free_it = qb_atomic_int_dec_and_test(&amp;s-&gt;ref_count);
+<b><a name="line210">210  </a></b>		if (free_it) {
+<b><a name="line211">211  </a></b>			qb_util_log(LOG_DEBUG, &quot;%s() - destroying&quot;, __func__);
+<b><a name="line212">212  </a></b>			qb_list_for_each_safe(pos, n, &amp;s-&gt;connections) {
+<b><a name="line213">213  </a></b>				c = qb_list_entry(pos, struct qb_ipcs_connection, list);
+<b><a name="line214">214  </a></b>				if (c == NULL) {
+<b><a name="line215">215  </a></b>					continue;
+<b><a name="line216">216  </a></b>				}
+<b><a name="line217">217  </a></b>				qb_ipcs_disconnect(c);
+<b><a name="line218">218  </a></b>			}
+<b><a name="line219">219  </a></b>			(void)qb_ipcs_us_withdraw(s);
+<b><a name="line220">220  </a></b>			free(s);
+<b><a name="line221">221  </a></b>		}
+<b><a name="line222">222  </a></b>	}
+<b><a name="line223">223  </a></b>	
+<b><a name="line224">224  </a></b>	void
+<b><a name="line225">225  </a></b>	qb_ipcs_destroy(struct qb_ipcs_service *s)
+<b><a name="line226">226  </a></b>	{
+<b><a name="line227">227  </a></b>		qb_ipcs_unref(s);
+<b><a name="line228">228  </a></b>	}
+<b><a name="line229">229  </a></b>	
+<b><a name="line230">230  </a></b>	/*
+<b><a name="line231">231  </a></b>	 * connection API
+<b><a name="line232">232  </a></b>	 */
+<b><a name="line233">233  </a></b>	static struct qb_ipc_one_way *
+<b><a name="line234">234  </a></b>	_event_sock_one_way_get(struct qb_ipcs_connection * c)
+<b><a name="line235">235  </a></b>	{
+<b><a name="line236">236  </a></b>		if (c-&gt;service-&gt;needs_sock_for_poll) {
+<b><a name="line237">237  </a></b>			return &amp;c-&gt;setup;
+<b><a name="line238">238  </a></b>		}
+<b><a name="line239">239  </a></b>		if (c-&gt;event.type == QB_IPC_SOCKET) {
+<b><a name="line240">240  </a></b>			return &amp;c-&gt;event;
+<b><a name="line241">241  </a></b>		}
+<b><a name="line242">242  </a></b>		return NULL;
+<b><a name="line243">243  </a></b>	}
+<b><a name="line244">244  </a></b>	
+<b><a name="line245">245  </a></b>	static struct qb_ipc_one_way *
+<b><a name="line246">246  </a></b>	_response_sock_one_way_get(struct qb_ipcs_connection * c)
+<b><a name="line247">247  </a></b>	{
+<b><a name="line248">248  </a></b>		if (c-&gt;service-&gt;needs_sock_for_poll) {
+<b><a name="line249">249  </a></b>			return &amp;c-&gt;setup;
+<b><a name="line250">250  </a></b>		}
+<b><a name="line251">251  </a></b>		if (c-&gt;response.type == QB_IPC_SOCKET) {
+<b><a name="line252">252  </a></b>			return &amp;c-&gt;response;
+<b><a name="line253">253  </a></b>		}
+<b><a name="line254">254  </a></b>		return NULL;
+<b><a name="line255">255  </a></b>	}
+<b><a name="line256">256  </a></b>	
+<b><a name="line257">257  </a></b>	ssize_t
+<b><a name="line258">258  </a></b>	qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
+<b><a name="line259">259  </a></b>			      size_t size)
+<b><a name="line260">260  </a></b>	{
+<b><a name="line261">261  </a></b>		ssize_t res;
+<b><a name="line262">262  </a></b>	
+<b><a name="line263">263  </a></b>		if (c == NULL) {
+<b><a name="line264">264  </a></b>			return -EINVAL;
+<b><a name="line265">265  </a></b>		}
+<b><a name="line266">266  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line267">267  </a></b>		res = c-&gt;service-&gt;funcs.send(&amp;c-&gt;response, data, size);
+<b><a name="line268">268  </a></b>		if (res == size) {
+<b><a name="line269">269  </a></b>			c-&gt;stats.responses++;
+<b><a name="line270">270  </a></b>		} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+<b><a name="line271">271  </a></b>			struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
+<b><a name="line272">272  </a></b>			if (ow) {
+<b><a name="line273">273  </a></b>				ssize_t res2  = qb_ipc_us_ready(ow, 0, POLLOUT);
+<b><a name="line274">274  </a></b>				if (res2 &lt; 0) {
+<b><a name="line275">275  </a></b>					res = res2;
+<b><a name="line276">276  </a></b>				}
+<b><a name="line277">277  </a></b>			}
+<b><a name="line278">278  </a></b>			c-&gt;stats.send_retries++;
+<b><a name="line279">279  </a></b>		}
+<b><a name="line280">280  </a></b>		qb_ipcs_connection_unref(c);
+<b><a name="line281">281  </a></b>	
+<b><a name="line282">282  </a></b>		return res;
+<b><a name="line283">283  </a></b>	}
+<b><a name="line284">284  </a></b>	
+<b><a name="line285">285  </a></b>	ssize_t
+<b><a name="line286">286  </a></b>	qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
+<b><a name="line287">287  </a></b>			       size_t iov_len)
+<b><a name="line288">288  </a></b>	{
+<b><a name="line289">289  </a></b>		ssize_t res;
+<b><a name="line290">290  </a></b>	
+<b><a name="line291">291  </a></b>		if (c == NULL) {
+<b><a name="line292">292  </a></b>			return -EINVAL;
+<b><a name="line293">293  </a></b>		}
+<b><a name="line294">294  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line295">295  </a></b>		res = c-&gt;service-&gt;funcs.sendv(&amp;c-&gt;response, iov, iov_len);
+<b><a name="line296">296  </a></b>		if (res &gt; 0) {
+<b><a name="line297">297  </a></b>			c-&gt;stats.responses++;
+<b><a name="line298">298  </a></b>		} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+<b><a name="line299">299  </a></b>			struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
+<b><a name="line300">300  </a></b>			if (ow) {
+<b><a name="line301">301  </a></b>				ssize_t res2  = qb_ipc_us_ready(ow, 0, POLLOUT);
+<b><a name="line302">302  </a></b>				if (res2 &lt; 0) {
+<b><a name="line303">303  </a></b>					res = res2;
+<b><a name="line304">304  </a></b>				}
+<b><a name="line305">305  </a></b>			}
+<b><a name="line306">306  </a></b>			c-&gt;stats.send_retries++;
+<b><a name="line307">307  </a></b>		}
+<b><a name="line308">308  </a></b>		qb_ipcs_connection_unref(c);
+<b><a name="line309">309  </a></b>	
+<b><a name="line310">310  </a></b>		return res;
+<b><a name="line311">311  </a></b>	}
+<b><a name="line312">312  </a></b>	
+<b><a name="line313">313  </a></b>	static int32_t
+<b><a name="line314">314  </a></b>	resend_event_notifications(struct qb_ipcs_connection *c)
+<b><a name="line315">315  </a></b>	{
+<b><a name="line316">316  </a></b>		ssize_t res = 0;
+<b><a name="line317">317  </a></b>	
+<b><a name="line318">318  </a></b>		if (c-&gt;outstanding_notifiers &gt; 0) {
+<b><a name="line319">319  </a></b>			res = qb_ipc_us_send(&amp;c-&gt;setup, c-&gt;receive_buf,
+<b><a name="line320">320  </a></b>					     c-&gt;outstanding_notifiers);
+<b><a name="line321">321  </a></b>		}
+<b><a name="line322">322  </a></b>		if (res &gt; 0) {
+<b><a name="line323">323  </a></b>			c-&gt;outstanding_notifiers -= res;
+<b><a name="line324">324  </a></b>		}
+<b><a name="line325">325  </a></b>		assert(c-&gt;outstanding_notifiers &gt;= 0);
+<b><a name="line326">326  </a></b>		if (c-&gt;outstanding_notifiers == 0) {
+<b><a name="line327">327  </a></b>			c-&gt;poll_events = POLLIN | POLLPRI | POLLNVAL;
+<b><a name="line328">328  </a></b>			(void)_modify_dispatch_descriptor_(c);
+<b><a name="line329">329  </a></b>		}
+<b><a name="line330">330  </a></b>		return res;
+<b><a name="line331">331  </a></b>	}
+<b><a name="line332">332  </a></b>	
+<b><a name="line333">333  </a></b>	static int32_t
+<b><a name="line334">334  </a></b>	new_event_notification(struct qb_ipcs_connection * c)
+<b><a name="line335">335  </a></b>	{
+<b><a name="line336">336  </a></b>		ssize_t res = 0;
+<b><a name="line337">337  </a></b>	
+<b><a name="line338">338  </a></b>		if (!c-&gt;service-&gt;needs_sock_for_poll) {
+<b><a name="line339">339  </a></b>			return res;
+<b><a name="line340">340  </a></b>		}
+<b><a name="line341">341  </a></b>	
+<b><a name="line342">342  </a></b>		assert(c-&gt;outstanding_notifiers &gt;= 0);
+<b><a name="line343">343  </a></b>		if (c-&gt;outstanding_notifiers &gt; 0) {
+<b><a name="line344">344  </a></b>			c-&gt;outstanding_notifiers++;
+<b><a name="line345">345  </a></b>		} else {
+<b><a name="line346">346  </a></b>			res = qb_ipc_us_send(&amp;c-&gt;setup, &amp;c-&gt;outstanding_notifiers, 1);
+<b><a name="line347">347  </a></b>			if (res == -EAGAIN) {
+<b><a name="line348">348  </a></b>				/*
+<b><a name="line349">349  </a></b>				 * notify the client later, when we can.
+<b><a name="line350">350  </a></b>				 */
+<b><a name="line351">351  </a></b>				c-&gt;outstanding_notifiers++;
+<b><a name="line352">352  </a></b>				c-&gt;poll_events = POLLOUT | POLLIN | POLLPRI | POLLNVAL;
+<b><a name="line353">353  </a></b>				(void)_modify_dispatch_descriptor_(c);
+<b><a name="line354">354  </a></b>			}
+<b><a name="line355">355  </a></b>		}
+<b><a name="line356">356  </a></b>		return res;
+<b><a name="line357">357  </a></b>	}
+<b><a name="line358">358  </a></b>	
+<b><a name="line359">359  </a></b>	ssize_t
+<b><a name="line360">360  </a></b>	qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
+<b><a name="line361">361  </a></b>	{
+<b><a name="line362">362  </a></b>		ssize_t res;
+<b><a name="line363">363  </a></b>		ssize_t resn;
+<b><a name="line364">364  </a></b>	
+<b><a name="line365">365  </a></b>		if (c == NULL) {
+<b><a name="line366">366  </a></b>			return -EINVAL;
+<b><a name="line367">367  </a></b>		}
+<b><a name="line368">368  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line369">369  </a></b>	
+<b><a name="line370">370  </a></b>		res = c-&gt;service-&gt;funcs.send(&amp;c-&gt;event, data, size);
+<b><a name="line371">371  </a></b>		if (res == size) {
+<b><a name="line372">372  </a></b>			c-&gt;stats.events++;
+<b><a name="line373">373  </a></b>			resn = new_event_notification(c);
+<b><a name="line374">374  </a></b>			if (resn &lt; 0 &amp;&amp; resn != -EAGAIN) {
+<b><a name="line375">375  </a></b>				errno = -resn;
+<b><a name="line376">376  </a></b>				qb_util_perror(LOG_WARNING,
+<b><a name="line377">377  </a></b>					       &quot;new_event_notification (%s)&quot;,
+<b><a name="line378">378  </a></b>					       c-&gt;description);
+<b><a name="line379">379  </a></b>				res = resn;
+<b><a name="line380">380  </a></b>			}
+<b><a name="line381">381  </a></b>		} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+<b><a name="line382">382  </a></b>			struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
+<b><a name="line383">383  </a></b>			if (ow) {
+<b><a name="line384">384  </a></b>				resn  = qb_ipc_us_ready(ow, 0, POLLOUT);
+<b><a name="line385">385  </a></b>				if (resn &lt; 0) {
+<b><a name="line386">386  </a></b>					res = resn;
+<b><a name="line387">387  </a></b>				}
+<b><a name="line388">388  </a></b>			}
+<b><a name="line389">389  </a></b>			c-&gt;stats.send_retries++;
+<b><a name="line390">390  </a></b>		}
+<b><a name="line391">391  </a></b>	
+<b><a name="line392">392  </a></b>		qb_ipcs_connection_unref(c);
+<b><a name="line393">393  </a></b>		return res;
+<b><a name="line394">394  </a></b>	}
+<b><a name="line395">395  </a></b>	
+<b><a name="line396">396  </a></b>	ssize_t
+<b><a name="line397">397  </a></b>	qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
+<b><a name="line398">398  </a></b>			    const struct iovec * iov, size_t iov_len)
+<b><a name="line399">399  </a></b>	{
+<b><a name="line400">400  </a></b>		ssize_t res;
+<b><a name="line401">401  </a></b>		ssize_t resn;
+<b><a name="line402">402  </a></b>	
+<b><a name="line403">403  </a></b>		if (c == NULL) {
+<b><a name="line404">404  </a></b>			return -EINVAL;
+<b><a name="line405">405  </a></b>		}
+<b><a name="line406">406  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line407">407  </a></b>	
+<b><a name="line408">408  </a></b>		res = c-&gt;service-&gt;funcs.sendv(&amp;c-&gt;event, iov, iov_len);
+<b><a name="line409">409  </a></b>		if (res &gt; 0) {
+<b><a name="line410">410  </a></b>			c-&gt;stats.events++;
+<b><a name="line411">411  </a></b>			resn = new_event_notification(c);
+<b><a name="line412">412  </a></b>			if (resn &lt; 0 &amp;&amp; resn != -EAGAIN) {
+<b><a name="line413">413  </a></b>				errno = -resn;
+<b><a name="line414">414  </a></b>				qb_util_perror(LOG_WARNING,
+<b><a name="line415">415  </a></b>					       &quot;new_event_notification (%s)&quot;,
+<b><a name="line416">416  </a></b>					       c-&gt;description);
+<b><a name="line417">417  </a></b>				res = resn;
+<b><a name="line418">418  </a></b>			}
+<b><a name="line419">419  </a></b>		} else if (res == -EAGAIN || res == -ETIMEDOUT) {
+<b><a name="line420">420  </a></b>			struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
+<b><a name="line421">421  </a></b>			if (ow) {
+<b><a name="line422">422  </a></b>				resn  = qb_ipc_us_ready(ow, 0, POLLOUT);
+<b><a name="line423">423  </a></b>				if (resn &lt; 0) {
+<b><a name="line424">424  </a></b>					res = resn;
+<b><a name="line425">425  </a></b>				}
+<b><a name="line426">426  </a></b>			}
+<b><a name="line427">427  </a></b>			c-&gt;stats.send_retries++;
+<b><a name="line428">428  </a></b>		}
+<b><a name="line429">429  </a></b>	
+<b><a name="line430">430  </a></b>		qb_ipcs_connection_unref(c);
+<b><a name="line431">431  </a></b>		return res;
+<b><a name="line432">432  </a></b>	}
+<b><a name="line433">433  </a></b>	
+<b><a name="line434">434  </a></b>	qb_ipcs_connection_t *
+<b><a name="line435">435  </a></b>	qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
+<b><a name="line436">436  </a></b>	{
+<b><a name="line437">437  </a></b>		struct qb_ipcs_connection *c;
+<b><a name="line438">438  </a></b>	
+<b><a name="line439">439  </a></b>		if (qb_list_empty(&amp;s-&gt;connections)) {
+<b><a name="line440">440  </a></b>			return NULL;
+<b><a name="line441">441  </a></b>		}
+<b><a name="line442">442  </a></b>	
+<b><a name="line443">443  </a></b>		c = qb_list_first_entry(&amp;s-&gt;connections, struct qb_ipcs_connection, list);
+<b><a name="line444">444  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line445">445  </a></b>	
+<b><a name="line446">446  </a></b>		return c;
+<b><a name="line447">447  </a></b>	}
+<b><a name="line448">448  </a></b>	
+<b><a name="line449">449  </a></b>	qb_ipcs_connection_t *
+<b><a name="line450">450  </a></b>	qb_ipcs_connection_next_get(struct qb_ipcs_service * s,
+<b><a name="line451">451  </a></b>				    struct qb_ipcs_connection * current)
+<b><a name="line452">452  </a></b>	{
+<b><a name="line453">453  </a></b>		struct qb_ipcs_connection *c;
+<b><a name="line454">454  </a></b>	
+<b><a name="line455">455  </a></b>		if (current == NULL ||
+<b><a name="line456">456  </a></b>		    qb_list_is_last(&amp;current-&gt;list, &amp;s-&gt;connections)) {
+<b><a name="line457">457  </a></b>			return NULL;
+<b><a name="line458">458  </a></b>		}
+<b><a name="line459">459  </a></b>	
+<b><a name="line460">460  </a></b>		c = qb_list_first_entry(&amp;current-&gt;list, struct qb_ipcs_connection, list);
+<b><a name="line461">461  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line462">462  </a></b>	
+<b><a name="line463">463  </a></b>		return c;
+<b><a name="line464">464  </a></b>	}
+<b><a name="line465">465  </a></b>	
+<b><a name="line466">466  </a></b>	int32_t
+<b><a name="line467">467  </a></b>	qb_ipcs_service_id_get(struct qb_ipcs_connection * c)
+<b><a name="line468">468  </a></b>	{
+<b><a name="line469">469  </a></b>		if (c == NULL) {
+<b><a name="line470">470  </a></b>			return -EINVAL;
+<b><a name="line471">471  </a></b>		}
+<b><a name="line472">472  </a></b>		return c-&gt;service-&gt;service_id;
+<b><a name="line473">473  </a></b>	}
+<b><a name="line474">474  </a></b>	
+<b><a name="line475">475  </a></b>	struct qb_ipcs_connection *
+<b><a name="line476">476  </a></b>	qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
+<b><a name="line477">477  </a></b>	{
+<b><a name="line478">478  </a></b>		struct qb_ipcs_connection *c =
+<b><a name="line479">479  </a></b>		    calloc(1, sizeof(struct qb_ipcs_connection));
+<b><a name="line480">480  </a></b>	
+<b><a name="line481">481  </a></b>		if (c == NULL) {
+<b><a name="line482">482  </a></b>			return NULL;
+<b><a name="line483">483  </a></b>		}
+<b><a name="line484">484  </a></b>	
+<b><a name="line485">485  </a></b>		c-&gt;refcount = 1;
+<b><a name="line486">486  </a></b>		c-&gt;service = s;
+<b><a name="line487">487  </a></b>		c-&gt;pid = 0;
+<b><a name="line488">488  </a></b>		c-&gt;euid = -1;
+<b><a name="line489">489  </a></b>		c-&gt;egid = -1;
+<b><a name="line490">490  </a></b>		qb_list_init(&amp;c-&gt;list);
+<b><a name="line491">491  </a></b>		c-&gt;receive_buf = NULL;
+<b><a name="line492">492  </a></b>		c-&gt;context = NULL;
+<b><a name="line493">493  </a></b>		c-&gt;fc_enabled = QB_FALSE;
+<b><a name="line494">494  </a></b>		c-&gt;state = QB_IPCS_CONNECTION_INACTIVE;
+<b><a name="line495">495  </a></b>		c-&gt;poll_events = POLLIN | POLLPRI | POLLNVAL;
+<b><a name="line496">496  </a></b>	
+<b><a name="line497">497  </a></b>		c-&gt;setup.type = s-&gt;type;
+<b><a name="line498">498  </a></b>		c-&gt;request.type = s-&gt;type;
+<b><a name="line499">499  </a></b>		c-&gt;response.type = s-&gt;type;
+<b><a name="line500">500  </a></b>		c-&gt;event.type = s-&gt;type;
+<b><a name="line501">501  </a></b>		(void)strlcpy(c-&gt;description, &quot;not set yet&quot;, CONNECTION_DESCRIPTION);
+<b><a name="line502">502  </a></b>	
+<b><a name="line503">503  </a></b>		return c;
+<b><a name="line504">504  </a></b>	}
+<b><a name="line505">505  </a></b>	
+<b><a name="line506">506  </a></b>	void
+<b><a name="line507">507  </a></b>	qb_ipcs_connection_ref(struct qb_ipcs_connection *c)
+<b><a name="line508">508  </a></b>	{
+<b><a name="line509">509  </a></b>		if (c) {
+<b><a name="line510">510  </a></b>			qb_atomic_int_inc(&amp;c-&gt;refcount);
+<b><a name="line511">511  </a></b>		}
+<b><a name="line512">512  </a></b>	}
+<b><a name="line513">513  </a></b>	
+<b><a name="line514">514  </a></b>	void
+<b><a name="line515">515  </a></b>	qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
+<b><a name="line516">516  </a></b>	{
+<b><a name="line517">517  </a></b>		int32_t free_it;
+<b><a name="line518">518  </a></b>	
+<b><a name="line519">519  </a></b>		if (c == NULL) {
+<b><a name="line520">520  </a></b>			return;
+<b><a name="line521">521  </a></b>		}
+<b><a name="line522">522  </a></b>		if (c-&gt;refcount &lt; 1) {
+<b><a name="line523">523  </a></b>			qb_util_log(LOG_ERR, &quot;ref:%d state:%d (%s)&quot;,
+<b><a name="line524">524  </a></b>				    c-&gt;refcount, c-&gt;state,
+<b><a name="line525">525  </a></b>				    c-&gt;description);
+<b><a name="line526">526  </a></b>			assert(0);
+<b><a name="line527">527  </a></b>		}
+<b><a name="line528">528  </a></b>		free_it = qb_atomic_int_dec_and_test(&amp;c-&gt;refcount);
+<b><a name="line529">529  </a></b>		if (free_it) {
+<b><a name="line530">530  </a></b>			qb_list_del(&amp;c-&gt;list);
+<b><a name="line531">531  </a></b>			if (c-&gt;service-&gt;serv_fns.connection_destroyed) {
+<b><a name="line532">532  </a></b>				c-&gt;service-&gt;serv_fns.connection_destroyed(c);
+<b><a name="line533">533  </a></b>			}
+<b><a name="line534">534  </a></b>			c-&gt;service-&gt;funcs.disconnect(c);
+<b><a name="line535">535  </a></b>			free(c-&gt;receive_buf);
+<b><a name="line536">536  </a></b>			free(c);
+<b><a name="line537">537  </a></b>		}
+<b><a name="line538">538  </a></b>	}
+<b><a name="line539">539  </a></b>	
+<b><a name="line540">540  </a></b>	void
+<b><a name="line541">541  </a></b>	qb_ipcs_disconnect(struct qb_ipcs_connection *c)
+<b><a name="line542">542  </a></b>	{
+<b><a name="line543">543  </a></b>		int32_t res = 0;
+<b><a name="line544">544  </a></b>		qb_loop_job_dispatch_fn rerun_job;
+<b><a name="line545">545  </a></b>	
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="model:qb_ipcs_disconnect:uninit:7:0"></a>
+<b>(1) Event cond_false</b>: </font></td>
+<td><font color="green">Condition &quot;c == NULL&quot;, taking false branch</font></td>
+</tr>
+</table>
+<pre><b><a name="line546">546  </a></b>		if (c == NULL) {
+<b><a name="line547">547  </a></b>			return;
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="green">
+<a name="model:qb_ipcs_disconnect:uninit:7:1"></a>
+<b>(2) Event if_end</b>: </font></td>
+<td><font color="green">End of if statement</font></td>
+</tr>
+</table>
+<pre><b><a name="line548">548  </a></b>		}
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="model:qb_ipcs_disconnect:uninit:7:2"></a>
+<a name="model:qb_ipcs_disconnect:uninit:7"></a>
+<b>(3) Event read_parm_fld</b>: </font></td>
+<td><font color="red">Reading a parameter field.</font></td>
+</tr>
+</table>
+<pre><b><a name="line549">549  </a></b>		qb_util_log(LOG_DEBUG, &quot;%s(%s) state:%d&quot;,
+<b><a name="line550">550  </a></b>			    __func__, c-&gt;description, c-&gt;state);
+<b><a name="line551">551  </a></b>	
+<b><a name="line552">552  </a></b>		if (c-&gt;state == QB_IPCS_CONNECTION_ACTIVE) {
+<b><a name="line553">553  </a></b>			c-&gt;state = QB_IPCS_CONNECTION_INACTIVE;
+<b><a name="line554">554  </a></b>			c-&gt;service-&gt;stats.closed_connections++;
+<b><a name="line555">555  </a></b>	
+<b><a name="line556">556  </a></b>			qb_ipcs_sockets_disconnect(c);
+<b><a name="line557">557  </a></b>			/* return early as it's an incomplete connection.
+<b><a name="line558">558  </a></b>			 */
+<b><a name="line559">559  </a></b>			return;
+<b><a name="line560">560  </a></b>		}
+<b><a name="line561">561  </a></b>		if (c-&gt;state == QB_IPCS_CONNECTION_ESTABLISHED) {
+<b><a name="line562">562  </a></b>			c-&gt;state = QB_IPCS_CONNECTION_SHUTTING_DOWN;
+<b><a name="line563">563  </a></b>			c-&gt;service-&gt;stats.active_connections--;
+<b><a name="line564">564  </a></b>			c-&gt;service-&gt;stats.closed_connections++;
+<b><a name="line565">565  </a></b>	
+<b><a name="line566">566  </a></b>			qb_ipcs_sockets_disconnect(c);
+<b><a name="line567">567  </a></b>		}
+<b><a name="line568">568  </a></b>		if (c-&gt;state == QB_IPCS_CONNECTION_SHUTTING_DOWN) {
+<b><a name="line569">569  </a></b>			res = 0;
+<b><a name="line570">570  </a></b>			if (c-&gt;service-&gt;serv_fns.connection_closed) {
+<b><a name="line571">571  </a></b>				res = c-&gt;service-&gt;serv_fns.connection_closed(c);
+<b><a name="line572">572  </a></b>			}
+<b><a name="line573">573  </a></b>			if (res == 0) {
+<b><a name="line574">574  </a></b>				qb_ipcs_connection_unref(c);
+<b><a name="line575">575  </a></b>			} else {
+<b><a name="line576">576  </a></b>				/* OK, so they want the connection_closed
+<b><a name="line577">577  </a></b>				 * function re-run */
+<b><a name="line578">578  </a></b>				rerun_job =
+<b><a name="line579">579  </a></b>				    (qb_loop_job_dispatch_fn) qb_ipcs_disconnect;
+<b><a name="line580">580  </a></b>				res = c-&gt;service-&gt;poll_fns.job_add(QB_LOOP_LOW,
+<b><a name="line581">581  </a></b>								   c,
+<b><a name="line582">582  </a></b>								   rerun_job);
+<b><a name="line583">583  </a></b>				if (res != 0) {
+<b><a name="line584">584  </a></b>					/* last ditch attempt to cleanup */
+<b><a name="line585">585  </a></b>					qb_ipcs_connection_unref(c);
+<b><a name="line586">586  </a></b>				}
+<b><a name="line587">587  </a></b>			}
+<b><a name="line588">588  </a></b>		}
+<b><a name="line589">589  </a></b>	}
+<b><a name="line590">590  </a></b>	
+<b><a name="line591">591  </a></b>	static void
+<b><a name="line592">592  </a></b>	qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c, int32_t fc_enable)
+<b><a name="line593">593  </a></b>	{
+<b><a name="line594">594  </a></b>		if (c == NULL) {
+<b><a name="line595">595  </a></b>			return;
+<b><a name="line596">596  </a></b>		}
+<b><a name="line597">597  </a></b>		if (c-&gt;fc_enabled != fc_enable) {
+<b><a name="line598">598  </a></b>			c-&gt;service-&gt;funcs.fc_set(&amp;c-&gt;request, fc_enable);
+<b><a name="line599">599  </a></b>			c-&gt;fc_enabled = fc_enable;
+<b><a name="line600">600  </a></b>			c-&gt;stats.flow_control_state = fc_enable;
+<b><a name="line601">601  </a></b>			c-&gt;stats.flow_control_count++;
+<b><a name="line602">602  </a></b>		}
+<b><a name="line603">603  </a></b>	}
+<b><a name="line604">604  </a></b>	
+<b><a name="line605">605  </a></b>	static int32_t
+<b><a name="line606">606  </a></b>	_process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
+<b><a name="line607">607  </a></b>	{
+<b><a name="line608">608  </a></b>		int32_t res = 0;
+<b><a name="line609">609  </a></b>		ssize_t size;
+<b><a name="line610">610  </a></b>		struct qb_ipc_request_header *hdr;
+<b><a name="line611">611  </a></b>	
+<b><a name="line612">612  </a></b>		qb_ipcs_connection_ref(c);
+<b><a name="line613">613  </a></b>	
+<b><a name="line614">614  </a></b>		if (c-&gt;service-&gt;funcs.peek &amp;&amp; c-&gt;service-&gt;funcs.reclaim) {
+<b><a name="line615">615  </a></b>			size = c-&gt;service-&gt;funcs.peek(&amp;c-&gt;request, (void **)&amp;hdr,
+<b><a name="line616">616  </a></b>						      ms_timeout);
+<b><a name="line617">617  </a></b>		} else {
+<b><a name="line618">618  </a></b>			hdr = c-&gt;receive_buf;
+<b><a name="line619">619  </a></b>			size = c-&gt;service-&gt;funcs.recv(&amp;c-&gt;request,
+<b><a name="line620">620  </a></b>						      hdr,
+<b><a name="line621">621  </a></b>						      c-&gt;request.max_msg_size,
+<b><a name="line622">622  </a></b>						      ms_timeout);
+<b><a name="line623">623  </a></b>		}
+<b><a name="line624">624  </a></b>		if (size &lt; 0) {
+<b><a name="line625">625  </a></b>			if (size != -EAGAIN &amp;&amp; size != -ETIMEDOUT) {
+<b><a name="line626">626  </a></b>				qb_util_perror(LOG_DEBUG,
+<b><a name="line627">627  </a></b>					       &quot;recv from client connection failed (%s)&quot;,
+<b><a name="line628">628  </a></b>					       c-&gt;description);
+<b><a name="line629">629  </a></b>			} else {
+<b><a name="line630">630  </a></b>				c-&gt;stats.recv_retries++;
+<b><a name="line631">631  </a></b>			}
+<b><a name="line632">632  </a></b>			res = size;
+<b><a name="line633">633  </a></b>			goto cleanup;
+<b><a name="line634">634  </a></b>		} else if (size == 0 || hdr-&gt;id == QB_IPC_MSG_DISCONNECT) {
+<b><a name="line635">635  </a></b>			qb_util_log(LOG_DEBUG, &quot;client requesting a disconnect (%s)&quot;,
+<b><a name="line636">636  </a></b>				    c-&gt;description);
+<b><a name="line637">637  </a></b>			qb_ipcs_disconnect(c);
+<b><a name="line638">638  </a></b>			c = NULL;
+<b><a name="line639">639  </a></b>			res = -ESHUTDOWN;
+<b><a name="line640">640  </a></b>		} else {
+<b><a name="line641">641  </a></b>			c-&gt;stats.requests++;
+<b><a name="line642">642  </a></b>			res = c-&gt;service-&gt;serv_fns.msg_process(c, hdr, hdr-&gt;size);
+<b><a name="line643">643  </a></b>			/* 0 == good, negative == backoff */
+<b><a name="line644">644  </a></b>			if (res &lt; 0) {
+<b><a name="line645">645  </a></b>				res = -ENOBUFS;
+<b><a name="line646">646  </a></b>			} else {
+<b><a name="line647">647  </a></b>				res = size;
+<b><a name="line648">648  </a></b>			}
+<b><a name="line649">649  </a></b>		}
+<b><a name="line650">650  </a></b>	
+<b><a name="line651">651  </a></b>		if (c &amp;&amp; c-&gt;service-&gt;funcs.peek &amp;&amp; c-&gt;service-&gt;funcs.reclaim) {
+<b><a name="line652">652  </a></b>			c-&gt;service-&gt;funcs.reclaim(&amp;c-&gt;request);
+<b><a name="line653">653  </a></b>		}
+<b><a name="line654">654  </a></b>	
+<b><a name="line655">655  </a></b>	cleanup:
+<b><a name="line656">656  </a></b>		qb_ipcs_connection_unref(c);
+<b><a name="line657">657  </a></b>		return res;
+<b><a name="line658">658  </a></b>	}
+<b><a name="line659">659  </a></b>	
+<b><a name="line660">660  </a></b>	#define IPC_REQUEST_TIMEOUT 10
+<b><a name="line661">661  </a></b>	#define MAX_RECV_MSGS 50
+<b><a name="line662">662  </a></b>	
+<b><a name="line663">663  </a></b>	int32_t
+<b><a name="line664">664  </a></b>	qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data)
+<b><a name="line665">665  </a></b>	{
+<b><a name="line666">666  </a></b>		int32_t res = _process_request_((struct qb_ipcs_connection *)data,
+<b><a name="line667">667  </a></b>						IPC_REQUEST_TIMEOUT);
+<b><a name="line668">668  </a></b>		if (res &gt; 0) {
+<b><a name="line669">669  </a></b>			return 0;
+<b><a name="line670">670  </a></b>		}
+<b><a name="line671">671  </a></b>		return res;
+<b><a name="line672">672  </a></b>	}
+<b><a name="line673">673  </a></b>	
+<b><a name="line674">674  </a></b>	static ssize_t
+<b><a name="line675">675  </a></b>	_request_q_len_get(struct qb_ipcs_connection *c)
+<b><a name="line676">676  </a></b>	{
+<b><a name="line677">677  </a></b>		ssize_t q_len;
+<b><a name="line678">678  </a></b>		if (c-&gt;service-&gt;funcs.q_len_get) {
+<b><a name="line679">679  </a></b>			q_len = c-&gt;service-&gt;funcs.q_len_get(&amp;c-&gt;request);
+<b><a name="line680">680  </a></b>			if (q_len &lt;= 0) {
+<b><a name="line681">681  </a></b>				return q_len;
+<b><a name="line682">682  </a></b>			}
+<b><a name="line683">683  </a></b>			if (c-&gt;service-&gt;poll_priority == QB_LOOP_MED) {
+<b><a name="line684">684  </a></b>				q_len = QB_MIN(q_len, 5);
+<b><a name="line685">685  </a></b>			} else if (c-&gt;service-&gt;poll_priority == QB_LOOP_LOW) {
+<b><a name="line686">686  </a></b>				q_len = 1;
+<b><a name="line687">687  </a></b>			} else {
+<b><a name="line688">688  </a></b>				q_len = QB_MIN(q_len, MAX_RECV_MSGS);
+<b><a name="line689">689  </a></b>			}
+<b><a name="line690">690  </a></b>		} else {
+<b><a name="line691">691  </a></b>			q_len = 1;
+<b><a name="line692">692  </a></b>		}
+<b><a name="line693">693  </a></b>		return q_len;
+<b><a name="line694">694  </a></b>	}
+<b><a name="line695">695  </a></b>	
+<b><a name="line696">696  </a></b>	int32_t
+<b><a name="line697">697  </a></b>	qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
+<b><a name="line698">698  </a></b>	{
+<b><a name="line699">699  </a></b>		struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
+<b><a name="line700">700  </a></b>		char bytes[MAX_RECV_MSGS];
+<b><a name="line701">701  </a></b>		int32_t res;
+<b><a name="line702">702  </a></b>		int32_t res2;
+<b><a name="line703">703  </a></b>		int32_t recvd = 0;
+<b><a name="line704">704  </a></b>		ssize_t avail;
+<b><a name="line705">705  </a></b>	
+<b><a name="line706">706  </a></b>		if (revents &amp; POLLNVAL) {
+<b><a name="line707">707  </a></b>			qb_util_log(LOG_DEBUG, &quot;NVAL conn (%s)&quot;, c-&gt;description);
+<b><a name="line708">708  </a></b>			return -EINVAL;
+<b><a name="line709">709  </a></b>		}
+<b><a name="line710">710  </a></b>		if (revents &amp; POLLHUP) {
+<b><a name="line711">711  </a></b>			qb_util_log(LOG_DEBUG, &quot;HUP conn (%s)&quot;, c-&gt;description);
+<b><a name="line712">712  </a></b>			qb_ipcs_disconnect(c);
+<b><a name="line713">713  </a></b>			return -ESHUTDOWN;
+<b><a name="line714">714  </a></b>		}
+<b><a name="line715">715  </a></b>	
+<b><a name="line716">716  </a></b>		if (revents &amp; POLLOUT) {
+<b><a name="line717">717  </a></b>			res = resend_event_notifications(c);
+<b><a name="line718">718  </a></b>			if (res &lt; 0 &amp;&amp; res != -EAGAIN) {
+<b><a name="line719">719  </a></b>				errno = -res;
+<b><a name="line720">720  </a></b>				qb_util_perror(LOG_WARNING,
+<b><a name="line721">721  </a></b>					       &quot;resend_event_notifications (%s)&quot;,
+<b><a name="line722">722  </a></b>					       c-&gt;description);
+<b><a name="line723">723  </a></b>			}
+<b><a name="line724">724  </a></b>			if ((revents &amp; POLLIN) == 0) {
+<b><a name="line725">725  </a></b>				return 0;
+<b><a name="line726">726  </a></b>			}
+<b><a name="line727">727  </a></b>		}
+<b><a name="line728">728  </a></b>		if (c-&gt;fc_enabled) {
+<b><a name="line729">729  </a></b>			return 0;
+<b><a name="line730">730  </a></b>		}
+<b><a name="line731">731  </a></b>		avail = _request_q_len_get(c);
+<b><a name="line732">732  </a></b>	
+<b><a name="line733">733  </a></b>		if (c-&gt;service-&gt;needs_sock_for_poll &amp;&amp; avail == 0) {
+<b><a name="line734">734  </a></b>			res2 = qb_ipc_us_recv(&amp;c-&gt;setup, bytes, 1, 0);
+<b><a name="line735">735  </a></b>			if (qb_ipc_us_sock_error_is_disconnected(res2)) {
+<b><a name="line736">736  </a></b>				errno = -res2;
+<b><a name="line737">737  </a></b>				qb_util_perror(LOG_WARNING, &quot;conn (%s) disconnected&quot;,
+<b><a name="line738">738  </a></b>					       c-&gt;description);
+<b><a name="line739">739  </a></b>				qb_ipcs_disconnect(c);
+<b><a name="line740">740  </a></b>				return -ESHUTDOWN;
+<b><a name="line741">741  </a></b>			} else {
+<b><a name="line742">742  </a></b>				qb_util_log(LOG_WARNING,
+<b><a name="line743">743  </a></b>					    &quot;conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)&quot;,
+<b><a name="line744">744  </a></b>					    c-&gt;description, fd, res2);
+<b><a name="line745">745  </a></b>				return 0;
+<b><a name="line746">746  </a></b>			}
+<b><a name="line747">747  </a></b>		}
+<b><a name="line748">748  </a></b>	
+<b><a name="line749">749  </a></b>		do {
+<b><a name="line750">750  </a></b>			res = _process_request_(c, IPC_REQUEST_TIMEOUT);
+<b><a name="line751">751  </a></b>			if (res &gt; 0 || res == -ENOBUFS || res == -EINVAL) {
+<b><a name="line752">752  </a></b>				recvd++;
+<b><a name="line753">753  </a></b>			}
+<b><a name="line754">754  </a></b>			if (res &gt; 0) {
+<b><a name="line755">755  </a></b>				avail--;
+<b><a name="line756">756  </a></b>			}
+<b><a name="line757">757  </a></b>		} while (avail &gt; 0 &amp;&amp; res &gt; 0 &amp;&amp; !c-&gt;fc_enabled);
+<b><a name="line758">758  </a></b>	
+<b><a name="line759">759  </a></b>		if (c-&gt;service-&gt;needs_sock_for_poll &amp;&amp; recvd &gt; 0) {
+<b><a name="line760">760  </a></b>			res2 = qb_ipc_us_recv(&amp;c-&gt;setup, bytes, recvd, -1);
+<b><a name="line761">761  </a></b>			if (res2 &lt; 0) {
+<b><a name="line762">762  </a></b>				errno = -res2;
+<b><a name="line763">763  </a></b>				qb_util_perror(LOG_ERR,
+<b><a name="line764">764  </a></b>					       &quot;error receiving from setup sock (%s)&quot;,
+<b><a name="line765">765  </a></b>					       c-&gt;description);
+<b><a name="line766">766  </a></b>			}
+<b><a name="line767">767  </a></b>		}
+<b><a name="line768">768  </a></b>	
+<b><a name="line769">769  </a></b>		res = QB_MIN(0, res);
+<b><a name="line770">770  </a></b>		if (res == -EAGAIN || res == -ETIMEDOUT || res == -ENOBUFS) {
+<b><a name="line771">771  </a></b>			res = 0;
+<b><a name="line772">772  </a></b>		}
+<b><a name="line773">773  </a></b>		if (res != 0) {
+<b><a name="line774">774  </a></b>			if (res != -ENOTCONN) {
+<b><a name="line775">775  </a></b>				/*
+<b><a name="line776">776  </a></b>				 * Abnormal state (ENOTCONN is normal shutdown).
+<b><a name="line777">777  </a></b>				 */
+<b><a name="line778">778  </a></b>				errno = -res;
+<b><a name="line779">779  </a></b>				qb_util_perror(LOG_ERR, &quot;request returned error (%s)&quot;,
+<b><a name="line780">780  </a></b>					       c-&gt;description);
+<b><a name="line781">781  </a></b>			}
+<b><a name="line782">782  </a></b>			qb_ipcs_connection_unref(c);
+<b><a name="line783">783  </a></b>		}
+<b><a name="line784">784  </a></b>	
+<b><a name="line785">785  </a></b>		return res;
+<b><a name="line786">786  </a></b>	}
+<b><a name="line787">787  </a></b>	
+<b><a name="line788">788  </a></b>	void
+<b><a name="line789">789  </a></b>	qb_ipcs_context_set(struct qb_ipcs_connection *c, void *context)
+<b><a name="line790">790  </a></b>	{
+<b><a name="line791">791  </a></b>		if (c == NULL) {
+<b><a name="line792">792  </a></b>			return;
+<b><a name="line793">793  </a></b>		}
+<b><a name="line794">794  </a></b>		c-&gt;context = context;
+<b><a name="line795">795  </a></b>	}
+<b><a name="line796">796  </a></b>	
+<b><a name="line797">797  </a></b>	void *
+<b><a name="line798">798  </a></b>	qb_ipcs_context_get(struct qb_ipcs_connection *c)
+<b><a name="line799">799  </a></b>	{
+<b><a name="line800">800  </a></b>		if (c == NULL) {
+<b><a name="line801">801  </a></b>			return NULL;
+<b><a name="line802">802  </a></b>		}
+<b><a name="line803">803  </a></b>		return c-&gt;context;
+<b><a name="line804">804  </a></b>	}
+<b><a name="line805">805  </a></b>	
+<b><a name="line806">806  </a></b>	int32_t
+<b><a name="line807">807  </a></b>	qb_ipcs_connection_stats_get(qb_ipcs_connection_t * c,
+<b><a name="line808">808  </a></b>				     struct qb_ipcs_connection_stats * stats,
+<b><a name="line809">809  </a></b>				     int32_t clear_after_read)
+<b><a name="line810">810  </a></b>	{
+<b><a name="line811">811  </a></b>		if (c == NULL) {
+<b><a name="line812">812  </a></b>			return -EINVAL;
+<b><a name="line813">813  </a></b>		}
+<b><a name="line814">814  </a></b>		memcpy(stats, &amp;c-&gt;stats, sizeof(struct qb_ipcs_connection_stats));
+<b><a name="line815">815  </a></b>		if (clear_after_read) {
+<b><a name="line816">816  </a></b>			memset(&amp;c-&gt;stats, 0, sizeof(struct qb_ipcs_connection_stats_2));
+<b><a name="line817">817  </a></b>			c-&gt;stats.client_pid = c-&gt;pid;
+<b><a name="line818">818  </a></b>		}
+<b><a name="line819">819  </a></b>		return 0;
+<b><a name="line820">820  </a></b>	}
+<b><a name="line821">821  </a></b>	
+<b><a name="line822">822  </a></b>	struct qb_ipcs_connection_stats_2*
+<b><a name="line823">823  </a></b>	qb_ipcs_connection_stats_get_2(qb_ipcs_connection_t *c,
+<b><a name="line824">824  </a></b>				       int32_t clear_after_read)
+<b><a name="line825">825  </a></b>	{
+<b><a name="line826">826  </a></b>		struct qb_ipcs_connection_stats_2* stats;
+<b><a name="line827">827  </a></b>	
+<b><a name="line828">828  </a></b>		if (c == NULL) {
+<b><a name="line829">829  </a></b>			errno = EINVAL;
+<b><a name="line830">830  </a></b>			return NULL;
+<b><a name="line831">831  </a></b>		}
+<b><a name="line832">832  </a></b>		stats = calloc(1, sizeof(struct qb_ipcs_connection_stats_2));
+<b><a name="line833">833  </a></b>		if (stats == NULL) {
+<b><a name="line834">834  </a></b>			return NULL;
+<b><a name="line835">835  </a></b>		}
+<b><a name="line836">836  </a></b>	
+<b><a name="line837">837  </a></b>		memcpy(stats, &amp;c-&gt;stats, sizeof(struct qb_ipcs_connection_stats_2));
+<b><a name="line838">838  </a></b>	
+<b><a name="line839">839  </a></b>		if (c-&gt;service-&gt;funcs.q_len_get) {
+<b><a name="line840">840  </a></b>			stats-&gt;event_q_length = c-&gt;service-&gt;funcs.q_len_get(&amp;c-&gt;event);
+<b><a name="line841">841  </a></b>		} else {
+<b><a name="line842">842  </a></b>			stats-&gt;event_q_length = 0;
+<b><a name="line843">843  </a></b>		}
+<b><a name="line844">844  </a></b>		if (clear_after_read) {
+<b><a name="line845">845  </a></b>			memset(&amp;c-&gt;stats, 0, sizeof(struct qb_ipcs_connection_stats_2));
+<b><a name="line846">846  </a></b>			c-&gt;stats.client_pid = c-&gt;pid;
+<b><a name="line847">847  </a></b>		}
+<b><a name="line848">848  </a></b>		return stats;
+<b><a name="line849">849  </a></b>	}
+<b><a name="line850">850  </a></b>	
+<b><a name="line851">851  </a></b>	int32_t
+<b><a name="line852">852  </a></b>	qb_ipcs_stats_get(struct qb_ipcs_service * s,
+<b><a name="line853">853  </a></b>			  struct qb_ipcs_stats * stats, int32_t clear_after_read)
+<b><a name="line854">854  </a></b>	{
+<b><a name="line855">855  </a></b>		if (s == NULL) {
+<b><a name="line856">856  </a></b>			return -EINVAL;
+<b><a name="line857">857  </a></b>		}
+<b><a name="line858">858  </a></b>		memcpy(stats, &amp;s-&gt;stats, sizeof(struct qb_ipcs_stats));
+<b><a name="line859">859  </a></b>		if (clear_after_read) {
+<b><a name="line860">860  </a></b>			memset(&amp;s-&gt;stats, 0, sizeof(struct qb_ipcs_stats));
+<b><a name="line861">861  </a></b>		}
+<b><a name="line862">862  </a></b>		return 0;
+<b><a name="line863">863  </a></b>	}
+<b><a name="line864">864  </a></b>	
+<b><a name="line865">865  </a></b>	void
+<b><a name="line866">866  </a></b>	qb_ipcs_connection_auth_set(qb_ipcs_connection_t *c, uid_t uid,
+<b><a name="line867">867  </a></b>				    gid_t gid, mode_t mode)
+<b><a name="line868">868  </a></b>	{
+<b><a name="line869">869  </a></b>		if (c) {
+<b><a name="line870">870  </a></b>			c-&gt;auth.uid = uid;
+<b><a name="line871">871  </a></b>			c-&gt;auth.gid = gid;
+<b><a name="line872">872  </a></b>			c-&gt;auth.mode = mode;
+<b><a name="line873">873  </a></b>		}
+<b><a name="line874">874  </a></b>	}
+<b><a name="line875">875  </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>

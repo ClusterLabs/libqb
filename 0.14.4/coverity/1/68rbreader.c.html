@@ -1,0 +1,141 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html><head><title>Coverity error reader: /home/asalkeld/work/libqb/tests/rbreader.c</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body link="#000000" vlink="#000000"><pre>
+<b><a name="line1">1    </a></b>	/*
+<b><a name="line2">2    </a></b>	 * Copyright (C) 2012 Red Hat, Inc.
+<b><a name="line3">3    </a></b>	 *
+<b><a name="line4">4    </a></b>	 * Author: Angus Salkeld &lt;asalkeld@redhat.com&gt;
+<b><a name="line5">5    </a></b>	 *
+<b><a name="line6">6    </a></b>	 * libqb is free software: you can redistribute it and/or modify
+<b><a name="line7">7    </a></b>	 * it under the terms of the GNU Lesser General Public License as published by
+<b><a name="line8">8    </a></b>	 * the Free Software Foundation, either version 2.1 of the License, or
+<b><a name="line9">9    </a></b>	 * (at your option) any later version.
+<b><a name="line10">10   </a></b>	 *
+<b><a name="line11">11   </a></b>	 * libqb is distributed in the hope that it will be useful,
+<b><a name="line12">12   </a></b>	 * but WITHOUT ANY WARRANTY; without even the implied warranty of
+<b><a name="line13">13   </a></b>	 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<b><a name="line14">14   </a></b>	 * GNU Lesser General Public License for more details.
+<b><a name="line15">15   </a></b>	 *
+<b><a name="line16">16   </a></b>	 * You should have received a copy of the GNU Lesser General Public License
+<b><a name="line17">17   </a></b>	 * along with libqb.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<b><a name="line18">18   </a></b>	 */
+<b><a name="line19">19   </a></b>	
+<b><a name="line20">20   </a></b>	#include &lt;stdlib.h&gt;
+<b><a name="line21">21   </a></b>	#include &lt;stdio.h&gt;
+<b><a name="line22">22   </a></b>	#include &lt;string.h&gt;
+<b><a name="line23">23   </a></b>	#include &lt;unistd.h&gt;
+<b><a name="line24">24   </a></b>	#include &lt;signal.h&gt;
+<b><a name="line25">25   </a></b>	
+<b><a name="line26">26   </a></b>	#include &lt;qb/qbdefs.h&gt;
+<b><a name="line27">27   </a></b>	#include &lt;qb/qbrb.h&gt;
+<b><a name="line28">28   </a></b>	#include &lt;qb/qbutil.h&gt;
+<b><a name="line29">29   </a></b>	#include &lt;qb/qblog.h&gt;
+<b><a name="line30">30   </a></b>	
+<b><a name="line31">31   </a></b>	#define ONE_MEG 1048576
+<b><a name="line32">32   </a></b>	static qb_ringbuffer_t *rb = NULL;
+<b><a name="line33">33   </a></b>	static int keep_reading = QB_TRUE;
+<b><a name="line34">34   </a></b>	int8_t buffer[ONE_MEG];
+<b><a name="line35">35   </a></b>	
+<b><a name="line36">36   </a></b>	
+<b><a name="line37">37   </a></b>	static void sigterm_handler(int32_t num)
+<b><a name="line38">38   </a></b>	{
+</pre>
+<table summary="events" bgcolor=#e0e0e0>
+<tr><td><font color="red">
+<a name="error:0"></a>
+<a name="error"></a>
+<b>(1) Event tainted_string_warning</b>: </font></td>
+<td><font color="red">Using a non string-literal such as &quot;descriptor.format&quot; as a format-string argument can lead to a vulnerability if a user can control its content. [<a href="68log.c.html#model:qb_log_real_:security:0">details</a>]</font></td>
+</tr>
+</table>
+<pre><b><a name="line39">39   </a></b>		qb_log(LOG_INFO, &quot;signal %d&quot;, num);
+<b><a name="line40">40   </a></b>		keep_reading = QB_FALSE;
+<b><a name="line41">41   </a></b>	}
+<b><a name="line42">42   </a></b>	
+<b><a name="line43">43   </a></b>	int32_t main(int32_t argc, char *argv[])
+<b><a name="line44">44   </a></b>	{
+<b><a name="line45">45   </a></b>		ssize_t num_read;
+<b><a name="line46">46   </a></b>	
+<b><a name="line47">47   </a></b>		signal(SIGINT, sigterm_handler);
+<b><a name="line48">48   </a></b>	
+<b><a name="line49">49   </a></b>		qb_log_init(&quot;rbreader&quot;, LOG_USER, LOG_EMERG);
+<b><a name="line50">50   </a></b>		qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+<b><a name="line51">51   </a></b>		qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+<b><a name="line52">52   </a></b>				  QB_LOG_FILTER_FILE, &quot;*&quot;, LOG_TRACE);
+<b><a name="line53">53   </a></b>		qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+<b><a name="line54">54   </a></b>	
+<b><a name="line55">55   </a></b>		rb = qb_rb_open(&quot;tester&quot;, ONE_MEG * 3,
+<b><a name="line56">56   </a></b>				QB_RB_FLAG_SHARED_PROCESS |
+<b><a name="line57">57   </a></b>				QB_RB_FLAG_CREATE, 0);
+<b><a name="line58">58   </a></b>	
+<b><a name="line59">59   </a></b>		if (rb == NULL) {
+<b><a name="line60">60   </a></b>			qb_perror(LOG_ERR, &quot;failed to create ringbuffer&quot;);
+<b><a name="line61">61   </a></b>			return -1;
+<b><a name="line62">62   </a></b>		}
+<b><a name="line63">63   </a></b>		while (keep_reading) {
+<b><a name="line64">64   </a></b>			num_read = qb_rb_chunk_read(rb, buffer,
+<b><a name="line65">65   </a></b>						    ONE_MEG, 0);
+<b><a name="line66">66   </a></b>			if (num_read == -ETIMEDOUT) {
+<b><a name="line67">67   </a></b>				usleep(100000);
+<b><a name="line68">68   </a></b>			} else if (num_read &lt; 0) {
+<b><a name="line69">69   </a></b>				errno = -num_read;
+<b><a name="line70">70   </a></b>				qb_perror(LOG_ERR, &quot;nothing to read&quot;);
+<b><a name="line71">71   </a></b>			}
+<b><a name="line72">72   </a></b>		}
+<b><a name="line73">73   </a></b>		qb_rb_close(rb);
+<b><a name="line74">74   </a></b>		return 0;
+<b><a name="line75">75   </a></b>	}
+<b><a name="line76">76   </a></b>	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></body>
+</html>
