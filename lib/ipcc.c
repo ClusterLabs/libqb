@@ -132,8 +132,11 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 	ssize_t res;
 	ssize_t res2;
 
-	if (c == NULL || msg_len > c->request.max_msg_size) {
+	if (c == NULL) {
 		return -EINVAL;
+	}
+	if (msg_len > c->request.max_msg_size) {
+		return -EMSGSIZE;
 	}
 	if (c->funcs.fc_get) {
 		res = c->funcs.fc_get(&c->request);
@@ -186,8 +189,11 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 	for (i = 0; i < iov_len; i++) {
 		total_size += iov[i].iov_len;
 	}
-	if (c == NULL || total_size > c->request.max_msg_size) {
+	if (c == NULL) {
 		return -EINVAL;
+	}
+	if (total_size > c->request.max_msg_size) {
+		return -EMSGSIZE;
 	}
 
 	if (c->funcs.fc_get) {

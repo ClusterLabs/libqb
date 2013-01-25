@@ -367,6 +367,10 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 	}
 	qb_ipcs_connection_ref(c);
 
+	if (size > c->event.max_msg_size) {
+		return -EMSGSIZE;
+	}
+
 	res = c->service->funcs.send(&c->event, data, size);
 	if (res == size) {
 		c->stats.events++;

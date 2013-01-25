@@ -127,6 +127,11 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		num = stats->event_q_length;
 		free(stats);
 
+		/* crazy large message */
+		res = qb_ipcs_event_send(c, &response,
+					 MAX_MSG_SIZE*10);
+		ck_assert_int_eq(res, -EMSGSIZE);
+
 		for (m = 0; m < num_bulk_events; m++) {
 			res = qb_ipcs_event_send(c, &response,
 						 sizeof(response));
@@ -291,6 +296,13 @@ send_and_check(int32_t req_id, uint32_t size,
 
 	request.hdr.id = req_id;
 	request.hdr.size = sizeof(struct qb_ipc_request_header) + size;
+
+	/* check that we can't send a message that is too big
+	 * and we get the right return code.
+	 */
+	res = qb_ipcc_send(conn, &request, MAX_MSG_SIZE*2);
+	ck_assert_int_eq(res, -EMSGSIZE);
+
 
 repeat_send:
 
@@ -1008,4 +1020,3 @@ main(void)
 	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
-
