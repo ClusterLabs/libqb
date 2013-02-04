@@ -241,6 +241,33 @@ qb_sys_fd_nonblock_cloexec_set(int32_t fd)
 	return res;
 }
 
+void
+qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
+{
+#if !defined(MSG_NOSIGNAL) && !defined(SO_NOSIGPIPE)
+	struct sigaction act;
+	struct sigaction oact;
+
+	act.sa_handler = SIG_IGN;
+
+	if (ctl == QB_SIGPIPE_IGNORE) {
+		sigaction(SIGPIPE, &act, &oact);
+	} else {
+		sigaction(SIGPIPE, &oact, NULL);
+	}
+#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
+}
+
+void
+qb_socket_nosigpipe(int32_t s)
+{
+#ifdef SO_NOSIGPIPE
+	int32_t on = 1;
+	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
+#endif /* SO_NOSIGPIPE */
+}
+
+
 /*
  * atomic operations
  * --------------------------------------------------------------------------

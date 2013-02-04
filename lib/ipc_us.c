@@ -44,20 +44,6 @@
 
 #define SERVER_BACKLOG 5
 
-#ifndef UNIX_PATH_MAX
-#define UNIX_PATH_MAX    108
-#endif /* UNIX_PATH_MAX */
-
-/*
- * SUN_LEN() does a strlen() on sun_path, but if you are trying to use the
- * "Linux abstract namespace" (you have to set sun_path[0] == '\0') then
- * the strlen() doesn't work.
- */
-#if defined(SUN_LEN)
-#define QB_SUN_LEN(a) ((a)->sun_path[0] == '\0') ? sizeof(*(a)) : SUN_LEN(a)
-#else
-#define QB_SUN_LEN(a) sizeof(*(a))
-#endif
 
 struct ipc_us_control {
 	int32_t sent;
@@ -74,37 +60,6 @@ struct ipc_auth_ugp {
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 static int32_t qb_ipc_us_fc_get(struct qb_ipc_one_way *one_way);
 
-static void
-socket_nosigpipe(int32_t s)
-{
-#ifdef SO_NOSIGPIPE
-	int32_t on = 1;
-	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
-#endif /* SO_NOSIGPIPE */
-}
-
-
-enum qb_sigpipe_ctl {
-       QB_SIGPIPE_IGNORE,
-       QB_SIGPIPE_DEFAULT,
-};
-
-static void sigpipe_ctl(enum qb_sigpipe_ctl ctl)
-{
-#if !defined(MSG_NOSIGNAL) && !defined(SO_NOSIGPIPE)
-	struct sigaction act;
-	struct sigaction oact;
-
-	act.sa_handler = SIG_IGN;
-
-	if (ctl == QB_SIGPIPE_IGNORE) {
-		sigaction(SIGPIPE, &act, &oact);
-	} else {
-		sigaction(SIGPIPE, &oact, NULL);
-	}
-#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
-}
-
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -116,7 +71,7 @@ qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 	int32_t processed = 0;
 	char *rbuf = (char *)msg;
 
-	sigpipe_ctl(QB_SIGPIPE_IGNORE);
+	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_send:
 	result = send(one_way->u.us.sock,
@@ -128,7 +83,7 @@ retry_send:
 		if (errno == EAGAIN && processed > 0) {
 			goto retry_send;
 		} else {
-			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+			qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 			return -errno;
 		}
 	}
@@ -138,7 +93,7 @@ retry_send:
 		goto retry_send;
 	}
 
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl = NULL;
@@ -160,7 +115,7 @@ qb_ipc_us_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 	int32_t iov_p = 0;
 	char *rbuf = (char *)iov[iov_p].iov_base;
 
-	sigpipe_ctl(QB_SIGPIPE_IGNORE);
+	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_send:
 	result = send(one_way->u.us.sock,
@@ -173,7 +128,7 @@ retry_send:
 		    (processed > 0 || iov_p > 0)) {
 			goto retry_send;
 		} else {
-			sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+			qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 			return -errno;
 		}
 	}
@@ -191,7 +146,7 @@ retry_send:
 		goto retry_send;
 	}
 
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 
 	if (one_way->type == QB_IPC_SOCKET) {
 		struct ipc_us_control *ctl;
@@ -209,7 +164,7 @@ qb_ipc_us_recv_msghdr(int32_t s, struct msghdr *hdr, char *msg, size_t len)
 	int32_t result;
 	int32_t processed = 0;
 
-	sigpipe_ctl(QB_SIGPIPE_IGNORE);
+	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_recv:
 	hdr->msg_iov->iov_base = &msg[processed];
@@ -220,11 +175,11 @@ retry_recv:
 		goto retry_recv;
 	}
 	if (result == -1) {
-		sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 		return -errno;
 	}
 	if (result == 0) {
-		sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN", s);
 		return -ENOTCONN;
@@ -234,7 +189,7 @@ retry_recv:
 	if (processed != len) {
 		goto retry_recv;
 	}
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 	assert(processed == len);
 
 	return processed;
@@ -297,7 +252,7 @@ qb_ipc_us_recv(struct qb_ipc_one_way * one_way,
 	int32_t to_recv = len;
 	char *data = msg;
 
-	sigpipe_ctl(QB_SIGPIPE_IGNORE);
+	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
@@ -342,7 +297,7 @@ retry_recv:
 	}
 
  cleanup_sigpipe:
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 	return final_rc;
 }
 
@@ -361,7 +316,7 @@ qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
 	struct ipc_us_control *ctl = NULL;
 	struct qb_ipc_request_header *hdr = NULL;
 
-	sigpipe_ctl(QB_SIGPIPE_IGNORE);
+	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_recv:
 	result = recv(one_way->u.us.sock, &data[processed], to_recv,
@@ -410,7 +365,7 @@ retry_recv:
 	}
 
  cleanup_sigpipe:
-	sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 	return final_rc;
 }
 
@@ -427,7 +382,7 @@ qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt)
 		return -errno;
 	}
 
-	socket_nosigpipe(request_fd);
+	qb_socket_nosigpipe(request_fd);
 
 	res = qb_sys_fd_nonblock_cloexec_set(request_fd);
 	if (res < 0) {
