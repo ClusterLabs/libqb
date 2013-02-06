@@ -189,6 +189,7 @@ void qb_ipcs_shm_init(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_us_publish(struct qb_ipcs_service *s);
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service *s);
+int32_t qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt);
 
 int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data);
 int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data);
