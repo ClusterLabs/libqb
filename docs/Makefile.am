@@ -21,13 +21,14 @@ MAINTAINERCLEANFILES	= Makefile.in
 EXTRA_DIST 		= man.dox html.dox
 noinst_HEADERS          = mainpage.h
 
+dist_man_MANS = man8/qb-blackbox.8
 if HAVE_DOXYGEN
 inc_dir = $(top_srcdir)/include/qb
 dependant_headers = $(wildcard $(inc_dir)/qb*.h)
-dist_man_MANS = man3/qbipcc.h.3 man3/qbipcs.h.3 man3/qbatomic.h.3 \
-		man3/qbhdb.h.3 man3/qbipc_common.h.3 man3/qblist.h.3 \
-		man3/qbloop.h.3 man3/qbutil.h.3 man3/qbarray.h.3 \
-		man3/qblog.h.3 man3/qbmap.h.3 man8/qb-blackbox.8
+dist_man_MANS += man3/qbipcc.h.3 man3/qbipcs.h.3 man3/qbatomic.h.3 \
+		 man3/qbhdb.h.3 man3/qbipc_common.h.3 man3/qblist.h.3 \
+		 man3/qbloop.h.3 man3/qbutil.h.3 man3/qbarray.h.3 \
+		 man3/qblog.h.3 man3/qbmap.h.3
 
 
 $(dist_man_MANS): man.dox $(dependant_headers)
@@ -45,4 +46,3 @@ endif
 
 clean-generic:
 	rm -rf html man3
-	
