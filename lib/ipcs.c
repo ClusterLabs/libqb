@@ -270,7 +270,7 @@ qb_ipcs_response_send(struct qb_ipcs_connection *c, const void *data,
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
 		if (ow) {
-			ssize_t res2  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			ssize_t res2 = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
 			if (res2 < 0) {
 				res = res2;
 			}
@@ -298,7 +298,7 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
 		if (ow) {
-			ssize_t res2  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			ssize_t res2 = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
 			if (res2 < 0) {
 				res = res2;
 			}
@@ -385,7 +385,7 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
 		if (ow) {
-			resn  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			resn = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
 			if (resn < 0) {
 				res = resn;
 			}
@@ -423,7 +423,7 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
 		if (ow) {
-			resn  = qb_ipc_us_ready(ow, 0, POLLOUT);
+			resn = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
 			if (resn < 0) {
 				res = resn;
 			}
@@ -444,7 +444,8 @@ qb_ipcs_connection_first_get(struct qb_ipcs_service * s)
 		return NULL;
 	}
 
-	c = qb_list_first_entry(&s->connections, struct qb_ipcs_connection, list);
+	c = qb_list_first_entry(&s->connections, struct qb_ipcs_connection,
+				list);
 	qb_ipcs_connection_ref(c);
 
 	return c;
@@ -461,7 +462,8 @@ qb_ipcs_connection_next_get(struct qb_ipcs_service * s,
 		return NULL;
 	}
 
-	c = qb_list_first_entry(&current->list, struct qb_ipcs_connection, list);
+	c = qb_list_first_entry(&current->list, struct qb_ipcs_connection,
+				list);
 	qb_ipcs_connection_ref(c);
 
 	return c;
@@ -525,8 +527,7 @@ qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 	}
 	if (c->refcount < 1) {
 		qb_util_log(LOG_ERR, "ref:%d state:%d (%s)",
-			    c->refcount, c->state,
-			    c->description);
+			    c->refcount, c->state, c->description);
 		assert(0);
 	}
 	free_it = qb_atomic_int_dec_and_test(&c->refcount);
@@ -554,20 +555,18 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		    __func__, c->description, c->state);
 
 	if (c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		c->service->funcs.disconnect(c);
 		c->state = QB_IPCS_CONNECTION_INACTIVE;
 		c->service->stats.closed_connections++;
-
-		qb_ipcs_sockets_disconnect(c);
 		/* return early as it's an incomplete connection.
 		 */
 		return;
 	}
 	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED) {
+		c->service->funcs.disconnect(c);
 		c->state = QB_IPCS_CONNECTION_SHUTTING_DOWN;
 		c->service->stats.active_connections--;
 		c->service->stats.closed_connections++;
-
-		qb_ipcs_sockets_disconnect(c);
 	}
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN) {
 		res = 0;
@@ -582,8 +581,7 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 			rerun_job =
 			    (qb_loop_job_dispatch_fn) qb_ipcs_disconnect;
 			res = c->service->poll_fns.job_add(QB_LOOP_LOW,
-							   c,
-							   rerun_job);
+							   c, rerun_job);
 			if (res != 0) {
 				/* last ditch attempt to cleanup */
 				qb_ipcs_connection_unref(c);
@@ -827,7 +825,7 @@ struct qb_ipcs_connection_stats_2*
 qb_ipcs_connection_stats_get_2(qb_ipcs_connection_t *c,
 			       int32_t clear_after_read)
 {
-	struct qb_ipcs_connection_stats_2* stats;
+	struct qb_ipcs_connection_stats_2 * stats;
 
 	if (c == NULL) {
 		errno = EINVAL;

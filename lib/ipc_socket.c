@@ -41,6 +41,150 @@ struct ipc_us_control {
 };
 #define SHM_CONTROL_SIZE (3 * sizeof(struct ipc_us_control))
 
+static void
+set_sock_addr(struct sockaddr_un *address, const char *socket_name)
+{
+	memset(address, 0, sizeof(struct sockaddr_un));
+	address->sun_family = AF_UNIX;
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+	address->sun_len = QB_SUN_LEN(&address);
+#endif
+
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
+	snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+#else
+	snprintf(address->sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR,
+		 socket_name);
+#endif
+}
+
+static int32_t
+qb_ipc_dgram_sock_setup(const char *base_name,
+			const char *service_name, int32_t * sock_pt)
+{
+	int32_t request_fd;
+	struct sockaddr_un local_address;
+	int32_t res = 0;
+	char sock_path[PATH_MAX];
+
+	request_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (request_fd == -1) {
+		return -errno;
+	}
+
+	qb_socket_nosigpipe(request_fd);
+	res = qb_sys_fd_nonblock_cloexec_set(request_fd);
+	if (res < 0) {
+		goto error_connect;
+	}
+	snprintf(sock_path, PATH_MAX, "%s-%s", base_name, service_name);
+	set_sock_addr(&local_address, sock_path);
+	res = bind(request_fd, (struct sockaddr *)&local_address,
+		   sizeof(local_address));
+	if (res < 0) {
+		goto error_connect;
+	}
+
+	*sock_pt = request_fd;
+	return 0;
+
+error_connect:
+	close(request_fd);
+	*sock_pt = -1;
+
+	return res;
+}
+
+static int32_t
+set_sock_size(int sockfd, size_t max_msg_size)
+{
+	int32_t rc;
+	unsigned int optval;
+	socklen_t optlen = sizeof(optval);
+
+	rc = getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen);
+
+	qb_util_log(LOG_DEBUG, "%d: getsockopt(%d, needed:%d) actual:%d",
+		    rc, sockfd, max_msg_size, optval);
+
+	if (rc == 0 && optval < max_msg_size) {
+		optval = max_msg_size;
+		optlen = sizeof(optval);
+		rc = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &optval, optlen);
+	}
+	return rc;
+}
+
+/*
+ * bind to "base_name-local_name"
+ * connect to "base_name-remote_name"
+ * output sock_pt
+ */
+static int32_t
+qb_ipc_dgram_sock_connect(const char *base_name,
+			  const char *local_name,
+			  const char *remote_name,
+			  int32_t max_msg_size, int32_t * sock_pt)
+{
+	char sock_path[PATH_MAX];
+	struct sockaddr_un remote_address;
+	int32_t res = qb_ipc_dgram_sock_setup(base_name, local_name,
+					      sock_pt);
+	if (res < 0) {
+		return res;
+	}
+
+	snprintf(sock_path, PATH_MAX, "%s-%s", base_name, remote_name);
+	set_sock_addr(&remote_address, sock_path);
+	if (connect(*sock_pt, (struct sockaddr *)&remote_address,
+		    QB_SUN_LEN(&remote_address)) == -1) {
+		res = -errno;
+		goto error_connect;
+	}
+
+	return set_sock_size(*sock_pt, max_msg_size);
+
+error_connect:
+	close(*sock_pt);
+	*sock_pt = -1;
+
+	return res;
+}
+
+static int32_t
+_finish_connecting(struct qb_ipc_one_way *one_way)
+{
+	struct sockaddr_un remote_address;
+	int res;
+	int error;
+	int retry = 0;
+
+	set_sock_addr(&remote_address, one_way->u.us.sock_name);
+
+	/* this retry loop is here to help connecting when trying to send
+	 * an event right after connection setup.
+	 */
+	do {
+		errno = 0;
+		res = connect(one_way->u.us.sock,
+			      (struct sockaddr *)&remote_address,
+			      QB_SUN_LEN(&remote_address));
+		if (res == -1) {
+			error = -errno;
+			qb_util_perror(LOG_DEBUG, "error calling connect()");
+			retry++;
+			usleep(100000);
+		}
+	} while (res == -1 && retry < 10);
+	if (res == -1) {
+		return error;
+	}
+
+	free(one_way->u.us.sock_name);
+	one_way->u.us.sock_name = NULL;
+
+	return set_sock_size(one_way->u.us.sock, one_way->max_msg_size);
+}
 
 /*
  * client functions
@@ -57,16 +201,31 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 
 static ssize_t
 qb_ipc_socket_send(struct qb_ipc_one_way *one_way,
-		const void *msg_ptr, size_t msg_len)
+		   const void *msg_ptr, size_t msg_len)
 {
 	ssize_t rc = 0;
-	struct ipc_us_control *ctl = NULL;
-
+	struct ipc_us_control *ctl;
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 
-	rc = qb_ipc_us_send(one_way, msg_ptr, msg_len);
+	if (one_way->u.us.sock_name) {
+		rc = _finish_connecting(one_way);
+		if (rc < 0) {
+			qb_util_log(LOG_ERR, "socket connect-on-send");
+			return rc;
+		}
+	}
 
-	if (rc == msg_len && ctl) {
+	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
+	rc = send(one_way->u.us.sock, msg_ptr, msg_len, MSG_NOSIGNAL);
+	if (rc == -1) {
+		rc = -errno;
+		if (errno != EAGAIN) {
+			qb_util_perror(LOG_ERR, "socket_send:send");
+		}
+	}
+	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+
+	if (ctl && rc == msg_len) {
 		qb_atomic_int_inc(&ctl->sent);
 	}
 
@@ -77,123 +236,103 @@ static ssize_t
 qb_ipc_socket_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 		    size_t iov_len)
 {
-	int32_t result;
-	int32_t processed = 0;
-	int32_t total_processed = 0;
-	int32_t iov_p = 0;
+	int32_t rc;
 	struct ipc_us_control *ctl;
-	char *rbuf = (char *)iov[iov_p].iov_base;
-
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 
 	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
-retry_send:
-	result = send(one_way->u.us.sock,
-		      &rbuf[processed],
-		      iov[iov_p].iov_len - processed,
-		      MSG_NOSIGNAL);
-
-	if (result == -1) {
-		if (errno == EAGAIN &&
-		    (processed > 0 || iov_p > 0)) {
-			goto retry_send;
-		} else {
-			qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-			return -errno;
+	if (one_way->u.us.sock_name) {
+		rc = _finish_connecting(one_way);
+		if (rc < 0) {
+			qb_util_perror(LOG_ERR, "socket connect-on-sendv");
+			return rc;
 		}
 	}
 
-	processed += result;
-	if (processed == iov[iov_p].iov_len) {
-		iov_p++;
-		total_processed += processed;
-		if (iov_p < iov_len) {
-			processed = 0;
-			rbuf = (char *)iov[iov_p].iov_base;
-			goto retry_send;
+	rc = writev(one_way->u.us.sock, iov, iov_len);
+
+	if (rc == -1) {
+		rc = -errno;
+		if (errno != EAGAIN) {
+			qb_util_perror(LOG_ERR, "socket_sendv:writev %d",
+				       one_way->u.us.sock);
 		}
-	} else {
-		goto retry_send;
 	}
 
 	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 
-	if (total_processed > 0 && ctl) {
+	if (ctl && rc > 0) {
 		qb_atomic_int_inc(&ctl->sent);
 	}
-	return total_processed;
+	return rc;
 }
-
 
 /*
  * recv a message of unknown size.
  */
 static ssize_t
-qb_ipc_us_recv_at_most(struct qb_ipc_one_way * one_way,
-	       void *msg, size_t len, int32_t timeout)
+qb_ipc_us_recv_at_most(struct qb_ipc_one_way *one_way,
+		       void *msg, size_t len, int32_t timeout)
 {
 	int32_t result;
 	int32_t final_rc = 0;
-	int32_t processed = 0;
-	int32_t to_recv = sizeof(struct qb_ipc_request_header);
+	int32_t to_recv = 0;
 	char *data = msg;
 	struct ipc_us_control *ctl = NULL;
-	struct qb_ipc_request_header *hdr = NULL;
+	int32_t time_waited = 0;
+	int32_t time_to_wait = timeout;
+
+	if (timeout == -1) {
+		time_to_wait = 1000;
+	}
 
 	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
-retry_recv:
-	result = recv(one_way->u.us.sock, &data[processed], to_recv,
+retry_peek:
+	result = recv(one_way->u.us.sock, data,
+		      sizeof(struct qb_ipc_request_header),
+		      MSG_NOSIGNAL | MSG_PEEK);
+
+	if (result == -1) {
+		if (errno == EAGAIN && (time_waited < timeout || timeout == -1)) {
+			result = qb_ipc_us_ready(one_way, NULL,
+						 time_to_wait, POLLIN);
+			time_waited += time_to_wait;
+			goto retry_peek;
+		} else {
+			return -errno;
+		}
+	}
+	if (result >= sizeof(struct qb_ipc_request_header)) {
+		struct qb_ipc_request_header *hdr = NULL;
+		hdr = (struct qb_ipc_request_header *)msg;
+		to_recv = hdr->size;
+	}
+
+	result = recv(one_way->u.us.sock, data, to_recv,
 		      MSG_NOSIGNAL | MSG_WAITALL);
 	if (result == -1) {
-		if (errno == EAGAIN &&
-		    (processed > 0 || timeout == -1)) {
-			/*
-			 * Don't spin too hard else we can consume too
-			 * much cpu.
-			 */
-			result = qb_ipc_us_ready(one_way,
-						 100,
-						 POLLIN);
-			if (result == 0 || result == -EAGAIN) {
-				goto retry_recv;
-			}
-			final_rc = result;
-			goto cleanup_sigpipe;
-		} else {
-			final_rc = -errno;
-			goto cleanup_sigpipe;
-		}
+		final_rc = -errno;
+		goto cleanup_sigpipe;
 	} else if (result == 0) {
+		qb_util_log(LOG_DEBUG, "recv == 0 -> ENOTCONN");
+
 		final_rc = -ENOTCONN;
 		goto cleanup_sigpipe;
 	}
 
-	processed += result;
-	if (processed >= sizeof(struct qb_ipc_request_header) && hdr == NULL) {
-		hdr = (struct qb_ipc_request_header*)msg;
-	}
-	if (hdr) {
-		to_recv = hdr->size - processed;
-	} else {
-		to_recv = len - processed;
-	}
-	if (to_recv > 0) {
-		goto retry_recv;
-	}
-	final_rc = processed;
+	final_rc = result;
 
 	ctl = (struct ipc_us_control *)one_way->u.us.shared_data;
 	if (ctl) {
 		(void)qb_atomic_int_dec_and_test(&ctl->sent);
 	}
 
- cleanup_sigpipe:
+cleanup_sigpipe:
 	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 	return final_rc;
 }
-
 
 static void
 qb_ipc_us_fc_set(struct qb_ipc_one_way *one_way, int32_t fc_enable)
@@ -201,8 +340,7 @@ qb_ipc_us_fc_set(struct qb_ipc_one_way *one_way, int32_t fc_enable)
 	struct ipc_us_control *ctl =
 	    (struct ipc_us_control *)one_way->u.us.shared_data;
 
-	qb_util_log(LOG_TRACE, "setting fc to %d",
-		    fc_enable);
+	qb_util_log(LOG_TRACE, "setting fc to %d", fc_enable);
 	qb_atomic_int_set(&ctl->flow_control, fc_enable);
 }
 
@@ -223,21 +361,14 @@ qb_ipc_us_q_len_get(struct qb_ipc_one_way *one_way)
 	return qb_atomic_int_get(&ctl->sent);
 }
 
-/*
- * setup:
- * send -> server
- * recv <- server
- * call us, we connect to the dgram sockets
- */
 int32_t
-qb_ipcc_us_connect(struct qb_ipcc_connection *c,
-		   struct qb_ipc_connection_response *r)
+qb_ipcc_us_connect(struct qb_ipcc_connection * c,
+		   struct qb_ipc_connection_response * r)
 {
 	int32_t res;
-	struct qb_ipc_event_connection_request request;
 	char path[PATH_MAX];
 	int32_t fd_hdr;
-	char * shm_ptr;
+	char *shm_ptr;
 
 	qb_atomic_init();
 
@@ -247,10 +378,6 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 	c->funcs.recv = qb_ipc_us_recv_at_most;
 	c->funcs.fc_get = qb_ipc_us_fc_get;
 	c->funcs.disconnect = qb_ipcc_us_disconnect;
-
-	c->request.u.us.sock = c->setup.u.us.sock;
-	c->response.u.us.sock = c->setup.u.us.sock;
-	c->setup.u.us.sock = -1;
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
 				       SHM_CONTROL_SIZE, O_RDWR);
@@ -275,18 +402,16 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 
 	close(fd_hdr);
 
-	res = qb_ipcc_us_sock_connect(c->name, &c->event.u.us.sock);
+	res = qb_ipc_dgram_sock_connect(r->response, "response", "request",
+					r->max_msg_size, &c->request.u.us.sock);
 	if (res != 0) {
 		goto cleanup_hdr;
 	}
+	c->response.u.us.sock = c->request.u.us.sock;
 
-	memset(&request, 0, sizeof(request));
-	request.hdr.id = QB_IPC_MSG_NEW_EVENT_SOCK;
-	request.hdr.size = sizeof(request);
-	request.connection = r->connection;
-	res = qb_ipc_us_send(&c->event, &request, request.hdr.size);
-	if (res < 0) {
-		qb_ipcc_us_sock_close(c->event.u.us.sock);
+	res = qb_ipc_dgram_sock_connect(r->response, "event", "event-tx",
+					r->max_msg_size, &c->event.u.us.sock);
+	if (res != 0) {
 		goto cleanup_hdr;
 	}
 
@@ -294,25 +419,98 @@ qb_ipcc_us_connect(struct qb_ipcc_connection *c,
 
 cleanup_hdr:
 	close(fd_hdr);
+	close(c->event.u.us.sock);
+	close(c->request.u.us.sock);
 	unlink(r->request);
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	return res;
 }
 
-
 /*
  * service functions
  * --------------------------------------------------------
  */
+static int32_t
+_sock_connection_liveliness(int32_t fd, int32_t revents, void *data)
+{
+	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
+
+	qb_util_log(LOG_DEBUG, "LIVENESS: fd %d event %d conn (%s)",
+		    fd, revents, c->description);
+	if (revents & POLLNVAL) {
+		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);
+		return -EINVAL;
+	}
+	if (revents & POLLHUP) {
+		qb_util_log(LOG_DEBUG, "HUP conn (%s)", c->description);
+		qb_ipcs_disconnect(c);
+		return -ESHUTDOWN;
+	}
+	return 0;
+}
+
+static int32_t
+_sock_add_to_mainloop(struct qb_ipcs_connection *c)
+{
+	int res;
+
+	res = c->service->poll_fns.dispatch_add(c->service->poll_priority,
+						c->request.u.us.sock,
+						POLLIN | POLLPRI | POLLNVAL,
+						c,
+						qb_ipcs_dispatch_connection_request);
+
+	if (res < 0) {
+		qb_util_log(LOG_ERR,
+			    "Error adding socket to mainloop (%s).",
+			    c->description);
+		return res;
+	}
+	qb_ipcs_connection_ref(c);
+
+	res = c->service->poll_fns.dispatch_add(c->service->poll_priority,
+						c->setup.u.us.sock,
+						POLLIN | POLLPRI | POLLNVAL,
+						c, _sock_connection_liveliness);
+	qb_util_log(LOG_DEBUG, "added %d to poll loop (liveness)",
+		    c->setup.u.us.sock);
+	if (res < 0) {
+		qb_util_perror(LOG_ERR, "Error adding setupfd to mainloop");
+		(void)c->service->poll_fns.dispatch_del(c->request.u.us.sock);
+		return res;
+	}
+	qb_ipcs_connection_ref(c);
+	return res;
+}
+
+static void
+_sock_rm_from_mainloop(struct qb_ipcs_connection *c)
+{
+	(void)c->service->poll_fns.dispatch_del(c->request.u.us.sock);
+	qb_ipcs_connection_unref(c);
+
+	(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
+	qb_ipcs_connection_unref(c);
+}
+
 static void
 qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 {
 	qb_enter();
-	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
-	unlink(c->request.u.us.shared_file_name);
 
-	qb_ipcc_us_sock_close(c->request.u.us.sock);
-	qb_ipcc_us_sock_close(c->event.u.us.sock);
+	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		_sock_rm_from_mainloop(c);
+
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
+		qb_ipcc_us_sock_close(c->request.u.us.sock);
+		qb_ipcc_us_sock_close(c->event.u.us.sock);
+	}
+	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
+		unlink(c->request.u.us.shared_file_name);
+	}
 }
 
 static int32_t
@@ -324,13 +522,16 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	int32_t fd_hdr;
 	int32_t res = 0;
 	struct ipc_us_control *ctl;
-	char * shm_ptr;
+	char *shm_ptr;
 
-	qb_util_log(LOG_DEBUG, "connecting to client (%s)",
-		    c->description);
+	qb_util_log(LOG_DEBUG, "connecting to client (%s)", c->description);
+
+	c->request.u.us.sock = c->setup.u.us.sock;
+	c->response.u.us.sock = c->setup.u.us.sock;
 
 	snprintf(r->request, NAME_MAX, "qb-%s-control-%s",
 		 s->name, c->description);
+	snprintf(r->response, NAME_MAX, "qb-%s-%s", s->name, c->description);
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
 				       SHM_CONTROL_SIZE,
@@ -353,7 +554,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	res = chmod(r->request, c->auth.mode);
 	if (res != 0) {
 		/* ignore res, this is just for the compiler warnings.
-		*/
+		 */
 		res = 0;
 	}
 
@@ -381,15 +582,46 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	ctl->flow_control = 0;
 
 	close(fd_hdr);
+
+	/* request channel */
+	res = qb_ipc_dgram_sock_setup(r->response, "request",
+				      &c->request.u.us.sock);
+	if (res < 0) {
+		goto cleanup_hdr;
+	}
+	c->setup.u.us.sock_name = NULL;
+	c->request.u.us.sock_name = NULL;
+
+	/* response channel */
+	c->response.u.us.sock = c->request.u.us.sock;
+	snprintf(path, PATH_MAX, "%s-%s", r->response, "response");
+	c->response.u.us.sock_name = strdup(path);
+
+	/* event channel */
+	res = qb_ipc_dgram_sock_setup(r->response, "event-tx",
+				      &c->event.u.us.sock);
+	if (res < 0) {
+		goto cleanup_hdr;
+	}
+	snprintf(path, PATH_MAX, "%s-%s", r->response, "event");
+	c->event.u.us.sock_name = strdup(path);
+
+	res = _sock_add_to_mainloop(c);
+	if (res < 0) {
+		goto cleanup_hdr;
+	}
+
 	return res;
 
 cleanup_hdr:
+	free(c->response.u.us.sock_name);
+	free(c->event.u.us.sock_name);
+
 	close(fd_hdr);
 	unlink(r->request);
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	return res;
 }
-
 
 void
 qb_ipcs_us_init(struct qb_ipcs_service *s)

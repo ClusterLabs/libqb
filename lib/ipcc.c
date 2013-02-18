@@ -240,10 +240,9 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
 
-		if (ow == NULL) return res;
                 if (res == -EAGAIN) poll_ms = ms_timeout;
 
-		res2 = qb_ipc_us_ready(ow, poll_ms, POLLIN);
+		res2 = qb_ipc_us_ready(ow, &c->setup, poll_ms, POLLIN);
 		if (res2 < 0) {
 			res = res2;
 		}
@@ -339,7 +338,8 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	}
 	ow = _event_sock_one_way_get(c);
 	if (ow) {
-		res = qb_ipc_us_ready(ow, ms_timeout, POLLIN);
+		res = qb_ipc_us_ready(ow, &c->setup,
+				      ms_timeout, POLLIN);
 		if (res < 0) {
 			_check_connection_state(c, res);
 			return res;
@@ -374,7 +374,7 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 
 	ow = _event_sock_one_way_get(c);
 	if (ow) {
-		res = qb_ipc_us_ready(ow, 0, POLLIN);
+		res = qb_ipc_us_ready(ow, &c->setup, 0, POLLIN);
 		_check_connection_state(c, res);
 		qb_ipcc_us_sock_close(ow->u.us.sock);
 	}
@@ -414,7 +414,7 @@ qb_ipcc_is_connected(qb_ipcc_connection_t *c)
 
 	ow = _response_sock_one_way_get(c);
 	if (ow) {
-		_check_connection_state(c, qb_ipc_us_ready(ow, 0, POLLIN));
+		_check_connection_state(c, qb_ipc_us_ready(ow, &c->setup, 0, POLLIN));
 	}
 
 	return c->is_connected;
