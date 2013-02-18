@@ -29,6 +29,14 @@
 
 extern size_t qb_vsnprintf_serialize(char *serialize, size_t max_len, const char *fmt, va_list ap);
 
+static void
+store_this_qb(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+static void
+store_this_snprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+typedef void (*snprintf_like_func)(const char *fmt, ...)  __attribute__((format(printf, 1, 2)));
+
 
 static void
 store_this_qb(const char *fmt, ...)
@@ -55,7 +63,7 @@ store_this_snprintf(const char *fmt, ...)
 #define ITERATIONS 10000000
 
 static void
-test_this_one(const char *name, void (*func)(const char *fmt, ...))
+test_this_one(const char *name, snprintf_like_func func)
 {
 	int i;
 	qb_util_stopwatch_t *sw = qb_util_stopwatch_create();
