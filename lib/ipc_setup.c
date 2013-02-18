@@ -135,6 +135,8 @@ qb_ipc_us_sock_error_is_disconnected(int err)
 #ifdef EWOULDBLOCK
 	    err == -EWOULDBLOCK ||
 #endif
+	    err == -EMSGSIZE ||
+	    err == -ENOMSG ||
 	    err == -EINVAL) {
 		return QB_FALSE;
 	}
