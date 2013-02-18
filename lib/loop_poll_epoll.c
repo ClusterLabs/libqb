@@ -167,6 +167,7 @@ retry_poll:
 		if (res != 0) {
 			qb_util_log(LOG_WARNING,
 				    "can't find poll entry for new event.");
+			usleep(100000);
 			continue;
 		}
 		if (pe->ufd.fd == -1 || pe->state == QB_POLL_ENTRY_DELETED) {
@@ -206,4 +207,3 @@ qb_epoll_init(struct qb_poll_source *s)
 	s->s.poll = _poll_and_add_to_jobs_;
 	return 0;
 }
-
