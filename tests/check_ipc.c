@@ -594,10 +594,12 @@ count_bulk_events(int32_t fd, int32_t revents, void *data)
 	struct qb_ipc_response_header res_header;
 	int32_t res;
 
-	events_received++;
 	res = qb_ipcc_event_recv(conn, &res_header,
 				 sizeof(struct qb_ipc_response_header),
 				 -1);
+	if (res > 0) {
+		events_received++;
+	}
 
 	if (events_received >= num_bulk_events) {
 		qb_loop_stop(cl);
