@@ -22,8 +22,9 @@
 #include <qb/qbdefs.h>
 
 static int32_t
-my_posix_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
+my_posix_sem_timedwait(void * instance, int32_t ms_timeout)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	struct timespec ts_timeout;
 	int32_t res;
 
@@ -61,8 +62,9 @@ sem_wait_again:
 }
 
 static int32_t
-my_posix_sem_post(qb_ringbuffer_t * rb)
+my_posix_sem_post(void * instance, size_t msg_size)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	if (rpl_sem_post(&rb->shared_hdr->posix_sem) < 0) {
 		return -errno;
 	} else {
@@ -71,8 +73,9 @@ my_posix_sem_post(qb_ringbuffer_t * rb)
 }
 
 static ssize_t
-my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
+my_posix_getvalue_fn(void * instance)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	int val;
 	if (rpl_sem_getvalue(&rb->shared_hdr->posix_sem, &val) < 0) {
 		return -errno;
@@ -82,8 +85,10 @@ my_posix_getvalue_fn(struct qb_ringbuffer_s *rb)
 }
 
 static int32_t
-my_posix_sem_destroy(qb_ringbuffer_t * rb)
+my_posix_sem_destroy(void * instance)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
+	qb_enter();
 	if (rpl_sem_destroy(&rb->shared_hdr->posix_sem) == -1) {
 		return -errno;
 	} else {
@@ -92,8 +97,9 @@ my_posix_sem_destroy(qb_ringbuffer_t * rb)
 }
 
 static int32_t
-my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
+my_posix_sem_create(void * instance, uint32_t flags)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	int32_t pshared = QB_FALSE;
 	if (flags & QB_RB_FLAG_SHARED_PROCESS) {
 		if ((flags & QB_RB_FLAG_CREATE) == 0) {
@@ -109,8 +115,9 @@ my_posix_sem_create(struct qb_ringbuffer_s *rb, uint32_t flags)
 }
 
 static int32_t
-my_sysv_sem_timedwait(qb_ringbuffer_t * rb, int32_t ms_timeout)
+my_sysv_sem_timedwait(void * instance, int32_t ms_timeout)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	struct sembuf sops[1];
 	int32_t res = 0;
 #ifdef HAVE_SEMTIMEDOP
@@ -164,8 +171,9 @@ semop_again:
 }
 
 static int32_t
-my_sysv_sem_post(qb_ringbuffer_t * rb)
+my_sysv_sem_post(void * instance, size_t msg_size)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	struct sembuf sops[1];
 
 	if ((rb->flags & QB_RB_FLAG_SHARED_PROCESS) == 0) {
@@ -191,8 +199,9 @@ semop_again:
 }
 
 static ssize_t
-my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
+my_sysv_getvalue_fn(void * instance)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	ssize_t res = semctl(rb->sem_id, 0, GETVAL, 0);
 	if (res == -1) {
 		return -errno;
@@ -201,8 +210,9 @@ my_sysv_getvalue_fn(struct qb_ringbuffer_s *rb)
 }
 
 static int32_t
-my_sysv_sem_destroy(qb_ringbuffer_t * rb)
+my_sysv_sem_destroy(void * instance)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	if (semctl(rb->sem_id, 0, IPC_RMID, 0) == -1) {
 		return -errno;
 	} else {
@@ -211,8 +221,9 @@ my_sysv_sem_destroy(qb_ringbuffer_t * rb)
 }
 
 static int32_t
-my_sysv_sem_create(qb_ringbuffer_t * rb, uint32_t flags)
+my_sysv_sem_create(void * instance, uint32_t flags)
 {
+	struct qb_ringbuffer_s *rb = (struct qb_ringbuffer_s *)instance;
 	union semun options;
 	int32_t res;
 	key_t sem_key;
@@ -270,22 +281,28 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	}
 	if (flags & QB_RB_FLAG_NO_SEMAPHORE) {
 		rc = 0;
-		rb->sem_timedwait_fn = NULL;
-		rb->sem_post_fn = NULL;
-		rb->sem_getvalue_fn = NULL;
-		rb->sem_destroy_fn = NULL;
+		rb->notifier.instance = NULL;
+		rb->notifier.timedwait_fn = NULL;
+		rb->notifier.post_fn = NULL;
+		rb->notifier.q_len_fn = NULL;
+		rb->notifier.space_used_fn = NULL;
+		rb->notifier.destroy_fn = NULL;
 	} else if (use_posix) {
 		rc = my_posix_sem_create(rb, flags);
-		rb->sem_timedwait_fn = my_posix_sem_timedwait;
-		rb->sem_post_fn = my_posix_sem_post;
-		rb->sem_getvalue_fn = my_posix_getvalue_fn;
-		rb->sem_destroy_fn = my_posix_sem_destroy;
+		rb->notifier.instance = rb;
+		rb->notifier.timedwait_fn = my_posix_sem_timedwait;
+		rb->notifier.post_fn = my_posix_sem_post;
+		rb->notifier.q_len_fn = my_posix_getvalue_fn;
+		rb->notifier.space_used_fn = NULL;
+		rb->notifier.destroy_fn = my_posix_sem_destroy;
 	} else {
 		rc = my_sysv_sem_create(rb, flags);
-		rb->sem_timedwait_fn = my_sysv_sem_timedwait;
-		rb->sem_post_fn = my_sysv_sem_post;
-		rb->sem_getvalue_fn = my_sysv_getvalue_fn;
-		rb->sem_destroy_fn = my_sysv_sem_destroy;
+		rb->notifier.instance = rb;
+		rb->notifier.timedwait_fn = my_sysv_sem_timedwait;
+		rb->notifier.post_fn = my_sysv_sem_post;
+		rb->notifier.q_len_fn = my_sysv_getvalue_fn;
+		rb->notifier.space_used_fn = NULL;
+		rb->notifier.destroy_fn = my_sysv_sem_destroy;
 	}
 	return rc;
 }
