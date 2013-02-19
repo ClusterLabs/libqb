@@ -36,29 +36,29 @@ extern "C" {
 #else
 
 typedef struct rpl_sem {
-        unsigned int count;
-        pthread_mutex_t mutex;
-        pthread_cond_t cond;
+	unsigned int count;
+	uint32_t destroy_request;
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
 } rpl_sem_t;
 
 int rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count);
 
-int rpl_sem_wait(rpl_sem_t *sem);
+int rpl_sem_wait(rpl_sem_t * sem);
 
-int rpl_sem_timedwait(rpl_sem_t *sem,const struct timespec *timeout);
+int rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout);
 
-int rpl_sem_trywait(rpl_sem_t *sem);
+int rpl_sem_trywait(rpl_sem_t * sem);
 
-int rpl_sem_post(rpl_sem_t *sem);
+int rpl_sem_post(rpl_sem_t * sem);
 
 int rpl_sem_getvalue(rpl_sem_t * sem, int *sval);
 
-int rpl_sem_destroy(rpl_sem_t *sem);
+int rpl_sem_destroy(rpl_sem_t * sem);
 
 #endif /* HAVE_SEM_TIMEDWAIT */
 
 #ifdef  __cplusplus
 }
 #endif
-
 #endif /* _RPL_SEM_H */
