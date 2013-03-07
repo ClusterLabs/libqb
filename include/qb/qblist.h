@@ -157,11 +157,13 @@ static inline void qb_list_splice(struct qb_list_head *list,
 	struct qb_list_head *last = list->prev;
 	struct qb_list_head *at = head->next;
 
-	first->prev = head;
-	head->next = first;
+	if (!qb_list_empty(list)) {
+		first->prev = head;
+		head->next = first;
 
-	last->next = at;
-	at->prev = last;
+		last->next = at;
+		at->prev = last;
+	}
 }
 
 /**
@@ -176,11 +178,13 @@ static inline void qb_list_splice_tail(struct qb_list_head *list,
 	struct qb_list_head *last = list->prev;
 	struct qb_list_head *at = head;
 
-	first->prev = head->prev;
-	head->prev->next = first;
+	if (!qb_list_empty(list)) {
+		first->prev = head->prev;
+		head->prev->next = first;
 
-	last->next = at;
-	at->prev = last;
+		last->next = at;
+		at->prev = last;
+	}
 }
 
 /**
