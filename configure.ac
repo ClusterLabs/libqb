@@ -173,6 +173,22 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                  )
 
 
+AC_MSG_CHECKING(for MSG_NOSIGNAL)
+AC_TRY_COMPILE([#include <sys/socket.h>],
+	       [ int f = MSG_NOSIGNAL; ],
+	       [ AC_MSG_RESULT(yes)
+	         AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
+	         [Define this symbol if you have MSG_NOSIGNAL])],
+	       [ AC_MSG_RESULT(no)])
+
+AC_MSG_CHECKING(for SO_NOSIGPIPE )
+AC_TRY_COMPILE([#include <sys/socket.h>],
+		[ int f = SO_NOSIGPIPE; ],
+		[ AC_MSG_RESULT(yes)
+		  AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
+		  [Define this symbol if you have SO_NOSIGPIPE]) ],
+		[ AC_MSG_RESULT(no)])
+
 # Checks for library functions.
 AC_FUNC_CHOWN
 AC_FUNC_FORK

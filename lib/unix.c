@@ -244,7 +244,7 @@ qb_sys_fd_nonblock_cloexec_set(int32_t fd)
 void
 qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
 {
-#if !defined(MSG_NOSIGNAL) && !defined(SO_NOSIGPIPE)
+#if !defined(HAVE_MSG_NOSIGNAL) && !defined(HAVE_SO_NOSIGPIPE)
 	struct sigaction act;
 	struct sigaction oact;
 
@@ -255,16 +255,16 @@ qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
 	} else {
 		sigaction(SIGPIPE, &oact, NULL);
 	}
-#endif  /* !MSG_NOSIGNAL && !defined(SO_NOSIGPIPE) */
+#endif  /* !MSG_NOSIGNAL && !SO_NOSIGPIPE */
 }
 
 void
 qb_socket_nosigpipe(int32_t s)
 {
-#ifdef SO_NOSIGPIPE
+#if !defined(HAVE_MSG_NOSIGNAL) && defined(HAVE_SO_NOSIGPIPE)
 	int32_t on = 1;
 	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
-#endif /* SO_NOSIGPIPE */
+#endif /* !MSG_NOSIGNAL && SO_NOSIGPIPE */
 }
 
 

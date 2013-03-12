@@ -50,10 +50,6 @@ struct ipc_auth_ugp {
 
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif
-
 ssize_t
 qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
 {

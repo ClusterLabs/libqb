@@ -175,4 +175,8 @@ size_t strlcat(char *dest, const char *src, size_t maxlen);
 #define NAME_MAX 255
 #endif
 
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 #endif /* QB_OS_BASE_H_DEFINED */
