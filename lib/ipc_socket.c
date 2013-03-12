@@ -47,7 +47,7 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 	memset(address, 0, sizeof(struct sockaddr_un));
 	address->sun_family = AF_UNIX;
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
-	address->sun_len = QB_SUN_LEN(&address);
+	address->sun_len = QB_SUN_LEN(address);
 #endif
 
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
