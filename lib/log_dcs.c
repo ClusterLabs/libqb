@@ -70,9 +70,9 @@ _log_dcs_new_cs(const char *function,
 	assert(rc == 0);
 	assert(cs != NULL);
 
-	cs->function = function;
-	cs->filename = filename;
-	cs->format = format;
+	cs->function = strdup(function);
+	cs->filename = strdup(filename);
+	cs->format = strdup(format);
 	cs->priority = priority;
 	cs->lineno = lineno;
 	cs->tags = tags;
@@ -180,6 +180,7 @@ qb_log_dcs_fini(void)
 	struct callsite_list *csl;
 	int32_t i;
 	int32_t rc;
+	struct qb_log_callsite *cs = NULL;
 	int32_t cnt = qb_array_num_bins_get(lookup_arr);
 	cnt *= qb_array_elems_per_bin_get(lookup_arr);
 
@@ -195,6 +196,14 @@ qb_log_dcs_fini(void)
 		}
 	}
 
+	for (i = 0; i < callsite_arr_next; i++) {
+		rc = qb_array_index(callsite_arr, i, (void **)&cs);
+		if (rc == 0 && cs){
+			free((char*)cs->function);
+			free((char*)cs->filename);
+			free((char*)cs->format);
+		}
+	}
 
 	qb_array_free(lookup_arr);
 	qb_array_free(callsite_arr);
