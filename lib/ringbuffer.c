@@ -676,7 +676,9 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		qb_util_log(LOG_ERR,
 			    "trying to recv chunk of size %d but %d available",
 			    len, chunk_size);
-		(void)rb->notifier.post_fn(rb->notifier.instance, chunk_size);
+		if (rb->notifier.post_fn) {
+			(void)rb->notifier.post_fn(rb->notifier.instance, chunk_size);
+		}
 		return -ENOBUFS;
 	}
 
@@ -780,6 +782,12 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	n_read = read(fd, &read_pt, sizeof(uint32_t));
 	assert(n_read == sizeof(uint32_t));
 	total_read += n_read;
+
+	if (write_pt > word_size || read_pt > word_size) {
+		qb_util_log(LOG_ERR, "Corrupt blackbox: read_pt:%d, write_pt:%d, word_size:%d",
+			    read_pt, write_pt, word_size);
+		return NULL;
+	}
 
 	n_required = (word_size * sizeof(uint32_t));
 	rb = qb_rb_open("create_from_file", n_required,

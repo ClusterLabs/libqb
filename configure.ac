@@ -485,6 +485,7 @@ if test "x${enable_slow_tests}" = xyes ; then
 	AC_MSG_NOTICE([Enabling Slow tests])
 fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
+AC_SUBST(HAVE_SLOW_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
@@ -556,6 +557,7 @@ AC_CONFIG_FILES([Makefile
 		 lib/libqb.pc
 		 tools/Makefile
 		 tests/Makefile
+		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
 		 docs/man.dox

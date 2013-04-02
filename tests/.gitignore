@@ -1,4 +1,5 @@
 *.test
+*.fdata
 bench-log
 bmc
 bmcpt
@@ -9,3 +10,6 @@ rbwriter
 libqb
 auto_*
 format_compare_speed
+crash_test_dummy
+file_change_bytes
+test.conf
