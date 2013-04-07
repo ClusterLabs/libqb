@@ -98,7 +98,7 @@ resources.log: rb.log log.log ipc.log
 # blackbox-segfault.sh uses crash_test_dummy and file_change_bytes
 blackbox-segfault.sh: crash_test_dummy file_change_bytes
 
-check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy
+check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
 check_SCRIPTS = resources.test
 
 if HAVE_SLOW_TESTS
@@ -106,7 +106,7 @@ TESTS += util.test
 check_PROGRAMS += util.test
 endif
 
-file_change_bytes_SOURCES = file_changed_bytes.c
+file_change_bytes_SOURCES = file_change_bytes.c
 
 crash_test_dummy_SOURCES = crash_test_dummy.c $(top_builddir)/include/qb/qblog.h
 crash_test_dummy_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
