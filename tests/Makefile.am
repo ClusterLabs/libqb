@@ -90,6 +90,7 @@ bench_log_LDADD = $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
 EXTRA_DIST += resources.test
+EXTRA_DIST += blackbox-segfault.sh
 
 TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.test resources.test
 
