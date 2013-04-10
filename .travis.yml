@@ -1,7 +1,7 @@
 language: c
 compiler:
   - gcc
-before_install: sudo apt-get install check doxygen splint
+before_install: sudo apt-get install check splint
 install:
  # Deal with issue on Travis builders
  # https://github.com/travis-ci/travis-cookbooks/issues/155
