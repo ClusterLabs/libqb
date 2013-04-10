@@ -302,7 +302,7 @@ case "$host_os" in
 		dnl separated by a comma
 		AC_DEFINE_UNQUOTED([DISABLE_POSIX_THREAD_PROCESS_SHARED], [1],
 				   [Disable _POSIX_THREAD_PROCESS_SHARED])
-		AC_MSG_RESULT([Dawin])
+		AC_MSG_RESULT([Darwin])
 	;;
 	*bsd*)
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
