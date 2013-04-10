@@ -96,11 +96,8 @@ TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.
 
 resources.log: rb.log log.log ipc.log
 
-# blackbox-segfault.sh uses crash_test_dummy and file_change_bytes
-blackbox-segfault.sh: crash_test_dummy file_change_bytes
-
 check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
-check_SCRIPTS = resources.test
+check_SCRIPTS = resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
 TESTS += util.test
