@@ -308,9 +308,16 @@ qb_rb_force_close(struct qb_ringbuffer_s * rb)
 	if (rb->notifier.destroy_fn) {
 		(void)rb->notifier.destroy_fn(rb->notifier.instance);
 	}
+
+        errno = 0;
 	unlink(rb->shared_hdr->data_path);
+	qb_util_perror(LOG_DEBUG,
+		    "Force free'ing ringbuffer: %s",
+		    rb->shared_hdr->data_path);
+
+        errno = 0;
 	unlink(rb->shared_hdr->hdr_path);
-	qb_util_log(LOG_DEBUG,
+	qb_util_perror(LOG_DEBUG,
 		    "Force free'ing ringbuffer: %s",
 		    rb->shared_hdr->hdr_path);
 	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
