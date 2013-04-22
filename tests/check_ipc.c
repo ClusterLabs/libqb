@@ -75,6 +75,8 @@ static int32_t fc_enabled = 89;
 static int32_t send_event_on_created = QB_FALSE;
 static int32_t disconnect_after_created = QB_FALSE;
 static int32_t num_bulk_events = 10;
+static int32_t reference_count_test = QB_FALSE;
+
 
 static int32_t
 exit_handler(int32_t rsignal, void *data)
@@ -191,10 +193,46 @@ s1_connection_closed(qb_ipcs_connection_t *c)
 }
 
 static void
+outq_flush (void *data)
+{
+	static int i = 0;
+	struct cs_ipcs_conn_context *cnx;
+	cnx = qb_ipcs_context_get(data);
+
+	qb_log(LOG_DEBUG,"iter %u\n", i);
+	i++;
+	if (i == 2) {
+		qb_ipcs_destroy(s1);
+		s1 = NULL;
+	}
+	/* is the reference counting is not working, this should fail
+	 * for i > 1.
+	 */
+	qb_ipcs_event_send(data, "test", 4);
+	assert(memcmp(cnx, "test", 4) == 0);
+	if (i < 5) {
+		qb_loop_job_add(my_loop, QB_LOOP_HIGH, data, outq_flush);
+	} else {
+		/* this single unref should clean everything up.
+		 */
+		qb_ipcs_connection_unref(data);
+		qb_log(LOG_INFO, "end of test, stopping loop");
+		qb_loop_stop(my_loop);
+	}
+}
+
+
+static void
 s1_connection_destroyed(qb_ipcs_connection_t *c)
 {
 	qb_enter();
-	qb_loop_stop(my_loop);
+	if (reference_count_test) {
+		struct cs_ipcs_conn_context *cnx;
+		cnx = qb_ipcs_context_get(c);
+		free(cnx);
+	} else {
+		qb_loop_stop(my_loop);
+	}
 	qb_leave();
 }
 
@@ -211,6 +249,16 @@ s1_connection_created(qb_ipcs_connection_t *c)
 		res = qb_ipcs_event_send(c, &response,
 					 sizeof(response));
 		ck_assert_int_eq(res, response.size);
+	}
+	if (reference_count_test) {
+		struct cs_ipcs_conn_context *context;
+
+		qb_ipcs_connection_ref(c);
+		qb_loop_job_add(my_loop, QB_LOOP_HIGH, c, outq_flush);
+
+		context = calloc(1, 20);
+		memcpy(context, "test", 4);
+		qb_ipcs_context_set(c, context);
 	}
 }
 
@@ -251,6 +299,7 @@ run_ipc_server(void)
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(my_loop);
+	qb_log(LOG_DEBUG, "loop finished - done ...");
 }
 
 static int32_t
@@ -894,6 +943,56 @@ START_TEST(test_ipc_server_fail_shm)
 }
 END_TEST
 
+static void
+test_ipc_service_ref_count(void)
+{
+	int32_t c = 0;
+	int32_t j = 0;
+	pid_t pid;
+
+	reference_count_test = QB_TRUE;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	sleep(5);
+
+	qb_ipcc_disconnect(conn);
+	stop_process(pid);
+}
+
+
+START_TEST(test_ipc_service_ref_count_shm)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	test_ipc_service_ref_count();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_service_ref_count_us)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	test_ipc_service_ref_count();
+	qb_leave();
+}
+END_TEST
 
 static Suite *
 make_shm_suite(void)
@@ -938,6 +1037,11 @@ make_shm_suite(void)
 
 	tc = tcase_create("ipc_event_on_created_shm");
 	tcase_add_test(tc, test_ipc_event_on_created_shm);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_service_ref_count_shm");
+	tcase_add_test(tc, test_ipc_service_ref_count_shm);
+	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
 	return s;
@@ -990,6 +1094,11 @@ make_soc_suite(void)
 
 	tc = tcase_create("ipc_disconnect_after_created_us");
 	tcase_add_test(tc, test_ipc_disconnect_after_created_us);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_service_ref_count_us");
+	tcase_add_test(tc, test_ipc_service_ref_count_us);
+	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
 	return s;

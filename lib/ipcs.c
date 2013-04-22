@@ -201,22 +201,11 @@ void
 qb_ipcs_unref(struct qb_ipcs_service *s)
 {
 	int32_t free_it;
-	struct qb_ipcs_connection *c = NULL;
-	struct qb_list_head *pos;
-	struct qb_list_head *n;
 
 	assert(s->ref_count > 0);
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
 		qb_util_log(LOG_DEBUG, "%s() - destroying", __func__);
-		qb_list_for_each_safe(pos, n, &s->connections) {
-			c = qb_list_entry(pos, struct qb_ipcs_connection, list);
-			if (c == NULL) {
-				continue;
-			}
-			qb_ipcs_disconnect(c);
-		}
-		(void)qb_ipcs_us_withdraw(s);
 		free(s);
 	}
 }
@@ -224,6 +213,22 @@ qb_ipcs_unref(struct qb_ipcs_service *s)
 void
 qb_ipcs_destroy(struct qb_ipcs_service *s)
 {
+	struct qb_ipcs_connection *c = NULL;
+	struct qb_list_head *pos;
+	struct qb_list_head *n;
+
+	if (s == NULL) {
+		return;
+	}
+	qb_list_for_each_safe(pos, n, &s->connections) {
+		c = qb_list_entry(pos, struct qb_ipcs_connection, list);
+		if (c == NULL) {
+			continue;
+		}
+		qb_ipcs_disconnect(c);
+	}
+	(void)qb_ipcs_us_withdraw(s);
+
 	qb_ipcs_unref(s);
 }
 
@@ -489,11 +494,9 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	}
 
 	c->refcount = 1;
-	c->service = s;
 	c->pid = 0;
 	c->euid = -1;
 	c->egid = -1;
-	qb_list_init(&c->list);
 	c->receive_buf = NULL;
 	c->context = NULL;
 	c->fc_enabled = QB_FALSE;
@@ -505,6 +508,12 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->response.type = s->type;
 	c->event.type = s->type;
 	(void)strlcpy(c->description, "not set yet", CONNECTION_DESCRIPTION);
+
+	/* the connection references the containing service so, make a reference.
+	 */
+	qb_ipcs_ref(s);
+	c->service = s;
+	qb_list_init(&c->list);
 
 	return c;
 }
@@ -537,6 +546,7 @@ qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 			c->service->serv_fns.connection_destroyed(c);
 		}
 		c->service->funcs.disconnect(c);
+		qb_ipcs_unref(c->service);
 		free(c->receive_buf);
 		free(c);
 	}
