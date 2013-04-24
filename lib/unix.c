@@ -442,6 +442,7 @@ void
 (qb_atomic_int_set) (volatile int32_t QB_GNUC_MAY_ALIAS * atomic,
 		     int32_t newval)
 {
+	QB_ATOMIC_MEMORY_BARRIER;
 	*atomic = newval;
 	QB_ATOMIC_MEMORY_BARRIER;
 }
@@ -457,6 +458,7 @@ void
 (qb_atomic_pointer_set) (volatile void *QB_GNUC_MAY_ALIAS * atomic,
 			 void *newval)
 {
+	QB_ATOMIC_MEMORY_BARRIER;
 	*atomic = newval;
 	QB_ATOMIC_MEMORY_BARRIER;
 }
