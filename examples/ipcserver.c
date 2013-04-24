@@ -54,40 +54,11 @@ s1_connection_accept_fn(qb_ipcs_connection_t * c, uid_t uid, gid_t gid)
 }
 
 static void
-outq_flush (void *data)
-{
-	static int i = 0;
-	struct cs_ipcs_conn_context *cnx;
-	cnx = qb_ipcs_context_get(data);
-
-	fprintf(stderr,"iter %u\n", i);
-	i++;
-	if (i == 20) {
-		qb_ipcs_destroy(s1);
-		s1 = NULL;
-	}
-	if (i == 21) {
-		qb_ipcs_event_send(data, "test", 4);
-	}
-	assert(memcmp(cnx, "test", 4) == 0);
-	if (i < 25) {
-		qb_loop_job_add(bms_loop, QB_LOOP_HIGH, data, outq_flush);
-	}
-}
-
-
-static void
 s1_connection_created_fn(qb_ipcs_connection_t * c)
 {
 	struct qb_ipcs_stats srv_stats;
-	struct cs_ipcs_conn_context *context;
 
 	qb_ipcs_connection_ref(c);
-	qb_loop_job_add(bms_loop, QB_LOOP_HIGH, c, outq_flush);
-
-	context = calloc(1, 20);
-	memcpy(context, "test", 4);
-	qb_ipcs_context_set(c, context);
 
 	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
 	qb_log(LOG_INFO, "Connection created (active:%d, closed:%d)",
@@ -97,12 +68,7 @@ s1_connection_created_fn(qb_ipcs_connection_t * c)
 static void
 s1_connection_destroyed_fn(qb_ipcs_connection_t * c)
 {
-	struct cs_ipcs_conn_context *cnx;
-
 	qb_log(LOG_INFO, "Connection about to be freed");
-
-	cnx = qb_ipcs_context_get(c);
-	free(cnx);
 }
 
 static int32_t
