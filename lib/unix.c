@@ -272,7 +272,7 @@ qb_socket_nosigpipe(int32_t s)
  * atomic operations
  * --------------------------------------------------------------------------
  */
-#ifndef HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS
+#ifndef HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS
 /*
  * We have to use the slow, but safe locking method
  */
@@ -463,7 +463,7 @@ void
 
 #endif /* QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED */
 
-#endif /* HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS */
+#endif /* HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS */
 
 #ifndef QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED
 int32_t

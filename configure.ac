@@ -287,7 +287,7 @@ case "$host_os" in
 				   [Compiling for Cygwin platform])
 		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
-		gcc_has_builtin_atomic_operations=no
+		gcc_has_builtin_sync_operations=no
 		AC_MSG_RESULT([Cygwin])
 	;;
 	darwin*)
@@ -342,9 +342,9 @@ case "$host_os" in
 	;;
 esac
 
-AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
-if test -z "$gcc_has_builtin_atomic_operations"; then
-	gcc_has_builtin_atomic_operations=no
+AC_MSG_CHECKING([whether GCC supports builtin sync intrinsics])
+if test -z "$gcc_has_builtin_sync_operations"; then
+	gcc_has_builtin_sync_operations=no
 	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
 		AC_TRY_LINK([],
 			    [int i;
@@ -352,24 +352,24 @@ if test -z "$gcc_has_builtin_atomic_operations"; then
 			     __sync_bool_compare_and_swap (&i, 0, 1);
 			     __sync_fetch_and_add (&i, 1);
 			     ],
-			     [gcc_has_builtin_atomic_operations=yes],
-			     [gcc_has_builtin_atomic_operations=no])
+			     [gcc_has_builtin_sync_operations=yes],
+			     [gcc_has_builtin_sync_operations=no])
 	fi
 fi
-AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
-AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
-	       [test "x$gcc_has_builtin_atomic_operations" = xyes])
+AC_MSG_RESULT($gcc_has_builtin_sync_operations)
+AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS,
+	       [test "x$gcc_has_builtin_sync_operations" = xyes])
 
-if test "x$gcc_has_builtin_atomic_operations" = xyes; then
-	AC_DEFINE_UNQUOTED(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS, 1,
-			   [have builtin atomic operations])
+if test "x$gcc_has_builtin_sync_operations" = xyes; then
+	AC_DEFINE_UNQUOTED(HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS, 1,
+			   [have builtin sync operations])
 fi
 
 AC_MSG_CHECKING([whether atomics need memory barrier])
 if test -n "$ac_cv_atomic_need_memory_barrier"; then
 	memory_barrier_needed=$ac_cv_atomic_need_memory_barrier
 else
-	if test x$gcc_has_builtin_atomic_operations = xyes; then
+	if test x$gcc_has_builtin_sync_operations = xyes; then
 		memory_barrier_needed=yes
 		PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
 	else
