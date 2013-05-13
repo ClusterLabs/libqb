@@ -365,6 +365,30 @@ if test "x$gcc_has_builtin_sync_operations" = xyes; then
 			   [have builtin sync operations])
 fi
 
+# __atomic_XXX
+AC_MSG_CHECKING([whether GCC supports builtin atomic intrinsics])
+if test -z "$gcc_has_builtin_atomic_operations"; then
+	gcc_has_builtin_atomic_operations=no
+	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
+		AC_TRY_LINK([],
+			    [int i;
+			     __atomic_load_n(&i, __ATOMIC_ACQUIRE);
+			     __atomic_exchange_n(&i, 0, __ATOMIC_RELEASE);
+			     ],
+			     [gcc_has_builtin_atomic_operations=yes],
+			     [gcc_has_builtin_atomic_operations=no])
+	fi
+fi
+AC_MSG_RESULT($gcc_has_builtin_atomic_operations)
+AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS,
+	       [test "x$gcc_has_builtin_atomic_operations" = xyes])
+
+if test "x$gcc_has_builtin_atomic_operations" = xyes; then
+	AC_DEFINE_UNQUOTED(HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS, 1,
+			   [have builtin atomic operations])
+fi
+
+
 AC_MSG_CHECKING([whether atomics need memory barrier])
 if test -n "$ac_cv_atomic_need_memory_barrier"; then
 	memory_barrier_needed=$ac_cv_atomic_need_memory_barrier
@@ -389,7 +413,7 @@ fi
 
 LINT_FLAGS="-syntax -weak -unrecog +posixlib +ignoresigns -fcnuse \
 	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
-	-warnposix +matchanyintegral"
+	-warnposix +matchanyintegral -sysunrecog"
 
 # local options
 AC_ARG_ENABLE([ansi],
