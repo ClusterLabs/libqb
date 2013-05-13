@@ -22,7 +22,8 @@
 MAINTAINERCLEANFILES	= Makefile.in
 
 noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h \
-			  log_int.h map_int.h rpl_sem.h loop_poll_int.h
+			  log_int.h map_int.h rpl_sem.h loop_poll_int.h \
+			  atomic_int.h
 
 AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
