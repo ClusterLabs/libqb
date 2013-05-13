@@ -20,7 +20,7 @@
  */
 #include "ringbuffer_int.h"
 #include <qb/qbdefs.h>
-#include <qb/qbatomic.h>
+#include "atomic_int.h"
 
 /*
  * #define CRAZY_DEBUG_PRINTFS 1
@@ -85,12 +85,13 @@ do {							\
 #define QB_RB_CHUNK_MAGIC		0xA1A1A1A1
 #define QB_RB_CHUNK_MAGIC_DEAD		0xD0D0D0D0
 #define QB_RB_CHUNK_MAGIC_ALLOC		0xA110CED0
-#define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
-	qb_atomic_int_get(&rb->shared_data[pointer])
+#define QB_RB_CHUNK_SIZE_GET(rb, pointer) rb->shared_data[pointer]
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
-	qb_atomic_int_get(&rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size])
+	qb_atomic_int_get_ex((int32_t*)&rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size], \
+                             QB_ATOMIC_ACQUIRE)
 #define QB_RB_CHUNK_MAGIC_SET(rb, pointer, new_val) \
-	qb_atomic_int_set(&rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size], new_val)
+	qb_atomic_int_set_ex((int32_t*)&rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size], \
+			     new_val, QB_ATOMIC_RELEASE)
 #define QB_RB_CHUNK_DATA_GET(rb, pointer) \
 	&rb->shared_data[(pointer + QB_RB_CHUNK_HEADER_WORDS) % rb->shared_hdr->word_size]
 
