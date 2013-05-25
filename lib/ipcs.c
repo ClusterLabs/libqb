@@ -85,6 +85,19 @@ qb_ipcs_poll_handlers_set(struct qb_ipcs_service *s,
 	s->poll_fns.dispatch_del = handlers->dispatch_del;
 }
 
+void
+qb_ipcs_service_context_set(qb_ipcs_service_t* s,
+			    void *context)
+{
+	s->context = context;
+}
+
+void *
+qb_ipcs_service_context_get(qb_ipcs_service_t* s)
+{
+	return s->context;
+}
+
 int32_t
 qb_ipcs_run(struct qb_ipcs_service *s)
 {
@@ -813,6 +826,15 @@ qb_ipcs_context_get(struct qb_ipcs_connection *c)
 		return NULL;
 	}
 	return c->context;
+}
+
+void *
+qb_ipcs_connection_service_context_get(qb_ipcs_connection_t *c)
+{
+	if (c == NULL || c->service == NULL) {
+		return NULL;
+	}
+	return c->service->context;
 }
 
 int32_t

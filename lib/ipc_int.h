@@ -147,6 +147,8 @@ struct qb_ipcs_service {
 	struct qb_list_head connections;
 	struct qb_list_head list;
 	struct qb_ipcs_stats stats;
+
+	void *context;
 };
 
 enum qb_ipcs_connection_state {
