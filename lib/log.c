@@ -144,6 +144,8 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 				va_copy(ap_copy, ap);
 				len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
 				va_end(ap_copy);
+				if (len > QB_LOG_MAX_LEN)
+					len = QB_LOG_MAX_LEN;
 				if (str[len - 1] == '\n') str[len - 1] = '\0';
 				formatted = QB_TRUE;
 			}
@@ -173,6 +175,8 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 					va_copy(ap_copy, ap);
 					len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
 					va_end(ap_copy);
+					if (len > QB_LOG_MAX_LEN)
+						len = QB_LOG_MAX_LEN;
 					if (str[len - 1] == '\n') str[len - 1] = '\0';
 					formatted = QB_TRUE;
 				}
@@ -188,6 +192,8 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 						va_copy(ap_copy, ap);
 						len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
 						va_end(ap_copy);
+						if (len > QB_LOG_MAX_LEN)
+							len = QB_LOG_MAX_LEN;
 						if (str[len - 1] == '\n') str[len - 1] = '\0';
 						formatted = QB_TRUE;
 					}
