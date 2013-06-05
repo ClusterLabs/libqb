@@ -37,20 +37,9 @@
 
 static int alarm_notice = 0;
 static qb_ringbuffer_t *rb = NULL;
+static qb_util_stopwatch_t *sw;
 #define ONE_MEG 1048576
 static char buffer[ONE_MEG * 3];
-
-#ifndef timersub
-#define timersub(a, b, result)					\
-do {								\
-	(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
-	(result)->tv_usec = (a)->tv_usec - (b)->tv_usec;	\
-	if ((result)->tv_usec < 0) {				\
-		--(result)->tv_sec;				\
-		(result)->tv_usec += 1000000;			\
-	}							\
-} while (0)
-#endif
 
 static void sigalrm_handler (int num)
 {
@@ -65,17 +54,17 @@ static void sigterm_handler(int32_t num)
 }
 
 static void
-_benchmark(int write_size)
+_benchmark(ssize_t write_size)
 {
-	struct timeval tv1, tv2, tv_elapsed;
-	unsigned int res;
+	ssize_t res;
 	int write_count = 0;
+	float secs;
 
 	alarm_notice = 0;
 
 	alarm (10);
 
-	gettimeofday (&tv1, NULL);
+	qb_util_stopwatch_start(sw);
 	do {
 		res = qb_rb_chunk_write(rb, buffer, write_size);
 		if (res == write_size) {
@@ -85,17 +74,16 @@ _benchmark(int write_size)
 	if (res < 0) {
 		perror("qb_ipcc_sendv");
 	}
-	gettimeofday (&tv2, NULL);
-	timersub (&tv2, &tv1, &tv_elapsed);
+	qb_util_stopwatch_stop(sw);
+	secs = qb_util_stopwatch_sec_elapsed_get(sw);
 
 	printf ("%5d messages sent ", write_count);
-	printf ("%5d bytes per write ", write_size);
-	printf ("%7.3f Seconds runtime ",
-		(tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
+	printf ("%5ld bytes per write ", (long int) write_size);
+	printf ("%7.3f Seconds runtime ", secs);
 	printf ("%9.3f TP/s ",
-		((float)write_count) /  (tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
+		((float)write_count) / secs);
 	printf ("%7.3f MB/s.\n",
-		((float)write_count) * ((float)write_size) /  ((tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)) * 1000000.0));
+		((float)write_count) * ((float)write_size) / secs);
 }
 
 
@@ -106,6 +94,7 @@ do_throughput_benchmark(void)
 	int i;
 
 	signal (SIGALRM, sigalrm_handler);
+	sw =  qb_util_stopwatch_create();
 
 	for (i = 0; i < 10; i++) { /* number of repetitions - up to 50k */
 		_benchmark(size);

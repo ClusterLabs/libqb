@@ -45,6 +45,51 @@ static void *notified_new_value = NULL;
 static void *notified_user_data = NULL;
 static int32_t notified_event = 0;
 static int32_t notified_event_prev = 0;
+static int32_t notified_events = 0;
+
+static void
+my_map_notification_iter(uint32_t event,
+			 char* key, void* old_value,
+			 void* value, void* user_data)
+{
+	const char *p;
+	void *data;
+	qb_map_t *m = (qb_map_t *)user_data;
+	qb_map_iter_t *it = qb_map_iter_create(m);
+
+	notified_events++;
+
+	for (p = qb_map_iter_next(it, &data); p; p = qb_map_iter_next(it, &data)) {
+		printf("%s > %s\n", p, (char*) data);
+	}
+	qb_map_iter_free(it);
+}
+
+/*
+ * create some entries
+ * add a notifier
+ * delete an entry
+ * in the notifier iterate over the map.
+ */
+static void
+test_map_notifications_iter(qb_map_t *m)
+{
+	int i;
+
+	qb_map_put(m, "k1", "one");
+	qb_map_put(m, "k12", "two");
+	qb_map_put(m, "k34", "three");
+	ck_assert_int_eq(qb_map_count_get(m), 3);
+
+	notified_events = 0;
+	i = qb_map_notify_add(m, NULL, my_map_notification_iter,
+			      (QB_MAP_NOTIFY_DELETED |
+			       QB_MAP_NOTIFY_RECURSIVE), m);
+	ck_assert_int_eq(i, 0);
+	qb_map_rm(m, "k12");
+	ck_assert_int_eq(notified_events, 1);
+	ck_assert_int_eq(qb_map_count_get(m), 2);
+}
 
 static void
 test_map_simple(qb_map_t *m, const char *name)
@@ -729,6 +774,8 @@ START_TEST(test_trie_notifications)
 	test_map_notifications_prefix(m);
 	m = qb_trie_create();
 	test_map_notifications_free(m);
+	m = qb_trie_create();
+	test_map_notifications_iter(m);
 }
 END_TEST
 
@@ -823,6 +870,40 @@ START_TEST(test_trie_load)
 }
 END_TEST
 
+/*
+ * From Honza: https://github.com/asalkeld/libqb/issues/44
+ */
+START_TEST(test_trie_partial_iterate)
+{
+        qb_map_t *map;
+        qb_map_iter_t *iter;
+        const char *res;
+        char *item;
+	int rc;
+
+        ck_assert((map = qb_trie_create()) != NULL);
+        qb_map_put(map, strdup("testobj.testkey"), strdup("one"));
+        qb_map_put(map, strdup("testobj.testkey2"), strdup("two"));
+
+        iter = qb_map_pref_iter_create(map, "testobj.");
+        ck_assert(iter != NULL);
+        res = qb_map_iter_next(iter, (void **)&item);
+        fprintf(stderr, "%s = %s\n", res, item);
+        qb_map_iter_free(iter);
+
+        item = qb_map_get(map, "testobj.testkey");
+        ck_assert_str_eq(item, "one");
+
+        rc = qb_map_rm(map, "testobj.testkey");
+        ck_assert(rc == QB_TRUE);
+
+        item = qb_map_get(map, "testobj.testkey");
+        ck_assert(item == NULL);
+
+}
+END_TEST
+
+
 static Suite *
 map_suite(void)
 {
@@ -839,6 +920,10 @@ map_suite(void)
 
 	tc = tcase_create("trie_simple");
 	tcase_add_test(tc, test_trie_simple);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("trie_partial_iterate");
+	tcase_add_test(tc, test_trie_partial_iterate);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("skiplist_remove");

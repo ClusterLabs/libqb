@@ -8,6 +8,8 @@ tracing, ipc, and poll.
 We don't intend be an all encompassing library, but instead provide very
 specially focused APIs that are highly tuned for maximum performance for client/server applications.
 
+[![Build Status](https://travis-ci.org/asalkeld/libqb.png)](https://travis-ci.org/asalkeld/libqb)
+
 ## For more information look at:
 * [Our wiki](https://github.com/asalkeld/libqb/wiki)
 * [Issues/Bugs](https://github.com/asalkeld/libqb/issues)

@@ -87,10 +87,10 @@ static void
 sigsegv_handler(int sig)
 {
 	(void)signal(SIGSEGV, SIG_DFL);
-	qb_log_fini();
 	if (do_blackbox) {
 		qb_log_blackbox_write_to_file("simple-log.fdata");
 	}
+	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
 	raise(SIGSEGV);
 }
 
@@ -246,17 +246,11 @@ main(int32_t argc, char *argv[])
 		qb_log(LOG_ERR, "no syslog");
 	}
 
-#if 0
-	// test blackbox
-	logfile = NULL;
-	logfile[5] = 'a';
-#endif
 	if (do_blackbox) {
-		qb_log_blackbox_write_to_file("simple-log.fdata");
-		qb_log_blackbox_print_from_file("simple-log.fdata");
-		qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE);
-		unlink("simple-log.fdata");
+		logfile = NULL;
+		logfile[5] = 'a';
+	} else {
+		qb_log_fini();
 	}
-	qb_log_fini();
 	return 0;
 }

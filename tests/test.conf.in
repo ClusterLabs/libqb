@@ -1,0 +1,6 @@
+if [ -z "@HAVE_SLOW_TESTS@" ]
+then
+	export NUM_BB_TESTS=32
+else
+	export NUM_BB_TESTS=1024
+fi

@@ -66,6 +66,17 @@ static struct trie_node *trie_new_node(struct trie *t, struct trie_node *parent)
 #define TRIE_CHAR2INDEX(ch) (126 - ch)
 #define TRIE_INDEX2CHAR(idx) (126 - idx)
 
+
+static int32_t
+trie_node_alive(struct trie_node *node)
+{
+	if (node->value == NULL ||
+	    node->refcount <= 0) {
+		return QB_FALSE;
+	}
+	return QB_TRUE;
+}
+
 static struct trie_node *
 trie_node_next(struct trie_node *node, struct trie_node *root, int all)
 {
@@ -86,7 +97,7 @@ keep_going:
 		}
 	}
 	if (n) {
-		if (all || n->value) {
+		if (all || trie_node_alive(n)) {
 			return n;
 		} else {
 			c = n;
@@ -112,7 +123,7 @@ keep_going:
 	} while (n == NULL && p != root);
 
 	if (n) {
-		if (all || n->value) {
+		if (all || trie_node_alive(n)) {
 			return n;
 		}
 		if (n == root) {
@@ -185,10 +196,7 @@ trie_node_split(struct trie *t, struct trie_node *cur_node, int seg_cnt)
 	cur_node->key = NULL;
 	cur_node->refcount = 0;
 	/* move notifier list to split */
-	split_node->notifier_head.next = cur_node->notifier_head.next;
-	split_node->notifier_head.next->prev = &split_node->notifier_head;
-	split_node->notifier_head.prev = cur_node->notifier_head.prev;
-	split_node->notifier_head.prev->next = &split_node->notifier_head;
+	qb_list_replace(&cur_node->notifier_head, &split_node->notifier_head);
 	qb_list_init(&cur_node->notifier_head);
 
 	if (seg_cnt < cur_node->num_segments) {
@@ -421,7 +429,7 @@ trie_node_ref(struct trie *t, struct trie_node *node)
 static void
 trie_node_deref(struct trie *t, struct trie_node *node)
 {
-	if (node->value == NULL) {
+	if (!trie_node_alive(node)) {
 		return;
 	}
 	node->refcount--;
@@ -561,11 +569,11 @@ trie_notify(struct trie_node *n,
 {
 	struct trie_node *c = n;
 	struct qb_list_head *list;
+	struct qb_list_head *next;
 	struct qb_map_notifier *tn;
 
 	do {
-		for (list = c->notifier_head.next;
-		     list != &c->notifier_head; ) {
+		qb_list_for_each_safe(list, next, &c->notifier_head) {
 			tn = qb_list_entry(list, struct qb_map_notifier, list);
 			trie_notify_ref(tn);
 
@@ -581,7 +589,6 @@ trie_notify(struct trie_node *n,
 				tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
 					     old_value, value, tn->user_data);
 			}
-		        list = list->next;
 			trie_notify_deref(tn);
 		}
 		c = c->parent;
@@ -607,8 +614,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 		n = t->header;
 	}
 	if (n) {
-		for (list = n->notifier_head.next;
-		     list != &n->notifier_head; list = list->next) {
+		qb_list_for_each(list, &n->notifier_head) {
 			f = qb_list_entry(list, struct qb_map_notifier, list);
 
 			if (events & QB_MAP_NOTIFY_FREE &&
@@ -660,6 +666,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	struct qb_map_notifier *f;
 	struct trie_node *n;
 	struct qb_list_head *list;
+	struct qb_list_head *next;
 	int32_t found = QB_FALSE;
 
 	if (key) {
@@ -670,8 +677,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	if (n == NULL) {
 		return -ENOENT;
 	}
-	for (list = n->notifier_head.next;
-	     list != &n->notifier_head; ) {
+	qb_list_for_each_safe(list, next, &n->notifier_head) {
 		f = qb_list_entry(list, struct qb_map_notifier, list);
 		trie_notify_ref(f);
 
@@ -684,7 +690,6 @@ trie_notify_del(qb_map_t * m, const char *key,
 				found = QB_TRUE;
 			}
 		}
-		list = list->next;
 		trie_notify_deref(f);
 	}
 	if (found) {
@@ -746,6 +751,15 @@ trie_iter_next(qb_map_iter_t * i, void **value)
 static void
 trie_iter_free(qb_map_iter_t * i)
 {
+	struct trie_iter *si = (struct trie_iter *)i;
+	struct trie *t = (struct trie *)(i->m);
+
+	if (si->n != NULL) {
+		/* if free'ing the iterator before getting to the last
+		 * node make sure we de-ref the current node.
+		 */
+		trie_node_deref(t, si->n);
+	}
 	free(i);
 }
 

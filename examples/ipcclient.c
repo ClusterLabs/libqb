@@ -28,20 +28,8 @@
 
 static int32_t do_benchmark = QB_FALSE;
 static int32_t use_events = QB_FALSE;
-
-#ifndef timersub
-#define timersub(a, b, result)						\
-	do {								\
-		(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
-		(result)->tv_usec = (a)->tv_usec - (b)->tv_usec;	\
-		if ((result)->tv_usec < 0) {				\
-			--(result)->tv_sec;				\
-			(result)->tv_usec += 1000000;			\
-		}							\
-	} while (0)
-#endif /* timersub */
-
 static int alarm_notice;
+static qb_util_stopwatch_t *sw;
 #define ONE_MEG 1048576
 #define MAX_MSG_SIZE ONE_MEG
 static char data[ONE_MEG];
@@ -64,11 +52,11 @@ static void sigalrm_handler (int num)
 static void
 _benchmark(qb_ipcc_connection_t *conn, int write_size)
 {
-	struct timeval tv1, tv2, tv_elapsed;
 	struct iovec iov[2];
 	unsigned int res;
 	struct qb_ipc_request_header hdr;
 	int write_count = 0;
+	float secs;
 
 	alarm_notice = 0;
 	hdr.size = write_size;
@@ -82,7 +70,7 @@ _benchmark(qb_ipcc_connection_t *conn, int write_size)
 
 	alarm (10);
 
-	gettimeofday (&tv1, NULL);
+	qb_util_stopwatch_start(sw);
 	do {
 		res = qb_ipcc_sendv(conn, iov, 2);
 		if (res == write_size) {
@@ -92,17 +80,16 @@ _benchmark(qb_ipcc_connection_t *conn, int write_size)
 	if (res < 0) {
 		perror("qb_ipcc_sendv");
 	}
-	gettimeofday (&tv2, NULL);
-	timersub (&tv2, &tv1, &tv_elapsed);
+	qb_util_stopwatch_stop(sw);
+	secs = qb_util_stopwatch_sec_elapsed_get(sw);
 
 	printf ("%5d messages sent ", write_count);
 	printf ("%5d bytes per write ", write_size);
-	printf ("%7.3f Seconds runtime ",
-		(tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
+	printf ("%7.3f Seconds runtime ", secs);
 	printf ("%9.3f TP/s ",
-		((float)write_count) /  (tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)));
+		((float)write_count) / secs);
 	printf ("%7.3f MB/s.\n",
-		((float)write_count) * ((float)write_size) /  ((tv_elapsed.tv_sec + (tv_elapsed.tv_usec / 1000000.0)) * 1000000.0));
+		((float)write_count) * ((float)write_size) / secs);
 }
 
 
@@ -113,6 +100,7 @@ do_throughput_benchmark(qb_ipcc_connection_t *conn)
 	int i;
 
 	signal (SIGALRM, sigalrm_handler);
+	sw =  qb_util_stopwatch_create();
 
 	for (i = 0; i < 10; i++) { /* number of repetitions - up to 50k */
 		_benchmark (conn, size);

@@ -75,12 +75,12 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	int32_t res = 0;
 	ssize_t written;
 	char *buffer = NULL;
-	char *is_absolute = strchr(file, '/');;
+	char *is_absolute = strchr(file, '/');
 
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
 	} else {
-#if defined(QB_LINUX)
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
 		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
 #else
 		snprintf(path, PATH_MAX, LOCALSTATEDIR "/run/%s", file);
@@ -112,22 +112,23 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 
 	if (file_flags & O_CREAT) {
 		long page_size = sysconf(_SC_PAGESIZE);
+		long write_size = QB_MIN(page_size, bytes);
 		if (page_size < 0) {
 			res = -errno;
 			goto unlink_exit;
 		}
-		buffer = calloc(1, page_size);
+		buffer = calloc(1, write_size);
 		if (buffer == NULL) {
 			res = -ENOMEM;
 			goto unlink_exit;
 		}
-		for (i = 0; i < (bytes / page_size); i++) {
+		for (i = 0; i < (bytes / write_size); i++) {
 retry_write:
-			written = write(fd, buffer, page_size);
+			written = write(fd, buffer, write_size);
 			if (written == -1 && errno == EINTR) {
 				goto retry_write;
 			}
-			if (written != page_size) {
+			if (written != write_size) {
 				res = -ENOSPC;
 				free(buffer);
 				goto unlink_exit;
@@ -240,11 +241,38 @@ qb_sys_fd_nonblock_cloexec_set(int32_t fd)
 	return res;
 }
 
+void
+qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
+{
+#if !defined(HAVE_MSG_NOSIGNAL) && !defined(HAVE_SO_NOSIGPIPE)
+	struct sigaction act;
+	struct sigaction oact;
+
+	act.sa_handler = SIG_IGN;
+
+	if (ctl == QB_SIGPIPE_IGNORE) {
+		sigaction(SIGPIPE, &act, &oact);
+	} else {
+		sigaction(SIGPIPE, &oact, NULL);
+	}
+#endif  /* !MSG_NOSIGNAL && !SO_NOSIGPIPE */
+}
+
+void
+qb_socket_nosigpipe(int32_t s)
+{
+#if !defined(HAVE_MSG_NOSIGNAL) && defined(HAVE_SO_NOSIGPIPE)
+	int32_t on = 1;
+	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
+#endif /* !MSG_NOSIGNAL && SO_NOSIGPIPE */
+}
+
+
 /*
  * atomic operations
  * --------------------------------------------------------------------------
  */
-#ifndef HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS
+#ifndef HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS
 /*
  * We have to use the slow, but safe locking method
  */
@@ -435,7 +463,7 @@ void
 
 #endif /* QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED */
 
-#endif /* HAVE_GCC_BUILTINS_FOR_ATOMIC_OPERATIONS */
+#endif /* HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS */
 
 #ifndef QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED
 int32_t

@@ -272,7 +272,7 @@ qb_log_callsite_get(const char *function,
 			if (t->state != QB_LOG_STATE_ENABLED) {
 				continue;
 			}
-			for (f_item = t->filter_head.next; f_item != &t->filter_head; f_item = f_item->next) {
+			qb_list_for_each(f_item, &t->filter_head) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, t->pos, flt->conf, flt->type,
 							flt->text, flt->high_priority,
@@ -280,7 +280,7 @@ qb_log_callsite_get(const char *function,
 			}
 		}
 		if (tags == 0) {
-			for (f_item = tags_head.next; f_item != &tags_head; f_item = f_item->next) {
+			qb_list_for_each(f_item, &tags_head) {
 				flt = qb_list_entry(f_item, struct qb_log_filter, list);
 				_log_filter_apply_to_cs(cs, flt->new_value, flt->conf, flt->type,
 							flt->text, flt->high_priority,
@@ -293,6 +293,11 @@ qb_log_callsite_get(const char *function,
 			_custom_filter_fn(cs);
 		}
 		pthread_rwlock_unlock(&_listlock);
+	} else if (cs->tags != tags) {
+		cs->tags = tags;
+		if (_custom_filter_fn) {
+			_custom_filter_fn(cs);
+		}
 	}
 	return cs;
 }
@@ -392,21 +397,35 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	pthread_rwlock_unlock(&_listlock);
 	if (_custom_filter_fn) {
 		for (cs = sect->start; cs < sect->stop; cs++) {
-			if (cs->lineno == 0) {
-				break;
+			if (cs->lineno > 0) {
+				_custom_filter_fn(cs);
 			}
-			_custom_filter_fn(cs);
 		}
 	}
+	/* qb_log_callsites_dump_sect(sect); */
 
 	return 0;
+}
+
+static void
+qb_log_callsites_dump_sect(struct callsite_section *sect)
+{
+	struct qb_log_callsite *cs;
+
+	printf(" start %p - stop %p\n", sect->start, sect->stop);
+	printf("filename    lineno targets         tags\n");
+	for (cs = sect->start; cs < sect->stop; cs++) {
+		if (cs->lineno > 0) {
+			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
+			       cs->targets, cs->tags);
+		}
+	}
 }
 
 void
 qb_log_callsites_dump(void)
 {
 	struct callsite_section *sect;
-	struct qb_log_callsite *cs;
 	int32_t l;
 
 	pthread_rwlock_rdlock(&_listlock);
@@ -414,15 +433,7 @@ qb_log_callsites_dump(void)
 	printf("Callsite Database [%d]\n", l);
 	printf("---------------------\n");
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
-		printf(" start %p - stop %p\n", sect->start, sect->stop);
-		printf("filename    lineno targets         tags\n");
-		for (cs = sect->start; cs < sect->stop; cs++) {
-			if (cs->lineno == 0) {
-				break;
-			}
-			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
-			       cs->targets, cs->tags);
-		}
+		qb_log_callsites_dump_sect(sect);
 	}
 	pthread_rwlock_unlock(&_listlock);
 }
@@ -537,11 +548,10 @@ _log_filter_apply(struct callsite_section *sect,
 	struct qb_log_callsite *cs;
 
 	for (cs = sect->start; cs < sect->stop; cs++) {
-		if (cs->lineno == 0) {
-			break;
+		if (cs->lineno > 0) {
+			_log_filter_apply_to_cs(cs, t, c, type, text,
+					    high_priority, low_priority);
 		}
-		_log_filter_apply_to_cs(cs, t, c, type, text,
-					high_priority, low_priority);
 	}
 }
 
@@ -647,10 +657,9 @@ qb_log_filter_fn_set(qb_log_filter_fn fn)
 
 	qb_list_for_each_entry(sect, &callsite_sections, list) {
 		for (cs = sect->start; cs < sect->stop; cs++) {
-			if (cs->lineno == 0) {
-				break;
+			if (cs->lineno > 0) {
+				_custom_filter_fn(cs);
 			}
-			_custom_filter_fn(cs);
 		}
 	}
 	return 0;
@@ -732,6 +741,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 
 	i = pthread_rwlock_init(&_listlock, NULL);
 	assert(i == 0);
+	qb_log_format_init();
 
 	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
 		conf[i].pos = i;
@@ -741,7 +751,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
 		qb_list_init(&conf[i].filter_head);
-		qb_log_format_set(i, NULL);
 	}
 
 	qb_log_dcs_init();
@@ -783,7 +792,6 @@ qb_log_fini(void)
 	for (pos = 0; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
 		_log_target_disable(t);
-		free(conf[pos].format);
 		qb_list_for_each_safe(iter2, next2, &t->filter_head) {
 			flt = qb_list_entry(iter2, struct qb_log_filter, list);
 			qb_list_del(iter2);
@@ -791,6 +799,7 @@ qb_log_fini(void)
 			free(flt);
 		}
 	}
+	qb_log_format_fini();
 	qb_log_dcs_fini();
 	qb_list_for_each_safe(iter, next, &callsite_sections) {
 		s = qb_list_entry(iter, struct callsite_section, list);
@@ -1004,19 +1013,4 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		in_logger = QB_FALSE;
 	}
 	return rc;
-}
-
-void
-qb_log_format_set(int32_t t, const char *format)
-{
-	char modified_format[256];
-	free(conf[t].format);
-
-	if (format) {
-		qb_log_target_format_static(t, format, modified_format);
-		conf[t].format = strdup(modified_format);
-	} else {
-		conf[t].format = strdup("[%p] %b");
-	}
-	assert(conf[t].format != NULL);
 }

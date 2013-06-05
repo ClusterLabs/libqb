@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 #
-MAINTAINERCLEANFILES = Makefiles.in
+MAINTAINERCLEANFILES = Makefile.in
 EXTRA_DIST =
 CLEANFILES =
 
@@ -25,27 +25,27 @@ noinst_PROGRAMS = mapnotify simplelog tcpclient tcpserver ipcclient ipcserver
 
 mapnotify_SOURCES = mapnotify.c $(top_builddir)/include/qb/qbmap.h
 mapnotify_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-mapnotify_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
+mapnotify_LDADD = $(top_builddir)/lib/libqb.la
 
 simplelog_SOURCES = simplelog.c $(top_builddir)/include/qb/qblog.h
 simplelog_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-simplelog_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
+simplelog_LDADD = $(top_builddir)/lib/libqb.la
 
 tcpclient_SOURCES = tcpclient.c $(top_builddir)/include/qb/qbloop.h
 tcpclient_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-tcpclient_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
+tcpclient_LDADD = $(top_builddir)/lib/libqb.la
 
 tcpserver_SOURCES = tcpserver.c $(top_builddir)/include/qb/qbloop.h
 tcpserver_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-tcpserver_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
+tcpserver_LDADD = $(top_builddir)/lib/libqb.la
 
 ipcclient_SOURCES = ipcclient.c $(top_builddir)/include/qb/qbloop.h \
 		    $(top_builddir)/include/qb/qbipcc.h
 ipcclient_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-ipcclient_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
+ipcclient_LDADD = $(top_builddir)/lib/libqb.la
 
 ipcserver_SOURCES = ipcserver.c $(top_builddir)/include/qb/qbloop.h \
 		    $(top_builddir)/include/qb/qbipcs.h
 ipcserver_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include \
 		     $(GLIB_CFLAGS)
-ipcserver_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la $(GLIB_LIBS)
+ipcserver_LDADD = $(top_builddir)/lib/libqb.la $(GLIB_LIBS)

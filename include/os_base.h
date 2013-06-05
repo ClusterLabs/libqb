@@ -107,21 +107,54 @@
 #define HAVE_EPOLL 1
 #endif /* HAVE_EPOLL_CREATE */
 
-/*
- * Darwin claims to support process shared synchronization
- * but it really does not.  The unistd.h header file is wrong.
+#if defined(__UCLIBC__)
+ #define DISABLE_POSIX_THREAD_PROCESS_SHARED 1
+#endif
+
+/* The pshared semaphore madness:
+ * To have a usable pshared semaphore we need the timed_wait api
+ * and pshared functionality.
+ *
+ * The order of choice is:
+ * 1) real posix sem -> HAVE_POSIX_PSHARED_SEMAPHORE
+ * 2) sysv sems (if we have semtimedop) -> HAVE_SYSV_PSHARED_SEMAPHORE
+ * 3) faked sems using pthread_cond_timedwait -> HAVE_RPL_PSHARED_SEMAPHORE
+ * 4) ENOTSUP
  */
-#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED) || defined(__UCLIBC__)
- #undef HAVE_POSIX_SHARED_SEMAPHORE
+#undef HAVE_POSIX_PSHARED_SEMAPHORE
+#undef HAVE_SYSV_PSHARED_SEMAPHORE
+#undef HAVE_RPL_PSHARED_SEMAPHORE
+
+#if defined(DISABLE_POSIX_THREAD_PROCESS_SHARED)
  #undef HAVE_PTHREAD_SHARED_SPIN_LOCK
-#else
- #if _POSIX_THREAD_PROCESS_SHARED > 0
-  #define HAVE_POSIX_SHARED_SEMAPHORE 1
-  #if defined(HAVE_PTHREAD_SPIN_LOCK)
-   #define HAVE_PTHREAD_SHARED_SPIN_LOCK 1
-  #endif /* HAVE_PTHREAD_SPIN_LOCK */
- #endif /* _POSIX_THREAD_PROCESS_SHARED */
 #endif /* DISABLE_POSIX_THREAD_PROCESS_SHARED */
+
+#if  !defined(DISABLE_POSIX_THREAD_PROCESS_SHARED) && \
+     _POSIX_THREAD_PROCESS_SHARED > 0
+
+  #if defined(HAVE_PTHREAD_SPIN_LOCK)
+  #define HAVE_PTHREAD_SHARED_SPIN_LOCK 1
+  #endif /* HAVE_PTHREAD_SPIN_LOCK */
+
+  #if  defined(HAVE_SEM_TIMEDWAIT)
+  #define HAVE_POSIX_PSHARED_SEMAPHORE 1
+  #else
+    #if defined(HAVE_PTHREAD_CONDATTR_SETPSHARED) && \
+        defined(HAVE_PTHREAD_MUTEXATTR_SETPSHARED)
+    #define HAVE_RPL_PSHARED_SEMAPHORE 1
+    #endif
+  #endif /* HAVE_SEM_TIMEDWAIT */
+#endif /* posix pshared */
+
+#ifdef HAVE_SEMTIMEDOP
+#define HAVE_SYSV_PSHARED_SEMAPHORE 1
+#endif /* HAVE_SEM_TIMEDWAIT */
+
+#if !defined(HAVE_SYSV_PSHARED_SEMAPHORE) && \
+    !defined(HAVE_POSIX_PSHARED_SEMAPHORE) && \
+    !defined(HAVE_RPL_PSHARED_SEMAPHORE)
+#define DISABLE_IPC_SHM 1
+#endif /* HAVE PSHARED SEMAPHORE */
 
 #ifndef HAVE_STRCHRNUL
 char *strchrnul (const char *s, int c_in);
@@ -135,15 +168,15 @@ size_t strlcpy(char *dest, const char *src, size_t maxlen);
 size_t strlcat(char *dest, const char *src, size_t maxlen);
 #endif
 
-#ifndef HAVE_STPCPY
-char * stpcpy(char *dest, const char *src);
-#endif
-
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
 #ifndef NAME_MAX
 #define NAME_MAX 255
+#endif
+
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
 #endif
 
 #endif /* QB_OS_BASE_H_DEFINED */

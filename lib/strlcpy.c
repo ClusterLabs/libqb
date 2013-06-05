@@ -18,14 +18,24 @@
  *
  */
 #include "os_base.h"
+#include <qb/qbdefs.h>
 
+/*
+ * strlcpy() copies up to maxlen - 1 characters from the string src to dst,
+ * NUL-terminating the result if maxlen is not 0.
+ *
+ * @return the total length of the string it tried to create
+ *         (the length of src).
+ */
 size_t
 strlcpy(char *dest, const char * src, size_t maxlen)
 {
 	size_t	srclen = strlen(src);
-	if (maxlen > 0) {
-		strncpy(dest, src, maxlen);
-		dest[maxlen-1] = '\0';
+	size_t	len2cpy = QB_MIN(maxlen-1, srclen);
+
+	if (len2cpy > 0) {
+		strncpy(dest, src, len2cpy+1);
+		dest[len2cpy] = '\0';
 	}
 	return srclen;
 }

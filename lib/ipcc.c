@@ -52,7 +52,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	c->response.max_msg_size = response.max_msg_size;
 	c->request.max_msg_size = response.max_msg_size;
 	c->event.max_msg_size = response.max_msg_size;
-	c->receive_buf = malloc(response.max_msg_size);
+	c->receive_buf = calloc(1, response.max_msg_size);
 	c->fc_enable_max = 1;
 	if (c->receive_buf == NULL) {
 		res = -ENOMEM;
@@ -88,24 +88,56 @@ disconnect_and_cleanup:
 	return NULL;
 }
 
-static void
+static int32_t
+_check_connection_state_with(struct qb_ipcc_connection * c, int32_t res,
+			     struct qb_ipc_one_way * one_way,
+			     int32_t ms_timeout, int32_t events)
+{
+	if (res >= 0) return res;
+
+	if (qb_ipc_us_sock_error_is_disconnected(res)) {
+		errno = -res;
+		qb_util_perror(LOG_DEBUG,
+			       "interpreting result %d as a disconnect",
+			       res);
+		c->is_connected = QB_FALSE;
+	}
+
+	if (res == -EAGAIN || res == -ETIMEDOUT) {
+		int32_t res2;
+		int32_t poll_ms = ms_timeout;
+		if (res == -ETIMEDOUT) {
+			poll_ms = 0;
+		}
+		res2 = qb_ipc_us_ready(one_way, &c->setup, poll_ms, events);
+		if (res2 < 0 && qb_ipc_us_sock_error_is_disconnected(res2)) {
+			errno = -res2;
+			qb_util_perror(LOG_DEBUG,
+				       "%s %d %s",
+				       "interpreting result",
+				       res2,
+				       "(from socket) as a disconnect");
+			c->is_connected = QB_FALSE;
+		}
+		res = res2;
+	}
+	return res;
+}
+
+
+static int32_t
 _check_connection_state(struct qb_ipcc_connection * c, int32_t res)
 {
-	if (res >= 0) return;
+	if (res >= 0) return res;
 
-	if (res != -EAGAIN &&
-	    res != -ETIMEDOUT &&
-	    res != -EINTR &&
-#ifdef EWOULDBLOCK
-	    res != -EWOULDBLOCK &&
-#endif
-	    res != -EINVAL) {
+	if (qb_ipc_us_sock_error_is_disconnected(res)) {
 		errno = -res;
 		qb_util_perror(LOG_DEBUG,
 			    "interpreting result %d as a disconnect",
 			    res);
 		c->is_connected = QB_FALSE;
 	}
+	return res;
 }
 
 static struct qb_ipc_one_way *
@@ -114,10 +146,7 @@ _event_sock_one_way_get(struct qb_ipcc_connection * c)
 	if (c->needs_sock_for_poll) {
 		return &c->setup;
 	}
-	if (c->event.type == QB_IPC_SOCKET) {
-		return &c->event;
-	}
-	return NULL;
+	return &c->event;
 }
 
 static struct qb_ipc_one_way *
@@ -126,10 +155,7 @@ _response_sock_one_way_get(struct qb_ipcc_connection * c)
 	if (c->needs_sock_for_poll) {
 		return &c->setup;
 	}
-	if (c->response.type == QB_IPC_SOCKET) {
-		return &c->response;
-	}
-	return NULL;
+	return &c->response;
 }
 
 ssize_t
@@ -138,8 +164,11 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 	ssize_t res;
 	ssize_t res2;
 
-	if (c == NULL || msg_len > c->request.max_msg_size) {
+	if (c == NULL) {
 		return -EINVAL;
+	}
+	if (msg_len > c->request.max_msg_size) {
+		return -EMSGSIZE;
 	}
 	if (c->funcs.fc_get) {
 		res = c->funcs.fc_get(&c->request);
@@ -166,8 +195,7 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 			res = res2;
 		}
 	}
-	_check_connection_state(c, res);
-	return res;
+	return _check_connection_state(c, res);
 }
 
 int32_t
@@ -192,8 +220,11 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 	for (i = 0; i < iov_len; i++) {
 		total_size += iov[i].iov_len;
 	}
-	if (c == NULL || total_size > c->request.max_msg_size) {
+	if (c == NULL) {
 		return -EINVAL;
+	}
+	if (total_size > c->request.max_msg_size) {
+		return -EMSGSIZE;
 	}
 
 	if (c->funcs.fc_get) {
@@ -221,8 +252,7 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 			res = res2;
 		}
 	}
-	_check_connection_state(c, res);
-	return res;
+	return _check_connection_state(c, res);
 }
 
 ssize_t
@@ -230,35 +260,15 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	     size_t msg_len, int32_t ms_timeout)
 {
 	int32_t res = 0;
-	int32_t res2 = 0;
+
 	if (c == NULL) {
 		return -EINVAL;
 	}
 
-#ifdef IPC_NEEDS_RESPONSE_ACK
-	if (c->needs_sock_for_poll) {
-		char one_byte = 1;
-		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
-		if (res < 0) {
-			_check_connection_state(c, res);
-			return res;
-		}
-	}
-#endif /* IPC_NEEDS_RESPONSE_ACK */
-
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
-	if (res == -EAGAIN || res == -ETIMEDOUT) {
-		struct qb_ipc_one_way *ow = _response_sock_one_way_get(c);
-
-		if (ow == NULL) return res;
-
-		res2 = qb_ipc_us_ready(ow, 0, POLLIN);
-		if (res2 < 0) {
-			res = res2;
-		}
-	}
-	_check_connection_state(c, res);
-	return res;
+	return _check_connection_state_with(c, res,
+					    _response_sock_one_way_get(c),
+					    ms_timeout, POLLIN);
 }
 
 ssize_t
@@ -341,39 +351,29 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	char one_byte = 1;
 	int32_t res;
 	ssize_t size;
-	struct qb_ipc_one_way *ow = NULL;
 
 	if (c == NULL) {
 		return -EINVAL;
 	}
-	ow = _event_sock_one_way_get(c);
-	if (ow) {
-		res = qb_ipc_us_ready(ow, ms_timeout, POLLIN);
-		if (res < 0) {
-			_check_connection_state(c, res);
-			return res;
-		}
+	res = _check_connection_state_with(c, -EAGAIN, _event_sock_one_way_get(c),
+					   ms_timeout, POLLIN);
+	if (res < 0) {
+		return res;
 	}
 	size = c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
-	if (size < 0) {
-		_check_connection_state(c, size);
-		return size;
-	}
-	if (c->needs_sock_for_poll) {
+	if (size > 0 && c->needs_sock_for_poll) {
 		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
-		if (res < 0) {
-			_check_connection_state(c, res);
-			return res;
+		if (res != 1) {
+			size = res;
 		}
 	}
-	return size;
+	return _check_connection_state(c, size);
 }
 
 void
 qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_one_way *ow = NULL;
-	int32_t res = 0;
 
 	qb_util_log(LOG_DEBUG, "%s()", __func__);
 
@@ -382,11 +382,8 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 	}
 
 	ow = _event_sock_one_way_get(c);
-	if (ow) {
-		res = qb_ipc_us_ready(ow, 0, POLLIN);
-		_check_connection_state(c, res);
-		qb_ipcc_us_sock_close(ow->u.us.sock);
-	}
+	(void)_check_connection_state_with(c, -EAGAIN, ow, 0, POLLIN);
+	qb_ipcc_us_sock_close(ow->u.us.sock);
 
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);
@@ -422,9 +419,7 @@ qb_ipcc_is_connected(qb_ipcc_connection_t *c)
 	}
 
 	ow = _response_sock_one_way_get(c);
-	if (ow) {
-		_check_connection_state(c, qb_ipc_us_ready(ow, 0, POLLIN));
-	}
+	(void)_check_connection_state_with(c, -EAGAIN, ow, 0, POLLIN);
 
 	return c->is_connected;
 }

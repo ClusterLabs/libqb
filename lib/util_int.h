@@ -83,4 +83,37 @@ int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes);
  */
 int32_t qb_sys_fd_nonblock_cloexec_set(int32_t fd);
 
+enum qb_sigpipe_ctl {
+       QB_SIGPIPE_IGNORE,
+       QB_SIGPIPE_DEFAULT,
+};
+
+/**
+ * Control sigpipe (ignore/default) during send/recv
+ * Needed on some bsd's
+ */
+void qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl);
+
+/**
+ * Control sigpipe on the socket.
+ */
+void qb_socket_nosigpipe(int32_t s);
+
+#define SERVER_BACKLOG 5
+
+#ifndef UNIX_PATH_MAX
+#define UNIX_PATH_MAX    108
+#endif /* UNIX_PATH_MAX */
+
+/*
+ * SUN_LEN() does a strlen() on sun_path, but if you are trying to use the
+ * "Linux abstract namespace" (you have to set sun_path[0] == '\0') then
+ * the strlen() doesn't work.
+ */
+#if defined(SUN_LEN)
+#define QB_SUN_LEN(a) ((a)->sun_path[0] == '\0') ? sizeof(*(a)) : SUN_LEN(a)
+#else
+#define QB_SUN_LEN(a) sizeof(*(a))
+#endif
+
 #endif /* QB_UTIL_INT_H_DEFINED */

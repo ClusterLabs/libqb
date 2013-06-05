@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 #
-MAINTAINERCLEANFILES = Makefiles.in
+MAINTAINERCLEANFILES = Makefile.in
 EXTRA_DIST =
 CLEANFILES =
 
@@ -25,4 +25,4 @@ sbin_PROGRAMS = qb-blackbox
 
 qb_blackbox_SOURCES = qb_blackbox.c $(top_builddir)/include/qb/qblog.h
 qb_blackbox_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-qb_blackbox_LDADD = $(LIB_RT) $(top_builddir)/lib/libqb.la
+qb_blackbox_LDADD = $(top_builddir)/lib/libqb.la

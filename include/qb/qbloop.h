@@ -239,7 +239,7 @@ int32_t qb_loop_poll_del(qb_loop_t *l, int32_t fd);
  *
  * @param l pointer to the loop instance
  * @param p the priority
- * @param signal (SIGHUP or SIGINT) etc ....
+ * @param sig (SIGHUP or SIGINT) etc ....
  * @param data user data passed into the dispatch function
  * @param dispatch_fn callback function
  * @param handle (out) a reference to the signal job
@@ -247,7 +247,7 @@ int32_t qb_loop_poll_del(qb_loop_t *l, int32_t fd);
  */
 int32_t qb_loop_signal_add(qb_loop_t *l,
 			   enum qb_loop_priority p,
-			   int32_t signal,
+			   int32_t sig,
 			   void *data,
 			   qb_loop_signal_dispatch_fn dispatch_fn,
 			   qb_loop_signal_handle *handle);
@@ -257,7 +257,7 @@ int32_t qb_loop_signal_add(qb_loop_t *l,
  *
  * @param l pointer to the loop instance
  * @param p the priority
- * @param signal (SIGHUP or SIGINT) etc ....
+ * @param sig (SIGHUP or SIGINT) etc ....
  * @param data user data passed into the dispatch function
  * @param dispatch_fn callback function
  * @param handle (in) a reference to the signal job
@@ -265,7 +265,7 @@ int32_t qb_loop_signal_add(qb_loop_t *l,
  */
 int32_t qb_loop_signal_mod(qb_loop_t *l,
 			   enum qb_loop_priority p,
-			   int32_t signal,
+			   int32_t sig,
 			   void *data,
 			   qb_loop_signal_dispatch_fn dispatch_fn,
 			   qb_loop_signal_handle handle);

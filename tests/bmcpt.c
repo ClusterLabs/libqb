@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 #include <qb/qbipcc.h>
 
 #define ITERATIONS 10000000
@@ -38,43 +39,31 @@
 
 struct bm_ctx {
 	qb_ipcc_connection_t *conn;
-	struct timeval tv1;
-	struct timeval tv2;
-	struct timeval tv_elapsed;
+	qb_util_stopwatch_t *sw;
 	float mbs;
+	float secs;
 	int32_t multi;
 	uint32_t counter;
 };
 
-#define timersub(a, b, result)					\
-do {								\
-	(result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
-	(result)->tv_usec = (a)->tv_usec - (b)->tv_usec;	\
-	if ((result)->tv_usec < 0) {				\
-		--(result)->tv_sec;				\
-		(result)->tv_usec += 1000000;			\
-	}							\
-} while (0)
-
 static void bm_start(struct bm_ctx *ctx)
 {
-	gettimeofday(&ctx->tv1, NULL);
+	qb_util_stopwatch_start(ctx->sw);
 }
 
 static void bm_finish(struct bm_ctx *ctx, const char *operation, int32_t size)
 {
-	gettimeofday(&ctx->tv2, NULL);
-	timersub(&ctx->tv2, &ctx->tv1, &ctx->tv_elapsed);
+	qb_util_stopwatch_stop(ctx->sw);
+	ctx->secs = qb_util_stopwatch_sec_elapsed_get(ctx->sw);
 
 	ctx->mbs =
-	    ((((float)ctx->counter) * size) /
-	     (((float)ctx->tv_elapsed.tv_sec) +
-	      (((float)ctx->tv_elapsed.tv_usec) / 1000000.0))) / (1024.0 *
-								  1024.0);
+	    ((((float)ctx->counter) * size) / ctx->secs) / (1024.0 *
+							    1024.0);
 }
 
 static void bmc_connect(struct bm_ctx *ctx)
 {
+	ctx->sw = qb_util_stopwatch_create();
 	ctx->conn = qb_ipcc_connect("bm1", QB_MAX(1000 * (100 + THREADS),
 						  1024*1024));
 	if (ctx->conn == NULL) {
@@ -86,6 +75,7 @@ static void bmc_connect(struct bm_ctx *ctx)
 static void bmc_disconnect(struct bm_ctx *ctx)
 {
 	qb_ipcc_disconnect(ctx->conn);
+	qb_util_stopwatch_free(ctx->sw);
 }
 
 struct my_req {

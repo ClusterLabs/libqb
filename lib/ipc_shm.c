@@ -106,10 +106,15 @@ static ssize_t
 qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out,
 		int32_t ms_timeout)
 {
+	ssize_t rc;
 	if (one_way->u.shm.rb == NULL) {
 		return -ENOTCONN;
 	}
-	return qb_rb_chunk_peek(one_way->u.shm.rb, data_out, ms_timeout);
+	rc = qb_rb_chunk_peek(one_way->u.shm.rb, data_out, ms_timeout);
+	if (rc == 0)  {
+		return -EAGAIN;
+	}
+	return rc;
 }
 
 static void
@@ -219,17 +224,29 @@ return_error:
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
-	if (c->response.u.shm.rb) {
-		qb_rb_close(c->response.u.shm.rb);
-		c->response.u.shm.rb = NULL;
+	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		if (c->setup.u.us.sock > 0) {
+			qb_ipcc_us_sock_close(c->setup.u.us.sock);
+			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
+			qb_ipcs_connection_unref(c);
+			c->setup.u.us.sock = -1;
+		}
 	}
-	if (c->event.u.shm.rb) {
-		qb_rb_close(c->event.u.shm.rb);
-		c->event.u.shm.rb = NULL;
-	}
-	if (c->request.u.shm.rb) {
-		qb_rb_close(c->request.u.shm.rb);
-		c->request.u.shm.rb = NULL;
+	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		if (c->response.u.shm.rb) {
+			qb_rb_close(c->response.u.shm.rb);
+			c->response.u.shm.rb = NULL;
+		}
+		if (c->event.u.shm.rb) {
+			qb_rb_close(c->event.u.shm.rb);
+			c->event.u.shm.rb = NULL;
+		}
+		if (c->request.u.shm.rb) {
+			qb_rb_close(c->request.u.shm.rb);
+			c->request.u.shm.rb = NULL;
+		}
 	}
 }
 
@@ -298,6 +315,19 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	res = qb_ipcs_shm_rb_open(c, &c->event,
 				  r->event);
 	if (res != 0) {
+		goto cleanup_request_response;
+	}
+
+	res = s->poll_fns.dispatch_add(s->poll_priority,
+				       c->setup.u.us.sock,
+				       POLLIN | POLLPRI | POLLNVAL,
+				       c, qb_ipcs_dispatch_connection_request);
+	if (res == 0) {
+		qb_ipcs_connection_ref(c);
+	} else {
+		qb_util_log(LOG_ERR,
+			    "Error adding socket to mainloop (%s).",
+			    c->description);
 		goto cleanup_request_response;
 	}
 
