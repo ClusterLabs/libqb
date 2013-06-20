@@ -8,11 +8,11 @@ tracing, ipc, and poll.
 We don't intend be an all encompassing library, but instead provide very
 specially focused APIs that are highly tuned for maximum performance for client/server applications.
 
-[![Build Status](https://travis-ci.org/asalkeld/libqb.png)](https://travis-ci.org/asalkeld/libqb)
+[![Build Status](https://travis-ci.org/clusterlabs/libqb.png)](https://travis-ci.org/clusterlabs/libqb)
 
 ## For more information look at:
-* [Our wiki](https://github.com/asalkeld/libqb/wiki)
-* [Issues/Bugs](https://github.com/asalkeld/libqb/issues)
+* [Our wiki](https://github.com/clusterlabs/libqb/wiki)
+* [Issues/Bugs](https://github.com/clusterlabs/libqb/issues)
 * [The doxygen generated manual](http://libqb.org/html/doxygen/)
 * You can build it yourself with the following commands:
 
@@ -26,9 +26,9 @@ specially focused APIs that are highly tuned for maximum performance for client/
 
 ## Source Control (GIT)
 
-    git clone git://github.com/asalkeld/libqb.git
+    git clone git://github.com/clusterlabs/libqb.git
 
-[See Github](https://github.com/asalkeld/libqb)
+[See Github](https://github.com/clusterlabs/libqb)
 
 ## Installing from source
 
