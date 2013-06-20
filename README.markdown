@@ -8,7 +8,7 @@ tracing, ipc, and poll.
 We don't intend be an all encompassing library, but instead provide very
 specially focused APIs that are highly tuned for maximum performance for client/server applications.
 
-[![Build Status](https://travis-ci.org/Clusterlabs/libqb.png)](https://travis-ci.org/Clusterlabs/libqb)
+[![Build Status](https://travis-ci.org/ClusterLabs/libqb.png)](https://travis-ci.org/ClusterLabs/libqb)
 
 ## For more information look at:
 * [Our wiki](https://github.com/clusterlabs/libqb/wiki)
