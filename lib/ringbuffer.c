@@ -22,6 +22,8 @@
 #include <qb/qbdefs.h>
 #include "atomic_int.h"
 
+#define QB_RB_FILE_HEADER_VERSION 1
+
 /*
  * #define CRAZY_DEBUG_PRINTFS 1
  */
@@ -717,17 +719,33 @@ print_header(struct qb_ringbuffer_s * rb)
 #endif /* S_SPLINT_S */
 }
 
+/*
+ * FILE HEADER ORDER
+ * 1. word_size
+ * 2. write_pt
+ * 3. read_pt
+ * 4. version
+ * 5. header_hash
+ *
+ * 6. data
+ */
+
 ssize_t
 qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 {
 	ssize_t result;
 	ssize_t written_size = 0;
+	uint32_t hash = 0;
+	uint32_t version = QB_RB_FILE_HEADER_VERSION;
 
 	if (rb == NULL) {
 		return -EINVAL;
 	}
 	print_header(rb);
 
+	/*
+ 	 * 1. word_size
+ 	 */
 	result = write(fd, &rb->shared_hdr->word_size, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
 		return -errno;
@@ -735,7 +753,7 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	written_size += result;
 
 	/*
-	 * store the read & write pointers
+	 * 2. 3. store the read & write pointers
 	 */
 	result = write(fd, (void *)&rb->shared_hdr->write_pt, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
@@ -743,6 +761,25 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	}
 	written_size += result;
 	result = write(fd, (void *)&rb->shared_hdr->read_pt, sizeof(uint32_t));
+	if (result != sizeof(uint32_t)) {
+		return -errno;
+	}
+	written_size += result;
+
+	/*
+	 * 4. version used
+	 */
+	result = write(fd, &version, sizeof(uint32_t));
+	if (result != sizeof(uint32_t)) {
+		return -errno;
+	}
+	written_size += result;
+
+	/*
+	 * 5. hash helps us verify header is not corrupted on file read
+	 */
+	hash = rb->shared_hdr->word_size + rb->shared_hdr->write_pt + rb->shared_hdr->read_pt + QB_RB_FILE_HEADER_VERSION;
+	result = write(fd, &hash, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
 		return -errno;
 	}
@@ -770,11 +807,17 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	uint32_t write_pt;
 	struct qb_ringbuffer_s *rb;
 	uint32_t word_size = 0;
+	uint32_t version = 0;
+	uint32_t hash = 0;
+	uint32_t calculated_hash = 0;
 
 	if (fd < 0) {
 		return NULL;
 	}
 
+	/*
+	 * 1. word size
+	 */
 	n_required = sizeof(uint32_t);
 	n_read = read(fd, &word_size, n_required);
 	if (n_read != n_required) {
@@ -783,6 +826,9 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	}
 	total_read += n_read;
 
+	/*
+	 * 2. 3. read & write pointers
+	 */
 	n_read = read(fd, &write_pt, sizeof(uint32_t));
 	assert(n_read == sizeof(uint32_t));
 	total_read += n_read;
@@ -791,12 +837,41 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	assert(n_read == sizeof(uint32_t));
 	total_read += n_read;
 
-	if (write_pt > word_size || read_pt > word_size) {
-		qb_util_log(LOG_ERR, "Corrupt blackbox: read_pt:%d, write_pt:%d, word_size:%d",
-			    read_pt, write_pt, word_size);
+	/*
+	 * 4. version
+	 */
+	n_required = sizeof(uint32_t);
+	n_read = read(fd, &version, n_required);
+	if (n_read != n_required) {
+		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
+		return NULL;
+	}
+	total_read += n_read;
+
+	/*
+	 * 5. Hash
+	 */
+	n_required = sizeof(uint32_t);
+	n_read = read(fd, &hash, n_required);
+	if (n_read != n_required) {
+		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
+		return NULL;
+	}
+	total_read += n_read;
+
+	calculated_hash = word_size + write_pt + read_pt + version;
+	if (hash != calculated_hash) {
+		qb_util_log(LOG_ERR, "Corrupt blackbox: File header hash (%d) does not match calculated hash (%d)", hash, calculated_hash);
+		return NULL;
+	} else if (version != QB_RB_FILE_HEADER_VERSION) {
+		qb_util_log(LOG_ERR, "Wrong file header version. Expected %d got %d",
+			QB_RB_FILE_HEADER_VERSION, version);
 		return NULL;
 	}
 
+	/*
+	 * 6. data
+	 */
 	n_required = (word_size * sizeof(uint32_t));
 	rb = qb_rb_open("create_from_file", n_required,
 			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
