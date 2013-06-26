@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # create a normal blackbox
 rm -f crash-test-dummy.fdata
@@ -6,7 +6,7 @@ rm -f crash-test-dummy.fdata
 
 . ./test.conf
 
-for ((i=0; i<$NUM_BB_TESTS; i++))
+for i in $(seq $NUM_BB_TESTS)
 do
     rm -f butchered_blackbox.fdata
     echo " ==== Corrupt blackbox test $i/$NUM_BB_TESTS ===="
