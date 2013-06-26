@@ -822,9 +822,12 @@ test_ipc_disconnect_after_created(void)
 				 &res_header,
 				 sizeof(struct qb_ipc_response_header), -1);
 	/*
-	 * confirm we get -ENOTCONN
+	 * confirm we get -ENOTCONN or -ECONNRESET
 	 */
-	ck_assert_int_eq(res, -ENOTCONN);
+	if (res != -ECONNRESET && res != -ENOTCONN) {
+		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
+		ck_assert_int_eq(res, -ENOTCONN);
+	}
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
 
 	qb_ipcc_disconnect(conn);
@@ -883,9 +886,12 @@ test_ipc_server_fail(void)
 				 &res_header,
 				 sizeof(struct qb_ipc_response_header), -1);
 	/*
-	 * confirm we get -ENOTCONN
+	 * confirm we get -ENOTCONN or ECONNRESET
 	 */
-	ck_assert_int_eq(res, -ENOTCONN);
+	if (res != -ECONNRESET && res != -ENOTCONN) {
+		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
+		ck_assert_int_eq(res, -ENOTCONN);
+	}
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
 
 	qb_ipcc_disconnect(conn);
