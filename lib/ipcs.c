@@ -386,6 +386,7 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 	qb_ipcs_connection_ref(c);
 
 	if (size > c->event.max_msg_size) {
+		qb_ipcs_connection_unref(c);
 		return -EMSGSIZE;
 	}
 
