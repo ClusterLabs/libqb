@@ -382,14 +382,11 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 
 	if (c == NULL) {
 		return -EINVAL;
-	}
-	qb_ipcs_connection_ref(c);
-
-	if (size > c->event.max_msg_size) {
-		qb_ipcs_connection_unref(c);
+	} else if (size > c->event.max_msg_size) {
 		return -EMSGSIZE;
 	}
 
+	qb_ipcs_connection_ref(c);
 	res = c->service->funcs.send(&c->event, data, size);
 	if (res == size) {
 		c->stats.events++;
@@ -507,7 +504,6 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 		return NULL;
 	}
 
-	c->refcount = 1;
 	c->pid = 0;
 	c->euid = -1;
 	c->egid = -1;
@@ -522,6 +518,9 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	c->response.type = s->type;
 	c->event.type = s->type;
 	(void)strlcpy(c->description, "not set yet", CONNECTION_DESCRIPTION);
+
+	/* initial alloc ref */
+	qb_ipcs_connection_ref(c);
 
 	/* the connection references the containing service so, make a reference.
 	 */
@@ -593,23 +592,28 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		c->service->stats.closed_connections++;
 	}
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN) {
+		int scheduled_retry = 0;
 		res = 0;
 		if (c->service->serv_fns.connection_closed) {
 			res = c->service->serv_fns.connection_closed(c);
 		}
-		if (res == 0) {
-			qb_ipcs_connection_unref(c);
-		} else {
+		if (res != 0) {
 			/* OK, so they want the connection_closed
 			 * function re-run */
 			rerun_job =
 			    (qb_loop_job_dispatch_fn) qb_ipcs_disconnect;
 			res = c->service->poll_fns.job_add(QB_LOOP_LOW,
 							   c, rerun_job);
-			if (res != 0) {
-				/* last ditch attempt to cleanup */
-				qb_ipcs_connection_unref(c);
+			if (res == 0) {
+				/* this function is going to be called again.
+				 * so hold off on the unref */
+				scheduled_retry = 1;
 			}
+		}
+
+		if (scheduled_retry == 0) {
+			/* This removes the initial alloc ref */
+			qb_ipcs_connection_unref(c);
 		}
 	}
 }
