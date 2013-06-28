@@ -58,8 +58,6 @@ s1_connection_created_fn(qb_ipcs_connection_t * c)
 {
 	struct qb_ipcs_stats srv_stats;
 
-	qb_ipcs_connection_ref(c);
-
 	qb_ipcs_stats_get(s1, &srv_stats, QB_FALSE);
 	qb_log(LOG_INFO, "Connection created (active:%d, closed:%d)",
 	       srv_stats.active_connections, srv_stats.closed_connections);
