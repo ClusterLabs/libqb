@@ -6,6 +6,14 @@ rm -f crash-test-dummy.fdata
 
 . ./test.conf
 
+# first test that reading the valid
+# blackbox data actually works.
+../tools/qb-blackbox crash-test-dummy.fdata
+if [ $? -ne 0 ]; then
+	exit 1
+fi
+
+
 for i in $(seq $NUM_BB_TESTS)
 do
     rm -f butchered_blackbox.fdata
