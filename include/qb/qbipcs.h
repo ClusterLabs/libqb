@@ -216,7 +216,7 @@ void *qb_ipcs_service_context_get(qb_ipcs_service_t* s);
 /**
  * run the new IPC server.
  * @param s service instance
- * @return 0 == ok; -errno to indicate a failure
+ * @return 0 == ok; -errno to indicate a failure. Service is destroyed on failure.
  */
 int32_t qb_ipcs_run(qb_ipcs_service_t* s);
 
