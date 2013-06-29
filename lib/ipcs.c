@@ -57,7 +57,9 @@ qb_ipcs_create(const char *name,
 	s->pid = getpid();
 	s->needs_sock_for_poll = QB_FALSE;
 	s->poll_priority = QB_LOOP_MED;
-	s->ref_count = 1;
+
+	/* Initial alloc ref */
+	qb_ipcs_ref(s);
 
 	s->service_id = service_id;
 	(void)strlcpy(s->name, name, NAME_MAX);
@@ -106,7 +108,9 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 	if (s->poll_fns.dispatch_add == NULL ||
 	    s->poll_fns.dispatch_mod == NULL ||
 	    s->poll_fns.dispatch_del == NULL) {
-		return -EINVAL;
+
+		res = -EINVAL;
+		goto run_cleanup;
 	}
 
 	switch (s->type) {
@@ -128,15 +132,19 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 		res = -EINVAL;
 		break;
 	}
-	if (res < 0) {
-		qb_ipcs_unref(s);
-		return res;
+
+	if (res == 0) {
+		res = qb_ipcs_us_publish(s);
+		if (res < 0) {
+			(void)qb_ipcs_us_withdraw(s);
+			goto run_cleanup;
+		}
 	}
-	res = qb_ipcs_us_publish(s);
+
+run_cleanup:
 	if (res < 0) {
-		(void)qb_ipcs_us_withdraw(s);
+		/* Failed to run services, removing initial alloc reference. */
 		qb_ipcs_unref(s);
-		return res;
 	}
 
 	return res;
@@ -242,6 +250,7 @@ qb_ipcs_destroy(struct qb_ipcs_service *s)
 	}
 	(void)qb_ipcs_us_withdraw(s);
 
+	/* service destroyed, remove initial alloc ref */
 	qb_ipcs_unref(s);
 }
 
@@ -522,7 +531,10 @@ qb_ipcs_connection_alloc(struct qb_ipcs_service *s)
 	/* initial alloc ref */
 	qb_ipcs_connection_ref(c);
 
-	/* the connection references the containing service so, make a reference.
+	/*
+	 * The connection makes use of the service object. Give the connection
+	 * a reference to the service so we know the service can never be destroyed
+	 * until the connection is done with it.
 	 */
 	qb_ipcs_ref(s);
 	c->service = s;
@@ -559,6 +571,7 @@ qb_ipcs_connection_unref(struct qb_ipcs_connection *c)
 			c->service->serv_fns.connection_destroyed(c);
 		}
 		c->service->funcs.disconnect(c);
+		/* Let go of the connection's reference to the service */
 		qb_ipcs_unref(c->service);
 		free(c->receive_buf);
 		free(c);
