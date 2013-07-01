@@ -122,7 +122,9 @@ retry_recv:
 int32_t
 qb_ipc_us_sock_error_is_disconnected(int err)
 {
-	if (err == -EAGAIN ||
+	if (err >= 0) {
+		return QB_FALSE;
+	} else if (err == -EAGAIN ||
 	    err == -ETIMEDOUT ||
 	    err == -EINTR ||
 #ifdef EWOULDBLOCK
