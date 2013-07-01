@@ -439,6 +439,7 @@ _sock_connection_liveliness(int32_t fd, int32_t revents, void *data)
 		    fd, revents, c->description);
 	if (revents & POLLNVAL) {
 		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);
+		qb_ipcs_disconnect(c);
 		return -EINVAL;
 	}
 	if (revents & POLLHUP) {
