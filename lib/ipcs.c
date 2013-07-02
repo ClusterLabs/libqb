@@ -758,6 +758,7 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	}
 
 	if (revents & POLLOUT) {
+		/* try resend events now that fd can write */
 		res = resend_event_notifications(c);
 		if (res < 0 && res != -EAGAIN) {
 			errno = -res;
@@ -765,6 +766,7 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 				       "resend_event_notifications (%s)",
 				       c->description);
 		}
+		/* nothing to read */
 		if ((revents & POLLIN) == 0) {
 			res = 0;
 			goto dispatch_cleanup;
@@ -805,11 +807,12 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
-		if (res2 < 0) {
+		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
 			errno = -res2;
-			qb_util_perror(LOG_ERR,
-				       "error receiving from setup sock (%s)",
-				       c->description);
+			qb_util_perror(LOG_ERR, "error receiving from setup sock (%s)", c->description);
+
+			res = -ESHUTDOWN;
+			goto dispatch_cleanup;
 		}
 	}
 

@@ -110,7 +110,7 @@ _check_connection_state_with(struct qb_ipcc_connection * c, int32_t res,
 			poll_ms = 0;
 		}
 		res2 = qb_ipc_us_ready(one_way, &c->setup, poll_ms, events);
-		if (res2 < 0 && qb_ipc_us_sock_error_is_disconnected(res2)) {
+		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
 			errno = -res2;
 			qb_util_perror(LOG_DEBUG,
 				       "%s %d %s",
