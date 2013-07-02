@@ -741,22 +741,24 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 {
 	struct qb_ipcs_connection *c = (struct qb_ipcs_connection *)data;
 	char bytes[MAX_RECV_MSGS];
-	int32_t res;
+	int32_t res = 0;
 	int32_t res2;
 	int32_t recvd = 0;
 	ssize_t avail;
 
 	if (revents & POLLNVAL) {
 		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);
-		return -EINVAL;
+		res = -EINVAL;
+		goto dispatch_cleanup;
 	}
 	if (revents & POLLHUP) {
 		qb_util_log(LOG_DEBUG, "HUP conn (%s)", c->description);
-		qb_ipcs_disconnect(c);
-		return -ESHUTDOWN;
+		res = -ESHUTDOWN;
+		goto dispatch_cleanup;
 	}
 
 	if (revents & POLLOUT) {
+		/* try resend events now that fd can write */
 		res = resend_event_notifications(c);
 		if (res < 0 && res != -EAGAIN) {
 			errno = -res;
@@ -764,12 +766,15 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 				       "resend_event_notifications (%s)",
 				       c->description);
 		}
+		/* nothing to read */
 		if ((revents & POLLIN) == 0) {
-			return 0;
+			res = 0;
+			goto dispatch_cleanup;
 		}
 	}
 	if (c->fc_enabled) {
-		return 0;
+		res = 0;
+		goto dispatch_cleanup;
 	}
 	avail = _request_q_len_get(c);
 
@@ -779,13 +784,14 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 			errno = -res2;
 			qb_util_perror(LOG_WARNING, "conn (%s) disconnected",
 				       c->description);
-			qb_ipcs_disconnect(c);
-			return -ESHUTDOWN;
+			res = -ESHUTDOWN;
+			goto dispatch_cleanup;
 		} else {
 			qb_util_log(LOG_WARNING,
 				    "conn (%s) Nothing in q but got POLLIN on fd:%d (res2:%d)",
 				    c->description, fd, res2);
-			return 0;
+			res = 0;
+			goto dispatch_cleanup;
 		}
 	}
 
@@ -801,11 +807,12 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
 		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
-		if (res2 < 0) {
+		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
 			errno = -res2;
-			qb_util_perror(LOG_ERR,
-				       "error receiving from setup sock (%s)",
-				       c->description);
+			qb_util_perror(LOG_ERR, "error receiving from setup sock (%s)", c->description);
+
+			res = -ESHUTDOWN;
+			goto dispatch_cleanup;
 		}
 	}
 
@@ -822,9 +829,12 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 			qb_util_perror(LOG_ERR, "request returned error (%s)",
 				       c->description);
 		}
-		qb_ipcs_connection_unref(c);
 	}
 
+dispatch_cleanup:
+	if (res != 0) {
+		qb_ipcs_disconnect(c);
+	}
 	return res;
 }
 
