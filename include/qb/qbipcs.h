@@ -388,7 +388,7 @@ int32_t qb_ipcs_stats_get(qb_ipcs_service_t* pt,
 /**
  * Get the first connection.
  *
- * @note call qb_ipcs_connection_ref_dec() after using the connection.
+ * @note call qb_ipcs_connection_unref() after using the connection.
  *
  * @param pt service instance
  * @return first connection
@@ -398,7 +398,7 @@ qb_ipcs_connection_t * qb_ipcs_connection_first_get(qb_ipcs_service_t* pt);
 /**
  * Get the next connection.
  *
- * @note call qb_ipcs_connection_ref_dec() after using the connection.
+ * @note call qb_ipcs_connection_unref() after using the connection.
  *
  * @param pt service instance
  * @param current current connection
