@@ -44,6 +44,8 @@ enum my_msg_ids {
 	IPC_MSG_RES_DISPATCH,
 	IPC_MSG_REQ_BULK_EVENTS,
 	IPC_MSG_RES_BULK_EVENTS,
+	IPC_MSG_REQ_STRESS_EVENT,
+	IPC_MSG_RES_STRESS_EVENT,
 	IPC_MSG_REQ_SERVER_FAIL,
 	IPC_MSG_RES_SERVER_FAIL,
 	IPC_MSG_REQ_SERVER_DISCONNECT,
@@ -75,6 +77,7 @@ static int32_t fc_enabled = 89;
 static int32_t send_event_on_created = QB_FALSE;
 static int32_t disconnect_after_created = QB_FALSE;
 static int32_t num_bulk_events = 10;
+static int32_t num_stress_events = 30000;
 static int32_t reference_count_test = QB_FALSE;
 
 
@@ -91,7 +94,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		void *data, size_t size)
 {
 	struct qb_ipc_request_header *req_pt = (struct qb_ipc_request_header *)data;
-	struct qb_ipc_response_header response;
+	struct qb_ipc_response_header response = { 0, };
 	ssize_t res;
 
 	if (req_pt->id == IPC_MSG_REQ_TX_RX) {
@@ -147,6 +150,38 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		response.id = IPC_MSG_RES_BULK_EVENTS;
 		res = qb_ipcs_response_send(c, &response, response.size);
 		ck_assert_int_eq(res, sizeof(response));
+
+	} else if (req_pt->id == IPC_MSG_REQ_STRESS_EVENT) {
+		int32_t m;
+
+		response.size = sizeof(struct qb_ipc_response_header);
+		response.error = 0;
+
+		response.id = IPC_MSG_RES_STRESS_EVENT;
+		res = qb_ipcs_response_send(c, &response, response.size);
+		ck_assert_int_eq(res, sizeof(response));
+
+		response.id=IPC_MSG_RES_STRESS_EVENT;
+		for (m = 0; m < num_stress_events; m++) {
+			res = qb_ipcs_event_send(c, &response,
+						 sizeof(response));
+			if (res < 0) {
+				if (res == -EAGAIN) {
+					/* yield to the receive process */
+					usleep(1000);
+					m--;
+					continue;
+				} else {
+					qb_perror(LOG_DEBUG, "sending stress events");
+					ck_assert_int_eq(res, sizeof(response));
+				}
+			}
+			response.id++;
+
+			if ((m % 1000) == 0) {
+				qb_log(LOG_DEBUG, "SENT: %d stress events sent", m);
+			}
+		}
 
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
 		exit(0);
@@ -635,6 +670,34 @@ END_TEST
 
 static int32_t events_received;
 
+static int32_t
+count_stress_events(int32_t fd, int32_t revents, void *data)
+{
+	qb_loop_t *cl = (qb_loop_t*)data;
+	struct qb_ipc_response_header res_header = { 0, };
+	int32_t res;
+
+	res = qb_ipcc_event_recv(conn, &res_header,
+				 sizeof(struct qb_ipc_response_header),
+				 -1);
+	if (res > 0) {
+		events_received++;
+
+		if ((events_received % 1000) == 0) {
+			qb_log(LOG_DEBUG, "RECV: %d stress events processed", events_received);
+		}
+	} else if (res != -EAGAIN) {
+		qb_perror(LOG_DEBUG, "count_stress_events");
+		qb_loop_stop(cl);
+		return -1;
+	}
+
+	if (events_received >= num_stress_events) {
+		qb_loop_stop(cl);
+		return -1;
+	}
+	return 0;
+}
 
 static int32_t
 count_bulk_events(int32_t fd, int32_t revents, void *data)
@@ -718,6 +781,78 @@ test_ipc_bulk_events(void)
 	qb_ipcc_disconnect(conn);
 	stop_process(pid);
 }
+
+static void
+test_ipc_stress_test(void)
+{
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
+	int32_t c = 0;
+	int32_t j = 0;
+	pid_t pid;
+	int32_t res;
+	qb_loop_t *cl;
+	int32_t fd;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	qb_log(LOG_DEBUG, "Testing %d iterations of EVENT msg passing.", num_stress_events);
+
+	events_received = 0;
+	cl = qb_loop_create();
+	res = qb_ipcc_fd_get(conn, &fd);
+	ck_assert_int_eq(res, 0);
+	res = qb_loop_poll_add(cl, QB_LOOP_MED,
+			 fd, POLLIN,
+			 cl, count_stress_events);
+	ck_assert_int_eq(res, 0);
+
+	res = send_and_check(IPC_MSG_REQ_STRESS_EVENT, 0, recv_timeout, QB_TRUE);
+
+	qb_loop_run(cl);
+	ck_assert_int_eq(events_received, num_stress_events);
+
+	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), -1);
+	if (res != -ECONNRESET && res != -ENOTCONN) {
+		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
+		ck_assert_int_eq(res, -ENOTCONN);
+	}
+
+	qb_ipcc_disconnect(conn);
+	stop_process(pid);
+}
+
+START_TEST(test_ipc_stress_test_us)
+{
+	qb_enter();
+	send_event_on_created = QB_FALSE;
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	test_ipc_stress_test();
+	qb_leave();
+}
+END_TEST
 
 START_TEST(test_ipc_bulk_events_us)
 {
@@ -918,6 +1053,17 @@ START_TEST(test_ipc_disp_shm)
 }
 END_TEST
 
+START_TEST(test_ipc_stress_test_shm)
+{
+	qb_enter();
+	send_event_on_created = QB_FALSE;
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	test_ipc_stress_test();
+	qb_leave();
+}
+END_TEST
+
 START_TEST(test_ipc_bulk_events_shm)
 {
 	qb_enter();
@@ -1031,6 +1177,11 @@ make_shm_suite(void)
 	tcase_set_timeout(tc, 16);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("ipc_stress_test_shm");
+	tcase_add_test(tc, test_ipc_stress_test_shm);
+	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
+
 	tc = tcase_create("ipc_bulk_events_shm");
 	tcase_add_test(tc, test_ipc_bulk_events_shm);
 	tcase_set_timeout(tc, 16);
@@ -1087,6 +1238,11 @@ make_soc_suite(void)
 	tc = tcase_create("ipc_dispatch_us");
 	tcase_add_test(tc, test_ipc_disp_us);
 	tcase_set_timeout(tc, 16);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_stress_test_us");
+	tcase_add_test(tc, test_ipc_stress_test_us);
+	tcase_set_timeout(tc, 60);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_bulk_events_us");
