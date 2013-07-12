@@ -369,6 +369,7 @@ new_event_notification(struct qb_ipcs_connection * c)
 	assert(c->outstanding_notifiers >= 0);
 	if (c->outstanding_notifiers > 0) {
 		c->outstanding_notifiers++;
+		resend_event_notifications(c);
 	} else {
 		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers, 1);
 		if (res == -EAGAIN) {
