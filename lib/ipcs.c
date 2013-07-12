@@ -369,7 +369,7 @@ new_event_notification(struct qb_ipcs_connection * c)
 	assert(c->outstanding_notifiers >= 0);
 	if (c->outstanding_notifiers > 0) {
 		c->outstanding_notifiers++;
-		resend_event_notifications(c);
+		res = resend_event_notifications(c);
 	} else {
 		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers, 1);
 		if (res == -EAGAIN) {
@@ -401,7 +401,7 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 	if (res == size) {
 		c->stats.events++;
 		resn = new_event_notification(c);
-		if (resn < 0 && resn != -EAGAIN) {
+		if (resn < 0 && resn != -EAGAIN && resn != -ENOBUFS) {
 			errno = -resn;
 			qb_util_perror(LOG_WARNING,
 				       "new_event_notification (%s)",
