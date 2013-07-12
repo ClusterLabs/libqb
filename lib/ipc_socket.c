@@ -219,7 +219,7 @@ qb_ipc_socket_send(struct qb_ipc_one_way *one_way,
 	rc = send(one_way->u.us.sock, msg_ptr, msg_len, MSG_NOSIGNAL);
 	if (rc == -1) {
 		rc = -errno;
-		if (errno != EAGAIN) {
+		if (errno != EAGAIN && errno != ENOBUFS) {
 			qb_util_perror(LOG_ERR, "socket_send:send");
 		}
 	}
@@ -254,7 +254,7 @@ qb_ipc_socket_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 
 	if (rc == -1) {
 		rc = -errno;
-		if (errno != EAGAIN) {
+		if (errno != EAGAIN && errno != ENOBUFS) {
 			qb_util_perror(LOG_ERR, "socket_sendv:writev %d",
 				       one_way->u.us.sock);
 		}
