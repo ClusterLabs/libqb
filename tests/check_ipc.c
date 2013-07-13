@@ -137,19 +137,32 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 					 MAX_MSG_SIZE*10);
 		ck_assert_int_eq(res, -EMSGSIZE);
 
-		for (m = 0; m < num_bulk_events; m++) {
-			res = qb_ipcs_event_send(c, &response,
-						 sizeof(response));
+		/* send one event before responding */
+		res = qb_ipcs_event_send(c, &response, sizeof(response));
+		ck_assert_int_eq(res, sizeof(response));
+		response.id++;
+
+		/* send response */
+		response.id = IPC_MSG_RES_BULK_EVENTS;
+		res = qb_ipcs_response_send(c, &response, response.size);
+		ck_assert_int_eq(res, sizeof(response));
+
+		/* send the rest of the events after the response */
+		for (m = 1; m < num_bulk_events; m++) {
+			res = qb_ipcs_event_send(c, &response, sizeof(response));
+
+			if (res == -EAGAIN || res == -ENOBUFS) {
+				/* retry */
+				usleep(1000);
+				m--;
+				continue;
+			}
 			ck_assert_int_eq(res, sizeof(response));
 			response.id++;
 		}
 		stats = qb_ipcs_connection_stats_get_2(c, QB_FALSE);
 		ck_assert_int_eq(stats->event_q_length - num, num_bulk_events);
 		free(stats);
-
-		response.id = IPC_MSG_RES_BULK_EVENTS;
-		res = qb_ipcs_response_send(c, &response, response.size);
-		ck_assert_int_eq(res, sizeof(response));
 
 	} else if (req_pt->id == IPC_MSG_REQ_STRESS_EVENT) {
 		int32_t m;
