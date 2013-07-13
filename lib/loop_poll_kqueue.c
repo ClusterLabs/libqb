@@ -140,11 +140,13 @@ retry_poll:
 	for (i = 0; i < event_count; i++) {
 		revents = 0;
 		pe = (struct qb_poll_entry *)events[i].udata;
+#if 0
 		if (events[i].flags) {
 			qb_util_log(LOG_TRACE,
 				    "got flags %d on fd %d.", events[i].flags,
 				    pe->ufd.fd);
 		}
+#endif
 		if (events[i].flags & EV_ERROR) {
 			qb_util_log(LOG_WARNING,
 				    "got EV_ERROR on fd %d.", pe->ufd.fd);
