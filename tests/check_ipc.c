@@ -166,7 +166,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			res = qb_ipcs_event_send(c, &response,
 						 sizeof(response));
 			if (res < 0) {
-				if (res == -EAGAIN) {
+				if (res == -EAGAIN || res == -ENOBUFS) {
 					/* yield to the receive process */
 					usleep(1000);
 					m--;
