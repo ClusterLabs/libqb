@@ -141,7 +141,14 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 #ifdef QB_FORCE_SHM_ALIGN
 	page_size = QB_MAX(page_size, 16 * 1024);
 #endif /* QB_FORCE_SHM_ALIGN */
+	/* The user of this api expects the 'size' parameter passed into this function
+	 * to be reflective of the max size single write we can do to the 
+	 * ringbuffer.  This means we have to add both the 'margin' space used
+	 * to calculate if there is enough space for a new chunk as well as the '+1' that
+	 * prevents overlap of the read/write pointers */
+	size += QB_RB_CHUNK_MARGIN + 1;
 	real_size = QB_ROUNDUP(size, page_size);
+
 	shared_size =
 	    sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
 

@@ -342,6 +342,10 @@ resend_event_notifications(struct qb_ipcs_connection *c)
 {
 	ssize_t res = 0;
 
+	if (!c->service->needs_sock_for_poll) {
+		return res;
+	}
+
 	if (c->outstanding_notifiers > 0) {
 		res = qb_ipc_us_send(&c->setup, c->receive_buf,
 				     c->outstanding_notifiers);
@@ -349,6 +353,7 @@ resend_event_notifications(struct qb_ipcs_connection *c)
 	if (res > 0) {
 		c->outstanding_notifiers -= res;
 	}
+
 	assert(c->outstanding_notifiers >= 0);
 	if (c->outstanding_notifiers == 0) {
 		c->poll_events = POLLIN | POLLPRI | POLLNVAL;
@@ -410,6 +415,10 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 		}
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
+
+		if (c->outstanding_notifiers > 0) {
+			resend_event_notifications(c);
+		}
 		if (ow) {
 			resn = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
 			if (resn < 0) {
@@ -448,6 +457,10 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 		}
 	} else if (res == -EAGAIN || res == -ETIMEDOUT) {
 		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
+
+		if (c->outstanding_notifiers > 0) {
+			resend_event_notifications(c);
+		}
 		if (ow) {
 			resn = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
 			if (resn < 0) {
