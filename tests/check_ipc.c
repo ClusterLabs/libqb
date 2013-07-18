@@ -34,8 +34,22 @@
 
 static const char *ipc_name = "ipc_test";
 #define MAX_MSG_SIZE (8192*16)
+
+/* The size the giant msg's data field needs to be to make
+ * this the largests msg we can successfully send. */
+#define GIANT_MSG_DATA_SIZE MAX_MSG_SIZE - sizeof(struct qb_ipc_response_header) - 8
+
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
+
+struct giant_event {
+	struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
+	char data[GIANT_MSG_DATA_SIZE] __attribute__ ((aligned(8)));
+	uint32_t sent_msgs __attribute__ ((aligned(8)));
+} __attribute__ ((aligned(8)));
+
+static struct giant_event giant_event_recv;
+static struct giant_event giant_event_send;
 
 enum my_msg_ids {
 	IPC_MSG_REQ_TX_RX,
@@ -174,10 +188,19 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		res = qb_ipcs_response_send(c, &response, response.size);
 		ck_assert_int_eq(res, sizeof(response));
 
-		response.id=IPC_MSG_RES_STRESS_EVENT;
+		giant_event_send.hdr.error = 0;
+		giant_event_send.hdr.id = IPC_MSG_RES_STRESS_EVENT;
 		for (m = 0; m < num_stress_events; m++) {
-			res = qb_ipcs_event_send(c, &response,
-						 sizeof(response));
+			size_t sent_len = sizeof(struct qb_ipc_response_header);
+
+			if (((m+1) % 1000) == 0) {
+				qb_log(LOG_DEBUG, "SENT: %d stress events sent", m+1);
+				sent_len = sizeof(struct giant_event);
+				giant_event_send.sent_msgs = m + 1;
+			}
+			giant_event_send.hdr.size = sent_len;
+
+			res = qb_ipcs_event_send(c, &giant_event_send, sent_len);
 			if (res < 0) {
 				if (res == -EAGAIN || res == -ENOBUFS) {
 					/* yield to the receive process */
@@ -186,14 +209,10 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 					continue;
 				} else {
 					qb_perror(LOG_DEBUG, "sending stress events");
-					ck_assert_int_eq(res, sizeof(response));
+					ck_assert_int_eq(res, sent_len);
 				}
 			}
-			response.id++;
-
-			if ((m % 1000) == 0) {
-				qb_log(LOG_DEBUG, "SENT: %d stress events sent", m);
-			}
+			giant_event_send.hdr.id++;
 		}
 
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
@@ -687,17 +706,23 @@ static int32_t
 count_stress_events(int32_t fd, int32_t revents, void *data)
 {
 	qb_loop_t *cl = (qb_loop_t*)data;
-	struct qb_ipc_response_header res_header = { 0, };
 	int32_t res;
 
-	res = qb_ipcc_event_recv(conn, &res_header,
-				 sizeof(struct qb_ipc_response_header),
+	res = qb_ipcc_event_recv(conn, &giant_event_recv,
+				 sizeof(struct giant_event),
 				 -1);
 	if (res > 0) {
 		events_received++;
 
 		if ((events_received % 1000) == 0) {
 			qb_log(LOG_DEBUG, "RECV: %d stress events processed", events_received);
+			if (res != sizeof(struct giant_event)) {
+				qb_log(LOG_DEBUG, "Unexpected recv size, expected %d got %d",
+					res, sizeof(struct giant_event));
+			} else if (giant_event_recv.sent_msgs != events_received) {
+				qb_log(LOG_DEBUG, "Server event mismatch. Server thinks we got %d msgs, but we only received %d",
+					giant_event_recv.sent_msgs, events_received);
+			}
 		}
 	} else if (res != -EAGAIN) {
 		qb_perror(LOG_DEBUG, "count_stress_events");
