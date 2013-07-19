@@ -107,12 +107,70 @@ set_sock_size(int sockfd, size_t max_msg_size)
 	qb_util_log(LOG_DEBUG, "%d: getsockopt(%d, needed:%d) actual:%d",
 		    rc, sockfd, max_msg_size, optval);
 
-	if (rc == 0 && optval < max_msg_size) {
+	/* the optvat <= max_msg_size check is weird...
+	 * during testing it was discovered in some instances if the
+	 * default optval is exactly equal to our max_msg_size, we couldn't
+	 * actually send a message that large unless we explicilty set
+	 * it using setsockopt... there is no good explaination for this. */
+	if (rc == 0 && optval <= max_msg_size) {
 		optval = max_msg_size;
 		optlen = sizeof(optval);
 		rc = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &optval, optlen);
 	}
 	return rc;
+}
+
+static int32_t
+dgram_verify_msg_size(size_t max_msg_size)
+{
+	int rc = -1;
+	int sockets[2];
+	char buf[max_msg_size];
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockets) < 0) {
+		goto cleanup_socks;
+	}
+
+	if (set_sock_size(sockets[0], max_msg_size) != 0) {
+		goto cleanup_socks;
+	}
+	if (set_sock_size(sockets[1], max_msg_size) != 0) {
+		goto cleanup_socks;
+	}
+
+	if ((rc = write(sockets[1], buf, max_msg_size)) < 0) {
+		goto cleanup_socks;
+	}
+	if (read(sockets[0], buf, max_msg_size) != max_msg_size) {
+		goto cleanup_socks;
+	}
+
+	rc = 0;
+
+cleanup_socks:
+	close(sockets[0]);
+	close(sockets[1]);
+	return rc;
+}
+
+int32_t
+qb_ipcc_verify_dgram_max_msg_size(size_t max_msg_size)
+{
+	int32_t i;
+	int32_t last = -1;
+
+	if (dgram_verify_msg_size(max_msg_size) == 0) {
+		return max_msg_size;
+	}
+
+	for (i = 1024; i < max_msg_size; i+=1024) {
+		if (dgram_verify_msg_size(i) != 0) {
+			break;
+		}
+		last = i;
+	}
+
+	return last;
 }
 
 /*
