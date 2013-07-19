@@ -417,7 +417,7 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
 
 		if (c->outstanding_notifiers > 0) {
-			resend_event_notifications(c);
+			resn = resend_event_notifications(c);
 		}
 		if (ow) {
 			resn = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
@@ -459,7 +459,7 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 		struct qb_ipc_one_way *ow = _event_sock_one_way_get(c);
 
 		if (c->outstanding_notifiers > 0) {
-			resend_event_notifications(c);
+			resn = resend_event_notifications(c);
 		}
 		if (ow) {
 			resn = qb_ipc_us_ready(ow, &c->setup, 0, POLLOUT);
