@@ -194,7 +194,6 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			size_t sent_len = sizeof(struct qb_ipc_response_header);
 
 			if (((m+1) % 1000) == 0) {
-				qb_log(LOG_DEBUG, "SENT: %d stress events sent", m+1);
 				sent_len = sizeof(struct giant_event);
 				giant_event_send.sent_msgs = m + 1;
 			}
@@ -211,6 +210,8 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 					qb_perror(LOG_DEBUG, "sending stress events");
 					ck_assert_int_eq(res, sent_len);
 				}
+			} else if (((m+1) % 1000) == 0) {
+				qb_log(LOG_DEBUG, "SENT: %d stress events sent", m+1);
 			}
 			giant_event_send.hdr.id++;
 		}
