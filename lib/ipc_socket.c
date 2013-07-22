@@ -401,6 +401,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection * c,
 	c->event.u.us.shared_data =  shm_ptr + (2 * sizeof(struct ipc_us_control));
 
 	close(fd_hdr);
+	fd_hdr = -1;
 
 	res = qb_ipc_dgram_sock_connect(r->response, "response", "request",
 					r->max_msg_size, &c->request.u.us.sock);
@@ -418,7 +419,9 @@ qb_ipcc_us_connect(struct qb_ipcc_connection * c,
 	return 0;
 
 cleanup_hdr:
-	close(fd_hdr);
+	if (fd_hdr >= 0) {
+		close(fd_hdr);
+	}
 	close(c->event.u.us.sock);
 	close(c->request.u.us.sock);
 	unlink(r->request);
@@ -583,6 +586,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	ctl->flow_control = 0;
 
 	close(fd_hdr);
+	fd_hdr = -1;
 
 	/* request channel */
 	res = qb_ipc_dgram_sock_setup(r->response, "request",
@@ -618,7 +622,9 @@ cleanup_hdr:
 	free(c->response.u.us.sock_name);
 	free(c->event.u.us.sock_name);
 
-	close(fd_hdr);
+	if (fd_hdr >= 0) {
+		close(fd_hdr);
+	}
 	unlink(r->request);
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	return res;

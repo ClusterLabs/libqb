@@ -141,7 +141,7 @@ retry_write:
 
 unlink_exit:
 	unlink(path);
-	if (fd > 0) {
+	if (fd >= 0) {
 		close(fd);
 	}
 	return res;
