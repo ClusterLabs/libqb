@@ -717,17 +717,6 @@ cleanup:
 #define IPC_REQUEST_TIMEOUT 10
 #define MAX_RECV_MSGS 50
 
-int32_t
-qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data)
-{
-	int32_t res = _process_request_((struct qb_ipcs_connection *)data,
-					IPC_REQUEST_TIMEOUT);
-	if (res > 0) {
-		return 0;
-	}
-	return res;
-}
-
 static ssize_t
 _request_q_len_get(struct qb_ipcs_connection *c)
 {

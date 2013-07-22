@@ -196,7 +196,6 @@ int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service *s);
 int32_t qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt);
 
 int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data);
-int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data);
 struct qb_ipcs_connection* qb_ipcs_connection_alloc(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
