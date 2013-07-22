@@ -401,6 +401,7 @@ qb_ipcc_us_connect(struct qb_ipcc_connection * c,
 	c->event.u.us.shared_data =  shm_ptr + (2 * sizeof(struct ipc_us_control));
 
 	close(fd_hdr);
+	fd_hdr = -1;
 
 	res = qb_ipc_dgram_sock_connect(r->response, "response", "request",
 					r->max_msg_size, &c->request.u.us.sock);
@@ -418,7 +419,9 @@ qb_ipcc_us_connect(struct qb_ipcc_connection * c,
 	return 0;
 
 cleanup_hdr:
-	close(fd_hdr);
+	if (fd_hdr >= 0) {
+		close(fd_hdr);
+	}
 	close(c->event.u.us.sock);
 	close(c->request.u.us.sock);
 	unlink(r->request);
