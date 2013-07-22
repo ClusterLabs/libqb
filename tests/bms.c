@@ -116,6 +116,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 				sizeof(response));
 		if (res < 0) {
 			qb_perror(LOG_ERR, "qb_ipcs_response_send");
+			return res;
 		}
 	}
 	if (events) {
@@ -123,6 +124,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 				sizeof(response));
 		if (res < 0) {
 			qb_perror(LOG_ERR, "qb_ipcs_event_send");
+			return res;
 		}
 	}
 	return 0;
