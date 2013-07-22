@@ -53,7 +53,7 @@ static void
 _benchmark(qb_ipcc_connection_t *conn, int write_size)
 {
 	struct iovec iov[2];
-	unsigned int res;
+	ssize_t res;
 	struct qb_ipc_request_header hdr;
 	int write_count = 0;
 	float secs;
