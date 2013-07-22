@@ -583,6 +583,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	ctl->flow_control = 0;
 
 	close(fd_hdr);
+	fd_hdr = -1;
 
 	/* request channel */
 	res = qb_ipc_dgram_sock_setup(r->response, "request",
@@ -618,7 +619,9 @@ cleanup_hdr:
 	free(c->response.u.us.sock_name);
 	free(c->event.u.us.sock_name);
 
-	close(fd_hdr);
+	if (fd_hdr >= 0) {
+		close(fd_hdr);
+	}
 	unlink(r->request);
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	return res;
