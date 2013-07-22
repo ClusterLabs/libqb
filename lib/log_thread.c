@@ -249,7 +249,7 @@ qb_log_thread_stop(void)
 		for (;;) {
 			res = sem_getvalue(&logt_print_finished, &value);
 			if (res != 0 || value == 0) {
-				return;
+				break;
 			}
 			sem_wait(&logt_print_finished);
 
