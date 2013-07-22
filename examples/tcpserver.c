@@ -66,7 +66,10 @@ sock_read_fn(int32_t fd, int32_t revents, void *data)
 	} else {
 		printf("Recieved: %s\n", recv_data);
 		snprintf(send_data, 1024, "ACK %d bytes", bytes_recieved);
-		send(fd, send_data, strlen(send_data), 0);
+		if (send(fd, send_data, strlen(send_data), 0) < 0) {
+			close(fd);
+			return QB_FALSE;
+		}
 	}
 	return QB_TRUE;
 }

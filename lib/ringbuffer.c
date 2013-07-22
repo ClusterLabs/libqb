@@ -235,6 +235,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 		    "shm size:%zd; real_size:%zd; rb->word_size:%d", size,
 		    real_size, rb->shared_hdr->word_size);
 
+	/* this function closes fd_data */
 	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size);
 	rb->shared_data = shm_addr;
 	if (error != 0) {
@@ -252,11 +253,9 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	}
 
 	close(fd_hdr);
-	close(fd_data);
 	return rb;
 
 cleanup_data:
-	close(fd_data);
 	if (flags & QB_RB_FLAG_CREATE) {
 		unlink(rb->shared_hdr->data_path);
 	}

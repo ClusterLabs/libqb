@@ -691,9 +691,8 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	} else if (size == 0 || hdr->id == QB_IPC_MSG_DISCONNECT) {
 		qb_util_log(LOG_DEBUG, "client requesting a disconnect (%s)",
 			    c->description);
-		qb_ipcs_disconnect(c);
-		c = NULL;
 		res = -ESHUTDOWN;
+		goto cleanup;
 	} else {
 		c->stats.requests++;
 		res = c->service->serv_fns.msg_process(c, hdr, hdr->size);
@@ -716,17 +715,6 @@ cleanup:
 
 #define IPC_REQUEST_TIMEOUT 10
 #define MAX_RECV_MSGS 50
-
-int32_t
-qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data)
-{
-	int32_t res = _process_request_((struct qb_ipcs_connection *)data,
-					IPC_REQUEST_TIMEOUT);
-	if (res > 0) {
-		return 0;
-	}
-	return res;
-}
 
 static ssize_t
 _request_q_len_get(struct qb_ipcs_connection *c)
@@ -811,6 +799,11 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 
 	do {
 		res = _process_request_(c, IPC_REQUEST_TIMEOUT);
+
+		if (res == -ESHUTDOWN) {
+			goto dispatch_cleanup;
+		}
+
 		if (res > 0 || res == -ENOBUFS || res == -EINVAL) {
 			recvd++;
 		}
