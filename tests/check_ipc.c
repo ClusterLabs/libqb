@@ -33,7 +33,16 @@
 #include <qb/qbloop.h>
 
 static const char *ipc_name = "ipc_test";
-#define MAX_MSG_SIZE (8192*16)
+
+#define DEFAULT_MAX_MSG_SIZE (8192*16)
+static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
+
+#define DGRAM_MAX_MSG_SIZE \
+	(CALCULATED_DGRAM_MAX_MSG_SIZE == 0 ? \
+	CALCULATED_DGRAM_MAX_MSG_SIZE = qb_ipcc_verify_dgram_max_msg_size(DEFAULT_MAX_MSG_SIZE) : \
+	CALCULATED_DGRAM_MAX_MSG_SIZE)
+
+#define MAX_MSG_SIZE (ipc_type == QB_IPC_SOCKET ? DGRAM_MAX_MSG_SIZE : DEFAULT_MAX_MSG_SIZE)
 
 /* The size the giant msg's data field needs to be to make
  * this the largests msg we can successfully send. */
@@ -41,15 +50,6 @@ static const char *ipc_name = "ipc_test";
 
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
-
-struct giant_event {
-	struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
-	char data[GIANT_MSG_DATA_SIZE] __attribute__ ((aligned(8)));
-	uint32_t sent_msgs __attribute__ ((aligned(8)));
-} __attribute__ ((aligned(8)));
-
-static struct giant_event giant_event_recv;
-static struct giant_event giant_event_send;
 
 enum my_msg_ids {
 	IPC_MSG_REQ_TX_RX,
@@ -179,6 +179,11 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		free(stats);
 
 	} else if (req_pt->id == IPC_MSG_REQ_STRESS_EVENT) {
+		struct {
+			struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
+			char data[GIANT_MSG_DATA_SIZE] __attribute__ ((aligned(8)));
+			uint32_t sent_msgs __attribute__ ((aligned(8)));
+		} __attribute__ ((aligned(8))) giant_event_send;
 		int32_t m;
 
 		response.size = sizeof(struct qb_ipc_response_header);
@@ -194,7 +199,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			size_t sent_len = sizeof(struct qb_ipc_response_header);
 
 			if (((m+1) % 1000) == 0) {
-				sent_len = sizeof(struct giant_event);
+				sent_len = sizeof(giant_event_send);
 				giant_event_send.sent_msgs = m + 1;
 			}
 			giant_event_send.hdr.size = sent_len;
@@ -706,20 +711,25 @@ static int32_t events_received;
 static int32_t
 count_stress_events(int32_t fd, int32_t revents, void *data)
 {
+	struct {
+		struct qb_ipc_response_header hdr __attribute__ ((aligned(8)));
+		char data[GIANT_MSG_DATA_SIZE] __attribute__ ((aligned(8)));
+		uint32_t sent_msgs __attribute__ ((aligned(8)));
+	} __attribute__ ((aligned(8))) giant_event_recv;
 	qb_loop_t *cl = (qb_loop_t*)data;
 	int32_t res;
 
 	res = qb_ipcc_event_recv(conn, &giant_event_recv,
-				 sizeof(struct giant_event),
+				 sizeof(giant_event_recv),
 				 -1);
 	if (res > 0) {
 		events_received++;
 
 		if ((events_received % 1000) == 0) {
 			qb_log(LOG_DEBUG, "RECV: %d stress events processed", events_received);
-			if (res != sizeof(struct giant_event)) {
+			if (res != sizeof(giant_event_recv)) {
 				qb_log(LOG_DEBUG, "Unexpected recv size, expected %d got %d",
-					res, sizeof(struct giant_event));
+					res, sizeof(giant_event_recv));
 			} else if (giant_event_recv.sent_msgs != events_received) {
 				qb_log(LOG_DEBUG, "Server event mismatch. Server thinks we got %d msgs, but we only received %d",
 					giant_event_recv.sent_msgs, events_received);
@@ -1185,6 +1195,37 @@ START_TEST(test_ipc_service_ref_count_us)
 }
 END_TEST
 
+static void test_max_dgram_size(void)
+{
+	/* most implementations will not let you set a dgram buffer 
+	 * of 1 million bytes. This test verifies that the we can detect
+	 * the max dgram buffersize regardless, and that the value we detect
+	 * is consistent. */
+	int32_t init;
+	int32_t i;
+
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_REMOVE,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+
+	init = qb_ipcc_verify_dgram_max_msg_size(1000000);
+	fail_if(init <= 0);
+	for (i = 0; i < 100; i++) {
+		int try = qb_ipcc_verify_dgram_max_msg_size(1000000);
+		ck_assert_int_eq(init, try);
+	}
+
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+}
+
+START_TEST(test_ipc_max_dgram_size)
+{
+	qb_enter();
+	test_max_dgram_size();
+	qb_leave();
+}
+END_TEST
+
 static Suite *
 make_shm_suite(void)
 {
@@ -1248,6 +1289,11 @@ make_soc_suite(void)
 {
 	Suite *s = suite_create("socket");
 	TCase *tc;
+
+	tc = tcase_create("ipc_max_dgram_size");
+	tcase_add_test(tc, test_ipc_max_dgram_size);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_server_fail_soc");
 	tcase_add_test(tc, test_ipc_server_fail_soc);
