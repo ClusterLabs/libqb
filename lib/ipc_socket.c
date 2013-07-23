@@ -104,14 +104,15 @@ set_sock_size(int sockfd, size_t max_msg_size)
 
 	rc = getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen);
 
-	qb_util_log(LOG_DEBUG, "%d: getsockopt(%d, needed:%d) actual:%d",
-		    rc, sockfd, max_msg_size, optval);
+	qb_util_log(LOG_TRACE, "%d: getsockopt(%d, needed:%d) actual:%d",
+		rc, sockfd, max_msg_size, optval);
 
-	/* the optvat <= max_msg_size check is weird...
+	/* The optvat <= max_msg_size check is weird...
 	 * during testing it was discovered in some instances if the
 	 * default optval is exactly equal to our max_msg_size, we couldn't
 	 * actually send a message that large unless we explicilty set
-	 * it using setsockopt... there is no good explaination for this. */
+	 * it using setsockopt... there is no good explaination for this. Most
+	 * likely this is hitting some sort of "off by one" error in the kernel. */
 	if (rc == 0 && optval <= max_msg_size) {
 		optval = max_msg_size;
 		optlen = sizeof(optval);
@@ -123,8 +124,11 @@ set_sock_size(int sockfd, size_t max_msg_size)
 static int32_t
 dgram_verify_msg_size(size_t max_msg_size)
 {
-	int rc = -1;
-	int sockets[2];
+	int32_t rc = -1;
+	int32_t sockets[2];
+	int32_t tries = 0;
+	int32_t write_passed = 0;
+	int32_t read_passed = 0;
 	char buf[max_msg_size];
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockets) < 0) {
@@ -138,14 +142,38 @@ dgram_verify_msg_size(size_t max_msg_size)
 		goto cleanup_socks;
 	}
 
-	if ((rc = write(sockets[1], buf, max_msg_size)) < 0) {
-		goto cleanup_socks;
-	}
-	if (read(sockets[0], buf, max_msg_size) != max_msg_size) {
-		goto cleanup_socks;
+	for (tries = 0; tries < 3; tries++) {
+
+		if (write_passed == 0) {
+			rc = write(sockets[1], buf, max_msg_size);
+
+			if (rc < 0 && (errno == EAGAIN || errno == EINTR)) {
+				continue;
+			} else if (rc == max_msg_size) {
+				write_passed = 1;
+			} else {
+				break;
+			}
+		}
+
+		if (read_passed == 0) {
+			rc = read(sockets[0], buf, max_msg_size);
+
+			if (rc < 0 && (errno == EAGAIN || errno == EINTR)) {
+				continue;
+			} else if (rc == max_msg_size) {
+				read_passed = 1;
+			} else {
+				break;
+			}
+		}
+
+		if (read_passed && write_passed) {
+			rc = 0;
+			break;
+		}
 	}
 
-	rc = 0;
 
 cleanup_socks:
 	close(sockets[0]);
