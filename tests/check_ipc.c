@@ -1195,6 +1195,37 @@ START_TEST(test_ipc_service_ref_count_us)
 }
 END_TEST
 
+static void test_max_dgram_size(void)
+{
+	/* most implementations will not let you set a dgram buffer 
+	 * of 1 million bytes. This test verifies that the we can detect
+	 * the max dgram buffersize regardless, and that the value we detect
+	 * is consistent. */
+	int32_t init;
+	int32_t i;
+
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_REMOVE,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+
+	init = qb_ipcc_verify_dgram_max_msg_size(1000000);
+	fail_if(init <= 0);
+	for (i = 0; i < 100; i++) {
+		int try = qb_ipcc_verify_dgram_max_msg_size(1000000);
+		ck_assert_int_eq(init, try);
+	}
+
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+}
+
+START_TEST(test_ipc_max_dgram_size)
+{
+	qb_enter();
+	test_max_dgram_size();
+	qb_leave();
+}
+END_TEST
+
 static Suite *
 make_shm_suite(void)
 {
@@ -1258,6 +1289,11 @@ make_soc_suite(void)
 {
 	Suite *s = suite_create("socket");
 	TCase *tc;
+
+	tc = tcase_create("ipc_max_dgram_size");
+	tcase_add_test(tc, test_ipc_max_dgram_size);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_server_fail_soc");
 	tcase_add_test(tc, test_ipc_server_fail_soc);
