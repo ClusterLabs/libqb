@@ -181,8 +181,9 @@ show_usage(const char *name)
 #ifdef HAVE_GLIB
 struct gio_to_qb_poll {
 	gboolean is_used;
-	GIOChannel *channel;
 	int32_t events;
+	int32_t source;
+	int32_t fd;
 	void *data;
 	qb_ipcs_dispatch_fn_t fn;
 	enum qb_loop_priority p;
@@ -195,6 +196,16 @@ gio_read_socket(GIOChannel * gio, GIOCondition condition, gpointer data)
 	gint fd = g_io_channel_unix_get_fd(gio);
 
 	return (adaptor->fn(fd, condition, adaptor->data) == 0);
+}
+
+static void
+gio_poll_destroy(gpointer data)
+{
+	struct gio_to_qb_poll *adaptor = (struct gio_to_qb_poll *)data;
+
+	qb_log(LOG_DEBUG, "fd %d adaptor destroyed\n", adaptor->fd);
+	adaptor->is_used = QB_FALSE;
+	adaptor->fd = 0;
 }
 
 static int32_t
@@ -218,14 +229,19 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 		return -ENOMEM;
 	}
 
-	adaptor->channel = channel;
 	adaptor->fn = fn;
 	adaptor->events = evts;
 	adaptor->data = data;
 	adaptor->p = p;
 	adaptor->is_used = TRUE;
+	adaptor->fd = fd;
 
-	g_io_add_watch(channel, evts, gio_read_socket, adaptor);
+	adaptor->source = g_io_add_watch_full(channel, G_PRIORITY_DEFAULT, evts, gio_read_socket, adaptor, gio_poll_destroy);
+
+	/* we are handing the channel off to be managed by mainloop now.
+	 * remove our reference. */
+	g_io_channel_unref(channel);
+
 	return 0;
 }
 
@@ -241,7 +257,7 @@ my_g_dispatch_del(int32_t fd)
 {
 	struct gio_to_qb_poll *adaptor;
 	if (qb_array_index(gio_map, fd, (void **)&adaptor) == 0) {
-		g_io_channel_unref(adaptor->channel);
+		g_source_remove(adaptor->source);
 		adaptor->is_used = FALSE;
 	}
 	return 0;
