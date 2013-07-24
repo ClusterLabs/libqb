@@ -536,6 +536,28 @@ _sock_connection_liveliness(int32_t fd, int32_t revents, void *data)
 		qb_ipcs_disconnect(c);
 		return -ESHUTDOWN;
 	}
+
+	/* If we actually get POLLIN for some reason here, it most
+	 * certainly means EOF. Do a recv on the fd to detect eof and
+	 * then disconnect */
+	if (revents & POLLIN) {
+		char buf[10];
+		int res;
+
+		res = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+		if (res < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+			res = -errno;
+		} else if (res == 0) {
+			qb_util_log(LOG_DEBUG, "EOF conn (%s)", c->description);
+			res = -ESHUTDOWN;
+		}
+
+		if (res < 0) {
+			qb_ipcs_disconnect(c);
+			return res;
+		}
+	}
+
 	return 0;
 }
 
