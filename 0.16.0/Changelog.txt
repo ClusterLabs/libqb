@@ -1,0 +1,355 @@
+2013-07-25  David Vossel  <dvossel@redhat.com>
+
+	Bump version to 0.16.0 ... do not use version 0.15.0
+	The use of version-info conflicted with the naming
+	convention used to represent libqb version numbers. Because
+	of this the shared library file used for release 0.15.0
+	did not properly match the release version.  From now on
+	the version number will be manually set to guarantee consistency
+	between .so file and release version.
+
+	Update release gpg sign key
+
+2013-07-24  David Vossel  <dvossel@redhat.com>
+
+	Bump the version to 0.15.0
+
+2013-07-23  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #83 from davidvossel/master
+	socket ipc fixes
+
+	Low: ipc_socket: Output send event failure as debug instead of error
+
+	Low: ipcserver.c: Fix example server's glib mainloop implementation
+
+	High: ipc_socket.c: Detect EOF connection on connection STREAM socket
+
+2013-07-22  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #81 from davidvossel/dgram_max_msg
+	Added ability to estimate kernel's actual max dgram buffer size in a portable way.
+
+	Low: tests: Add dgram max size detection test
+
+	Low: ipc_socket.c: Handle the unlikely event of an EAGAIN or EINTR during dgram max size detection
+
+	Merge pull request #82 from davidvossel/master
+	coverity fixes
+
+	Fixes detect disconnect on send for tcp example
+
+	Fixes sem leak
+
+	Fixes less-than-zero comparision of unsigned int
+
+	fixes double close
+
+	Fixes double close
+
+	Fixes double fd close
+
+	Fixes fd leak
+
+	Prevent use after free in benchmark util
+
+	Fixes use ater free in shm disconnect
+
+	Fixes use after free during ipcs client disconnect
+
+	Remove dead code
+
+2013-07-19  David Vossel  <dvossel@redhat.com>
+
+	Low: check_ipc.c: Verify dgram max size during tests
+
+	High: ipcc: Add abilty to verify dgram kernel buffer size meets max msg value
+
+	Fixes travis build error
+
+	Merge pull request #80 from davidvossel/master
+	Fixes travis build error
+
+2013-07-18  David Vossel  <dvossel@redhat.com>
+
+	Low: check_ipc.c: fix debug message to only display once.
+
+	High: ringbuffer: Make max_size of ringbuffer accurate so shm ipc max msg size value is honored
+
+	Low: ipcs: For shm ipc, always retry outstanding notifications when next event is sent
+
+	Low: tests: Added test to verify sending ipc msg equal to max size succeeds
+
+	Merge pull request #79 from davidvossel/master
+	fix shared memory ipc so max msg size is honored correctly
+
+2013-07-12  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #78 from davidvossel/master
+	fixes travis compile time issue
+
+	Fix: ipcs: Fixes compile time issue reported by travis
+
+	Merge pull request #77 from davidvossel/stress_tests_fixes
+	Adds new ipc event stress test and fixes issues the new test exposed
+
+	Low: loop_pool_kqueue: remove potentially noisy dbug statement
+
+	Low: tests: rework bulk event msg ipc test
+	Some environments have very small dgram msg queues. In
+	these environments we have to be able to read off the event
+	queue before being able to send the rest of events for the
+	bulk event test.
+
+	Account for fbsd ENOBUFS during stress test
+
+	Low: tests: Adds ipc event stress test to testsuite
+
+	Low: ipc_socket: In fbsd send() returns ENOBUFS when dgram queue is full, this should be treated similar to EAGAIN
+
+	High: kqueue: Properly enable kqueue filter in poll loop
+
+	Low: ipcs: Attempt to resend outstanding event notifications during event send
+
+2013-07-02  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #75 from davidvossel/ref_count_cleanup
+	Low: qbipcs: update ipcs connection iterator documentation
+
+	Low: qbipcs.h: update ipcs connection iterator documentation
+
+	Merge pull request #74 from davidvossel/ref_count_cleanup
+	Properly disconnect clients when ipc dispatch fails.
+
+2013-07-01  David Vossel  <dvossel@redhat.com>
+
+	Fix: ipcs: Disconnect shm ipc connection when poll socket returns error on msg receive
+
+	Fix: ipcs: Properly disconnect client connection on POLLNVAL or any other error causing connection removal from mainloop.
+	qb_ipcs_dispatch_connection_request is a callback function registered with
+	mainloop, or whatever other looping thread implementation is in use.  When
+	this callback is registered, a reference of the connection object is given
+	to the mainloop thread.  If this callback ever returns something none zero
+	the callback (and corresponding fd) is unregistered from the loop automatically,
+	so we must decrement the reference in this instance.
+
+	Since unregistering this callback from mainloop guarantees a disconnect
+	simply because requests on the fd are no longer processed, it is best
+	that we completely disconnect the connection (which will handle the unref)
+	when this callback returns an error... Otherwise since the fd is unregistered
+	from the mainloop thread, it may not be possible to detect a disconnect
+	in the future.
+
+2013-06-28  David Vossel  <dvossel@redhat.com>
+
+	Simplify internal ipcs ref counting, add comments and document api behavior
+
+	Simplifies connection ref counting without changing behavior
+
+	Low remove ref-count error in example ipcserver.
+
+	Merge pull request #73 from davidvossel/ref_count_cleanup
+	cleanup connection and service ref counting without changing behavior
+
+	Merge pull request #72 from davidvossel/master
+	Fixes ref count leak in example ipcserver.c 
+
+2013-06-27  David Vossel  <dvossel@redhat.com>
+
+	Low: tests: Verify reading valid blackbox file works
+
+	Fix: refcount leak
+
+	Fix: ringbuffer: Add file header version field and detect reading corrupted blackbox files using hash value
+	In the future, if something changes in the file header we can
+	increment the version and split up the parsing into separate functions
+	for backwards compatibility.
+
+2013-06-26  David Vossel  <dvossel@redhat.com>
+
+	Fix: tests: On some platforms -ECONNRESET is returned rather than -ENOTCONN after server failure
+
+	Fix: tests: Make blackbox_segfault.sh not depend on bash
+
+2013-06-19  Angus Salkeld  <asalkeld@redhat.com>
+
+	Hopefully this is the last travis link fix
+	pesky camel_humps
+
+	Fix travis icon (travis is case sensitive)
+	touchy chap.
+
+	Fix the github links
+
+2013-06-05  Angus Salkeld  <asalkeld@redhat.com>
+
+	Merge pull request #70 from yuusuke/fix_logging
+	fix a problem when the character string beyond the number of the maximum...
+
+2013-06-05  yuusuke  <yusk.iida@gmail.com>
+
+	fix a problem when the character string beyond the number of the maximum characters is passed
+
+2013-05-26  Angus Salkeld  <asalkeld@redhat.com>
+
+	Merge pull request #68 from r1mikey/upstream
+	Add an IPC server service context
+
+2013-05-25  Michael van der Westhuizen  <r1mikey@gmail.com>
+
+	Add a IPC service context pointer and accessors from both the connection and service level.
+
+2013-05-13  Angus Salkeld  <asalkeld@redhat.com>
+
+	Enable distcheck on the travis tests
+
+2013-05-12  Angus Salkeld  <asalkeld@redhat.com>
+
+	Add atomic_int.h to noinst_HEADERS
+
+	Use the new atomic ops in the ringbuffer
+
+	Add internal support for the new __atomic gcc builtins
+
+	Rename the configure macros from atomic to sync
+	This is so I can add support for the new atomic's which
+	are named __atomic.
+
+2013-04-23  Jeremy Fitzhardinge  <jeremy@goop.org>
+
+	ringbuffer: use atomic ops on ringbuffer chunk magic
+	The ringbuffer protocol uses the chunk magic number to indicate to the
+	other side what state a chunk is in.  It's therefore important to use
+	strongly ordered memory writes to make sure that neither the compiler
+	nor the CPU change the apparent order of the writes, since that would
+	result in corrupted messages.
+
+2013-04-23  Angus Salkeld  <asalkeld@redhat.com>
+
+	Remove some test code mistakenly committed to the example program.
+
+2013-04-21  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: make each connection ref the owning service
+	This is because the connection functions use the c->service pointer
+	and this needs to be mirrored in the reference counting.
+
+	The service can only be free'd when all connections are destroyed
+	and the user as unreferenced all previously referenced connections
+	and the service.
+
+	Fixes #62
+	Thanks to Jan Friesse for the reproducer
+
+2013-04-10  Andrew Beekhof  <andrew@beekhof.net>
+
+	Indicate when/why qb_rb_force_close() fails to remove share memory files
+
+2013-04-10  Andrei Belov  <defanator@gmail.com>
+
+	Typo fixed in configure
+	Hello.
+
+2013-04-10  Angus Salkeld  <asalkeld@redhat.com>
+
+	Fix "make srpm"
+
+	Remove doxygen from travis deps to try and get the job working.
+
+	Fix make distcheck
+
+2013-04-07  Angus Salkeld  <asalkeld@redhat.com>
+
+	Merge pull request #60 from t-matsuo/fix-makefile-of-tests
+	add file_change_bytes into check_PROGRAMS and fix a typo
+
+2013-04-07  Takatoshi MATSUO  <matsuo.tak@gmail.com>
+
+	add file_change_bytes into check_PROGRAMS and fix a typo
+
+2013-04-01  Angus Salkeld  <asalkeld@redhat.com>
+
+	Deal better with corrupt blackbox files.
+	fixes #59
+	Thanks to Jan Friesse for the reproducer.
+	https://github.com/jfriesse/csts/blob/master/tests/fplay-segfault.sh
+
+2013-03-25  Angus Salkeld  <asalkeld@redhat.com>
+
+	Merge pull request #58 from inouekazu/fix_connection_state_checking
+	IPC: fix the connection state checking
+	
+	Make sure the case when qb_ipc_us_ready() returns 0 is handled.
+
+2013-03-22  Kazunori INOUE  <inouekazu@intellilink.co.jp>
+
+	IPC: fix the connection state checking
+
+2013-03-20  Angus Salkeld  <asalkeld@redhat.com>
+
+	LOG: copy the function/filename for dynamic callsites
+	callsites originate from the assumption that the function/filename/format
+	are all statically allocated. When moving to dynamic callsite we kept
+	this assumption. But people are now passing in function/file names that
+	later get free'd. So we need to make sure that they stay persistant by
+	allocating them ourselves.
+
+2013-03-12  Angus Salkeld  <asalkeld@redhat.com>
+
+	Deal with /dev/shm issue on Travis builders
+	https://github.com/travis-ci/travis-cookbooks/issues/155
+
+	Properly discover SO_NOSIGPIPE and MSG_SIGNAL
+	bug #57
+
+	IPC: fix call to QB_SUN_LEN
+
+2013-03-06  Angus Salkeld  <asalkeld@redhat.com>
+
+	list: don't splice empty lists onto the head.
+	fixes bug #56
+
+2013-02-18  Angus Salkeld  <asalkeld@redhat.com>
+
+	rpl_sem: make destroy more compliant
+	don't block completely on the sem_wait(), but chop the waits
+	into 1 sec blocks so the destroy can have an opertunity to complete.
+
+	fixes bug #55
+
+	test: fix unused-but-set-variable warning
+
+	test: fix missing-format-attribute warning
+
+	RB: make the "sem" abstraction into a notifier
+
+	IPC: clean up the connection state checking
+
+	Use dgram sockets for message oriented communications
+	This is to prevent partial sends and gettting stuck in
+	retry loops.
+
+	IPC: don't interpret EMSGSIZE and ENOMSG as a disconnect
+
+	POLL: prevent a spin if the fd is not removed from the mainloop
+
+	add TAGS and ~ files to .gitignore
+
+2013-02-12  Angus Salkeld  <asalkeld@redhat.com>
+
+	docs: install qb-blackbox.8 if doxygen is not available.
+	fixes bug #54
+
+2013-02-05  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: seperate ipc_us.c into 2 files
+	Seperate into a setup file and a socket backend file, it was getting messy
+	and confusing. Also preparing for using DGRAM sockets.
+
+	This should not result in any logical changes.
+
+	IPC: move utility functions to unix.c
+
+2013-01-24  Angus Salkeld  <asalkeld@redhat.com>
+
+	IPC: make sure we return a consistent error when the message is too big.
