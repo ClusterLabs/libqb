@@ -1,0 +1,7 @@
+<map id="qbipcs.h" name="qbipcs.h">
+<area shape="rect" id="node7" href="$qbipc__common_8h.html" title="qb/qbipc_common.h" alt="" coords="297,80,449,107"/>
+<area shape="rect" id="node11" href="$qbhdb_8h.html" title="The handle database is for reference counting objects." alt="" coords="178,80,272,107"/>
+<area shape="rect" id="node24" href="$qbloop_8h.html" title="Main loop manages timers, jobs and polling sockets." alt="" coords="474,80,571,107"/>
+<area shape="rect" id="node17" href="$qbarray_8h.html" title="This is a dynamic array (it can grow, but without moving memory)." alt="" coords="97,155,199,181"/>
+<area shape="rect" id="node22" href="$qbdefs_8h.html" title="qb/qbdefs.h" alt="" coords="95,229,192,256"/>
+</map>
