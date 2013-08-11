@@ -26,6 +26,12 @@
 
 #include <signal.h>
 
+#if defined(__DARWIN_NSIG)
+#define QB_MAX_NUM_SIGNALS __DARWIN_NSIG
+#else
+#define QB_MAX_NUM_SIGNALS 30
+#endif
+
 #include "loop_poll_int.h"
 
 /*
@@ -620,7 +626,7 @@ _adjust_sigactions_(struct qb_signal_source *s)
 	sigemptyset(&sa.sa_mask);
 
 	/* re-set to default */
-	for (i = 0; i < 30; i++) {
+	for (i = 0; i < QB_MAX_NUM_SIGNALS; i++) {
 		needed = QB_FALSE;
 		qb_list_for_each_entry(item, &s->sig_head, list) {
 			sig = (struct qb_loop_sig *)item;
