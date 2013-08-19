@@ -63,6 +63,12 @@ qb_loop_level_item_add(struct qb_loop_level *level, struct qb_loop_item *job)
 void
 qb_loop_level_item_del(struct qb_loop_level *level, struct qb_loop_item *job)
 {
+	/*
+	 * We may be deleted during dispatch... don't double-decrement todo.
+	 */
+	if (qb_list_empty(&job->list)) {
+		return;
+	}
 	qb_list_del(&job->list);
 	qb_list_init(&job->list);
 	level->todo--;
