@@ -29,7 +29,11 @@
 #if defined(__DARWIN_NSIG)
 #define QB_MAX_NUM_SIGNALS __DARWIN_NSIG
 #else
-#define QB_MAX_NUM_SIGNALS 30
+  #if defined(NSIG)
+  #define QB_MAX_NUM_SIGNALS NSIG - 1
+  #else
+  #define QB_MAX_NUM_SIGNALS 31
+  #endif
 #endif
 
 #include "loop_poll_int.h"
