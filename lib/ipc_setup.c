@@ -266,7 +266,7 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 #else
-	snprintf(address.sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR,
+	snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
 		 socket_name);
 #endif
 	if (connect(request_fd, (struct sockaddr *)&address,
@@ -385,7 +385,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 				    SOCKETDIR);
 			goto error_close;
 		}
-		snprintf(un_addr.sun_path, UNIX_PATH_MAX, "%s/%s", SOCKETDIR,
+		snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s/%s", SOCKETDIR,
 			 s->name);
 		unlink(un_addr.sun_path);
 	}
