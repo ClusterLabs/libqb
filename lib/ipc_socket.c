@@ -281,8 +281,9 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 {
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	unlink(c->request.u.us.shared_file_name);
-	close(c->request.u.us.sock);
-	close(c->event.u.us.sock);
+	qb_ipcc_us_sock_close(c->event.u.us.sock);
+	qb_ipcc_us_sock_close(c->request.u.us.sock);
+	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 }
 
 static ssize_t

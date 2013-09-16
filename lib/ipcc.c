@@ -383,7 +383,6 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 
 	ow = _event_sock_one_way_get(c);
 	(void)_check_connection_state_with(c, -EAGAIN, ow, 0, POLLIN);
-	qb_ipcc_us_sock_close(ow->u.us.sock);
 
 	if (c->funcs.disconnect) {
 		c->funcs.disconnect(c);
