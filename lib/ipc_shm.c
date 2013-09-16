@@ -39,6 +39,7 @@
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
+	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	if (c->is_connected) {
 		qb_rb_close(c->request.u.shm.rb);
 		qb_rb_close(c->response.u.shm.rb);
