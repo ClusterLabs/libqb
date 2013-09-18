@@ -26,7 +26,7 @@ specially focused APIs that are highly tuned for maximum performance for client/
 
 ## Source Control (GIT)
 
-    git clone git://github.com/clusterlabs/libqb.git
+    git clone git://github.com/ClusterLabs/libqb.git
 
 [See Github](https://github.com/clusterlabs/libqb)
 
