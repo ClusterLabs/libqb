@@ -112,7 +112,7 @@ do {							\
 } while (0)
 
 static void print_header(struct qb_ringbuffer_s * rb);
-static void _rb_chunk_reclaim(struct qb_ringbuffer_s * rb);
+static int _rb_chunk_reclaim(struct qb_ringbuffer_s * rb);
 
 qb_ringbuffer_t *
 qb_rb_open(const char *name, size_t size, uint32_t flags,
@@ -449,7 +449,9 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
 		while (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
-			_rb_chunk_reclaim(rb);
+			int rc = _rb_chunk_reclaim(rb);
+			/* reclaim failure during overwrite results in an abort. */
+			assert(rc == 0);
 		}
 	} else {
 		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
@@ -555,18 +557,19 @@ qb_rb_chunk_write(struct qb_ringbuffer_s * rb, const void *data, size_t len)
 	return len;
 }
 
-static void
+static int
 _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 {
 	uint32_t old_read_pt;
 	uint32_t new_read_pt;
 	uint32_t old_chunk_size;
 	uint32_t chunk_magic;
+	int rc = 0;
 
 	old_read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, old_read_pt);
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		return;
+		return -EINVAL;
 	}
 
 	old_chunk_size = QB_RB_CHUNK_SIZE_GET(rb, old_read_pt);
@@ -587,7 +590,7 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 	rb->shared_hdr->read_pt = new_read_pt;
 
 	if (rb->notifier.reclaim_fn) {
-		int rc = rb->notifier.reclaim_fn(rb->notifier.instance,
+		rc = rb->notifier.reclaim_fn(rb->notifier.instance,
 						 old_chunk_size);
 		if (rc < 0) {
 			errno = -rc;
@@ -601,6 +604,8 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 		     old_read_pt,
 		     rb->shared_hdr->read_pt,
 		     rb->shared_hdr->write_pt);
+
+	return rc;
 }
 
 void
