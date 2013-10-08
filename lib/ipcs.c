@@ -941,3 +941,16 @@ qb_ipcs_connection_auth_set(qb_ipcs_connection_t *c, uid_t uid,
 		c->auth.mode = mode;
 	}
 }
+
+int32_t
+qb_ipcs_connection_get_buffer_size(qb_ipcs_connection_t *c)
+{
+	if (c == NULL) {
+		return -EINVAL;
+	}
+
+	/* request, response, and event shoud all have the same
+	 * buffer size allocated. It doesn't matter which we return
+	 * here. */
+	return c->response.max_msg_size;
+}
