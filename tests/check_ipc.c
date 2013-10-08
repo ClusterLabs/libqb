@@ -312,6 +312,8 @@ s1_connection_destroyed(qb_ipcs_connection_t *c)
 static void
 s1_connection_created(qb_ipcs_connection_t *c)
 {
+	int32_t max = MAX_MSG_SIZE;
+
 	if (send_event_on_created) {
 		struct qb_ipc_response_header response;
 		int32_t res;
@@ -333,6 +335,10 @@ s1_connection_created(qb_ipcs_connection_t *c)
 		memcpy(context, "test", 4);
 		qb_ipcs_context_set(c, context);
 	}
+
+
+	ck_assert_int_eq(max, qb_ipcs_connection_get_buffer_size(c));
+
 }
 
 static void

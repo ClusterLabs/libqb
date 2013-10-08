@@ -73,6 +73,14 @@ _blackbox_vlogger(int32_t target,
 
 	chunk = qb_rb_chunk_alloc(t->instance, max_size);
 
+	if (chunk == NULL) {
+		/* something bad has happened. abort blackbox logging */
+		qb_util_perror(LOG_ERR, "Blackbox allocation error, aborting blackbox log %s", t->filename);
+		qb_rb_close(t->instance);
+		t->instance = NULL;
+		return;
+	}
+
 	/* line number */
 	memcpy(chunk, &cs->lineno, sizeof(uint32_t));
 	chunk += sizeof(uint32_t);
