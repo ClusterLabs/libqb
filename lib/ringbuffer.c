@@ -450,8 +450,10 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
 		while (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
 			int rc = _rb_chunk_reclaim(rb);
-			/* reclaim failure during overwrite results in an abort. */
-			assert(rc == 0);
+			if (rc != 0) {
+				errno = rc;
+				return NULL;
+			}
 		}
 	} else {
 		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
