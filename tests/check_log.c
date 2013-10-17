@@ -191,6 +191,7 @@ _test_logger(int32_t t,
 	test_buf[0] = '\0';
 	qb_log_target_format(t, cs, timestamp, msg, test_buf);
 	test_priority = cs->priority;
+
 	num_msgs++;
 }
 
@@ -282,6 +283,7 @@ START_TEST(test_log_basic)
 	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
 	ck_assert_int_eq(rc, 0);
 
+	/* captures last log */
 	memset(test_buf, 0, sizeof(test_buf));
 	test_priority = 0;
 	num_msgs = 0;
@@ -304,7 +306,7 @@ START_TEST(test_log_basic)
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
+			  QB_LOG_FILTER_FUNCTION, "otherlogging,log_it_please,morelogging", LOG_WARNING);
 
 	num_msgs = 0;
 	qb_log(LOG_ERR, "try if you: log_it_please()");
@@ -336,7 +338,7 @@ START_TEST(test_log_basic)
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FILE, __FILE__, LOG_DEBUG);
+			  QB_LOG_FILTER_FILE, "fakefile.c,"__FILE__",otherfakefile", LOG_DEBUG);
 	/*
 	 * make sure we can pass in a null filename or function name.
 	 */
