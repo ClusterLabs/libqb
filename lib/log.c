@@ -103,9 +103,9 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 			snprintf(token, 499, "%.*s", (int)(next - offset), offset);
 
 			if (type == QB_LOG_FILTER_FILE) {
-				match = (strstr(cs->filename, token) != NULL);
+				match = (strcmp(cs->filename, token) == 0) ? 1 : 0;
 			} else {
-				match = (strstr(cs->function, token) != NULL);
+				match = (strcmp(cs->function, token) == 0) ? 1 : 0;
 			}
 			if (!match && next[0] != 0) {
 				next++;
