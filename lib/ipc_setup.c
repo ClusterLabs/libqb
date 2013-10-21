@@ -349,6 +349,9 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 {
 	struct sockaddr_un un_addr;
 	int32_t res;
+#ifdef SO_PASSCRED
+	int on = 1;
+#endif
 
 	/*
 	 * Create socket for IPC clients, name socket, listen for connections
@@ -406,6 +409,9 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	 */
 #if !defined(QB_LINUX) && !defined(QB_CYGWIN)
 	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
+#endif
+#ifdef SO_PASSCRED
+	setsockopt(s->server_sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
 		qb_util_perror(LOG_ERR, "socket listen failed");
