@@ -133,6 +133,7 @@ struct qb_ipcs_funcs {
 struct qb_ipcs_service {
 	enum qb_ipc_type type;
 	char name[NAME_MAX];
+	uint32_t max_buffer_size;
 	int32_t service_id;
 	int32_t ref_count;
 	pid_t pid;
