@@ -300,13 +300,61 @@ START_TEST(test_log_basic)
 	ck_assert_int_eq(num_msgs, 1);
 	ck_assert_str_eq(test_buf, "Hello Angus, how are you?");
 
+
+	/* 
+	 * test filtering by file regex
+ 	 */
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FORMAT, "*", LOG_TRACE);
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE_REGEX, "^fakefile*", LOG_DEBUG);
+
+	num_msgs = 0;
+	qb_log_from_external_source(__func__, "fakefile_logging", "%s bla", LOG_INFO,
+				    56, 0, "filename/lineno");
+	qb_log_from_external_source(__func__, "do_not_log_fakefile_logging", "%s bla", LOG_INFO,
+				    56, 0, "filename/lineno");
+	ck_assert_int_eq(num_msgs, 1);
+
+	/* 
+	 * test filtering by format regex
+ 	 */
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FORMAT, "*", LOG_TRACE);
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FORMAT_REGEX, "^one", LOG_WARNING);
+
+	num_msgs = 0;
+	qb_log(LOG_INFO, "one two three");
+	qb_log(LOG_ERR, "testing one two three");
+	qb_log(LOG_WARNING, "one two three");
+	qb_log(LOG_ERR, "one two three");
+	qb_log(LOG_EMERG, "one two three");
+	ck_assert_int_eq(num_msgs, 3);
+
+	/*
+	 * test filtering by function and regex
+	 */
+	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FUNCTION_REGEX, "^log_.*please", LOG_WARNING);
+
+	num_msgs = 0;
+	qb_log(LOG_ERR, "try if you: log_it_please()");
+	log_it_please();
+	ck_assert_int_eq(num_msgs, 3);
+
+	qb_log_filter_ctl(t, QB_LOG_FILTER_REMOVE,
+			  QB_LOG_FILTER_FUNCTION_REGEX, "log_it_please", LOG_WARNING);
+
 	/*
 	 * test filtering by function
 	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
-			  QB_LOG_FILTER_FUNCTION, "otherlogging,log_it_please,morelogging", LOG_WARNING);
+			  QB_LOG_FILTER_FUNCTION, "log_it_please", LOG_WARNING);
 
 	num_msgs = 0;
 	qb_log(LOG_ERR, "try if you: log_it_please()");

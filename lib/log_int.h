@@ -24,6 +24,7 @@
 #include <qb/qblist.h>
 #include <qb/qblog.h>
 #include <qb/qbrb.h>
+#include <regex.h>
 
 struct qb_log_target;
 
@@ -56,6 +57,7 @@ struct qb_log_filter {
 	uint8_t low_priority;
 	uint32_t new_value;
 	struct qb_list_head list;
+	regex_t *regex;
 };
 
 struct qb_log_record {
