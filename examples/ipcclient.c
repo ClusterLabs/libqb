@@ -31,8 +31,7 @@ static int32_t use_events = QB_FALSE;
 static int alarm_notice;
 static qb_util_stopwatch_t *sw;
 #define ONE_MEG 1048576
-#define MAX_MSG_SIZE ONE_MEG
-static char data[ONE_MEG];
+static char *data;
 
 struct my_req {
 	struct qb_ipc_request_header hdr;
@@ -220,11 +219,15 @@ main(int argc, char *argv[])
 	qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
-	conn = qb_ipcc_connect("ipcserver", MAX_MSG_SIZE);
+	/* Our example server is enforcing a buffer size minimum,
+	 * so the client does not need to be concerned with setting
+	 * the buffer size */
+	conn = qb_ipcc_connect("ipcserver", 0);
 	if (conn == NULL) {
 		perror("qb_ipcc_connect");
 		exit(1);
 	}
+	data = calloc(1, qb_ipcc_get_buffer_size(conn));
 
 	if (do_benchmark) {
 		do_throughput_benchmark(conn);
@@ -233,5 +236,6 @@ main(int argc, char *argv[])
 	}
 
 	qb_ipcc_disconnect(conn);
+	free(data);
 	return EXIT_SUCCESS;
 }
