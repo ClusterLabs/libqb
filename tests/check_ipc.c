@@ -864,6 +864,7 @@ test_ipc_stress_test(void)
 	 * we set the client limit lower than what the server
 	 * is enforcing. */
 	int32_t client_buf_size = MAX_MSG_SIZE - 1024;
+	int32_t real_buf_size;
 
 	enforce_server_buffer = 1;
 	pid = run_function_in_new_process(run_ipc_server);
@@ -881,6 +882,9 @@ test_ipc_stress_test(void)
 		}
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
+
+	real_buf_size = qb_ipcc_get_buffer_size(conn);
+	ck_assert_int_eq(real_buf_size, MAX_MSG_SIZE);
 
 	qb_log(LOG_DEBUG, "Testing %d iterations of EVENT msg passing.", num_stress_events);
 
