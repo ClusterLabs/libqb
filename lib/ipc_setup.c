@@ -461,9 +461,9 @@ handle_new_connection(struct qb_ipcs_service *s,
 		return -ENOMEM;
 	}
 	c->setup.u.us.sock = sock;
-	c->request.max_msg_size = req->max_msg_size;
-	c->response.max_msg_size = req->max_msg_size;
-	c->event.max_msg_size = req->max_msg_size;
+	c->request.max_msg_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
+	c->response.max_msg_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
+	c->event.max_msg_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
 	c->pid = ugp->pid;
 	c->auth.uid = c->euid = ugp->uid;
 	c->auth.gid = c->egid = ugp->gid;

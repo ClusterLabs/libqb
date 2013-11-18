@@ -422,3 +422,13 @@ qb_ipcc_is_connected(qb_ipcc_connection_t *c)
 
 	return c->is_connected;
 }
+
+int32_t
+qb_ipcc_get_buffer_size(qb_ipcc_connection_t * c)
+{
+	if (c == NULL) {
+		return -EINVAL;
+	}
+
+	return c->event.max_msg_size;
+}

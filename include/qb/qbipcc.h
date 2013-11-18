@@ -231,6 +231,23 @@ void *qb_ipcc_context_get(qb_ipcc_connection_t *c);
  */
 int32_t qb_ipcc_is_connected(qb_ipcc_connection_t *c);
 
+/**
+ * What is the actual buffer size used after the connection.
+ *
+ * @note The buffer size is guaranteed to be at least the size
+ * of the value given in qb_ipcc_connect, but it is possible
+ * the server will enforce a larger size depending on the
+ * implementation.  If the server side is known to enforce
+ * a buffer size, use this function after the client connection
+ * is established to retrieve the buffer size in use.  It is
+ * important for the client side to know the buffer size in use
+ * so the client can successfully retrieve large server events.
+ *
+ * @param c connection instance
+ * @retval connection size in bytes or -error code
+ */
+int32_t qb_ipcc_get_buffer_size(qb_ipcc_connection_t * c);
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
 }

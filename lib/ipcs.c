@@ -954,3 +954,11 @@ qb_ipcs_connection_get_buffer_size(qb_ipcs_connection_t *c)
 	 * here. */
 	return c->response.max_msg_size;
 }
+
+void qb_ipcs_enforce_buffer_size(qb_ipcs_service_t *s, uint32_t buf_size)
+{
+	if (s == NULL) {
+		return;
+	}
+	s->max_buffer_size = buf_size;
+}

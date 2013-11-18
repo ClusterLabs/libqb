@@ -48,6 +48,7 @@ static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
  * this the largests msg we can successfully send. */
 #define GIANT_MSG_DATA_SIZE MAX_MSG_SIZE - sizeof(struct qb_ipc_response_header) - 8
 
+static int enforce_server_buffer=0;
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
 
@@ -372,6 +373,9 @@ run_ipc_server(void)
 	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
 	fail_if(s1 == 0);
 
+	if (enforce_server_buffer) {
+		qb_ipcs_enforce_buffer_size(s1, MAX_MSG_SIZE);
+	}
 	qb_ipcs_poll_handlers_set(s1, &ph);
 
 	res = qb_ipcs_run(s1);
@@ -430,7 +434,6 @@ send_and_check(int32_t req_id, uint32_t size,
 	 */
 	res = qb_ipcc_send(conn, &request, MAX_MSG_SIZE*2);
 	ck_assert_int_eq(res, -EMSGSIZE);
-
 
 repeat_send:
 	res = qb_ipcc_send(conn, &request, request.hdr.size);
@@ -840,7 +843,12 @@ test_ipc_bulk_events(void)
 static void
 test_ipc_stress_test(void)
 {
-	struct qb_ipc_request_header req_header;
+	struct {
+		struct qb_ipc_request_header hdr __attribute__ ((aligned(8)));
+		char data[GIANT_MSG_DATA_SIZE] __attribute__ ((aligned(8)));
+		uint32_t sent_msgs __attribute__ ((aligned(8)));
+	} __attribute__ ((aligned(8))) giant_req;
+
 	struct qb_ipc_response_header res_header;
 	struct iovec iov[1];
 	int32_t c = 0;
@@ -849,13 +857,23 @@ test_ipc_stress_test(void)
 	int32_t res;
 	qb_loop_t *cl;
 	int32_t fd;
+	/* This looks strange, but it serves an important purpose.
+	 * This test forces the server to enforce the MAX_MSG_SIZE
+	 * limit from the server side, which overrides the client's
+	 * buffer limit.  To verify this functionality is working
+	 * we set the client limit lower than what the server
+	 * is enforcing. */
+	int32_t client_buf_size = MAX_MSG_SIZE - 1024;
+	int32_t real_buf_size;
 
+	enforce_server_buffer = 1;
 	pid = run_function_in_new_process(run_ipc_server);
+	enforce_server_buffer = 0;
 	fail_if(pid == -1);
 	sleep(1);
 
 	do {
-		conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+		conn = qb_ipcc_connect(ipc_name, client_buf_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
@@ -864,6 +882,9 @@ test_ipc_stress_test(void)
 		}
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
+
+	real_buf_size = qb_ipcc_get_buffer_size(conn);
+	ck_assert_int_eq(real_buf_size, MAX_MSG_SIZE);
 
 	qb_log(LOG_DEBUG, "Testing %d iterations of EVENT msg passing.", num_stress_events);
 
@@ -881,11 +902,15 @@ test_ipc_stress_test(void)
 	qb_loop_run(cl);
 	ck_assert_int_eq(events_received, num_stress_events);
 
-	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
-	req_header.size = sizeof(struct qb_ipc_request_header);
+	giant_req.hdr.id = IPC_MSG_REQ_SERVER_FAIL;
+	giant_req.hdr.size = sizeof(giant_req);
 
-	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
+	if (giant_req.hdr.size <= client_buf_size) {
+		ck_assert_int_eq(1, 0);
+	}
+
+	iov[0].iov_len = giant_req.hdr.size;
+	iov[0].iov_base = &giant_req;
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
 				 sizeof(struct qb_ipc_response_header), -1);
