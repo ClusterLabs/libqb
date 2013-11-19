@@ -33,6 +33,8 @@ static GMainLoop *glib_loop;
 static qb_array_t *gio_map;
 #endif /* HAVE_GLIB */
 
+#define ONE_MEG 1048576
+
 static int32_t use_glib = QB_FALSE;
 static int32_t use_events = QB_FALSE;
 static qb_loop_t *bms_loop;
@@ -353,6 +355,9 @@ main(int32_t argc, char *argv[])
 		qb_perror(LOG_ERR, "qb_ipcs_create");
 		exit(1);
 	}
+	/* This forces the clients to use a minimum buffer size */
+	qb_ipcs_enforce_buffer_size(s1, ONE_MEG);
+
 	if (!use_glib) {
 		bms_loop = qb_loop_create();
 		qb_ipcs_poll_handlers_set(s1, &ph);
