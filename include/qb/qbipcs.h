@@ -112,12 +112,16 @@ struct qb_ipcs_poll_handlers {
 };
 
 /**
- * This callback is to check wether you want to accept a new connection.
+ * This callback is to check whether you want to accept a new connection.
  *
  * The type of checks you should do are authentication, service availabilty
- * or process resource constraints.
+ * or process resource constraints. 
  * @return 0 to accept or -errno to indicate a failure (sent back to the client)
  *
+ * @note If connection state data is allocated as a result of this callback
+ * being invoked, that data must be freed in the destroy callback. Just because
+ * the accept callback returns 0, that does not guarantee the
+ * create and closed callback functions will follow.
  * @note you can call qb_ipcs_connection_auth_set() within this function.
  */
 typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c,
@@ -125,12 +129,17 @@ typedef int32_t (*qb_ipcs_connection_accept_fn) (qb_ipcs_connection_t *c,
 
 /**
  * This is called after a new connection has been created.
+ *
+ * @note A client connection is not considered connected until
+ * this callback is invoked.
  */
 typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_t *c);
 
 /**
  * This is called after a connection has been disconnected.
  *
+ * @note This callback will only be invoked if the connection is
+ * successfully created.
  * @note if you return anything but 0 this function will be
  * repeativily called (until 0 is returned).
  */
