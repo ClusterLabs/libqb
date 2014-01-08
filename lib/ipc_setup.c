@@ -531,6 +531,7 @@ send_response:
 				       "Error in connection setup (%s)",
 				       c->description);
 		}
+		c->state = QB_IPCS_CONNECTION_ESTABLISHED;
 		qb_ipcs_disconnect(c);
 	}
 	return res;
