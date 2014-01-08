@@ -99,7 +99,7 @@ void qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl);
  */
 void qb_socket_nosigpipe(int32_t s);
 
-#define SERVER_BACKLOG 5
+#define SERVER_BACKLOG 128
 
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX    108
