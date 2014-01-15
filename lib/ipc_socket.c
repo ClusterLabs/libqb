@@ -579,7 +579,6 @@ _sock_add_to_mainloop(struct qb_ipcs_connection *c)
 			    c->description);
 		return res;
 	}
-	qb_ipcs_connection_ref(c);
 
 	res = c->service->poll_fns.dispatch_add(c->service->poll_priority,
 						c->setup.u.us.sock,
@@ -592,7 +591,6 @@ _sock_add_to_mainloop(struct qb_ipcs_connection *c)
 		(void)c->service->poll_fns.dispatch_del(c->request.u.us.sock);
 		return res;
 	}
-	qb_ipcs_connection_ref(c);
 	return res;
 }
 
@@ -600,10 +598,7 @@ static void
 _sock_rm_from_mainloop(struct qb_ipcs_connection *c)
 {
 	(void)c->service->poll_fns.dispatch_del(c->request.u.us.sock);
-	qb_ipcs_connection_unref(c);
-
 	(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
-	qb_ipcs_connection_unref(c);
 }
 
 static void
