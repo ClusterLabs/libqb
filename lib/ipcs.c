@@ -608,6 +608,10 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 		c->service->funcs.disconnect(c);
 		c->state = QB_IPCS_CONNECTION_INACTIVE;
 		c->service->stats.closed_connections++;
+
+		/* This removes the initial alloc ref */
+		qb_ipcs_connection_unref(c);
+
 		/* return early as it's an incomplete connection.
 		 */
 		return;
