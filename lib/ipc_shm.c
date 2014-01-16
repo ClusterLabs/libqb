@@ -231,7 +231,6 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 			qb_ipcc_us_sock_close(c->setup.u.us.sock);
 			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
 			c->setup.u.us.sock = -1;
-			qb_ipcs_connection_unref(c);
 		}
 	}
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
@@ -323,9 +322,7 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 				       c->setup.u.us.sock,
 				       POLLIN | POLLPRI | POLLNVAL,
 				       c, qb_ipcs_dispatch_connection_request);
-	if (res == 0) {
-		qb_ipcs_connection_ref(c);
-	} else {
+	if (res != 0) {
 		qb_util_log(LOG_ERR,
 			    "Error adding socket to mainloop (%s).",
 			    c->description);
