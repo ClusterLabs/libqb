@@ -51,8 +51,8 @@ int main(int argc, char *argv[])
 {
 	FILE *fi, *fo;
 	int i;
-	char *input_file_name;
-	char *output_file_name;
+	const char *input_file_name;
+	const char *output_file_name;
 	int no_bytes;
 	char *ep;
 	int ch;
