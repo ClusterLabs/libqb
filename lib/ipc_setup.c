@@ -431,7 +431,7 @@ int32_t
 qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 {
 	qb_util_log(LOG_INFO, "withdrawing server sockets");
-	s->poll_fns.dispatch_del(s->server_sock);
+	(void)s->poll_fns.dispatch_del(s->server_sock);
 	shutdown(s->server_sock, SHUT_RDWR);
 	close(s->server_sock);
 	return 0;
