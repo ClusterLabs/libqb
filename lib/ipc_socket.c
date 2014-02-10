@@ -186,16 +186,21 @@ qb_ipcc_verify_dgram_max_msg_size(size_t max_msg_size)
 {
 	int32_t i;
 	int32_t last = -1;
+	int32_t inc = 1024;
 
 	if (dgram_verify_msg_size(max_msg_size) == 0) {
 		return max_msg_size;
 	}
 
-	for (i = 1024; i < max_msg_size; i+=1024) {
-		if (dgram_verify_msg_size(i) != 0) {
+	for (i = inc; i < max_msg_size; i+=inc) {
+		if (dgram_verify_msg_size(i) == 0) {
+			last = i;
+		} else if (inc > 2) {
+			i-=inc;
+			inc = inc/2;
+		} else {
 			break;
 		}
-		last = i;
 	}
 
 	return last;
