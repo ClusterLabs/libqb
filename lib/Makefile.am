@@ -29,7 +29,7 @@ AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-libqb_la_LDFLAGS	= -version-number 0:16:0
+libqb_la_LDFLAGS	= -version-number 0:17:0
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
