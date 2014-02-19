@@ -186,7 +186,7 @@ qb_ipcc_verify_dgram_max_msg_size(size_t max_msg_size)
 {
 	int32_t i;
 	int32_t last = -1;
-	int32_t inc = 1024;
+	int32_t inc = 2048;
 
 	if (dgram_verify_msg_size(max_msg_size) == 0) {
 		return max_msg_size;
@@ -195,7 +195,7 @@ qb_ipcc_verify_dgram_max_msg_size(size_t max_msg_size)
 	for (i = inc; i < max_msg_size; i+=inc) {
 		if (dgram_verify_msg_size(i) == 0) {
 			last = i;
-		} else if (inc > 2) {
+		} else if (inc >= 512) {
 			i-=inc;
 			inc = inc/2;
 		} else {
