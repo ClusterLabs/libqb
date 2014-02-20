@@ -526,6 +526,9 @@ send_response:
 		if (res == -EACCES) {
 			qb_util_log(LOG_ERR, "Invalid IPC credentials (%s).",
 				    c->description);
+		} else if (res == -EAGAIN) {
+			qb_util_log(LOG_WARNING, "Denied connection, is not ready (%s)",
+				    c->description);
 		} else {
 			errno = -res;
 			qb_util_perror(LOG_ERR,
