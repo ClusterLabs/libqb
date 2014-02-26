@@ -157,6 +157,11 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		ck_assert_int_eq(res, sizeof(response));
 		response.id++;
 
+		/* There should be one more item in the event queue now. */
+		stats = qb_ipcs_connection_stats_get_2(c, QB_FALSE);
+		ck_assert_int_eq(stats->event_q_length - num, 1);
+		free(stats);
+
 		/* send response */
 		response.id = IPC_MSG_RES_BULK_EVENTS;
 		res = qb_ipcs_response_send(c, &response, response.size);
@@ -175,9 +180,6 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			ck_assert_int_eq(res, sizeof(response));
 			response.id++;
 		}
-		stats = qb_ipcs_connection_stats_get_2(c, QB_FALSE);
-		ck_assert_int_eq(stats->event_q_length - num, num_bulk_events);
-		free(stats);
 
 	} else if (req_pt->id == IPC_MSG_REQ_STRESS_EVENT) {
 		struct {
