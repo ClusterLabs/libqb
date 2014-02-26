@@ -403,13 +403,70 @@ run_function_in_new_process(void (*run_ipc_server_fn)(void))
 	return pid;
 }
 
-static int32_t
-stop_process(pid_t pid)
+static void
+request_server_exit(void)
 {
-	/* wait a bit for the server to shutdown by it's self */
-	usleep(100000);
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
+	int32_t res;
+
+	/*
+	 * tell the server to exit
+	 */
+	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+
+	ck_assert_int_eq(QB_TRUE, qb_ipcc_is_connected(conn));
+
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), -1);
+	/*
+	 * confirm we get -ENOTCONN or ECONNRESET
+	 */
+	if (res != -ECONNRESET && res != -ENOTCONN) {
+		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
+		ck_assert_int_eq(res, -ENOTCONN);
+	}
+}
+
+static void
+kill_server(pid_t pid)
+{
 	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);
+}
+
+static int32_t
+verify_graceful_stop(pid_t pid)
+{
+	int wait_rc = 0;
+	int status = 0;
+	int rc = 0;
+	int tries;
+
+	/* We need the server to be able to exit by itself */
+	for (tries = 10;  tries >= 0; tries--) {
+		sleep(1);
+		wait_rc = waitpid(pid, &status, WNOHANG);
+		if (wait_rc > 0) {
+			break;
+		}
+	}
+
+	ck_assert_int_eq(wait_rc, pid);
+	rc = WIFEXITED(status);
+	if (rc) {
+		rc = WEXITSTATUS(status);
+		ck_assert_int_eq(rc, 0);
+	} else {
+		fail_if(rc == 0);
+	}
+	
 	return 0;
 }
 
@@ -514,10 +571,17 @@ test_ipc_txrx(void)
 		}
 	}
 	if (turn_on_fc) {
+		/* can't signal server to shutdown if flow control is on */
 		ck_assert_int_eq(fc_enabled, QB_TRUE);
+		qb_ipcc_disconnect(conn);
+		/* TODO - figure out why this sleep is necessary */
+		sleep(1);
+		kill_server(pid);
+	} else {
+		request_server_exit();
+		qb_ipcc_disconnect(conn);
+		verify_graceful_stop(pid);
 	}
-	qb_ipcc_disconnect(conn);
-	stop_process(pid);
 }
 
 static void
@@ -558,8 +622,8 @@ test_ipc_exit(void)
 				 sizeof(struct qb_ipc_response_header), -1);
 	ck_assert_int_eq(res, sizeof(struct qb_ipc_response_header));
 
-	/* kill the server */
-	stop_process(pid);
+	request_server_exit();
+	verify_graceful_stop(pid);
 
 	/*
 	 * wait a bit for the server to die.
@@ -706,8 +770,9 @@ test_ipc_dispatch(void)
 		}
 	}
 
+	request_server_exit();
 	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	verify_graceful_stop(pid);
 }
 
 START_TEST(test_ipc_disp_us)
@@ -786,9 +851,6 @@ count_bulk_events(int32_t fd, int32_t revents, void *data)
 static void
 test_ipc_bulk_events(void)
 {
-	struct qb_ipc_request_header req_header;
-	struct qb_ipc_response_header res_header;
-	struct iovec iov[1];
 	int32_t c = 0;
 	int32_t j = 0;
 	pid_t pid;
@@ -829,21 +891,9 @@ test_ipc_bulk_events(void)
 	qb_loop_run(cl);
 	ck_assert_int_eq(events_received, num_bulk_events);
 
-	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
-	req_header.size = sizeof(struct qb_ipc_request_header);
-
-	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
-	res = qb_ipcc_sendv_recv(conn, iov, 1,
-				 &res_header,
-				 sizeof(struct qb_ipc_response_header), -1);
-	if (res != -ECONNRESET && res != -ENOTCONN) {
-		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
-		ck_assert_int_eq(res, -ENOTCONN);
-	}
-
+	request_server_exit();
 	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	verify_graceful_stop(pid);
 }
 
 static void
@@ -927,7 +977,7 @@ test_ipc_stress_test(void)
 	}
 
 	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	verify_graceful_stop(pid);
 }
 
 START_TEST(test_ipc_stress_test_us)
@@ -992,8 +1042,9 @@ test_ipc_event_on_created(void)
 	qb_loop_run(cl);
 	ck_assert_int_eq(events_received, num_bulk_events);
 
+	request_server_exit();
 	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	verify_graceful_stop(pid);
 }
 
 START_TEST(test_ipc_event_on_created_us)
@@ -1055,7 +1106,7 @@ test_ipc_disconnect_after_created(void)
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
 
 	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	kill_server(pid);
 }
 
 START_TEST(test_ipc_disconnect_after_created_us)
@@ -1072,10 +1123,6 @@ END_TEST
 static void
 test_ipc_server_fail(void)
 {
-	struct qb_ipc_request_header req_header;
-	struct qb_ipc_response_header res_header;
-	struct iovec iov[1];
-	int32_t res;
 	int32_t j;
 	int32_t c = 0;
 	pid_t pid;
@@ -1096,31 +1143,10 @@ test_ipc_server_fail(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
-	/*
-	 * tell the server to exit
-	 */
-	req_header.id = IPC_MSG_REQ_SERVER_FAIL;
-	req_header.size = sizeof(struct qb_ipc_request_header);
-
-	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
-
-	ck_assert_int_eq(QB_TRUE, qb_ipcc_is_connected(conn));
-
-	res = qb_ipcc_sendv_recv(conn, iov, 1,
-				 &res_header,
-				 sizeof(struct qb_ipc_response_header), -1);
-	/*
-	 * confirm we get -ENOTCONN or ECONNRESET
-	 */
-	if (res != -ECONNRESET && res != -ENOTCONN) {
-		qb_log(LOG_ERR, "id:%d size:%d", res_header.id, res_header.size);
-		ck_assert_int_eq(res, -ENOTCONN);
-	}
+	request_server_exit();
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
-
 	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	verify_graceful_stop(pid);
 }
 
 START_TEST(test_ipc_server_fail_soc)
@@ -1212,8 +1238,7 @@ test_ipc_service_ref_count(void)
 
 	sleep(5);
 
-	qb_ipcc_disconnect(conn);
-	stop_process(pid);
+	kill_server(pid);
 }
 
 
@@ -1276,22 +1301,22 @@ make_shm_suite(void)
 
 	tc = tcase_create("ipc_server_fail_shm");
 	tcase_add_test(tc, test_ipc_server_fail_shm);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_txrx_shm_block");
 	tcase_add_test(tc, test_ipc_txrx_shm_block);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_txrx_shm_tmo");
 	tcase_add_test(tc, test_ipc_txrx_shm_tmo);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_fc_shm");
 	tcase_add_test(tc, test_ipc_fc_shm);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_dispatch_shm");
@@ -1311,11 +1336,12 @@ make_shm_suite(void)
 
 	tc = tcase_create("ipc_exit_shm");
 	tcase_add_test(tc, test_ipc_exit_shm);
-	tcase_set_timeout(tc, 3);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_event_on_created_shm");
 	tcase_add_test(tc, test_ipc_event_on_created_shm);
+	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_service_ref_count_shm");
@@ -1339,27 +1365,27 @@ make_soc_suite(void)
 
 	tc = tcase_create("ipc_server_fail_soc");
 	tcase_add_test(tc, test_ipc_server_fail_soc);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_txrx_us_block");
 	tcase_add_test(tc, test_ipc_txrx_us_block);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_txrx_us_tmo");
 	tcase_add_test(tc, test_ipc_txrx_us_tmo);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_fc_us");
 	tcase_add_test(tc, test_ipc_fc_us);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_exit_us");
 	tcase_add_test(tc, test_ipc_exit_us);
-	tcase_set_timeout(tc, 6);
+	tcase_set_timeout(tc, 8);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_dispatch_us");
@@ -1379,10 +1405,12 @@ make_soc_suite(void)
 
 	tc = tcase_create("ipc_event_on_created_us");
 	tcase_add_test(tc, test_ipc_event_on_created_us);
+	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_disconnect_after_created_us");
 	tcase_add_test(tc, test_ipc_disconnect_after_created_us);
+	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_service_ref_count_us");
