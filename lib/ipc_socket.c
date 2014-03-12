@@ -387,13 +387,20 @@ retry_peek:
 		      MSG_NOSIGNAL | MSG_PEEK);
 
 	if (result == -1) {
-		if (errno == EAGAIN && (time_waited < timeout || timeout == -1)) {
-			result = qb_ipc_us_ready(one_way, NULL,
-						 time_to_wait, POLLIN);
+		if (errno != EAGAIN) {
+			return -errno;
+		}
+
+		/* check to see if we have enough time left to try again */
+		if (time_waited < timeout || timeout == -1) {
+			result = qb_ipc_us_ready(one_way, NULL, time_to_wait, POLLIN);
+			if (qb_ipc_us_sock_error_is_disconnected(result)) {
+				return result;
+			}
 			time_waited += time_to_wait;
 			goto retry_peek;
-		} else {
-			return -errno;
+		} else if (time_waited >= timeout) {
+			return -ETIMEDOUT;
 		}
 	}
 	if (result >= sizeof(struct qb_ipc_request_header)) {

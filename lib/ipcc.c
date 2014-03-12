@@ -118,8 +118,13 @@ _check_connection_state_with(struct qb_ipcc_connection * c, int32_t res,
 				       res2,
 				       "(from socket) as a disconnect");
 			c->is_connected = QB_FALSE;
+			res = res2;
+		} else if (res != -ETIMEDOUT) {
+			/* if the result we're checking against is a TIMEOUT error.
+			 * don't override that result with another error that does
+			 * not imply a disconnect */
+			res = res2;
 		}
-		res = res2;
 	}
 	return res;
 }
@@ -260,15 +265,27 @@ qb_ipcc_recv(struct qb_ipcc_connection * c, void *msg_ptr,
 	     size_t msg_len, int32_t ms_timeout)
 {
 	int32_t res = 0;
+	int32_t connect_res = 0;
 
 	if (c == NULL) {
 		return -EINVAL;
 	}
 
 	res = c->funcs.recv(&c->response, msg_ptr, msg_len, ms_timeout);
-	return _check_connection_state_with(c, res,
+	if (res >= 0) {
+		return res;
+	}
+
+	/* if we didn't get a msg, check connection state */
+	connect_res = _check_connection_state_with(c, res,
 					    _response_sock_one_way_get(c),
 					    ms_timeout, POLLIN);
+
+	/* only report the connection state check result if an error is returned. */
+	if (connect_res < 0) {
+		return connect_res;
+	}
+	return res;
 }
 
 ssize_t

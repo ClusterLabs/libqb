@@ -537,6 +537,62 @@ repeat_send:
 	return res;
 }
 
+static void
+test_ipc_txrx_timeout(void)
+{
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	struct iovec iov[1];
+	int32_t res;
+	int32_t c = 0;
+	int32_t j = 0;
+	pid_t pid;
+	uint32_t max_size = MAX_MSG_SIZE;
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, max_size);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			sleep(1);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	/* The dispatch response will only come over
+	 * the event channel, we want to verify the receive times
+	 * out when an event is returned with no response */
+	req_header.id = IPC_MSG_REQ_DISPATCH;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), 5000);
+
+	ck_assert_int_eq(res, -ETIMEDOUT);
+
+	request_server_exit();
+	verify_graceful_stop(pid);
+
+	/*
+	 * wait a bit for the server to die.
+	 */
+	sleep(1);
+
+	/*
+	 * this needs to free up the shared mem
+	 */
+	qb_ipcc_disconnect(conn);
+}
+
 static int32_t recv_timeout = -1;
 static void
 test_ipc_txrx(void)
@@ -656,6 +712,26 @@ START_TEST(test_ipc_exit_shm)
 	ipc_name = __func__;
 	recv_timeout = 1000;
 	test_ipc_exit();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_shm_timeout)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	test_ipc_txrx_timeout();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_us_timeout)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	test_ipc_txrx_timeout();
 	qb_leave();
 }
 END_TEST
@@ -1301,6 +1377,11 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
+	tc = tcase_create("ipc_txrx_shm_timeout");
+	tcase_add_test(tc, test_ipc_txrx_shm_timeout);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
+
 	tc = tcase_create("ipc_server_fail_shm");
 	tcase_add_test(tc, test_ipc_server_fail_shm);
 	tcase_set_timeout(tc, 8);
@@ -1359,6 +1440,11 @@ make_soc_suite(void)
 {
 	Suite *s = suite_create("socket");
 	TCase *tc;
+
+	tc = tcase_create("ipc_txrx_us_timeout");
+	tcase_add_test(tc, test_ipc_txrx_us_timeout);
+	tcase_set_timeout(tc, 30);
+	suite_add_tcase(s, tc);
 
 	tc = tcase_create("ipc_max_dgram_size");
 	tcase_add_test(tc, test_ipc_max_dgram_size);
