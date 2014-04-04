@@ -670,8 +670,6 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	ssize_t size;
 	struct qb_ipc_request_header *hdr;
 
-	qb_ipcs_connection_ref(c);
-
 	if (c->service->funcs.peek && c->service->funcs.reclaim) {
 		size = c->service->funcs.peek(&c->request, (void **)&hdr,
 					      ms_timeout);
@@ -713,7 +711,6 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 	}
 
 cleanup:
-	qb_ipcs_connection_unref(c);
 	return res;
 }
 
