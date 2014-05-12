@@ -681,15 +681,14 @@ trie_notify_del(qb_map_t * m, const char *key,
 
 		if (f->events == events && f->callback == fn) {
 			if (cmp_userdata && (f->user_data == user_data)) {
+				trie_notify_deref(f);
 				found = QB_TRUE;
 			} else if (!cmp_userdata) {
+				trie_notify_deref(f);
 				found = QB_TRUE;
 			}
 		}
 
-		if (found) {
-			trie_notify_deref(f);
-		}
 	}
 	if (found) {
 		trie_node_release(t, n);
