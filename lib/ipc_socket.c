@@ -592,7 +592,7 @@ _sock_add_to_mainloop(struct qb_ipcs_connection *c)
 		return res;
 	}
 
-	res = c->service->poll_fns.dispatch_add(c->service->poll_priority,
+	res = c->service->poll_fns.dispatch_mod(c->service->poll_priority,
 						c->setup.u.us.sock,
 						POLLIN | POLLPRI | POLLNVAL,
 						c, _sock_connection_liveliness);
