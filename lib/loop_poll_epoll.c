@@ -178,16 +178,12 @@ retry_poll:
 			 */
 			continue;
 		}
-		if (events[i].events == pe->ufd.revents ||
-		    pe->state == QB_POLL_ENTRY_JOBLIST) {
-			/*
-			 * entry already in the job queue.
-			 */
-			continue;
-		}
-		pe->ufd.revents = _epoll_to_poll_event_(events[i].events);
 
-		new_jobs += pe->add_to_jobs(src->l, pe);
+		pe->ufd.revents |= _epoll_to_poll_event_(events[i].events);
+
+		if (pe->state != QB_POLL_ENTRY_JOBLIST) {
+			new_jobs += pe->add_to_jobs(src->l, pe);
+		}
 	}
 
 	return new_jobs;
