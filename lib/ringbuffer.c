@@ -232,7 +232,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	}
 
 	qb_util_log(LOG_DEBUG,
-		    "shm size:%zd; real_size:%zd; rb->word_size:%d", size,
+		    "shm size:%ld; real_size:%ld; rb->word_size:%d", size,
 		    real_size, rb->shared_hdr->word_size);
 
 	/* this function closes fd_data */
@@ -886,7 +886,11 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	 * 6. data
 	 */
 	n_required = (word_size * sizeof(uint32_t));
-	rb = qb_rb_open("create_from_file", n_required,
+
+	/*
+	 * qb_rb_open adds QB_RB_CHUNK_MARGIN + 1 to the requested size.
+	 */
+	rb = qb_rb_open("create_from_file", n_required - (QB_RB_CHUNK_MARGIN + 1),
 			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
 	if (rb == NULL) {
 		return NULL;
