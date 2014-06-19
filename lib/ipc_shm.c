@@ -326,17 +326,20 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		qb_util_log(LOG_ERR,
 			    "Error adding socket to mainloop (%s).",
 			    c->description);
-		goto cleanup_request_response;
+		goto cleanup_request_response_event;
 	}
 
 	r->hdr.error = 0;
 	return 0;
 
+cleanup_request_response_event:
+	qb_rb_close(c->event.u.shm.rb);
+
 cleanup_request_response:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(c->response.u.shm.rb);
 
 cleanup_request:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(c->request.u.shm.rb);
 
 cleanup:
 	r->hdr.error = res;
