@@ -192,7 +192,7 @@ int
 main(int argc, char *argv[])
 {
 	qb_ipcc_connection_t *conn;
-	const char *options = "eb";
+	const char *options = "ebh";
 	int32_t opt;
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
