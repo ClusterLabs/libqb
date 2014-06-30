@@ -211,8 +211,8 @@ gio_poll_destroy(gpointer data)
 }
 
 static int32_t
-my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
-		  void *data, qb_ipcs_dispatch_fn_t fn)
+my_g_dispatch_update(enum qb_loop_priority p, int32_t fd, int32_t evts,
+		     void *data, qb_ipcs_dispatch_fn_t fn, int32_t add)
 {
 	struct gio_to_qb_poll *adaptor;
 	GIOChannel *channel;
@@ -222,13 +222,20 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	if (res < 0) {
 		return res;
 	}
-	if (adaptor->is_used) {
+	if (add && adaptor->is_used) {
 		return -EEXIST;
+	}
+	if (!add && !adaptor->is_used) {
+		return -ENOENT;
 	}
 
 	channel = g_io_channel_unix_new(fd);
 	if (!channel) {
 		return -ENOMEM;
+	}
+
+	if (adaptor->is_used) {
+		g_source_remove(adaptor->source);
 	}
 
 	adaptor->fn = fn;
@@ -248,17 +255,24 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 }
 
 static int32_t
+my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
+		  void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	return my_g_dispatch_update(p, fd, evts, data, fn, QB_TRUE);
+}
+
+static int32_t
 my_g_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
 		  void *data, qb_ipcs_dispatch_fn_t fn)
 {
-	return 0;
+	return my_g_dispatch_update(p, fd, evts, data, fn, QB_FALSE);
 }
 
 static int32_t
 my_g_dispatch_del(int32_t fd)
 {
 	struct gio_to_qb_poll *adaptor;
-	if (qb_array_index(gio_map, fd, (void **)&adaptor) == 0) {
+	if (qb_array_index(gio_map, fd, (void **)&adaptor) == 0 && adaptor->is_used) {
 		g_source_remove(adaptor->source);
 		adaptor->is_used = FALSE;
 	}

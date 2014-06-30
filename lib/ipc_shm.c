@@ -318,7 +318,7 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		goto cleanup_request_response;
 	}
 
-	res = s->poll_fns.dispatch_add(s->poll_priority,
+	res = s->poll_fns.dispatch_mod(s->poll_priority,
 				       c->setup.u.us.sock,
 				       POLLIN | POLLPRI | POLLNVAL,
 				       c, qb_ipcs_dispatch_connection_request);

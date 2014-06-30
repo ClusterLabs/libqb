@@ -49,6 +49,7 @@ struct ipc_auth_ugp {
 };
 
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
+static int32_t qb_ipcs_us_connection_authenticator(int fd, int revent, void *data);
 
 ssize_t
 qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len)
@@ -665,8 +666,6 @@ qb_ipcs_us_connection_acceptor(int fd, int revent, void *data)
 	int32_t new_fd;
 	struct qb_ipcs_service *s = (struct qb_ipcs_service *)data;
 	int32_t res;
-	struct qb_ipc_connection_request setup_msg;
-	struct ipc_auth_ugp ugp;
 	socklen_t addrlen = sizeof(struct sockaddr_un);
 
 	if (revent & (POLLNVAL | POLLHUP | POLLERR)) {
@@ -706,8 +705,9 @@ retry_accept:
 		return 0;
 	}
 
-	res = qb_ipcs_uc_recv_and_auth(new_fd, &setup_msg, sizeof(setup_msg),
-				       &ugp);
+	res = s->poll_fns.dispatch_add(s->poll_priority, new_fd,
+				       POLLIN | POLLPRI | POLLNVAL,
+				       s, qb_ipcs_us_connection_authenticator);
 	if (res < 0) {
 		close(new_fd);
 		/* This is an error, but -1 would indicate disconnect
@@ -716,12 +716,27 @@ retry_accept:
 		return 0;
 	}
 
-	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
-		(void)handle_new_connection(s, res, new_fd, &setup_msg,
-					    sizeof(setup_msg), &ugp);
-	} else {
-		close(new_fd);
+	return 0;
+}
+
+static int32_t
+qb_ipcs_us_connection_authenticator(int fd, int revent, void *data)
+{
+	struct qb_ipcs_service *s = (struct qb_ipcs_service *)data;
+	int32_t res;
+	struct qb_ipc_connection_request setup_msg;
+	struct ipc_auth_ugp ugp;
+
+	res = qb_ipcs_uc_recv_and_auth(fd, &setup_msg, sizeof(setup_msg),
+				       &ugp);
+	if (res < 0 || setup_msg.hdr.id != QB_IPC_MSG_AUTHENTICATE) {
+		close(fd);
+		goto cleanup;
 	}
 
-	return 0;
+	res = handle_new_connection(s, res, fd, &setup_msg,
+				    sizeof(setup_msg), &ugp);
+
+cleanup:
+	return res;
 }
