@@ -683,7 +683,7 @@ qb_log_filter_ctl2(int32_t t, enum qb_log_filter_conf c,
 
 	if (text == NULL ||
 	    low_priority < high_priority ||
-	    type > QB_LOG_FILTER_FORMAT ||
+	    type > QB_LOG_FILTER_FORMAT_REGEX ||
 	    c > QB_LOG_TAG_CLEAR_ALL) {
 		return -EINVAL;
 	}
