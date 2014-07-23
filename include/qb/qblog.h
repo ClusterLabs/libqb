@@ -132,9 +132,14 @@ extern "C" {
  *			  QB_LOG_FILTER_FORMAT, "ringbuffer", LOG_TRACE);
  * @endcode
  *
- * @par Threaded logging.
- * To achieve non-blocking logging you can use threaded logging. So any
- * calls to write() or syslog() will not hold up your program.
+ * @par Thread safe non-blocking logging.
+ * Logging is only thread safe when threaded logging is in use. If you plan
+ * on logging from multiple threads, you must initialize libqb's logger thread
+ * and use qg_log_filter_ctl to set the QB_LOG_CONF_THREADED flag on all the
+ * logging targets in use.
+ *
+ * To achieve non-blocking logging you can use threaded logging as well
+ * So any calls to write() or syslog() will not hold up your program.
  *
  * Threaded logging use:
  * @code
