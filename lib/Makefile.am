@@ -42,7 +42,7 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_LIBADD	        = @LTLIBOBJS@
 
-LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
+AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 
 if HAVE_SEM_TIMEDWAIT
 else
