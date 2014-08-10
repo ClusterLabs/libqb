@@ -870,6 +870,40 @@ START_TEST(test_trie_load)
 }
 END_TEST
 
+/*
+ * From Honza: https://github.com/asalkeld/libqb/issues/44
+ */
+START_TEST(test_trie_partial_iterate)
+{
+        qb_map_t *map;
+        qb_map_iter_t *iter;
+        const char *res;
+        char *item;
+	int rc;
+
+        ck_assert((map = qb_trie_create()) != NULL);
+        qb_map_put(map, strdup("testobj.testkey"), strdup("one"));
+        qb_map_put(map, strdup("testobj.testkey2"), strdup("two"));
+
+        iter = qb_map_pref_iter_create(map, "testobj.");
+        ck_assert(iter != NULL);
+        res = qb_map_iter_next(iter, (void **)&item);
+        fprintf(stderr, "%s = %s\n", res, item);
+        qb_map_iter_free(iter);
+
+        item = qb_map_get(map, "testobj.testkey");
+        ck_assert_str_eq(item, "one");
+
+        rc = qb_map_rm(map, "testobj.testkey");
+        ck_assert(rc == QB_TRUE);
+
+        item = qb_map_get(map, "testobj.testkey");
+        ck_assert(item == NULL);
+
+}
+END_TEST
+
+
 static Suite *
 map_suite(void)
 {
@@ -886,6 +920,10 @@ map_suite(void)
 
 	tc = tcase_create("trie_simple");
 	tcase_add_test(tc, test_trie_simple);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("trie_partial_iterate");
+	tcase_add_test(tc, test_trie_partial_iterate);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("skiplist_remove");

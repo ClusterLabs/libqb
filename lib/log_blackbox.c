@@ -24,6 +24,11 @@
 #include "util_int.h"
 #include "log_int.h"
 
+#define BB_MIN_ENTRY_SIZE (4 * sizeof(uint32_t) +\
+			   sizeof(uint8_t) +\
+			   2 * sizeof(char) + sizeof(time_t))
+
+
 static void
 _blackbox_reload(int32_t target)
 {
@@ -68,6 +73,14 @@ _blackbox_vlogger(int32_t target,
 
 	chunk = qb_rb_chunk_alloc(t->instance, max_size);
 
+	if (chunk == NULL) {
+		/* something bad has happened. abort blackbox logging */
+		qb_util_perror(LOG_ERR, "Blackbox allocation error, aborting blackbox log %s", t->filename);
+		qb_rb_close(t->instance);
+		t->instance = NULL;
+		return;
+	}
+
 	/* line number */
 	memcpy(chunk, &cs->lineno, sizeof(uint32_t));
 	chunk += sizeof(uint32_t);
@@ -96,7 +109,7 @@ _blackbox_vlogger(int32_t target,
 
 	/* log message */
 	msg_len = qb_vsnprintf_serialize(chunk, QB_LOG_MAX_LEN, cs->format, ap);
-	if(msg_len >= QB_LOG_MAX_LEN) {
+	if (msg_len >= QB_LOG_MAX_LEN) {
 	    chunk = msg_len_pt + sizeof(uint32_t); /* Reset */
 
 	    msg_len = qb_vsnprintf_serialize(chunk, QB_LOG_MAX_LEN,
@@ -131,7 +144,7 @@ qb_log_blackbox_open(struct qb_log_target *t)
 	if (t->size < 1024) {
 		return -EINVAL;
 	}
-	snprintf(t->filename, PATH_MAX, "%s-blackbox", t->name);
+	snprintf(t->filename, PATH_MAX, "%s-%d-blackbox", t->name, getpid());
 
 	t->instance = qb_rb_open(t->filename, t->size,
 				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
@@ -199,60 +212,86 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		uint32_t len;
 		time_t timestamp;
 		uint32_t msg_len;
+		struct tm *tm;
 		char message[QB_LOG_MAX_LEN];
 
 		bytes_read = qb_rb_chunk_read(instance, chunk, max_size, 0);
-		ptr = chunk;
-		if (bytes_read > 0) {
-			struct tm *tm;
-			/* lineno */
-			memcpy(&lineno, ptr, sizeof(uint32_t));
-			ptr += sizeof(uint32_t);
 
-			/* tags */
-			memcpy(&tags, ptr, sizeof(uint32_t));
-			ptr += sizeof(uint32_t);
-
-			/* priority */
-			memcpy(&priority, ptr, sizeof(uint8_t));
-			ptr += sizeof(uint8_t);
-
-			/* function size & name */
-			memcpy(&fn_size, ptr, sizeof(uint32_t));
-			ptr += sizeof(uint32_t);
-
-			function = ptr;
-			ptr += fn_size;
-
-			/* timestamp size & content */
-			memcpy(&timestamp, ptr, sizeof(time_t));
-			ptr += sizeof(time_t);
-			tm = localtime(&timestamp);
-			if (tm) {
-				(void)strftime(time_buf,
-					       sizeof(time_buf), "%b %d %T",
-					       tm);
-			} else {
-				snprintf(time_buf, sizeof(time_buf), "%ld",
-					 (long int)timestamp);
-			}
-			/* message length */
-			memcpy(&msg_len, ptr, sizeof(uint32_t));
-			ptr += sizeof(uint32_t);
-
-			/* message content */
-			len = qb_vsnprintf_deserialize(message, QB_LOG_MAX_LEN, ptr);
-			len--;
-			while (message[len] == '\n' || message[len] == '\0') {
-				message[len] = '\0';
-				len--;
-			}
-			message[msg_len] = '\0';
-			printf("%-7s %s %s(%u):%u: %s\n",
-				qb_log_priority2str(priority),
-			       time_buf, function, lineno, tags, message);
+		if (bytes_read >= 0 && bytes_read < BB_MIN_ENTRY_SIZE) {
+			printf("ERROR Corrupt file: blackbox header too small.\n");
+			goto cleanup;
+		} else if (bytes_read < 0) {
+			errno = -bytes_read;
+			perror("ERROR: qb_rb_chunk_read failed");
+			goto cleanup;
 		}
-	} while (bytes_read > 0);
+		ptr = chunk;
+
+		/* lineno */
+		memcpy(&lineno, ptr, sizeof(uint32_t));
+		ptr += sizeof(uint32_t);
+
+		/* tags */
+		memcpy(&tags, ptr, sizeof(uint32_t));
+		ptr += sizeof(uint32_t);
+
+		/* priority */
+		memcpy(&priority, ptr, sizeof(uint8_t));
+		ptr += sizeof(uint8_t);
+
+		/* function size & name */
+		memcpy(&fn_size, ptr, sizeof(uint32_t));
+		if ((fn_size + BB_MIN_ENTRY_SIZE) > bytes_read) {
+			printf("ERROR Corrupt file: fn_size way too big %d\n", fn_size);
+			goto cleanup;
+		}
+		if (fn_size <= 0) {
+			printf("ERROR Corrupt file: fn_size negative %d\n", fn_size);
+			goto cleanup;
+		}
+		ptr += sizeof(uint32_t);
+
+		function = ptr;
+		ptr += fn_size;
+
+		/* timestamp size & content */
+		memcpy(&timestamp, ptr, sizeof(time_t));
+		ptr += sizeof(time_t);
+		tm = localtime(&timestamp);
+		if (tm) {
+			(void)strftime(time_buf,
+				       sizeof(time_buf), "%b %d %T",
+				       tm);
+		} else {
+			snprintf(time_buf, sizeof(time_buf), "%ld",
+				 (long int)timestamp);
+		}
+		/* message length */
+		memcpy(&msg_len, ptr, sizeof(uint32_t));
+		if (msg_len > QB_LOG_MAX_LEN || msg_len <= 0) {
+			printf("ERROR Corrupt file: msg_len out of bounds %d\n", msg_len);
+			goto cleanup;
+		}
+
+		ptr += sizeof(uint32_t);
+
+		/* message content */
+		len = qb_vsnprintf_deserialize(message, QB_LOG_MAX_LEN, ptr);
+		assert(len > 0);
+		message[len] = '\0';
+		len--;
+		while (len > 0 && (message[len] == '\n' || message[len] == '\0')) {
+			message[len] = '\0';
+			len--;
+		}
+
+		printf("%-7s %s %s(%u):%u: %s\n",
+		       qb_log_priority2str(priority),
+		       time_buf, function, lineno, tags, message);
+
+	} while (bytes_read > BB_MIN_ENTRY_SIZE);
+
+cleanup:
 	qb_rb_close(instance);
 	free(chunk);
 }

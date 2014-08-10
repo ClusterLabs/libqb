@@ -16,6 +16,8 @@
 #include "os_base.h"
 #include <pthread.h>
 #include "rpl_sem.h"
+#include <qb/qbdefs.h>
+#include <qb/qbutil.h>
 
 int
 rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count)
@@ -31,16 +33,19 @@ rpl_sem_init(rpl_sem_t * sem, int pshared, unsigned int count)
 	}
 #endif /* HAVE_RPL_PSHARED_SEMAPHORE */
 	sem->count = count;
+	sem->destroy_request = QB_FALSE;
 
 	(void)pthread_mutexattr_init(&mattr);
 	(void)pthread_condattr_init(&cattr);
 #ifdef HAVE_RPL_PSHARED_SEMAPHORE
 	if (pshared) {
-		rc = pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+		rc = pthread_mutexattr_setpshared(&mattr,
+						  PTHREAD_PROCESS_SHARED);
 		if (rc != 0) {
 			goto cleanup;
 		}
-		rc = pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+		rc = pthread_condattr_setpshared(&cattr,
+						 PTHREAD_PROCESS_SHARED);
 		if (rc != 0) {
 			goto cleanup;
 		}
@@ -66,49 +71,27 @@ cleanup:
 	return rc;
 }
 
-int
-rpl_sem_wait(rpl_sem_t * sem)
+static int
+_rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
 {
 	int retval = pthread_mutex_lock(&sem->mutex);
 	if (retval != 0) {
-		errno = retval;
-		return -1;
+		return -errno;
 	}
-
-	/* wait for sem->count to be not zero, or error
-	 */
-	while (retval == 0 && !sem->count) {
-		retval = pthread_cond_wait(&sem->cond, &sem->mutex);
-	}
-	switch (retval) {
-	case 0:
-		/* retval is 0 and sem->count is not, the sem is ours
-		 */
-		sem->count--;
-		break;
-
-	default:
-		errno = retval;
-		retval = -1;
-	}
-
-	pthread_mutex_unlock(&sem->mutex);
-	return retval;
-}
-
-int
-rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
-{
-	int retval = pthread_mutex_lock(&sem->mutex);
-	if (retval != 0) {
-		errno = retval;
-		return -1;
+	if (sem->destroy_request) {
+		retval = -EINVAL;
+		goto unlock_it;
 	}
 
 	/* wait for sem->count to be not zero, or error
 	 */
 	while (0 == retval && !sem->count) {
-		retval = pthread_cond_timedwait(&sem->cond, &sem->mutex, timeout);
+		retval = -pthread_cond_timedwait(&sem->cond,
+						 &sem->mutex, timeout);
+	}
+	if (sem->destroy_request) {
+		retval = -EINVAL;
+		goto unlock_it;
 	}
 
 	switch (retval) {
@@ -121,16 +104,46 @@ rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
 	case ETIMEDOUT:
 		/* timedout waiting for count to be not zero
 		 */
-		errno = EAGAIN;
-		retval = -1;
+		retval = -EAGAIN;
 		break;
 
 	default:
-		errno = retval;
-		retval = -1;
+		break;
 	}
+
+unlock_it:
 	pthread_mutex_unlock(&sem->mutex);
 	return retval;
+}
+
+int
+rpl_sem_wait(rpl_sem_t * sem)
+{
+
+	struct timespec ts_timeout;
+	int32_t rc;
+
+	do {
+		qb_util_timespec_from_epoch_get(&ts_timeout);
+		qb_timespec_add_ms(&ts_timeout, 1000);
+		rc = _rpl_sem_timedwait(sem, &ts_timeout);
+	} while (rc == -EAGAIN);
+	if (rc < 0) {
+		errno = -rc;
+		return -1;
+	}
+	return 0;
+}
+
+int
+rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
+{
+	int rc = _rpl_sem_timedwait(sem, timeout);
+	if (rc < 0) {
+		errno = -rc;
+		return -1;
+	}
+	return 0;
 }
 
 int
@@ -185,6 +198,17 @@ rpl_sem_getvalue(rpl_sem_t * sem, int *sval)
 int
 rpl_sem_destroy(rpl_sem_t * sem)
 {
-	return pthread_mutex_destroy(&sem->mutex) |
-	       pthread_cond_destroy(&sem->cond);
+	int retval = pthread_mutex_lock(&sem->mutex);
+	if (retval != 0) {
+		errno = retval;
+		return -1;
+	}
+	sem->destroy_request = QB_TRUE;
+	pthread_mutex_unlock(&sem->mutex);
+	(void)pthread_cond_broadcast(&sem->cond);
+
+	(void)pthread_cond_destroy(&sem->cond);
+	(void)pthread_mutex_destroy(&sem->mutex);
+
+	return 0;
 }

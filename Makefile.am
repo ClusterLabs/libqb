@@ -34,7 +34,7 @@ AUTOMAKE_OPTIONS	= foreign
 MAINTAINERCLEANFILES	= Makefile.in aclocal.m4 configure depcomp \
 			  config.guess config.sub missing install-sh \
 			  autoheader automake autoconf libtool libtoolize \
-			  ltmain.sh compile
+			  ltmain.sh compile build-aux/test-driver
 
 
 ACLOCAL_AMFLAGS		= -I m4
@@ -68,7 +68,7 @@ $(SPEC): $(SPEC).in
 		dirty="" && \
 		numcomm="0"; \
 	else \
-		gitver="$(shell git describe --abbrev=4 --match='v*' HEAD 2>/dev/null)" && \
+		gitver="$(shell git describe --abbrev=4 --match='v*' --tags HEAD 2>/dev/null)" && \
 		rpmver=`echo $$gitver | sed -e "s/^v//" -e "s/-.*//g"` && \
 		alphatag=`echo $$gitver | sed -e "s/.*-//" -e "s/^g//"` && \
 		vtag=`echo $$gitver | sed -e "s/-.*//g"` && \

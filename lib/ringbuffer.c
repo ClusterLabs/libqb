@@ -20,7 +20,9 @@
  */
 #include "ringbuffer_int.h"
 #include <qb/qbdefs.h>
-#include <qb/qbatomic.h>
+#include "atomic_int.h"
+
+#define QB_RB_FILE_HEADER_VERSION 1
 
 /*
  * #define CRAZY_DEBUG_PRINTFS 1
@@ -85,12 +87,13 @@ do {							\
 #define QB_RB_CHUNK_MAGIC		0xA1A1A1A1
 #define QB_RB_CHUNK_MAGIC_DEAD		0xD0D0D0D0
 #define QB_RB_CHUNK_MAGIC_ALLOC		0xA110CED0
-#define QB_RB_CHUNK_SIZE_GET(rb, pointer) \
-	rb->shared_data[pointer]
+#define QB_RB_CHUNK_SIZE_GET(rb, pointer) rb->shared_data[pointer]
 #define QB_RB_CHUNK_MAGIC_GET(rb, pointer) \
-	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size]
+	qb_atomic_int_get_ex((int32_t*)&rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size], \
+                             QB_ATOMIC_ACQUIRE)
 #define QB_RB_CHUNK_MAGIC_SET(rb, pointer, new_val) \
-	rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size] = new_val;
+	qb_atomic_int_set_ex((int32_t*)&rb->shared_data[(pointer + 1) % rb->shared_hdr->word_size], \
+			     new_val, QB_ATOMIC_RELEASE)
 #define QB_RB_CHUNK_DATA_GET(rb, pointer) \
 	&rb->shared_data[(pointer + QB_RB_CHUNK_HEADER_WORDS) % rb->shared_hdr->word_size]
 
@@ -109,11 +112,19 @@ do {							\
 } while (0)
 
 static void print_header(struct qb_ringbuffer_s * rb);
-static void _rb_chunk_reclaim(struct qb_ringbuffer_s * rb);
+static int _rb_chunk_reclaim(struct qb_ringbuffer_s * rb);
 
 qb_ringbuffer_t *
 qb_rb_open(const char *name, size_t size, uint32_t flags,
 	   size_t shared_user_data_size)
+{
+	return qb_rb_open_2(name, size, flags, shared_user_data_size, NULL);
+}
+
+qb_ringbuffer_t *
+qb_rb_open_2(const char *name, size_t size, uint32_t flags,
+	     size_t shared_user_data_size,
+	     struct qb_rb_notifier *notifiers)
 {
 	struct qb_ringbuffer_s *rb;
 	size_t real_size;
@@ -130,7 +141,14 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 #ifdef QB_FORCE_SHM_ALIGN
 	page_size = QB_MAX(page_size, 16 * 1024);
 #endif /* QB_FORCE_SHM_ALIGN */
+	/* The user of this api expects the 'size' parameter passed into this function
+	 * to be reflective of the max size single write we can do to the 
+	 * ringbuffer.  This means we have to add both the 'margin' space used
+	 * to calculate if there is enough space for a new chunk as well as the '+1' that
+	 * prevents overlap of the read/write pointers */
+	size += QB_RB_CHUNK_MARGIN + 1;
 	real_size = QB_ROUNDUP(size, page_size);
+
 	shared_size =
 	    sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
 
@@ -179,9 +197,17 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 		rb->shared_hdr->read_pt = 0;
 		(void)strlcpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
 	}
-	error = qb_rb_sem_create(rb, flags);
+	if (notifiers && notifiers->post_fn) {
+		error = 0;
+		memcpy(&rb->notifier,
+		       notifiers,
+		       sizeof(struct qb_rb_notifier));
+	} else {
+		error = qb_rb_sem_create(rb, flags);
+	}
 	if (error < 0) {
-		qb_util_perror(LOG_ERR, "couldn't get a semaphore");
+		errno = -error;
+		qb_util_perror(LOG_ERR, "couldn't create a semaphore");
 		goto cleanup_hdr;
 	}
 
@@ -206,9 +232,10 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	}
 
 	qb_util_log(LOG_DEBUG,
-		    "shm size:%zd; real_size:%zd; rb->word_size:%d", size,
+		    "shm size:%ld; real_size:%ld; rb->word_size:%d", size,
 		    real_size, rb->shared_hdr->word_size);
 
+	/* this function closes fd_data */
 	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size);
 	rb->shared_data = shm_addr;
 	if (error != 0) {
@@ -226,11 +253,9 @@ qb_rb_open(const char *name, size_t size, uint32_t flags,
 	}
 
 	close(fd_hdr);
-	close(fd_data);
 	return rb;
 
 cleanup_data:
-	close(fd_data);
 	if (flags & QB_RB_FLAG_CREATE) {
 		unlink(rb->shared_hdr->data_path);
 	}
@@ -241,8 +266,8 @@ cleanup_hdr:
 	}
 	if (rb && (flags & QB_RB_FLAG_CREATE)) {
 		unlink(rb->shared_hdr->hdr_path);
-		if (rb->sem_destroy_fn) {
-			(void)rb->sem_destroy_fn(rb);
+		if (rb->notifier.destroy_fn) {
+			(void)rb->notifier.destroy_fn(rb->notifier.instance);
 		}
 	}
 	if (rb && (rb->shared_hdr != MAP_FAILED && rb->shared_hdr != NULL)) {
@@ -253,17 +278,19 @@ cleanup_hdr:
 	return NULL;
 }
 
+
 void
 qb_rb_close(struct qb_ringbuffer_s * rb)
 {
 	if (rb == NULL) {
 		return;
 	}
+	qb_enter();
 
 	(void)qb_atomic_int_dec_and_test(&rb->shared_hdr->ref_count);
 	if (rb->flags & QB_RB_FLAG_CREATE) {
-		if (rb->sem_destroy_fn) {
-			(void)rb->sem_destroy_fn(rb);
+		if (rb->notifier.destroy_fn) {
+			(void)rb->notifier.destroy_fn(rb->notifier.instance);
 		}
 		unlink(rb->shared_hdr->data_path);
 		unlink(rb->shared_hdr->hdr_path);
@@ -285,13 +312,21 @@ qb_rb_force_close(struct qb_ringbuffer_s * rb)
 	if (rb == NULL) {
 		return;
 	}
+	qb_enter();
 
-	if (rb->sem_destroy_fn) {
-		(void)rb->sem_destroy_fn(rb);
+	if (rb->notifier.destroy_fn) {
+		(void)rb->notifier.destroy_fn(rb->notifier.instance);
 	}
+
+        errno = 0;
 	unlink(rb->shared_hdr->data_path);
+	qb_util_perror(LOG_DEBUG,
+		    "Force free'ing ringbuffer: %s",
+		    rb->shared_hdr->data_path);
+
+        errno = 0;
 	unlink(rb->shared_hdr->hdr_path);
-	qb_util_log(LOG_DEBUG,
+	qb_util_perror(LOG_DEBUG,
 		    "Force free'ing ringbuffer: %s",
 		    rb->shared_hdr->hdr_path);
 	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
@@ -336,6 +371,10 @@ qb_rb_space_free(struct qb_ringbuffer_s * rb)
 	if (rb == NULL) {
 		return -EINVAL;
 	}
+	if (rb->notifier.space_used_fn) {
+		return (rb->shared_hdr->word_size * sizeof(uint32_t)) -
+			rb->notifier.space_used_fn(rb->notifier.instance);
+	}
 	write_size = rb->shared_hdr->write_pt;
 	read_size = rb->shared_hdr->read_pt;
 
@@ -345,7 +384,7 @@ qb_rb_space_free(struct qb_ringbuffer_s * rb)
 	} else if (write_size < read_size) {
 		space_free = (read_size - write_size) - 1;
 	} else {
-		if (rb->sem_getvalue_fn && rb->sem_getvalue_fn(rb) > 0) {
+		if (rb->notifier.q_len_fn && rb->notifier.q_len_fn(rb->notifier.instance) > 0) {
 			space_free = 0;
 		} else {
 			space_free = rb->shared_hdr->word_size;
@@ -365,6 +404,9 @@ qb_rb_space_used(struct qb_ringbuffer_s * rb)
 
 	if (rb == NULL) {
 		return -EINVAL;
+	}
+	if (rb->notifier.space_used_fn) {
+		return rb->notifier.space_used_fn(rb->notifier.instance);
 	}
 	write_size = rb->shared_hdr->write_pt;
 	read_size = rb->shared_hdr->read_pt;
@@ -387,11 +429,10 @@ qb_rb_chunks_used(struct qb_ringbuffer_s *rb)
 	if (rb == NULL) {
 		return -EINVAL;
 	}
-	if (rb->sem_getvalue_fn) {
-		return rb->sem_getvalue_fn(rb);
-	} else {
-		return -ENOTSUP;
+	if (rb->notifier.q_len_fn) {
+		return rb->notifier.q_len_fn(rb->notifier.instance);
 	}
+	return -ENOTSUP;
 }
 
 void *
@@ -408,7 +449,11 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 	 */
 	if (rb->flags & QB_RB_FLAG_OVERWRITE) {
 		while (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
-			_rb_chunk_reclaim(rb);
+			int rc = _rb_chunk_reclaim(rb);
+			if (rc != 0) {
+				errno = rc;
+				return NULL;
+			}
 		}
 	} else {
 		if (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
@@ -474,7 +519,8 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	QB_RB_CHUNK_MAGIC_SET(rb, old_write_pt, QB_RB_CHUNK_MAGIC);
 
 	DEBUG_PRINTF("commit [%zd] read: %u, write: %u -> %u (%u)\n",
-		     (rb->sem_getvalue_fn ? rb->sem_getvalue_fn(rb) : 0),
+		     (rb->notifier.q_len_fn ?
+		      rb->notifier.q_len_fn(rb->notifier.instance) : 0),
 		     rb->shared_hdr->read_pt,
 		     old_write_pt,
 		     rb->shared_hdr->write_pt,
@@ -483,11 +529,10 @@ qb_rb_chunk_commit(struct qb_ringbuffer_s * rb, size_t len)
 	/*
 	 * post the notification to the reader
 	 */
-	if (rb->sem_post_fn) {
-		return rb->sem_post_fn(rb);
-	} else {
-		return 0;
+	if (rb->notifier.post_fn) {
+		return rb->notifier.post_fn(rb->notifier.instance, len);
 	}
+	return 0;
 }
 
 ssize_t
@@ -514,19 +559,22 @@ qb_rb_chunk_write(struct qb_ringbuffer_s * rb, const void *data, size_t len)
 	return len;
 }
 
-static void
+static int
 _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 {
 	uint32_t old_read_pt;
 	uint32_t new_read_pt;
+	uint32_t old_chunk_size;
 	uint32_t chunk_magic;
+	int rc = 0;
 
 	old_read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, old_read_pt);
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		return;
+		return -EINVAL;
 	}
 
+	old_chunk_size = QB_RB_CHUNK_SIZE_GET(rb, old_read_pt);
 	new_read_pt = qb_rb_chunk_step(rb, old_read_pt);
 
 	/*
@@ -543,11 +591,23 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 	 */
 	rb->shared_hdr->read_pt = new_read_pt;
 
+	if (rb->notifier.reclaim_fn) {
+		rc = rb->notifier.reclaim_fn(rb->notifier.instance,
+						 old_chunk_size);
+		if (rc < 0) {
+			errno = -rc;
+			qb_util_perror(LOG_WARNING, "reclaim_fn");
+		}
+	}
+
 	DEBUG_PRINTF("reclaim [%zd]: read: %u -> %u, write: %u\n",
-		     (rb->sem_getvalue_fn ? rb->sem_getvalue_fn(rb) : 0),
+		     (rb->notifier.q_len_fn ?
+		      rb->notifier.q_len_fn(rb->notifier.instance) : 0),
 		     old_read_pt,
 		     rb->shared_hdr->read_pt,
 		     rb->shared_hdr->write_pt);
+
+	return rc;
 }
 
 void
@@ -570,8 +630,8 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 	if (rb == NULL) {
 		return -EINVAL;
 	}
-	if (rb->sem_timedwait_fn) {
-		res = rb->sem_timedwait_fn(rb, timeout);
+	if (rb->notifier.timedwait_fn) {
+		res = rb->notifier.timedwait_fn(rb->notifier.instance, timeout);
 	}
 	if (res < 0 && res != -EIDRM) {
 		if (res == -ETIMEDOUT) {
@@ -585,8 +645,8 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 	read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		if (rb->sem_post_fn) {
-			(void)rb->sem_post_fn(rb);
+		if (rb->notifier.post_fn) {
+			(void)rb->notifier.post_fn(rb->notifier.instance, res);
 		}
 		return 0;
 	}
@@ -607,11 +667,12 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 	if (rb == NULL) {
 		return -EINVAL;
 	}
-	if (rb->sem_timedwait_fn) {
-		res = rb->sem_timedwait_fn(rb, timeout);
+	if (rb->notifier.timedwait_fn) {
+		res = rb->notifier.timedwait_fn(rb->notifier.instance, timeout);
 	}
 	if (res < 0 && res != -EIDRM) {
 		if (res != -ETIMEDOUT) {
+			errno = -res;
 			qb_util_perror(LOG_ERR, "sem_timedwait");
 		}
 		return res;
@@ -621,10 +682,10 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, read_pt);
 
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		if (rb->sem_timedwait_fn == NULL) {
+		if (rb->notifier.timedwait_fn == NULL) {
 			return -ETIMEDOUT;
 		} else {
-			(void)rb->sem_post_fn(rb);
+			(void)rb->notifier.post_fn(rb->notifier.instance, res);
 #ifdef EBADMSG
 			return -EBADMSG;
 #else
@@ -638,10 +699,12 @@ qb_rb_chunk_read(struct qb_ringbuffer_s * rb, void *data_out, size_t len,
 		qb_util_log(LOG_ERR,
 			    "trying to recv chunk of size %d but %d available",
 			    len, chunk_size);
-		(void)rb->sem_post_fn(rb);
+		if (rb->notifier.post_fn) {
+			(void)rb->notifier.post_fn(rb->notifier.instance, chunk_size);
+		}
 		return -ENOBUFS;
 	}
-	;
+
 	memcpy(data_out,
 	       QB_RB_CHUNK_DATA_GET(rb, read_pt),
 	       chunk_size);
@@ -669,17 +732,33 @@ print_header(struct qb_ringbuffer_s * rb)
 #endif /* S_SPLINT_S */
 }
 
+/*
+ * FILE HEADER ORDER
+ * 1. word_size
+ * 2. write_pt
+ * 3. read_pt
+ * 4. version
+ * 5. header_hash
+ *
+ * 6. data
+ */
+
 ssize_t
 qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 {
 	ssize_t result;
 	ssize_t written_size = 0;
+	uint32_t hash = 0;
+	uint32_t version = QB_RB_FILE_HEADER_VERSION;
 
 	if (rb == NULL) {
 		return -EINVAL;
 	}
 	print_header(rb);
 
+	/*
+ 	 * 1. word_size
+ 	 */
 	result = write(fd, &rb->shared_hdr->word_size, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
 		return -errno;
@@ -687,7 +766,7 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	written_size += result;
 
 	/*
-	 * store the read & write pointers
+	 * 2. 3. store the read & write pointers
 	 */
 	result = write(fd, (void *)&rb->shared_hdr->write_pt, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
@@ -695,6 +774,25 @@ qb_rb_write_to_file(struct qb_ringbuffer_s * rb, int32_t fd)
 	}
 	written_size += result;
 	result = write(fd, (void *)&rb->shared_hdr->read_pt, sizeof(uint32_t));
+	if (result != sizeof(uint32_t)) {
+		return -errno;
+	}
+	written_size += result;
+
+	/*
+	 * 4. version used
+	 */
+	result = write(fd, &version, sizeof(uint32_t));
+	if (result != sizeof(uint32_t)) {
+		return -errno;
+	}
+	written_size += result;
+
+	/*
+	 * 5. hash helps us verify header is not corrupted on file read
+	 */
+	hash = rb->shared_hdr->word_size + rb->shared_hdr->write_pt + rb->shared_hdr->read_pt + QB_RB_FILE_HEADER_VERSION;
+	result = write(fd, &hash, sizeof(uint32_t));
 	if (result != sizeof(uint32_t)) {
 		return -errno;
 	}
@@ -722,11 +820,17 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	uint32_t write_pt;
 	struct qb_ringbuffer_s *rb;
 	uint32_t word_size = 0;
+	uint32_t version = 0;
+	uint32_t hash = 0;
+	uint32_t calculated_hash = 0;
 
 	if (fd < 0) {
 		return NULL;
 	}
 
+	/*
+	 * 1. word size
+	 */
 	n_required = sizeof(uint32_t);
 	n_read = read(fd, &word_size, n_required);
 	if (n_read != n_required) {
@@ -735,6 +839,9 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	}
 	total_read += n_read;
 
+	/*
+	 * 2. 3. read & write pointers
+	 */
 	n_read = read(fd, &write_pt, sizeof(uint32_t));
 	assert(n_read == sizeof(uint32_t));
 	total_read += n_read;
@@ -743,8 +850,47 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	assert(n_read == sizeof(uint32_t));
 	total_read += n_read;
 
+	/*
+	 * 4. version
+	 */
+	n_required = sizeof(uint32_t);
+	n_read = read(fd, &version, n_required);
+	if (n_read != n_required) {
+		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
+		return NULL;
+	}
+	total_read += n_read;
+
+	/*
+	 * 5. Hash
+	 */
+	n_required = sizeof(uint32_t);
+	n_read = read(fd, &hash, n_required);
+	if (n_read != n_required) {
+		qb_util_perror(LOG_ERR, "Unable to read blackbox file header");
+		return NULL;
+	}
+	total_read += n_read;
+
+	calculated_hash = word_size + write_pt + read_pt + version;
+	if (hash != calculated_hash) {
+		qb_util_log(LOG_ERR, "Corrupt blackbox: File header hash (%d) does not match calculated hash (%d)", hash, calculated_hash);
+		return NULL;
+	} else if (version != QB_RB_FILE_HEADER_VERSION) {
+		qb_util_log(LOG_ERR, "Wrong file header version. Expected %d got %d",
+			QB_RB_FILE_HEADER_VERSION, version);
+		return NULL;
+	}
+
+	/*
+	 * 6. data
+	 */
 	n_required = (word_size * sizeof(uint32_t));
-	rb = qb_rb_open("create_from_file", n_required,
+
+	/*
+	 * qb_rb_open adds QB_RB_CHUNK_MARGIN + 1 to the requested size.
+	 */
+	rb = qb_rb_open("create_from_file", n_required - (QB_RB_CHUNK_MARGIN + 1),
 			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
 	if (rb == NULL) {
 		return NULL;

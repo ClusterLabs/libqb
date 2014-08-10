@@ -27,8 +27,10 @@ noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
 	auto_check_header_qbipc_common auto_check_header_qblist auto_check_header_qbloop \
 	auto_check_header_qbrb auto_check_header_qbatomic auto_check_header_qbdefs \
 	auto_check_header_qbipcc auto_check_header_qbipcs auto_check_header_qblog \
-	auto_check_header_qbmap auto_check_header_qbutil
+	auto_check_header_qbmap auto_check_header_qbutil format_compare_speed
 
+format_compare_speed_SOURCES = format_compare_speed.c $(top_builddir)/include/qb/qbutil.h
+format_compare_speed_LDADD = $(top_builddir)/lib/libqb.la
 
 bmc_SOURCES = bmc.c $(top_builddir)/include/qb/qbipcc.h
 bmc_LDADD = $(top_builddir)/lib/libqb.la
@@ -88,18 +90,25 @@ bench_log_LDADD = $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
 EXTRA_DIST += resources.test
+EXTRA_DIST += blackbox-segfault.sh
 
-TESTS = array.test map.test rb.test log.test loop.test ipc.test resources.test
+TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.test resources.test
 
 resources.log: rb.log log.log ipc.log
 
-check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test
-check_SCRIPTS = resources.test
+check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
+check_SCRIPTS = resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
 TESTS += util.test
 check_PROGRAMS += util.test
 endif
+
+file_change_bytes_SOURCES = file_change_bytes.c
+
+crash_test_dummy_SOURCES = crash_test_dummy.c $(top_builddir)/include/qb/qblog.h
+crash_test_dummy_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
+crash_test_dummy_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
 array_test_SOURCES = check_array.c $(top_builddir)/include/qb/qbarray.h
 array_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
@@ -133,3 +142,4 @@ endif
 
 clean-generic:
 	$(AM_V_GEN)rm -f *.log
+	$(AM_V_GEN)rm -f *.fdata

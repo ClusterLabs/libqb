@@ -22,54 +22,27 @@
 MAINTAINERCLEANFILES	= Makefile.in
 
 noinst_HEADERS          = ipc_int.h util_int.h ringbuffer_int.h loop_int.h \
-			  log_int.h map_int.h rpl_sem.h loop_poll_int.h
+			  log_int.h map_int.h rpl_sem.h loop_poll_int.h \
+			  atomic_int.h
 
 AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-# From: http://sourceware.org/autobook/autobook/autobook_91.html
-# (for my own sanity).
-#
-# 1) If you have changed any of the sources for this library, the revision
-#    number must be incremented. This is a new revision of the current
-#    interface.
-#
-# 2) If the interface has changed, then current must be incremented, and
-#    revision reset to `0'. This is the first revision of a new interface.
-#
-# 3) If the new interface is a superset of the previous interface
-#    (that is, if the previous interface has not been broken by the changes
-#    in this new release), then age must be incremented. This release is
-#    backwards compatible with the previous release.
-#
-# 4) If the new interface has removed elements with respect to the previous
-#    interface, then you have broken backward compatibility and age must be
-#    reset to `0'. This release has a new, but backwards incompatible
-#    interface. For example, if the next release of the library included
-#    some new commands for an existing socket protocol, you would use
-#    -version-info 1:0:1. This is the first revision of a new interface.
-#    This release is backwards compatible with the previous release.
-#    Later, you implement a faster way of handling part of the algorithm
-#    at the core of the library, and release it with -version-info 1:1:1.
-#    This is a new revision of the current interface.
-#    Unfortunately the speed of your new implementation can only be fully
-#    exploited by changing the API to access the structures at a lower level,
-#    which breaks compatibility with the previous interface, so you release
-#    it as -version-info 2:0:0. This release has a new, but backwards
-#    incompatible interface.
-#
-libqb_la_LDFLAGS	= -version-info 14:2:14
+libqb_la_LDFLAGS	= -version-number 0:17:0
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
-			  loop_timerlist.c ipcc.c ipcs.c ipc_shm.c ipc_us.c \
+			  loop_timerlist.c ipcc.c ipcs.c ipc_shm.c \
+			  ipc_setup.c ipc_socket.c \
 			  log.c log_thread.c log_blackbox.c log_file.c \
 			  log_syslog.c log_dcs.c log_format.c \
 			  map.c skiplist.c hashtable.c trie.c
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_LIBADD	        = @LTLIBOBJS@
+
+AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 
 if HAVE_SEM_TIMEDWAIT
 else
@@ -111,5 +84,3 @@ dist-clean-local:
 clean-generic:
 	$(AM_V_GEN)rm -f run_splint.sh
 endif
-
-

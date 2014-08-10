@@ -1,8 +1,12 @@
 language: c
 compiler:
   - gcc
-before_install: sudo apt-get install check doxygen splint
-script: ./autogen.sh && ./configure && make check
+before_install: sudo apt-get install check splint
+install:
+ # Deal with issue on Travis builders
+ # https://github.com/travis-ci/travis-cookbooks/issues/155
+ - "sudo rm -rf /dev/shm && sudo ln -s /run/shm /dev/shm"
+script: ./autogen.sh && ./configure && make check && make distcheck
 notifications:
   email:
     recipients:

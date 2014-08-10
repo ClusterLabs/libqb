@@ -82,6 +82,58 @@ static const char log_month_name[][4] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
+static pthread_rwlock_t _formatlock;
+
+void
+qb_log_format_init(void)
+{
+	int32_t i;
+	struct qb_log_target *t;
+
+	i = pthread_rwlock_init(&_formatlock, NULL);
+	assert(i == 0);
+
+	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+		t = qb_log_target_get(i);
+		t->format = strdup("[%p] %b");
+	}
+}
+
+void
+qb_log_format_fini(void)
+{
+	struct qb_log_target *t;
+	int32_t i;
+
+	pthread_rwlock_destroy(&_formatlock);
+
+	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+		t = qb_log_target_get(i);
+		free(t->format);
+	}
+}
+
+void
+qb_log_format_set(int32_t target, const char *format)
+{
+	char modified_format[256];
+	struct qb_log_target *t = qb_log_target_get(target);
+
+	pthread_rwlock_wrlock(&_formatlock);
+
+	free(t->format);
+
+	if (format) {
+		qb_log_target_format_static(target, format, modified_format);
+		t->format = strdup(modified_format);
+	} else {
+		t->format = strdup("[%p] %b");
+	}
+	assert(t->format != NULL);
+
+	pthread_rwlock_unlock(&_formatlock);
+}
+
 /* Convert string "auth" to equivalent number "LOG_AUTH" etc. */
 int32_t
 qb_log_facility2int(const char *fname)
@@ -188,7 +240,7 @@ qb_log_target_format_static(int32_t target, const char * format,
 
 	while ((c = format[format_buffer_idx])) {
 		cutoff = 0;
-		ralign = 0;
+		ralign = QB_FALSE;
 		if (c != '%') {
 			output_buffer[output_buffer_idx++] = c;
 			format_buffer_idx++;
@@ -198,7 +250,7 @@ qb_log_target_format_static(int32_t target, const char * format,
 
 			format_buffer_idx += 1;
 			if (format[format_buffer_idx] == '-') {
-				ralign = 1;
+				ralign = QB_TRUE;
 				format_buffer_idx += 1;
 			}
 
@@ -231,7 +283,7 @@ qb_log_target_format_static(int32_t target, const char * format,
 			default:
 				p = &format[percent_buffer_idx];
 				cutoff = (format_buffer_idx - percent_buffer_idx + 1);
-				ralign = 0;
+				ralign = QB_FALSE;
 				break;
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
@@ -276,13 +328,15 @@ qb_log_target_format(int32_t target,
 	int c;
 	struct qb_log_target *t = qb_log_target_get(target);
 
+	pthread_rwlock_rdlock(&_formatlock);
 	if (t->format == NULL) {
+		pthread_rwlock_unlock(&_formatlock);
 		return;
 	}
 
 	while ((c = t->format[format_buffer_idx])) {
 		cutoff = 0;
-		ralign = 0;
+		ralign = QB_FALSE;
 		if (c != '%') {
 			output_buffer[output_buffer_idx++] = c;
 			format_buffer_idx++;
@@ -291,7 +345,7 @@ qb_log_target_format(int32_t target,
 
 			format_buffer_idx += 1;
 			if (t->format[format_buffer_idx] == '-') {
-				ralign = 1;
+				ralign = QB_TRUE;
 				format_buffer_idx += 1;
 			}
 
@@ -370,6 +424,7 @@ qb_log_target_format(int32_t target,
 			break;
 		}
 	}
+	pthread_rwlock_unlock(&_formatlock);
 
 	if (output_buffer[output_buffer_idx - 1] == '\n') {
 		output_buffer[output_buffer_idx - 1] = '\0';
@@ -378,22 +433,43 @@ qb_log_target_format(int32_t target,
 	}
 }
 
+
+/*
+ * These wrappers around strl* functions just return the
+ * number of characters written, not the number of characters
+ * requested to be written.
+ */
+static size_t
+my_strlcpy(char *dest, const char * src, size_t maxlen)
+{
+	size_t rc = strlcpy(dest, src, maxlen);
+	/* maxlen includes NUL, so -1 */
+	return QB_MIN(rc, maxlen-1);
+}
+
+static size_t
+my_strlcat(char *dest, const char * src, size_t maxlen)
+{
+	size_t rc = strlcat(dest, src, maxlen);
+	return QB_MIN(rc, maxlen-1);
+}
+
 size_t
 qb_vsnprintf_serialize(char *serialize, size_t max_len,
 		       const char *fmt, va_list ap)
 {
 	char *format;
 	char *p;
-	int type_long = 0;
-	int type_longlong = 0;
+	int type_long = QB_FALSE;
+	int type_longlong = QB_FALSE;
         int sformat_length = 0;
-        int sformat_precision = 0;
-	uint32_t location = strlcpy(serialize, fmt, max_len) + 1;
+        int sformat_precision = QB_FALSE;
+	uint32_t location = my_strlcpy(serialize, fmt, max_len) + 1;
 
 	format = (char *)fmt;
 	for (;;) {
-		type_long = 0;
-		type_longlong = 0;
+		type_long = QB_FALSE;
+		type_longlong = QB_FALSE;
 		p = strchrnul((const char *)format, '%');
 		if (*p == '\0') {
 			break;
@@ -411,7 +487,7 @@ reprocess:
                     goto reprocess;
 		case '.': /* precision, ignore */
                     format++;
-                    sformat_precision = 1;
+                    sformat_precision = QB_TRUE;
                     goto reprocess;
 		case '0': /* field width, ignore */
 		case '1': /* field width, ignore */
@@ -423,7 +499,7 @@ reprocess:
 		case '7': /* field width, ignore */
 		case '8': /* field width, ignore */
 		case '9': /* field width, ignore */
-                        if(sformat_precision) {
+                        if (sformat_precision) {
                             sformat_length *= 10;
                             sformat_length += (format[0] - '0');
                         }
@@ -441,10 +517,10 @@ reprocess:
 		}
 		case 'l':
 			format++;
-			type_long = 1;
+			type_long = QB_TRUE;
 			if (*format == 'l') {
-				type_long = 0;
-				type_longlong = 1;
+				type_long = QB_FALSE;
+				type_longlong = QB_TRUE;
 				format++;
 			}
 			goto reprocess;
@@ -530,17 +606,17 @@ reprocess:
 			char *arg_string;
 			arg_string = va_arg(ap, char *);
 			if (arg_string == NULL) {
-				location += strlcpy(&serialize[location],
+				location += my_strlcpy(&serialize[location],
 						   "(null)",
 						   QB_MIN(strlen("(null)") + 1,
 							  max_len - location));
 			} else if (sformat_length) {
-                                location += strlcpy(&serialize[location],
+				location += my_strlcpy(&serialize[location],
 						   arg_string,
 						   QB_MIN(sformat_length + 1,
 						   (max_len - location)));
 			} else {
-				location += strlcpy(&serialize[location],
+				location += my_strlcpy(&serialize[location],
 						   arg_string,
 						   QB_MIN(strlen(arg_string) + 1,
 							  max_len - location));
@@ -564,7 +640,7 @@ reprocess:
 			}
 			serialize[location++] = '%';
                         sformat_length = 0;
-                        sformat_precision = 0;
+                        sformat_precision = QB_FALSE;
 			break;
 
 		}
@@ -584,18 +660,18 @@ qb_vsnprintf_deserialize(char *string, size_t str_len, const char *buf)
 
 	uint32_t location = 0;
 	uint32_t data_pos = strlen(buf) + 1;
-	int type_long = 0;
-	int type_longlong = 0;
+	int type_long = QB_FALSE;
+	int type_longlong = QB_FALSE;
 	int len;
 
 	string[0] = '\0';
 	format = (char *)buf;
 	for (;;) {
-		type_long = 0;
-		type_longlong = 0;
+		type_long = QB_FALSE;
+		type_longlong = QB_FALSE;
 		p = strchrnul((const char *)format, '%');
 		if (*p == '\0') {
-			return strlcat(string, format, str_len) + 1;
+			return my_strlcat(string, format, str_len) + 1;
 		}
 		/* copy from current to the next % */
 		len = p - format;
@@ -643,10 +719,10 @@ reprocess:
 		case 'l':
 			fmt[fmt_pos++] = *format;
 			format++;
-			type_long = 1;
+			type_long = QB_TRUE;
 			if (*format == 'l') {
-				type_long = 0;
-				type_longlong = 1;
+				type_long = QB_FALSE;
+				type_longlong = QB_TRUE;
 			}
 			goto reprocess;
 		case 'd': /* int argument */
@@ -735,7 +811,8 @@ reprocess:
 				       str_len - location,
 				       fmt, &buf[data_pos]);
 			location += len;
-			data_pos += len + 1;
+			/* don't use len as there might be a len modifier */
+			data_pos += strlen(&buf[data_pos]) + 1;
 			format++;
 			break;
 			}

@@ -116,6 +116,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 				sizeof(response));
 		if (res < 0) {
 			qb_perror(LOG_ERR, "qb_ipcs_response_send");
+			return res;
 		}
 	}
 	if (events) {
@@ -123,6 +124,7 @@ static int32_t s1_msg_process_fn(qb_ipcs_connection_t *c,
 				sizeof(response));
 		if (res < 0) {
 			qb_perror(LOG_ERR, "qb_ipcs_event_send");
+			return res;
 		}
 	}
 	return 0;
@@ -255,6 +257,7 @@ int32_t main(int32_t argc, char *argv[])
 {
 	const char *options = "nevhmpsug";
 	int32_t opt;
+	int32_t rc;
 	enum qb_ipc_type ipc_type = QB_IPC_SHM;
 	struct qb_ipcs_service_handlers sh = {
 		.connection_accept = s1_connection_accept_fn,
@@ -323,7 +326,12 @@ int32_t main(int32_t argc, char *argv[])
 			exit(1);
 		}
 		qb_ipcs_poll_handlers_set(s1, &ph);
-		qb_ipcs_run(s1);
+		rc = qb_ipcs_run(s1);
+		if (rc != 0) {
+			errno = -rc;
+			qb_perror(LOG_ERR, "qb_ipcs_run");
+			exit(1);
+		}
 		qb_loop_run(bms_loop);
 	} else {
 #ifdef HAVE_GLIB
@@ -337,7 +345,12 @@ int32_t main(int32_t argc, char *argv[])
 			exit(1);
 		}
 		qb_ipcs_poll_handlers_set(s1, &glib_ph);
-		qb_ipcs_run(s1);
+		rc = qb_ipcs_run(s1);
+		if (rc != 0) {
+			errno = -rc;
+			qb_perror(LOG_ERR, "qb_ipcs_run");
+			exit(1);
+		}
 
 		g_main_loop_run(glib_loop);
 #else

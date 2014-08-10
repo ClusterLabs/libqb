@@ -39,6 +39,7 @@
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
+	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 	if (c->is_connected) {
 		qb_rb_close(c->request.u.shm.rb);
 		qb_rb_close(c->response.u.shm.rb);
@@ -224,17 +225,28 @@ return_error:
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
-	if (c->response.u.shm.rb) {
-		qb_rb_close(c->response.u.shm.rb);
-		c->response.u.shm.rb = NULL;
+	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		if (c->setup.u.us.sock > 0) {
+			qb_ipcc_us_sock_close(c->setup.u.us.sock);
+			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
+			c->setup.u.us.sock = -1;
+		}
 	}
-	if (c->event.u.shm.rb) {
-		qb_rb_close(c->event.u.shm.rb);
-		c->event.u.shm.rb = NULL;
-	}
-	if (c->request.u.shm.rb) {
-		qb_rb_close(c->request.u.shm.rb);
-		c->request.u.shm.rb = NULL;
+	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		if (c->response.u.shm.rb) {
+			qb_rb_close(c->response.u.shm.rb);
+			c->response.u.shm.rb = NULL;
+		}
+		if (c->event.u.shm.rb) {
+			qb_rb_close(c->event.u.shm.rb);
+			c->event.u.shm.rb = NULL;
+		}
+		if (c->request.u.shm.rb) {
+			qb_rb_close(c->request.u.shm.rb);
+			c->request.u.shm.rb = NULL;
+		}
 	}
 }
 
@@ -306,14 +318,28 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		goto cleanup_request_response;
 	}
 
+	res = s->poll_fns.dispatch_add(s->poll_priority,
+				       c->setup.u.us.sock,
+				       POLLIN | POLLPRI | POLLNVAL,
+				       c, qb_ipcs_dispatch_connection_request);
+	if (res != 0) {
+		qb_util_log(LOG_ERR,
+			    "Error adding socket to mainloop (%s).",
+			    c->description);
+		goto cleanup_request_response_event;
+	}
+
 	r->hdr.error = 0;
 	return 0;
 
+cleanup_request_response_event:
+	qb_rb_close(c->event.u.shm.rb);
+
 cleanup_request_response:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(c->response.u.shm.rb);
 
 cleanup_request:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(c->request.u.shm.rb);
 
 cleanup:
 	r->hdr.error = res;

@@ -24,3 +24,6 @@ libqb-*
 cov
 compat_reports
 abi_dumps
+TAGS
+*~
+test-driver

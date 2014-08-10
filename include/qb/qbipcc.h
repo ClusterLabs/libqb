@@ -70,9 +70,32 @@ typedef struct qb_ipcc_connection qb_ipcc_connection_t;
  * @param name name of the service.
  * @param max_msg_size biggest msg size.
  * @return NULL (error: see errno) or a connection object.
+ *
+ * @note It is recommended to do a one time check on the
+ * max_msg_size value using qb_ipcc_verify_dgram_max_msg_size
+ * _BEFORE_ calling the connect function when IPC_SOCKET is in use.
+ * Some distributions while allow large message buffers to be
+ * set on the socket, but not actually honor them because of
+ * kernel state values.  The qb_ipcc_verify_dgram_max_msg_size
+ * function both sets the socket buffer size and verifies it by
+ * doing a send/recv.
  */
 qb_ipcc_connection_t*
 qb_ipcc_connect(const char *name, size_t max_msg_size);
+
+/**
+ * Test kernel dgram socket buffers to verify the largest size up
+ * to the max_msg_size value a single msg can be. Rounds down to the
+ * nearest 1k.
+ *
+ * @param max_msg_size biggest msg size.
+ * @return -1 if max size can not be detected, positive value
+ *         representing the largest single msg up to max_msg_size
+ *         that can successfully be sent over a unix dgram socket.
+ */
+int32_t
+qb_ipcc_verify_dgram_max_msg_size(size_t max_msg_size);
+
 
 /**
  * Disconnect an IPC connection.
@@ -207,6 +230,23 @@ void *qb_ipcc_context_get(qb_ipcc_connection_t *c);
  * @retval QB_FALSE when not connected
  */
 int32_t qb_ipcc_is_connected(qb_ipcc_connection_t *c);
+
+/**
+ * What is the actual buffer size used after the connection.
+ *
+ * @note The buffer size is guaranteed to be at least the size
+ * of the value given in qb_ipcc_connect, but it is possible
+ * the server will enforce a larger size depending on the
+ * implementation.  If the server side is known to enforce
+ * a buffer size, use this function after the client connection
+ * is established to retrieve the buffer size in use.  It is
+ * important for the client side to know the buffer size in use
+ * so the client can successfully retrieve large server events.
+ *
+ * @param c connection instance
+ * @retval connection size in bytes or -error code
+ */
+int32_t qb_ipcc_get_buffer_size(qb_ipcc_connection_t * c);
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

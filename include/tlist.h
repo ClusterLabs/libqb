@@ -36,7 +36,6 @@ static int64_t timerlist_hertz;
 
 struct timerlist {
 	struct qb_list_head timer_head;
-	struct qb_list_head *timer_iter;
 };
 
 struct timerlist_timer {
@@ -59,23 +58,21 @@ static inline void timerlist_add(struct timerlist *timerlist,
 {
 	struct qb_list_head *timer_list = 0;
 	struct timerlist_timer *timer_from_list;
-	int32_t found;
+	int32_t found = QB_FALSE;
 
-	for (found = 0, timer_list = timerlist->timer_head.next;
-	     timer_list != &timerlist->timer_head;
-	     timer_list = timer_list->next) {
+	qb_list_for_each(timer_list, &timerlist->timer_head) {
 
 		timer_from_list = qb_list_entry(timer_list,
 						struct timerlist_timer, list);
 
 		if (timer_from_list->expire_time > timer->expire_time) {
-			qb_list_add(&timer->list, timer_list->prev);
-			found = 1;
+			qb_list_add_tail(&timer->list, timer_list);
+			found = QB_TRUE;
 			break;	/* for timer iteration */
 		}
 	}
-	if (found == 0) {
-		qb_list_add(&timer->list, timerlist->timer_head.prev);
+	if (found == QB_FALSE) {
+		qb_list_add_tail(&timer->list, &timerlist->timer_head);
 	}
 }
 
@@ -94,7 +91,7 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 	}
 
 	timer->expire_time = qb_util_nano_current_get() + nano_duration;
-	timer->is_absolute_timer = 0;
+	timer->is_absolute_timer = QB_FALSE;
 	timer->data = data;
 	timer->timer_fn = timer_fn;
 	timer->handle_addr = handle;
@@ -110,14 +107,6 @@ static inline void timerlist_del(struct timerlist *timerlist,
 	struct timerlist_timer *timer = (struct timerlist_timer *)_timer_handle;
 
 	memset(timer->handle_addr, 0, sizeof(struct timerlist_timer *));
-	/*
-	 * If the next timer after the currently expiring timer because
-	 * timerlist_del is called from a timer handler, get to the next
-	 * timer
-	 */
-	if (timerlist->timer_iter == &timer->list) {
-		timerlist->timer_iter = timerlist->timer_iter->next;
-	}
 	qb_list_del(&timer->list);
 	qb_list_init(&timer->list);
 	free(timer);
@@ -163,11 +152,11 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct timerlist *timer
 	/*
 	 * empty list, no expire
 	 */
-	if (timerlist->timer_head.next == &timerlist->timer_head) {
+	if (qb_list_empty(&timerlist->timer_head)) {
 		return (-1);
 	}
 
-	timer_from_list = qb_list_entry(timerlist->timer_head.next,
+	timer_from_list = qb_list_first_entry(&timerlist->timer_head,
 					struct timerlist_timer, list);
 
 	if (timer_from_list->is_absolute_timer) {
@@ -195,6 +184,8 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct timerlist *timer
 static inline void timerlist_expire(struct timerlist *timerlist)
 {
 	struct timerlist_timer *timer_from_list;
+	struct qb_list_head *pos;
+	struct qb_list_head *next;
 	uint64_t current_time_from_epoch;
 	uint64_t current_monotonic_time;
 	uint64_t current_time;
@@ -202,10 +193,9 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 	current_monotonic_time = qb_util_nano_current_get();
 	current_time_from_epoch = current_time = qb_util_nano_from_epoch_get();
 
-	for (timerlist->timer_iter = timerlist->timer_head.next;
-	     timerlist->timer_iter != &timerlist->timer_head;) {
+	qb_list_for_each_safe(pos, next, &timerlist->timer_head) {
 
-		timer_from_list = qb_list_entry(timerlist->timer_iter,
+		timer_from_list = qb_list_entry(pos,
 						struct timerlist_timer, list);
 
 		current_time =
@@ -214,7 +204,6 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 		     current_monotonic_time);
 
 		if (timer_from_list->expire_time < current_time) {
-			timerlist->timer_iter = timerlist->timer_iter->next;
 
 			timerlist_pre_dispatch(timerlist, timer_from_list);
 
@@ -225,6 +214,5 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 			break;	/* for timer iteration */
 		}
 	}
-	timerlist->timer_iter = 0;
 }
 #endif /* QB_TLIST_H_DEFINED */

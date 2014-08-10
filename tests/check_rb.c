@@ -57,8 +57,9 @@ START_TEST(test_ring_buffer1)
 				    hdr.id, "actually the line number", i,
 				    __func__, __FILE__) + 1;
 			hdr.size += sizeof(struct qb_ipc_request_header);
+			memcpy(my_buf, &hdr, sizeof(struct qb_ipc_request_header));
 			avail = qb_rb_space_free(rb);
-			actual = qb_rb_chunk_write(rb, &hdr, hdr.size);
+			actual = qb_rb_chunk_write(rb, my_buf, hdr.size);
 			if (avail < (hdr.size + (3 * sizeof(uint32_t)))) {
 				ck_assert_int_eq(actual, -EAGAIN);
 			} else {
@@ -72,13 +73,13 @@ START_TEST(test_ring_buffer1)
 		str = my_buf + sizeof(struct qb_ipc_request_header);
 
 		for (i = 0; i < 15; i++) {
-			actual = qb_rb_chunk_read(rb, &hdr, 512, 0);
+			actual = qb_rb_chunk_read(rb, my_buf, 512, 0);
 			if (actual < 0) {
 				ck_assert_int_eq(0, qb_rb_chunks_used(rb));
 				break;
 			}
+			memcpy(&hdr, my_buf, sizeof(struct qb_ipc_request_header));
 			str[actual - sizeof(struct qb_ipc_request_header)] = '\0';
-
 			ck_assert_int_eq(actual, hdr.size);
 		}
 	}

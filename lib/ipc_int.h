@@ -70,6 +70,7 @@ struct qb_ipc_one_way {
 	union {
 		struct {
 			int32_t sock;
+			char *sock_name;
 			void* shared_data;
 			char shared_file_name[NAME_MAX];
 		} us;
@@ -105,7 +106,8 @@ int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 				   struct qb_ipc_connection_response *r);
 ssize_t qb_ipc_us_send(struct qb_ipc_one_way *one_way, const void *msg, size_t len);
 ssize_t qb_ipc_us_recv(struct qb_ipc_one_way *one_way, void *msg, size_t len, int32_t timeout);
-int32_t qb_ipc_us_ready(struct qb_ipc_one_way *one_way, int32_t ms_timeout, int32_t events);
+int32_t qb_ipc_us_ready(struct qb_ipc_one_way *ow_data, struct qb_ipc_one_way *ow_conn,
+			int32_t ms_timeout, int32_t events);
 
 void qb_ipcc_us_sock_close(int32_t sock);
 
@@ -131,6 +133,7 @@ struct qb_ipcs_funcs {
 struct qb_ipcs_service {
 	enum qb_ipc_type type;
 	char name[NAME_MAX];
+	uint32_t max_buffer_size;
 	int32_t service_id;
 	int32_t ref_count;
 	pid_t pid;
@@ -145,6 +148,8 @@ struct qb_ipcs_service {
 	struct qb_list_head connections;
 	struct qb_list_head list;
 	struct qb_ipcs_stats stats;
+
+	void *context;
 };
 
 enum qb_ipcs_connection_state {
@@ -189,11 +194,10 @@ void qb_ipcs_shm_init(struct qb_ipcs_service *s);
 
 int32_t qb_ipcs_us_publish(struct qb_ipcs_service *s);
 int32_t qb_ipcs_us_withdraw(struct qb_ipcs_service *s);
+int32_t qb_ipcc_us_sock_connect(const char *socket_name, int32_t * sock_pt);
 
 int32_t qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data);
-int32_t qb_ipcs_dispatch_service_request(int32_t fd, int32_t revents, void *data);
 struct qb_ipcs_connection* qb_ipcs_connection_alloc(struct qb_ipcs_service *s);
-void qb_ipcs_sockets_disconnect(struct qb_ipcs_connection *c);
 
 int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 	struct qb_ipc_request_header *hdr);

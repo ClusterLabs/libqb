@@ -167,6 +167,7 @@ retry_poll:
 		if (res != 0) {
 			qb_util_log(LOG_WARNING,
 				    "can't find poll entry for new event.");
+			usleep(100000);
 			continue;
 		}
 		if (pe->ufd.fd == -1 || pe->state == QB_POLL_ENTRY_DELETED) {
@@ -177,16 +178,12 @@ retry_poll:
 			 */
 			continue;
 		}
-		if (events[i].events == pe->ufd.revents ||
-		    pe->state == QB_POLL_ENTRY_JOBLIST) {
-			/*
-			 * entry already in the job queue.
-			 */
-			continue;
-		}
-		pe->ufd.revents = _epoll_to_poll_event_(events[i].events);
 
-		new_jobs += pe->add_to_jobs(src->l, pe);
+		pe->ufd.revents |= _epoll_to_poll_event_(events[i].events);
+
+		if (pe->state != QB_POLL_ENTRY_JOBLIST) {
+			new_jobs += pe->add_to_jobs(src->l, pe);
+		}
 	}
 
 	return new_jobs;
@@ -206,4 +203,3 @@ qb_epoll_init(struct qb_poll_source *s)
 	s->s.poll = _poll_and_add_to_jobs_;
 	return 0;
 }
-

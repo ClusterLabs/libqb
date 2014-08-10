@@ -173,6 +173,22 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                  )
 
 
+AC_MSG_CHECKING(for MSG_NOSIGNAL)
+AC_TRY_COMPILE([#include <sys/socket.h>],
+	       [ int f = MSG_NOSIGNAL; ],
+	       [ AC_MSG_RESULT(yes)
+	         AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
+	         [Define this symbol if you have MSG_NOSIGNAL])],
+	       [ AC_MSG_RESULT(no)])
+
+AC_MSG_CHECKING(for SO_NOSIGPIPE )
+AC_TRY_COMPILE([#include <sys/socket.h>],
+		[ int f = SO_NOSIGPIPE; ],
+		[ AC_MSG_RESULT(yes)
+		  AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
+		  [Define this symbol if you have SO_NOSIGPIPE]) ],
+		[ AC_MSG_RESULT(no)])
+
 # Checks for library functions.
 AC_FUNC_CHOWN
 AC_FUNC_FORK
@@ -271,7 +287,7 @@ case "$host_os" in
 				   [Compiling for Cygwin platform])
 		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
-		gcc_has_builtin_atomic_operations=no
+		gcc_has_builtin_sync_operations=no
 		AC_MSG_RESULT([Cygwin])
 	;;
 	darwin*)
@@ -286,7 +302,7 @@ case "$host_os" in
 		dnl separated by a comma
 		AC_DEFINE_UNQUOTED([DISABLE_POSIX_THREAD_PROCESS_SHARED], [1],
 				   [Disable _POSIX_THREAD_PROCESS_SHARED])
-		AC_MSG_RESULT([Dawin])
+		AC_MSG_RESULT([Darwin])
 	;;
 	*bsd*)
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
@@ -326,15 +342,38 @@ case "$host_os" in
 	;;
 esac
 
-AC_MSG_CHECKING([whether GCC supports build-in atomic intrinsics])
-if test -z "$gcc_has_builtin_atomic_operations"; then
-	gcc_has_builtin_atomic_operations=no
+AC_MSG_CHECKING([whether GCC supports builtin sync intrinsics])
+if test -z "$gcc_has_builtin_sync_operations"; then
+	gcc_has_builtin_sync_operations=no
 	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
 		AC_TRY_LINK([],
 			    [int i;
 			     __sync_synchronize ();
 			     __sync_bool_compare_and_swap (&i, 0, 1);
 			     __sync_fetch_and_add (&i, 1);
+			     ],
+			     [gcc_has_builtin_sync_operations=yes],
+			     [gcc_has_builtin_sync_operations=no])
+	fi
+fi
+AC_MSG_RESULT($gcc_has_builtin_sync_operations)
+AM_CONDITIONAL(HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS,
+	       [test "x$gcc_has_builtin_sync_operations" = xyes])
+
+if test "x$gcc_has_builtin_sync_operations" = xyes; then
+	AC_DEFINE_UNQUOTED(HAVE_GCC_BUILTINS_FOR_SYNC_OPERATIONS, 1,
+			   [have builtin sync operations])
+fi
+
+# __atomic_XXX
+AC_MSG_CHECKING([whether GCC supports builtin atomic intrinsics])
+if test -z "$gcc_has_builtin_atomic_operations"; then
+	gcc_has_builtin_atomic_operations=no
+	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
+		AC_TRY_LINK([],
+			    [int i;
+			     __atomic_load_n(&i, __ATOMIC_ACQUIRE);
+			     __atomic_exchange_n(&i, 0, __ATOMIC_RELEASE);
 			     ],
 			     [gcc_has_builtin_atomic_operations=yes],
 			     [gcc_has_builtin_atomic_operations=no])
@@ -349,11 +388,12 @@ if test "x$gcc_has_builtin_atomic_operations" = xyes; then
 			   [have builtin atomic operations])
 fi
 
+
 AC_MSG_CHECKING([whether atomics need memory barrier])
 if test -n "$ac_cv_atomic_need_memory_barrier"; then
 	memory_barrier_needed=$ac_cv_atomic_need_memory_barrier
 else
-	if test x$gcc_has_builtin_atomic_operations = xyes; then
+	if test x$gcc_has_builtin_sync_operations = xyes; then
 		memory_barrier_needed=yes
 		PACKAGE_FEATURES="$PACKAGE_FEATURES gcc__sync"
 	else
@@ -371,9 +411,9 @@ if test x"$memory_barrier_needed" != xno; then
 			   [need atomic memory barrier])
 fi
 
-LINT_FLAGS="-weak -unrecog +posixlib +ignoresigns -fcnuse \
+LINT_FLAGS="-syntax -weak -unrecog +posixlib +ignoresigns -fcnuse \
 	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
-	-warnposix +matchanyintegral"
+	-warnposix +matchanyintegral -sysunrecog"
 
 # local options
 AC_ARG_ENABLE([ansi],
@@ -469,6 +509,7 @@ if test "x${enable_slow_tests}" = xyes ; then
 	AC_MSG_NOTICE([Enabling Slow tests])
 fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
+AC_SUBST(HAVE_SLOW_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
@@ -540,6 +581,7 @@ AC_CONFIG_FILES([Makefile
 		 lib/libqb.pc
 		 tools/Makefile
 		 tests/Makefile
+		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
 		 docs/man.dox
