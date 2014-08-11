@@ -46,4 +46,3 @@ There are a number of ways to support the project.
 * Contribute documentation, examples and test cases.
 * Contribute patches.
 * Spread the word.
-
