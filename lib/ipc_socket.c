@@ -79,6 +79,9 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 	}
 	snprintf(sock_path, PATH_MAX, "%s-%s", base_name, service_name);
 	set_sock_addr(&local_address, sock_path);
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+    res = unlink(local_address.sun_path);
+#endif
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
 	if (res < 0) {
@@ -338,6 +341,7 @@ qb_ipc_socket_sendv(struct qb_ipc_one_way *one_way, const struct iovec *iov,
 		rc = _finish_connecting(one_way);
 		if (rc < 0) {
 			qb_util_perror(LOG_ERR, "socket connect-on-sendv");
+			qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 			return rc;
 		}
 	}
@@ -383,24 +387,33 @@ qb_ipc_us_recv_at_most(struct qb_ipc_one_way *one_way,
 
 retry_peek:
 	result = recv(one_way->u.us.sock, data,
-		      sizeof(struct qb_ipc_request_header),
-		      MSG_NOSIGNAL | MSG_PEEK);
+				sizeof(struct qb_ipc_request_header),
+				MSG_NOSIGNAL | MSG_PEEK);
 
 	if (result == -1) {
+
 		if (errno != EAGAIN) {
-			return -errno;
+			final_rc = -errno;
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+			if (errno == ECONNRESET || errno == EPIPE) {
+				final_rc = -ENOTCONN;
+			}
+#endif
+			goto cleanup_sigpipe;
 		}
 
 		/* check to see if we have enough time left to try again */
 		if (time_waited < timeout || timeout == -1) {
 			result = qb_ipc_us_ready(one_way, NULL, time_to_wait, POLLIN);
 			if (qb_ipc_us_sock_error_is_disconnected(result)) {
-				return result;
+				final_rc = result;
+				goto cleanup_sigpipe;
 			}
 			time_waited += time_to_wait;
 			goto retry_peek;
 		} else if (time_waited >= timeout) {
-			return -ETIMEDOUT;
+			final_rc = -ETIMEDOUT;
+			goto cleanup_sigpipe;
 		}
 	}
 	if (result >= sizeof(struct qb_ipc_request_header)) {
@@ -410,7 +423,7 @@ retry_peek:
 	}
 
 	result = recv(one_way->u.us.sock, data, to_recv,
-		      MSG_NOSIGNAL | MSG_WAITALL);
+				MSG_NOSIGNAL | MSG_WAITALL);
 	if (result == -1) {
 		final_rc = -errno;
 		goto cleanup_sigpipe;
