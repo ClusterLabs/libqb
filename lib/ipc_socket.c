@@ -387,8 +387,8 @@ qb_ipc_us_recv_at_most(struct qb_ipc_one_way *one_way,
 
 retry_peek:
 	result = recv(one_way->u.us.sock, data,
-		      sizeof(struct qb_ipc_request_header),
-		      MSG_NOSIGNAL | MSG_PEEK);
+				sizeof(struct qb_ipc_request_header),
+				MSG_NOSIGNAL | MSG_PEEK);
 
 	if (result == -1) {
 
@@ -406,7 +406,7 @@ retry_peek:
 		if (time_waited < timeout || timeout == -1) {
 			result = qb_ipc_us_ready(one_way, NULL, time_to_wait, POLLIN);
 			if (qb_ipc_us_sock_error_is_disconnected(result)) {
-                		final_rc = result;
+				final_rc = result;
 				goto cleanup_sigpipe;
 			}
 			time_waited += time_to_wait;
@@ -423,7 +423,7 @@ retry_peek:
 	}
 
 	result = recv(one_way->u.us.sock, data, to_recv,
-		      MSG_NOSIGNAL | MSG_WAITALL);
+				MSG_NOSIGNAL | MSG_WAITALL);
 	if (result == -1) {
 		final_rc = -errno;
 		goto cleanup_sigpipe;
