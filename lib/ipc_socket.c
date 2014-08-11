@@ -391,20 +391,19 @@ retry_peek:
 		      MSG_NOSIGNAL | MSG_PEEK);
 
 	if (result == -1) {
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-		if (errno != EAGAIN && errno != ECONNRESET && errno != EPIPE) {
-#else
+
 		if (errno != EAGAIN) {
-#endif
 			final_rc = -errno;
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+			if (errno == ECONNRESET || errno == EPIPE) {
+               final_rc = -ENOTCONN;
+			}
+#endif
 			goto cleanup_sigpipe;
 		}
 
 		/* check to see if we have enough time left to try again */
-        if (errno == ECONNRESET || errno == EPIPE) {
-            final_rc = -ENOTCONN;
-            goto cleanup_sigpipe;
-		} else if (time_waited < timeout || timeout == -1) {
+		if (time_waited < timeout || timeout == -1) {
 			result = qb_ipc_us_ready(one_way, NULL, time_to_wait, POLLIN);
 			if (qb_ipc_us_sock_error_is_disconnected(result)) {
                 final_rc = result;
