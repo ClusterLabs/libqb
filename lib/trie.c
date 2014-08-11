@@ -43,7 +43,7 @@ struct trie_node {
 	uint32_t num_children;
 	uint32_t refcount;
 	struct trie_node *parent;
-	struct qb_list_head notifier_head;
+	struct qb_list_head *notifier_head;
 };
 
 struct trie {
@@ -58,6 +58,7 @@ struct trie {
 static void trie_notify(struct trie_node *n, uint32_t event, const char *key,
 			void *old_value, void *value);
 static struct trie_node *trie_new_node(struct trie *t, struct trie_node *parent);
+static void trie_destroy_node(struct trie_node *node);
 
 /*
  * characters are stored in reverse to make accessing the
@@ -173,6 +174,7 @@ trie_node_split(struct trie *t, struct trie_node *cur_node, int seg_cnt)
 	struct trie_node *split_node;
 	struct trie_node ** children = cur_node->children;
 	uint32_t num_children = cur_node->num_children;
+	struct qb_list_head *tmp;
 	int i;
 	int s;
 
@@ -196,14 +198,16 @@ trie_node_split(struct trie *t, struct trie_node *cur_node, int seg_cnt)
 	cur_node->key = NULL;
 	cur_node->refcount = 0;
 	/* move notifier list to split */
-	qb_list_replace(&cur_node->notifier_head, &split_node->notifier_head);
-	qb_list_init(&cur_node->notifier_head);
+	tmp = split_node->notifier_head;
+	split_node->notifier_head = cur_node->notifier_head;
+	cur_node->notifier_head = tmp;
+	qb_list_init(cur_node->notifier_head);
 
 	if (seg_cnt < cur_node->num_segments) {
 		split_node->num_segments = cur_node->num_segments - seg_cnt - 1;
 		split_node->segment = malloc(split_node->num_segments * sizeof(char));
 		if (split_node->segment == NULL) {
-			free(split_node);
+			trie_destroy_node(split_node);
 			return NULL;
 		}
 		for (i = (seg_cnt + 1); i < cur_node->num_segments; i++) {
@@ -253,7 +257,7 @@ trie_insert(struct trie *t, const char *key)
 				return NULL;
 			}
 		} else if (cur_node->value == NULL &&
-			   qb_list_empty(&cur_node->notifier_head) &&
+			   qb_list_empty(cur_node->notifier_head) &&
 			   cur_node->num_children == 0 &&
 			   seg_cnt == cur_node->num_segments) {
 			/* we are on a leaf (with no value) so just add it as a segment */
@@ -348,7 +352,7 @@ trie_node_release(struct trie *t, struct trie_node *node)
 
 	if (node->key == NULL &&
 	    node->parent != NULL &&
-	    qb_list_empty(&node->notifier_head)) {
+	    qb_list_empty(node->notifier_head)) {
 		struct trie_node *p = node->parent;
 
 		if (node->num_children == 0) {
@@ -370,9 +374,7 @@ trie_node_release(struct trie *t, struct trie_node *node)
 		 * unlink the node from the parent
 		 */
 		p->children[node->idx] = NULL;
-		free(node->segment);
-		free(node->children);
-		free(node);
+		trie_destroy_node(node);
 		t->num_nodes--;
 		t->mem_used -= sizeof(struct trie_node);
 
@@ -455,12 +457,27 @@ trie_destroy(struct qb_map *map)
 	free(t);
 }
 
+static void
+trie_destroy_node(struct trie_node *node)
+{
+	free(node->segment);
+	free(node->children);
+	free(node->notifier_head);
+	free(node);
+}
+
 static struct trie_node *
 trie_new_node(struct trie *t, struct trie_node *parent)
 {
 	struct trie_node *new_node = calloc(1, sizeof(struct trie_node));
 
 	if (new_node == NULL) {
+		return NULL;
+	}
+
+	new_node->notifier_head = calloc(1, sizeof(struct qb_list_head));
+	if (new_node->notifier_head == NULL) {
+		free(new_node);
 		return NULL;
 	}
 
@@ -471,7 +488,7 @@ trie_new_node(struct trie *t, struct trie_node *parent)
 	new_node->segment = NULL;
 	t->num_nodes++;
 	t->mem_used += sizeof(struct trie_node);
-	qb_list_init(&new_node->notifier_head);
+	qb_list_init(new_node->notifier_head);
 	return new_node;
 }
 
@@ -570,10 +587,12 @@ trie_notify(struct trie_node *n,
 	struct trie_node *c = n;
 	struct qb_list_head *list;
 	struct qb_list_head *next;
+	struct qb_list_head *head;
 	struct qb_map_notifier *tn;
 
 	do {
-		qb_list_for_each_safe(list, next, &c->notifier_head) {
+		head = c->notifier_head;
+		qb_list_for_each_safe(list, next, head) {
 			tn = qb_list_entry(list, struct qb_map_notifier, list);
 			trie_notify_ref(tn);
 
@@ -589,6 +608,7 @@ trie_notify(struct trie_node *n,
 				tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
 					     old_value, value, tn->user_data);
 			}
+
 			trie_notify_deref(tn);
 		}
 		c = c->parent;
@@ -614,7 +634,7 @@ trie_notify_add(qb_map_t * m, const char *key,
 		n = t->header;
 	}
 	if (n) {
-		qb_list_for_each(list, &n->notifier_head) {
+		qb_list_for_each(list, n->notifier_head) {
 			f = qb_list_entry(list, struct qb_map_notifier, list);
 
 			if (events & QB_MAP_NOTIFY_FREE &&
@@ -648,9 +668,9 @@ trie_notify_add(qb_map_t * m, const char *key,
 			}
 		}
 		if (add_to_tail) {
-			qb_list_add_tail(&f->list, &n->notifier_head);
+			qb_list_add_tail(&f->list, n->notifier_head);
 		} else {
-			qb_list_add(&f->list, &n->notifier_head);
+			qb_list_add(&f->list, n->notifier_head);
 		}
 		return 0;
 	}
@@ -676,7 +696,7 @@ trie_notify_del(qb_map_t * m, const char *key,
 	if (n == NULL) {
 		return -ENOENT;
 	}
-	qb_list_for_each_safe(list, next, &n->notifier_head) {
+	qb_list_for_each_safe(list, next, n->notifier_head) {
 		struct qb_map_notifier *f = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (f->events == events && f->callback == fn) {
