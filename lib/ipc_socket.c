@@ -396,7 +396,7 @@ retry_peek:
 			final_rc = -errno;
 #if !(defined(QB_LINUX) || defined(QB_CYGWIN))
 			if (errno == ECONNRESET || errno == EPIPE) {
-               final_rc = -ENOTCONN;
+				final_rc = -ENOTCONN;
 			}
 #endif
 			goto cleanup_sigpipe;
@@ -406,7 +406,7 @@ retry_peek:
 		if (time_waited < timeout || timeout == -1) {
 			result = qb_ipc_us_ready(one_way, NULL, time_to_wait, POLLIN);
 			if (qb_ipc_us_sock_error_is_disconnected(result)) {
-                final_rc = result;
+                		final_rc = result;
 				goto cleanup_sigpipe;
 			}
 			time_waited += time_to_wait;
