@@ -457,11 +457,11 @@ int32_t qb_ipcs_connection_get_buffer_size(qb_ipcs_connection_t *conn);
  * Enforce the max buffer size clients must use from the server side.
  *
  * @note Setting this will force client connections to use at least
- * 'max_buf_size' bytes as their buffer size.  If this value is not set
+ * max_buf_size bytes as their buffer size.  If this value is not set
  * on the server, the clients enforce their own buffer sizes.
  *
- * @param ipc server instance
- * @param max buffer size in bytes
+ * @param s ipc server instance
+ * @param max_buf_size represented in bytes
  */
 void qb_ipcs_enforce_buffer_size(qb_ipcs_service_t *s, uint32_t max_buf_size);
 
