@@ -887,9 +887,16 @@ count_stress_events(int32_t fd, int32_t revents, void *data)
 			if (res != sizeof(giant_event_recv)) {
 				qb_log(LOG_DEBUG, "Unexpected recv size, expected %d got %d",
 					res, sizeof(giant_event_recv));
+
+				ck_assert_int_eq(res, sizeof(giant_event_recv));
 			} else if (giant_event_recv.sent_msgs != events_received) {
 				qb_log(LOG_DEBUG, "Server event mismatch. Server thinks we got %d msgs, but we only received %d",
 					giant_event_recv.sent_msgs, events_received);
+				/* This indicates that data corruption is occurring. Since the events
+				 * received is placed at the end of the giant msg, it is possible
+				 * that buffers were not allocated correctly resulting in us
+				 * reading/writing to uninitialized memeory at some point. */
+				ck_assert_int_eq(giant_event_recv.sent_msgs, events_received);
 			}
 		}
 	} else if (res != -EAGAIN) {
