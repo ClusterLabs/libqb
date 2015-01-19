@@ -78,7 +78,7 @@ AM_CONDITIONAL(HAVE_SPLINT, test -n "${SPLINT}")
 # args. Global CFLAGS are ignored during this test.
 cc_supports_flag() {
 	BACKUP="$CPPFLAGS"
-	CPPFLAGS="$CPPFLAGS $@"
+	CPPFLAGS="$CPPFLAGS $@ -Werror"
 	AC_MSG_CHECKING([whether $CC supports "$@"])
 	AC_PREPROC_IFELSE([AC_LANG_PROGRAM([])],
 			  [RC=0; AC_MSG_RESULT([yes])],
