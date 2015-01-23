@@ -55,7 +55,7 @@ _add(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 	struct kevent ke;
 	short filters = _poll_to_filter_(events);
 
-	EV_SET(&ke, fd, filters, EV_ADD | EV_ENABLE, 0, 0, (intptr_t)pe);
+	EV_SET(&ke, fd, filters, EV_ADD | EV_ENABLE, 0, 0, pe);
 
 	res = kevent(s->epollfd, &ke, 1, NULL, 0, NULL);
 	if (res == -1) {
@@ -74,8 +74,8 @@ _mod(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 	short new_filters = _poll_to_filter_(events);
 	short old_filters = _poll_to_filter_(pe->ufd.events);
 
-	EV_SET(&ke[0], fd, old_filters, EV_DELETE, 0, 0, (intptr_t)pe);
-	EV_SET(&ke[1], fd, new_filters, EV_ADD | EV_ENABLE, 0, 0, (intptr_t)pe);
+	EV_SET(&ke[0], fd, old_filters, EV_DELETE, 0, 0, pe);
+	EV_SET(&ke[1], fd, new_filters, EV_ADD | EV_ENABLE, 0, 0, pe);
 
 	res = kevent(s->epollfd, ke, 2, NULL, 0, NULL);
 	if (res == -1) {
@@ -92,7 +92,7 @@ _del(struct qb_poll_source *s, struct qb_poll_entry *pe, int32_t fd, int32_t eve
 	struct kevent ke;
 	short filters = _poll_to_filter_(events);
 
-	EV_SET(&ke, fd, filters, EV_DELETE, 0, 0, (intptr_t)pe);
+	EV_SET(&ke, fd, filters, EV_DELETE, 0, 0, pe);
 
 	res = kevent(s->epollfd, &ke, 1, NULL, 0, NULL);
 	if (res == -1 && errno == ENOENT) {
@@ -170,7 +170,7 @@ retry_poll:
 			 * empty/deleted
 			 */
 			EV_SET(&events[i], events[i].ident, events[i].filter,
-			       EV_DELETE, 0, 0, (intptr_t)pe);
+			       EV_DELETE, 0, 0, pe);
 			(void)kevent(s->epollfd, &events[i], 1, NULL, 0, NULL);
 			continue;
 		}
