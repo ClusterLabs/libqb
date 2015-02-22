@@ -110,7 +110,7 @@ retry_recv:
 	}
 
 	processed += result;
-	if (processed != len) {
+	if (processed < len) {
 		goto retry_recv;
 	}
 	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
