@@ -87,8 +87,11 @@ qb_ipc_us_recv_msghdr(int32_t s, struct msghdr *hdr, char *msg, size_t len)
 {
 	int32_t result;
 	int32_t processed = 0;
+	int32_t oldflags;
 
 	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
+
+	oldflags = qb_sys_fd_block_set(s);
 
 retry_recv:
 	hdr->msg_iov->iov_base = &msg[processed];
@@ -100,20 +103,29 @@ retry_recv:
 	}
 	if (result == -1) {
 		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+		if (oldflags >= 0) {
+			qb_sys_fd_flags_restore(s, oldflags);
+		}
 		return -errno;
 	}
 	if (result == 0) {
 		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 		qb_util_log(LOG_DEBUG,
 			    "recv(fd %d) got 0 bytes assuming ENOTCONN", s);
+		if (oldflags >= 0) {
+			qb_sys_fd_flags_restore(s, oldflags);
+		}
 		return -ENOTCONN;
 	}
 
 	processed += result;
-	if (processed != len) {
+	if (processed < len) {
 		goto retry_recv;
 	}
 	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+	if (oldflags >= 0) {
+		qb_sys_fd_flags_restore(s, oldflags);
+	}
 	assert(processed == len);
 
 	return processed;

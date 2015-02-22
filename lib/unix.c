@@ -241,6 +241,40 @@ qb_sys_fd_nonblock_cloexec_set(int32_t fd)
 	return res;
 }
 
+int32_t
+qb_sys_fd_block_set(int32_t fd)
+{
+	 int32_t res = 0;
+	 int32_t oldflags = fcntl(fd, F_GETFL, 0);
+
+	 if (oldflags < 0) {
+		   oldflags = 0;
+	 }
+
+	 oldflags = oldflags & ~((int32_t) O_NONBLOCK);
+
+	 res = fcntl(fd, F_SETFL, oldflags);
+	 if (res == -1) {
+		  qb_util_log(LOG_ERR, "Could not set blocking on fd:%d", fd);
+		  return -errno;
+	 }
+
+	 return oldflags;
+}
+
+int32_t
+qb_sys_fd_flags_restore(int32_t fd, int32_t flags)
+{
+	 int32_t res = 0;
+	 res = fcntl(fd, F_SETFL, flags);
+	 if (res == -1) {
+		  res = -errno;
+		  qb_util_log(LOG_ERR, "Could not set non-blocking on fd:%d", fd);
+	 }
+
+	 return res;
+}
+
 void
 qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
 {
