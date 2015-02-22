@@ -83,6 +83,20 @@ int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes);
  */
 int32_t qb_sys_fd_nonblock_cloexec_set(int32_t fd);
 
+/**
+ * Remove O_NONBLOCK on a file descriptor.
+ * @param fd the file descriptor.
+ * @return old flags (>0) (success) or -errno
+ */
+int32_t qb_sys_fd_block_set(int32_t fd);
+
+/**
+ * Set flags on a file descriptor.
+ * @param fd the file descriptor.
+ * @return 0 (success) or -errno
+ */
+int32_t qb_sys_fd_flags_restore(int32_t fd, int32_t flags);
+
 enum qb_sigpipe_ctl {
        QB_SIGPIPE_IGNORE,
        QB_SIGPIPE_DEFAULT,
