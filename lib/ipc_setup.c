@@ -48,6 +48,24 @@ struct ipc_auth_ugp {
 	pid_t pid;
 };
 
+struct ipc_auth_data {
+	int32_t sock;
+	struct qb_ipcs_service *s;
+	struct qb_ipc_connection_request msg;
+	struct msghdr msg_recv;
+	struct iovec iov_recv;
+	struct ipc_auth_ugp ugp;
+
+	size_t processed;
+	size_t len;
+
+#ifdef SO_PASSCRED
+	char *cmsg_cred;
+#endif
+
+};
+
+
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 
 ssize_t
@@ -83,20 +101,21 @@ retry_send:
 }
 
 static ssize_t
-qb_ipc_us_recv_msghdr(int32_t s, struct msghdr *hdr, char *msg, size_t len)
+qb_ipc_us_recv_msghdr(struct ipc_auth_data *data)
 {
+	char *msg = (char *) &data->msg;
 	int32_t result;
-	int32_t processed = 0;
 
 	qb_sigpipe_ctl(QB_SIGPIPE_IGNORE);
 
 retry_recv:
-	hdr->msg_iov->iov_base = &msg[processed];
-	hdr->msg_iov->iov_len = len - processed;
+	data->msg_recv.msg_iov->iov_base = &msg[data->processed];
+	data->msg_recv.msg_iov->iov_len = data->len - data->processed;
 
-	result = recvmsg(s, hdr, MSG_NOSIGNAL | MSG_WAITALL);
+	result = recvmsg(data->sock, &data->msg_recv, MSG_NOSIGNAL | MSG_WAITALL);
 	if (result == -1 && errno == EAGAIN) {
-		goto retry_recv;
+		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
+		return -EAGAIN;
 	}
 	if (result == -1) {
 		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
@@ -105,18 +124,18 @@ retry_recv:
 	if (result == 0) {
 		qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
 		qb_util_log(LOG_DEBUG,
-			    "recv(fd %d) got 0 bytes assuming ENOTCONN", s);
+			    "recv(fd %d) got 0 bytes assuming ENOTCONN", data->sock);
 		return -ENOTCONN;
 	}
 
-	processed += result;
-	if (processed != len) {
+	data->processed += result;
+	if (data->processed != data->len) {
 		goto retry_recv;
 	}
 	qb_sigpipe_ctl(QB_SIGPIPE_DEFAULT);
-	assert(processed == len);
+	assert(data->processed == data->len);
 
-	return processed;
+	return data->processed;
 }
 
 int32_t
@@ -434,6 +453,7 @@ qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 	(void)s->poll_fns.dispatch_del(s->server_sock);
 	shutdown(s->server_sock, SHUT_RDWR);
 	close(s->server_sock);
+	s->server_sock = -1;
 	return 0;
 }
 
@@ -541,45 +561,56 @@ send_response:
 	return res;
 }
 
-static int32_t
-qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
-			 struct ipc_auth_ugp *ugp)
+static void
+destroy_ipc_auth_data(struct ipc_auth_data *data)
 {
+	if (data->s) {
+		qb_ipcs_unref(data->s);
+	}
+
+#ifdef SO_PASSCRED
+	free(data->cmsg_cred);
+#endif
+	free(data);
+}
+
+static int32_t
+process_auth(int32_t fd, int32_t revents, void *d)
+{
+	struct ipc_auth_data *data = (struct ipc_auth_data *) d;
+
 	int32_t res = 0;
-	struct msghdr msg_recv;
-	struct iovec iov_recv;
-
 #ifdef SO_PASSCRED
-	char cmsg_cred[CMSG_SPACE(sizeof(struct ucred))];
 	int off = 0;
-	int on = 1;
-#endif
-	msg_recv.msg_iov = &iov_recv;
-	msg_recv.msg_iovlen = 1;
-	msg_recv.msg_name = 0;
-	msg_recv.msg_namelen = 0;
-#ifdef SO_PASSCRED
-	msg_recv.msg_control = (void *)cmsg_cred;
-	msg_recv.msg_controllen = sizeof(cmsg_cred);
-#endif
-#ifdef QB_SOLARIS
-	msg_recv.msg_accrights = 0;
-	msg_recv.msg_accrightslen = 0;
-#else
-	msg_recv.msg_flags = 0;
-#endif /* QB_SOLARIS */
-
-	iov_recv.iov_base = msg;
-	iov_recv.iov_len = len;
-#ifdef SO_PASSCRED
-	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
-	res = qb_ipc_us_recv_msghdr(sock, &msg_recv, msg, len);
-	if (res < 0) {
+	if (data->s->server_sock == -1) {
+		qb_util_log(LOG_DEBUG, "Closing fd (%d) for server shutdown", fd);
+		res = -ESHUTDOWN;
 		goto cleanup_and_return;
 	}
-	if (res != len) {
+
+	if (revents & POLLNVAL) {
+		qb_util_log(LOG_DEBUG, "NVAL conn fd (%d)", fd);
+		res = -EINVAL;
+		goto cleanup_and_return;
+	}
+	if (revents & POLLHUP) {
+		qb_util_log(LOG_DEBUG, "HUP conn fd (%d)", fd);
+		res = -ESHUTDOWN;
+		goto cleanup_and_return;
+	}
+	if ((revents & POLLIN) == 0) {
+		return 0;
+	}
+
+	res = qb_ipc_us_recv_msghdr(data);
+	if (res == -EAGAIN) {
+		/* yield to mainloop, Let mainloop call us again */
+		return 0;
+	}
+
+	if (res != data->len) {
 		res = -EIO;
 		goto cleanup_and_return;
 	}
@@ -595,11 +626,11 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 	{
 		ucred_t *uc = NULL;
 
-		if (getpeerucred(sock, &uc) == 0) {
+		if (getpeerucred(data->sock, &uc) == 0) {
 			res = 0;
-			ugp->uid = ucred_geteuid(uc);
-			ugp->gid = ucred_getegid(uc);
-			ugp->pid = ucred_getpid(uc);
+			ugp.uid = ucred_geteuid(uc);
+			ugp.gid = ucred_getegid(uc);
+			ugp.pid = ucred_getpid(uc);
 			ucred_free(uc);
 		} else {
 			res = -errno;
@@ -614,7 +645,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 		 * TODO get the peer's pid.
 		 * c->pid = ?;
 		 */
-		if (getpeereid(sock, &ugp->uid, &ugp->gid) == 0) {
+		if (getpeereid(data->sock, &ugp.uid, &ugp.gid) == 0) {
 			res = 0;
 		} else {
 			res = -errno;
@@ -630,33 +661,105 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, void *msg, size_t len,
 		struct cmsghdr *cmsg;
 
 		res = -EINVAL;
-		for (cmsg = CMSG_FIRSTHDR(&msg_recv); cmsg != NULL;
-		     cmsg = CMSG_NXTHDR(&msg_recv, cmsg)) {
+		for (cmsg = CMSG_FIRSTHDR(&data->msg_recv); cmsg != NULL;
+		     cmsg = CMSG_NXTHDR(&data->msg_recv, cmsg)) {
 			if (cmsg->cmsg_type != SCM_CREDENTIALS)
 				continue;
 
 			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
 			res = 0;
-			ugp->pid = cred.pid;
-			ugp->uid = cred.uid;
-			ugp->gid = cred.gid;
+			data->ugp.pid = cred.pid;
+			data->ugp.uid = cred.uid;
+			data->ugp.gid = cred.gid;
 			break;
 		}
 	}
 #else /* no credentials */
-	ugp->pid = 0;
-	ugp->uid = 0;
-	ugp->gid = 0;
+	data->ugp.pid = 0;
+	data->ugp.uid = 0;
+	data->ugp.gid = 0;
 	res = -ENOTSUP;
 #endif /* no credentials */
 
 cleanup_and_return:
-
 #ifdef SO_PASSCRED
-	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
+	setsockopt(data->sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
 #endif
 
-	return res;
+	(void)data->s->poll_fns.dispatch_del(data->sock);
+
+	if (res < 0) {
+		close(data->sock);
+	} else if (data->msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
+		(void)handle_new_connection(data->s, res, data->sock, &data->msg, data->len, &data->ugp);
+	} else {
+		close(data->sock);
+	}
+	destroy_ipc_auth_data(data);
+
+	return 1;
+}
+
+static void
+qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
+{
+	int res = 0;
+	struct ipc_auth_data *data = NULL;
+#ifdef SO_PASSCRED
+	int on = 1;
+#endif
+
+	data = calloc(1, sizeof(struct ipc_auth_data));
+	if (data == NULL) {
+		close(sock);
+		/* -ENOMEM */
+		return;
+	}
+
+	data->s = s;
+	qb_ipcs_ref(data->s);
+
+	data->msg_recv.msg_iov = &data->iov_recv;
+	data->msg_recv.msg_iovlen = 1;
+	data->msg_recv.msg_name = 0;
+	data->msg_recv.msg_namelen = 0;
+
+#ifdef SO_PASSCRED
+	data->cmsg_cred = calloc(1,CMSG_SPACE(sizeof(struct ucred)));
+	if (data->cmsg_cred == NULL) {
+		close(sock);
+		destroy_ipc_auth_data(data);
+		/* -ENOMEM */
+		return;
+	}
+	data->msg_recv.msg_control = (void *)data->cmsg_cred;
+	data->msg_recv.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+#endif
+#ifdef QB_SOLARIS
+	data->msg_recv.msg_accrights = 0;
+	data->msg_recv.msg_accrightslen = 0;
+#else
+	data->msg_recv.msg_flags = 0;
+#endif /* QB_SOLARIS */
+
+	data->len = sizeof(struct qb_ipc_connection_request);
+	data->iov_recv.iov_base = &data->msg;
+	data->iov_recv.iov_len = data->len;
+	data->sock = sock;
+
+#ifdef SO_PASSCRED
+	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+#endif
+
+	res = s->poll_fns.dispatch_add(QB_LOOP_MED,
+					data->sock,
+					POLLIN | POLLPRI | POLLNVAL,
+					data, process_auth);
+	if (res < 0) {
+		qb_util_log(LOG_DEBUG, "Failed to process AUTH for fd (%d)", data->sock);
+		close(sock);
+		destroy_ipc_auth_data(data);
+	}
 }
 
 static int32_t
@@ -666,8 +769,6 @@ qb_ipcs_us_connection_acceptor(int fd, int revent, void *data)
 	int32_t new_fd;
 	struct qb_ipcs_service *s = (struct qb_ipcs_service *)data;
 	int32_t res;
-	struct qb_ipc_connection_request setup_msg;
-	struct ipc_auth_ugp ugp;
 	socklen_t addrlen = sizeof(struct sockaddr_un);
 
 	if (revent & (POLLNVAL | POLLHUP | POLLERR)) {
@@ -707,22 +808,6 @@ retry_accept:
 		return 0;
 	}
 
-	res = qb_ipcs_uc_recv_and_auth(new_fd, &setup_msg, sizeof(setup_msg),
-				       &ugp);
-	if (res < 0) {
-		close(new_fd);
-		/* This is an error, but -1 would indicate disconnect
-		 * from the poll loop
-		 */
-		return 0;
-	}
-
-	if (setup_msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
-		(void)handle_new_connection(s, res, new_fd, &setup_msg,
-					    sizeof(setup_msg), &ugp);
-	} else {
-		close(new_fd);
-	}
-
+	qb_ipcs_uc_recv_and_auth(new_fd, s);
 	return 0;
 }
