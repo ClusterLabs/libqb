@@ -94,6 +94,7 @@ static int32_t disconnect_after_created = QB_FALSE;
 static int32_t num_bulk_events = 10;
 static int32_t num_stress_events = 30000;
 static int32_t reference_count_test = QB_FALSE;
+static int32_t multiple_connections = QB_FALSE;
 
 
 static int32_t
@@ -227,6 +228,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
 		exit(0);
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_DISCONNECT) {
+		multiple_connections = QB_FALSE;
 		qb_ipcs_disconnect(c);
 	}
 	return 0;
@@ -263,6 +265,9 @@ my_dispatch_del(int32_t fd)
 static int32_t
 s1_connection_closed(qb_ipcs_connection_t *c)
 {
+	if (multiple_connections) {
+		return 0;
+	}
 	qb_enter();
 	qb_leave();
 	return 0;
@@ -301,6 +306,10 @@ outq_flush (void *data)
 static void
 s1_connection_destroyed(qb_ipcs_connection_t *c)
 {
+	if (multiple_connections) {
+		return;
+	}
+
 	qb_enter();
 	if (reference_count_test) {
 		struct cs_ipcs_conn_context *cnx;
@@ -316,6 +325,9 @@ static void
 s1_connection_created(qb_ipcs_connection_t *c)
 {
 	uint32_t max = MAX_MSG_SIZE;
+	if (multiple_connections) {
+		return;
+	}
 
 	if (send_event_on_created) {
 		struct qb_ipc_response_header response;
@@ -934,6 +946,60 @@ count_bulk_events(int32_t fd, int32_t revents, void *data)
 }
 
 static void
+test_ipc_stress_connections(void)
+{
+	int32_t c = 0;
+	int32_t j = 0;
+	uint32_t max_size = MAX_MSG_SIZE;
+	int32_t connections = 0;
+	pid_t pid;
+
+	multiple_connections = QB_TRUE;
+
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+
+	pid = run_function_in_new_process(run_ipc_server);
+	fail_if(pid == -1);
+	sleep(1);
+
+	for (connections = 1; connections < 70000; connections++) {
+		if (conn) {
+			qb_ipcc_disconnect(conn);
+			conn = NULL;
+		}
+		do {
+			conn = qb_ipcc_connect(ipc_name, max_size);
+			if (conn == NULL) {
+				j = waitpid(pid, NULL, WNOHANG);
+				ck_assert_int_eq(j, 0);
+				sleep(1);
+				c++;
+			}
+		} while (conn == NULL && c < 5);
+		fail_if(conn == NULL);
+		
+		if (((connections+1) % 1000) == 0) {
+			qb_log(LOG_INFO, "%d ipc connections made", connections+1);
+		}
+	}
+	multiple_connections = QB_FALSE;
+
+	request_server_exit();
+	verify_graceful_stop(pid);
+	qb_ipcc_disconnect(conn);
+
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_CLEAR_ALL,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+}
+
+static void
 test_ipc_bulk_events(void)
 {
 	int32_t c = 0;
@@ -1072,6 +1138,16 @@ START_TEST(test_ipc_stress_test_us)
 	ipc_type = QB_IPC_SOCKET;
 	ipc_name = __func__;
 	test_ipc_stress_test();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_stress_connections_us)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SOCKET;
+	ipc_name = __func__;
+	test_ipc_stress_connections();
 	qb_leave();
 }
 END_TEST
@@ -1265,6 +1341,16 @@ START_TEST(test_ipc_stress_test_shm)
 }
 END_TEST
 
+START_TEST(test_ipc_stress_connections_shm)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	ipc_name = __func__;
+	test_ipc_stress_connections();
+	qb_leave();
+}
+END_TEST
+
 START_TEST(test_ipc_bulk_events_shm)
 {
 	qb_enter();
@@ -1439,6 +1525,11 @@ make_shm_suite(void)
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
+	tc = tcase_create("ipc_stress_connections");
+	tcase_add_test(tc, test_ipc_stress_connections_shm);
+	tcase_set_timeout(tc, 200);
+	suite_add_tcase(s, tc);
+
 	return s;
 }
 
@@ -1511,6 +1602,11 @@ make_soc_suite(void)
 	tc = tcase_create("ipc_service_ref_count_us");
 	tcase_add_test(tc, test_ipc_service_ref_count_us);
 	tcase_set_timeout(tc, 10);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("ipc_stress_connections");
+	tcase_add_test(tc, test_ipc_stress_connections_us);
+	tcase_set_timeout(tc, 200);
 	suite_add_tcase(s, tc);
 
 	return s;
