@@ -110,7 +110,7 @@ _poll_dispatch_and_take_back_(struct qb_loop_item *item,
 				   pe->item.user_data);
 	if (res < 0) {
 		_poll_entry_mark_deleted_(pe);
-	} else {
+	} else if (pe->state != QB_POLL_ENTRY_DELETED) {
 		pe->state = QB_POLL_ENTRY_ACTIVE;
 		pe->ufd.revents = 0;
 	}
