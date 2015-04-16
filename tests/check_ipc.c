@@ -1525,7 +1525,7 @@ make_shm_suite(void)
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
-	tc = tcase_create("ipc_stress_connections");
+	tc = tcase_create("ipc_stress_connections_shm");
 	tcase_add_test(tc, test_ipc_stress_connections_shm);
 	tcase_set_timeout(tc, 200);
 	suite_add_tcase(s, tc);
@@ -1604,7 +1604,7 @@ make_soc_suite(void)
 	tcase_set_timeout(tc, 10);
 	suite_add_tcase(s, tc);
 
-	tc = tcase_create("ipc_stress_connections");
+	tc = tcase_create("ipc_stress_connections_us");
 	tcase_add_test(tc, test_ipc_stress_connections_us);
 	tcase_set_timeout(tc, 200);
 	suite_add_tcase(s, tc);
