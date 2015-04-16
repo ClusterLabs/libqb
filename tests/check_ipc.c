@@ -32,7 +32,7 @@
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
 
-static const char *ipc_name = "ipc_test";
+static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
 static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
@@ -103,6 +103,18 @@ exit_handler(int32_t rsignal, void *data)
 	qb_log(LOG_DEBUG, "caught signal %d", rsignal);
 	qb_ipcs_destroy(s1);
 	return -1;
+}
+
+static void
+set_ipc_name(const char *prefix)
+{
+	/* We have to give the server name a random postfix because
+	 * some build systems attempt to generate packages for libqb
+	 * in parallel. These unit tests are run during the package
+	 * build process. Two builds executing on the same machine
+	 * can stomp on each other's unit tests if the ipc server
+	 * names aren't unique... This was very confusing to debug */
+	snprintf(ipc_name, 256, "%s-%d", prefix, (int32_t)random());
 }
 
 static int32_t
@@ -710,7 +722,7 @@ START_TEST(test_ipc_exit_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	recv_timeout = 5000;
 	test_ipc_exit();
 	qb_leave();
@@ -721,7 +733,7 @@ START_TEST(test_ipc_exit_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	recv_timeout = 1000;
 	test_ipc_exit();
 	qb_leave();
@@ -732,7 +744,7 @@ START_TEST(test_ipc_txrx_shm_timeout)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_txrx_timeout();
 	qb_leave();
 }
@@ -742,7 +754,7 @@ START_TEST(test_ipc_txrx_us_timeout)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_txrx_timeout();
 	qb_leave();
 }
@@ -753,7 +765,7 @@ START_TEST(test_ipc_txrx_shm_tmo)
 	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	recv_timeout = 1000;
 	test_ipc_txrx();
 	qb_leave();
@@ -765,7 +777,7 @@ START_TEST(test_ipc_txrx_shm_block)
 	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	recv_timeout = -1;
 	test_ipc_txrx();
 	qb_leave();
@@ -778,7 +790,7 @@ START_TEST(test_ipc_fc_shm)
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
 	recv_timeout = 500;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_txrx();
 	qb_leave();
 }
@@ -789,7 +801,7 @@ START_TEST(test_ipc_txrx_us_block)
 	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	recv_timeout = -1;
 	test_ipc_txrx();
 	qb_leave();
@@ -801,7 +813,7 @@ START_TEST(test_ipc_txrx_us_tmo)
 	qb_enter();
 	turn_on_fc = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	recv_timeout = 1000;
 	test_ipc_txrx();
 	qb_leave();
@@ -814,7 +826,7 @@ START_TEST(test_ipc_fc_us)
 	turn_on_fc = QB_TRUE;
 	ipc_type = QB_IPC_SOCKET;
 	recv_timeout = 500;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_txrx();
 	qb_leave();
 }
@@ -869,7 +881,7 @@ START_TEST(test_ipc_disp_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_dispatch();
 	qb_leave();
 }
@@ -1136,7 +1148,7 @@ START_TEST(test_ipc_stress_test_us)
 	qb_enter();
 	send_event_on_created = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_stress_test();
 	qb_leave();
 }
@@ -1146,7 +1158,7 @@ START_TEST(test_ipc_stress_connections_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_stress_connections();
 	qb_leave();
 }
@@ -1157,7 +1169,7 @@ START_TEST(test_ipc_bulk_events_us)
 	qb_enter();
 	send_event_on_created = QB_FALSE;
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_bulk_events();
 	qb_leave();
 }
@@ -1213,7 +1225,7 @@ START_TEST(test_ipc_event_on_created_us)
 	qb_enter();
 	send_event_on_created = QB_TRUE;
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_event_on_created();
 	qb_leave();
 }
@@ -1275,7 +1287,7 @@ START_TEST(test_ipc_disconnect_after_created_us)
 	qb_enter();
 	disconnect_after_created = QB_TRUE;
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_disconnect_after_created();
 	qb_leave();
 }
@@ -1314,7 +1326,7 @@ START_TEST(test_ipc_server_fail_soc)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_server_fail();
 	qb_leave();
 }
@@ -1324,7 +1336,7 @@ START_TEST(test_ipc_disp_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_dispatch();
 	qb_leave();
 }
@@ -1335,7 +1347,7 @@ START_TEST(test_ipc_stress_test_shm)
 	qb_enter();
 	send_event_on_created = QB_FALSE;
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_stress_test();
 	qb_leave();
 }
@@ -1345,7 +1357,7 @@ START_TEST(test_ipc_stress_connections_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_stress_connections();
 	qb_leave();
 }
@@ -1355,7 +1367,7 @@ START_TEST(test_ipc_bulk_events_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_bulk_events();
 	qb_leave();
 }
@@ -1366,7 +1378,7 @@ START_TEST(test_ipc_event_on_created_shm)
 	qb_enter();
 	send_event_on_created = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_event_on_created();
 	qb_leave();
 }
@@ -1376,7 +1388,7 @@ START_TEST(test_ipc_server_fail_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_server_fail();
 	qb_leave();
 }
@@ -1417,7 +1429,7 @@ START_TEST(test_ipc_service_ref_count_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_service_ref_count();
 	qb_leave();
 }
@@ -1427,7 +1439,7 @@ START_TEST(test_ipc_service_ref_count_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
-	ipc_name = __func__;
+	set_ipc_name(__func__);
 	test_ipc_service_ref_count();
 	qb_leave();
 }
@@ -1620,6 +1632,7 @@ main(void)
 	Suite *s;
 	int32_t do_shm_tests = QB_TRUE;
 
+	set_ipc_name("ipc_test");
 #ifdef DISABLE_IPC_SHM
 	do_shm_tests = QB_FALSE;
 #endif /* DISABLE_IPC_SHM */
