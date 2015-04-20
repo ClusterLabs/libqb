@@ -237,7 +237,7 @@ int32_t qb_ipcs_run(qb_ipcs_service_t* s);
 void qb_ipcs_destroy(qb_ipcs_service_t* s);
 
 /**
- * Limit the incomming request rate.
+ * Limit the incoming request rate.
  * @param s service instance
  * @param rl the new rate
  */
@@ -245,7 +245,7 @@ void qb_ipcs_request_rate_limit(qb_ipcs_service_t* s,
 			       	enum qb_ipcs_rate_limit rl);
 
 /**
- * Send a response to a incomming request.
+ * Send a response to a incoming request.
  *
  * @param c connection instance
  * @param data the message to send
@@ -260,7 +260,7 @@ ssize_t qb_ipcs_response_send(qb_ipcs_connection_t *c, const void *data,
 			      size_t size);
 
 /**
- * Send a response to a incomming request.
+ * Send a response to a incoming request.
  *
  * @param c connection instance
  * @param iov the iovec struct that points to the message to send
