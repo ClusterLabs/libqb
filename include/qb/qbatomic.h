@@ -52,7 +52,7 @@ extern "C" {
  * You must not directly read integers or pointers concurrently
  * accessed by multiple threads, but use the atomic accessor functions
  * instead. That is, always use qb_atomic_int_get() and qb_atomic_pointer_get()
- * for read outs. They provide the neccessary synchonization mechanisms
+ * for read outs. They provide the necessary synchonization mechanisms
  * like memory barriers to access memory locations concurrently.
  *
  * If you are using those functions for anything apart from

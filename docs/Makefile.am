@@ -32,12 +32,12 @@ dist_man_MANS += man3/qbipcc.h.3 man3/qbipcs.h.3 man3/qbatomic.h.3 \
 
 
 $(dist_man_MANS): man.dox $(dependant_headers)
-	@mkdir -p man3
-	@doxygen man.dox
+	mkdir -p man3
+	doxygen man.dox
 
 doxygen: html.dox
-	@mkdir -p html
-	@doxygen html.dox
+	mkdir -p html
+	doxygen html.dox
 
 else
 doxygen:

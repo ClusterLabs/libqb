@@ -36,9 +36,9 @@ extern "C" {
 
 /**
  * @file qbutil.h
- * @author Angus Salkeld <asalkeld@redhat.com>
- *
  * These are some convience functions used throughout libqb.
+ *
+ * @author Angus Salkeld <asalkeld@redhat.com>
  *
  * @par Locking
  * - qb_thread_lock_create()

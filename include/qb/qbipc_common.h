@@ -31,6 +31,11 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
+/**
+ * @file qbipc_common.h
+ * common types and definitions
+ */
+
 struct qb_ipc_request_header {
 	int32_t id __attribute__ ((aligned(8)));
 	int32_t size __attribute__ ((aligned(8)));
