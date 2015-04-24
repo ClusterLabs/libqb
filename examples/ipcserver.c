@@ -182,7 +182,7 @@ show_usage(const char *name)
 
 #ifdef HAVE_GLIB
 struct gio_to_qb_poll {
-	gboolean is_used;
+	int32_t is_used;
 	int32_t events;
 	int32_t source;
 	int32_t fd;
@@ -205,14 +205,17 @@ gio_poll_destroy(gpointer data)
 {
 	struct gio_to_qb_poll *adaptor = (struct gio_to_qb_poll *)data;
 
-	qb_log(LOG_DEBUG, "fd %d adaptor destroyed\n", adaptor->fd);
-	adaptor->is_used = QB_FALSE;
-	adaptor->fd = 0;
+	adaptor->is_used--;
+	if (adaptor->is_used == 0) {
+		qb_log(LOG_DEBUG, "fd %d adaptor destroyed\n", adaptor->fd);
+		adaptor->fd = 0;
+		adaptor->source = 0;
+	}
 }
 
 static int32_t
-my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
-		  void *data, qb_ipcs_dispatch_fn_t fn)
+my_g_dispatch_update(enum qb_loop_priority p, int32_t fd, int32_t evts,
+		  void *data, qb_ipcs_dispatch_fn_t fn, gboolean is_new)
 {
 	struct gio_to_qb_poll *adaptor;
 	GIOChannel *channel;
@@ -222,8 +225,12 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	if (res < 0) {
 		return res;
 	}
-	if (adaptor->is_used) {
-		return -EEXIST;
+	if (adaptor->is_used && adaptor->source) {
+		if (is_new) {
+			return -EEXIST;
+		}
+		g_source_remove(adaptor->source);
+		adaptor->source = 0;
 	}
 
 	channel = g_io_channel_unix_new(fd);
@@ -235,7 +242,7 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 	adaptor->events = evts;
 	adaptor->data = data;
 	adaptor->p = p;
-	adaptor->is_used = TRUE;
+	adaptor->is_used++;
 	adaptor->fd = fd;
 
 	adaptor->source = g_io_add_watch_full(channel, G_PRIORITY_DEFAULT, evts, gio_read_socket, adaptor, gio_poll_destroy);
@@ -248,10 +255,17 @@ my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
 }
 
 static int32_t
+my_g_dispatch_add(enum qb_loop_priority p, int32_t fd, int32_t evts,
+		  void *data, qb_ipcs_dispatch_fn_t fn)
+{
+	return my_g_dispatch_update(p, fd, evts, data, fn, TRUE);
+}
+
+static int32_t
 my_g_dispatch_mod(enum qb_loop_priority p, int32_t fd, int32_t evts,
 		  void *data, qb_ipcs_dispatch_fn_t fn)
 {
-	return 0;
+	return my_g_dispatch_update(p, fd, evts, data, fn, FALSE);
 }
 
 static int32_t
@@ -260,7 +274,7 @@ my_g_dispatch_del(int32_t fd)
 	struct gio_to_qb_poll *adaptor;
 	if (qb_array_index(gio_map, fd, (void **)&adaptor) == 0) {
 		g_source_remove(adaptor->source);
-		adaptor->is_used = FALSE;
+		adaptor->source = 0;
 	}
 	return 0;
 }
