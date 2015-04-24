@@ -138,7 +138,9 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	void *shm_addr;
 	long page_size = sysconf(_SC_PAGESIZE);
 
-#ifdef QB_FORCE_SHM_ALIGN
+#ifdef QB_ARCH_HPPA
+	page_size = QB_MAX(page_size, 0x00400000); /* align to page colour */
+#elif defined(QB_FORCE_SHM_ALIGN)
 	page_size = QB_MAX(page_size, 16 * 1024);
 #endif /* QB_FORCE_SHM_ALIGN */
 	/* The user of this api expects the 'size' parameter passed into this function
