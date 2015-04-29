@@ -253,9 +253,13 @@ case $host_cpu in
 		nongcc_memory_barrier_needed=yes
 		;;
 	arm*)
-		AC_MSG_RESULT([ia64])
+		AC_MSG_RESULT([arm])
 		AC_DEFINE_UNQUOTED([QB_ARCH_ARM], [1], [arm])
 		arch_force_shmlba=yes
+		;;
+	hppa*)
+		AC_MSG_RESULT([hppa])
+		AC_DEFINE_UNQUOTED([QB_ARCH_HPPA], [1], [hppa])
 		;;
 	mips*)
 		AC_MSG_RESULT([ia64])

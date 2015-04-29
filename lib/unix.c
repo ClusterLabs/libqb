@@ -170,6 +170,19 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 	flags |= MAP_PRIVATE;
 #endif /* QB_FORCE_SHM_ALIGN */
 
+#if defined(QB_ARCH_HPPA)
+	/* map twice the size we want to make sure we have already mapped
+	   the second memory location behind it too. Otherwise the Linux
+	   kernel may map it in the upper memory so that we can't map
+	   the second part afterwards since it will conflict. */
+	addr = mmap(NULL, 2*bytes, PROT_READ | PROT_WRITE,
+		    MAP_SHARED, fd, 0);
+
+	if (addr == MAP_FAILED)
+		return -errno;
+
+	addr_orig = addr;
+#else
 	addr_orig = mmap(NULL, bytes << 1, PROT_NONE, flags, -1, 0);
 
 	if (addr_orig == MAP_FAILED) {
@@ -178,6 +191,7 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 
 	addr = mmap(addr_orig, bytes, PROT_READ | PROT_WRITE,
 		    MAP_FIXED | MAP_SHARED, fd, 0);
+#endif
 
 	if (addr != addr_orig) {
 		res = -errno;
