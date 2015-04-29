@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Red Hat, Inc.
+ * Copyright (c) 2011-2015 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -708,6 +708,63 @@ START_TEST(test_threaded_logging)
 }
 END_TEST
 
+START_TEST(test_extended_information)
+{
+	int32_t t;
+	int32_t rc;
+	int extended;
+
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	_ck_assert_int(t, >, QB_LOG_STDOUT);
+	qb_log_format_set(t, "%b");
+	rc = qb_log_filter_fn_set(NULL);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL, QB_LOG_FILTER_FILE,
+			       "*", LOG_TRACE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL, QB_LOG_FILTER_FORMAT,
+			       "*", LOG_TRACE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FORMAT,
+			       "*", LOG_TRACE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	for (extended = QB_FALSE; extended <= QB_TRUE; ++extended) {
+		rc = qb_log_ctl(t, QB_LOG_CONF_EXTENDED, extended);
+		ck_assert_int_eq(rc, 0);
+
+		num_msgs = 0;
+
+		memset(test_buf, 0, sizeof(test_buf));
+		qb_log(LOG_ERR, "message with no extended information");
+		ck_assert_str_eq(test_buf, "message with no extended information");
+
+		memset(test_buf, 0, sizeof(test_buf));
+		qb_log(LOG_ERR, "message with empty extended information "QB_XS);
+		ck_assert_str_eq(test_buf, "message with empty extended information ");
+
+		memset(test_buf, 0, sizeof(test_buf));
+		qb_log(LOG_ERR, QB_XS" message with only extended information");
+		ck_assert_str_eq(test_buf, extended?
+				 "| message with only extended information" : "");
+
+		memset(test_buf, 0, sizeof(test_buf));
+		qb_log(LOG_ERR, "message with extended information "QB_XS" (namely this)");
+		ck_assert_str_eq(test_buf, extended?
+				 "message with extended information | (namely this)"
+				 : "message with extended information ");
+
+		ck_assert_int_eq(num_msgs, (extended? 4 : 3));
+	}
+	qb_log_fini();
+}
+END_TEST
+
 static Suite *
 log_suite(void)
 {
@@ -749,6 +806,10 @@ log_suite(void)
 
 	tc = tcase_create("threaded_logging");
 	tcase_add_test(tc, test_threaded_logging);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("extended_information");
+	tcase_add_test(tc, test_extended_information);
 	suite_add_tcase(s, tc);
 
 	return s;
