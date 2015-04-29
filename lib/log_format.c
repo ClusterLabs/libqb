@@ -460,11 +460,21 @@ qb_vsnprintf_serialize(char *serialize, size_t max_len,
 {
 	char *format;
 	char *p;
+	char *qb_xc;
 	int type_long = QB_FALSE;
 	int type_longlong = QB_FALSE;
         int sformat_length = 0;
         int sformat_precision = QB_FALSE;
 	uint32_t location = my_strlcpy(serialize, fmt, max_len) + 1;
+
+	/* Assume serialized output always wants extended information
+	 * (@todo: add variant of this function that takes argument for whether
+	 * to print extended information, and make this a macro with that
+	 * argument set to QB_TRUE, so callers can honor extended setting)
+	 */
+	if ((qb_xc = strchr(serialize, QB_XC)) != NULL) {
+		*qb_xc = *(qb_xc + 1)? '|' : '\0';
+	}
 
 	format = (char *)fmt;
 	for (;;) {
