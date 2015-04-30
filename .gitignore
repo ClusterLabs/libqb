@@ -6,6 +6,7 @@
 *.so.*
 *.3
 *.rpm
+*.swp
 *.pc
 *.log
 Makefile
@@ -27,3 +28,4 @@ abi_dumps
 TAGS
 *~
 test-driver
+tests/*.trs

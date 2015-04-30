@@ -29,6 +29,7 @@
 #include <dlfcn.h>
 #endif /* HAVE_DLFCN_H */
 #include <stdarg.h>
+#include <string.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
@@ -157,14 +158,38 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 	return match;
 }
 
+/**
+ * @internal
+ * @brief Format a log message into a string buffer
+ *
+ * @param[out] str  Destination buffer to contain formatted string
+ * @param[in]  cs   Callsite containing format to use
+ * @param[in]  ap   Variable arguments for format
+ */
+static inline void
+cs_format(char *str, struct qb_log_callsite *cs, va_list ap)
+{
+	va_list ap_copy;
+	int len;
+
+	va_copy(ap_copy, ap);
+	len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+	va_end(ap_copy);
+	if (len > QB_LOG_MAX_LEN) {
+		len = QB_LOG_MAX_LEN;
+	}
+	if (str[len - 1] == '\n') {
+		str[len - 1] = '\0';
+	}
+}
+
 void
 qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 {
-	int32_t found_threaded;
+	int32_t found_threaded = QB_FALSE;
 	struct qb_log_target *t;
 	struct timespec tv;
 	int32_t pos;
-	int len;
 	int32_t formatted = QB_FALSE;
 	char buf[QB_LOG_MAX_LEN];
 	char *str = buf;
@@ -175,20 +200,15 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	}
 	in_logger = QB_TRUE;
 
-	if (old_internal_log_fn) {
-		if (qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
-			if (!formatted) {
-				va_copy(ap_copy, ap);
-				len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
-				va_end(ap_copy);
-				if (len > QB_LOG_MAX_LEN)
-					len = QB_LOG_MAX_LEN;
-				if (str[len - 1] == '\n') str[len - 1] = '\0';
-				formatted = QB_TRUE;
-			}
-			old_internal_log_fn(cs->filename, cs->lineno,
-					    cs->priority, str);
+	if (old_internal_log_fn &&
+	    qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
+		if (formatted == QB_FALSE) {
+			cs_format(str, cs, ap);
+			formatted = QB_TRUE;
 		}
+		qb_do_extended(str, QB_TRUE,
+			old_internal_log_fn(cs->filename, cs->lineno,
+					    cs->priority, str));
 	}
 
 	qb_util_timespec_from_epoch_get(&tv);
@@ -197,45 +217,31 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	 * 1 if we can find a threaded target that needs this log then post it
 	 * 2 foreach non-threaded target call it's logger function
 	 */
-	found_threaded = QB_FALSE;
-
 	for (pos = 0; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
-		if (t->state != QB_LOG_STATE_ENABLED) {
-			continue;
-		}
-		if (t->threaded) {
-			if (!found_threaded
-			    && qb_bit_is_set(cs->targets, t->pos)) {
-				found_threaded = QB_TRUE;
-				if (!formatted) {
-					va_copy(ap_copy, ap);
-					len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
-					va_end(ap_copy);
-					if (len > QB_LOG_MAX_LEN)
-						len = QB_LOG_MAX_LEN;
-					if (str[len - 1] == '\n') str[len - 1] = '\0';
-					formatted = QB_TRUE;
-				}
-			}
-		} else {
-			if (qb_bit_is_set(cs->targets, t->pos)) {
-				if (t->vlogger) {
-					va_copy(ap_copy, ap);
-					t->vlogger(t->pos, cs, tv.tv_sec, ap_copy);
-					va_end(ap_copy);
-				} else if (t->logger) {
-					if (!formatted) {
-						va_copy(ap_copy, ap);
-						len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
-						va_end(ap_copy);
-						if (len > QB_LOG_MAX_LEN)
-							len = QB_LOG_MAX_LEN;
-						if (str[len - 1] == '\n') str[len - 1] = '\0';
+		if ((t->state == QB_LOG_STATE_ENABLED)
+		    && qb_bit_is_set(cs->targets, pos)) {
+			if (t->threaded) {
+				if (!found_threaded) {
+					found_threaded = QB_TRUE;
+					if (formatted == QB_FALSE) {
+						cs_format(str, cs, ap);
 						formatted = QB_TRUE;
 					}
-					t->logger(t->pos, cs, tv.tv_sec, str);
 				}
+
+			} else if (t->vlogger) {
+				va_copy(ap_copy, ap);
+				t->vlogger(t->pos, cs, tv.tv_sec, ap_copy);
+				va_end(ap_copy);
+
+			} else if (t->logger) {
+				if (formatted == QB_FALSE) {
+					cs_format(str, cs, ap);
+					formatted = QB_TRUE;
+				}
+				qb_do_extended(str, t->extended,
+					       t->logger(t->pos, cs, tv.tv_sec, str));
 			}
 		}
 	}
@@ -265,14 +271,10 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 
 	for (pos = 0; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
-		if (t->state != QB_LOG_STATE_ENABLED) {
-			continue;
-		}
-		if (!t->threaded) {
-			continue;
-		}
-		if (qb_bit_is_set(cs->targets, t->pos)) {
-			t->logger(t->pos, cs, timestamp, buffer);
+		if ((t->state == QB_LOG_STATE_ENABLED) && t->threaded
+		    && qb_bit_is_set(cs->targets, t->pos)) {
+			qb_do_extended(buffer, t->extended,
+				t->logger(t->pos, cs, timestamp, buffer));
 		}
 	}
 }
@@ -810,6 +812,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		conf[i].pos = i;
 		conf[i].debug = QB_FALSE;
 		conf[i].file_sync = QB_FALSE;
+		conf[i].extended = QB_TRUE;
 		conf[i].state = QB_LOG_STATE_UNUSED;
 		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
@@ -1063,6 +1066,9 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		break;
 	case QB_LOG_CONF_THREADED:
 		conf[t].threaded = arg;
+		break;
+	case QB_LOG_CONF_EXTENDED:
+		conf[t].extended = arg;
 		break;
 
 	default:

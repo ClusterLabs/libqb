@@ -363,18 +363,30 @@ void qb_log_from_external_source_va(const char *function,
  */
 #define qb_log(priority, fmt, args...) qb_logt(priority, 0, fmt, ##args)
 
+/* Define the character used to mark the beginning of "extended" information;
+ * a string equivalent is also defined so clients can use it like:
+ *    qb_log(level, "blah blah "QB_XS" yada yada", __func__);
+ */
+#define QB_XC '\a'
+#define QB_XS "\a"
+
 /**
  * This is similar to perror except it goes into the logging system.
  *
  * @param priority this takes syslog priorities.
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
+ *
+ * @note Because qb_perror() adds the system error message and error number onto
+ *       the end of the given fmt, that information will become extended
+ *       information if QB_XS is used inside fmt and will not show up in any
+ *       logs that strip extended information.
  */
 #ifndef S_SPLINT_S
 #define qb_perror(priority, fmt, args...) do {				\
 	char _perr_buf_[QB_LOG_STRERROR_MAX_LEN];			\
 	const char *_perr_str_ = qb_strerror_r(errno, _perr_buf_, sizeof(_perr_buf_));	\
-	qb_logt(priority, 0, fmt ": %s (%d)", ##args, _perr_str_, errno);		\
+	qb_logt(priority, 0, fmt ": %s (%d)", ##args, _perr_str_, errno); \
     } while(0)
 #else
 #define qb_perror
@@ -405,6 +417,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_PRIORITY_BUMP,
 	QB_LOG_CONF_STATE_GET,
 	QB_LOG_CONF_FILE_SYNC,
+	QB_LOG_CONF_EXTENDED,
 };
 
 enum qb_log_filter_type {

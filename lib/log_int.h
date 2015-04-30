@@ -38,6 +38,7 @@ struct qb_log_target {
 	int32_t priority_bump;
 	int32_t file_sync;
 	int32_t debug;
+	int32_t extended;
 	size_t size;
 	char *format;
 	int32_t threaded;
@@ -69,6 +70,36 @@ struct qb_log_record {
 
 
 #define TIME_STRING_SIZE 64
+
+/**
+ * @internal
+ * @brief Call a log function, handling any extended information marker
+ *
+ * If the string to be passed to the log function contains an extended
+ * information marker, temporarily modify the string to strip the extended
+ * information if appropriate. Special cases: if a marker occurs with nothing
+ * after it, it will always be stripped; if only extended information is
+ * present, stmt will be called only if extended is true.
+ *
+ * @param[in]  str       Null-terminated log message
+ * @param[in]  extended  QB_TRUE if extended information should be printed
+ * @param[in]  stmt      Code block to call log function
+ *
+ * @note Because this is a macro, none of the arguments other than stmt should
+ *       have side effects.
+ */
+#define qb_do_extended(str, extended, stmt) do { \
+	char *qb_xc = strchr((str), QB_XC); \
+	if (qb_xc) { \
+		if ((qb_xc != (str)) || (extended)) { \
+			*qb_xc = ((extended) && *(qb_xc + 1))? '|' : '\0'; \
+			stmt; \
+			*qb_xc = QB_XC; \
+		} \
+	} else { \
+		stmt; \
+	} \
+} while (0)
 
 struct qb_log_target * qb_log_target_alloc(void);
 void qb_log_target_free(struct qb_log_target *t);
