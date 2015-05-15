@@ -628,9 +628,9 @@ process_auth(int32_t fd, int32_t revents, void *d)
 
 		if (getpeerucred(data->sock, &uc) == 0) {
 			res = 0;
-			ugp.uid = ucred_geteuid(uc);
-			ugp.gid = ucred_getegid(uc);
-			ugp.pid = ucred_getpid(uc);
+			data->ugp.uid = ucred_geteuid(uc);
+			data->ugp.gid = ucred_getegid(uc);
+			data->ugp.pid = ucred_getpid(uc);
 			ucred_free(uc);
 		} else {
 			res = -errno;
@@ -645,7 +645,7 @@ process_auth(int32_t fd, int32_t revents, void *d)
 		 * TODO get the peer's pid.
 		 * c->pid = ?;
 		 */
-		if (getpeereid(data->sock, &ugp.uid, &ugp.gid) == 0) {
+		if (getpeereid(data->sock, &data->ugp.uid, &data->ugp.gid) == 0) {
 			res = 0;
 		} else {
 			res = -errno;
