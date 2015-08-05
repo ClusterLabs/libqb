@@ -159,7 +159,7 @@ enum qb_ipcs_connection_state {
 	QB_IPCS_CONNECTION_SHUTTING_DOWN,
 };
 
-#define CONNECTION_DESCRIPTION (16)
+#define CONNECTION_DESCRIPTION (18)
 
 struct qb_ipcs_connection_auth {
 	uid_t uid;
