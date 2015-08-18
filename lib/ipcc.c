@@ -81,7 +81,9 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	return c;
 
 disconnect_and_cleanup:
-	qb_ipcc_us_sock_close(c->setup.u.us.sock);
+	if (c->setup.u.us.sock >= 0) {
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
+	}
 	free(c->receive_buf);
 	free(c);
 	errno = -res;

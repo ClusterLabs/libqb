@@ -16,8 +16,9 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  autoconf automake libtool doxygen procps check-devel
 
 %description
-libqb provides high performance client server reusable features.
-Initially these are IPC and poll.
+libqb provides high-performance, reusable features for client-server
+architecture, such as logging, tracing, inter-process communication (IPC),
+and polling.
 
 %prep
 %setup -q -n %{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}

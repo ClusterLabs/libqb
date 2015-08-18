@@ -1,17 +1,18 @@
 # libqb
 
 ## What is libqb?
-libqb is a library with the primary purpose of providing high performance
-client server reusable features. It provides high performance logging,
-tracing, ipc, and poll.
+libqb is a library with the primary purpose of providing high-performance,
+reusable features for client-server architecture, such as logging,
+tracing, inter-process communication (IPC), and polling.
 
-We don't intend be an all encompassing library, but instead provide very
-specially focused APIs that are highly tuned for maximum performance for client/server applications.
+libqb is not intended to be an all-encompassing library, but instead provide
+focused APIs that are highly tuned for maximum performance for client-server
+applications.
 
 [![Build Status](https://travis-ci.org/ClusterLabs/libqb.png)](https://travis-ci.org/ClusterLabs/libqb)
 
-## For more information look at:
-* [Our wiki](https://github.com/clusterlabs/libqb/wiki)
+## For more information, see:
+* [libqb wiki](https://github.com/clusterlabs/libqb/wiki)
 * [Issues/Bugs](https://github.com/clusterlabs/libqb/issues)
 * [The doxygen generated manual](http://clusterlabs.github.io/libqb/0.16.0/doxygen/)
 * You can build it yourself with the following commands:
@@ -42,8 +43,7 @@ If you find this project useful, you may want to consider supporting its future 
 There are a number of ways to support the project.
 
 * Test and report issues.
-* Help others on the [mailing list](https://fedorahosted.org/mailman/listinfo/quarterback-devel).
+* Help others on the [developers@clusterlabs.org mailing list](http://clusterlabs.org/mailman/listinfo/developers).
 * Contribute documentation, examples and test cases.
 * Contribute patches.
 * Spread the word.
-
