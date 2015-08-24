@@ -2,6 +2,7 @@
 
 export CFLAGS="$CFLAGS"
 export MAKEFLAGS="$MAKEFLAGS --no-print-directory"
+export BROWSER="firefox"
 
 help_all() {
 	echo 
@@ -236,7 +237,7 @@ check_abi() {
 		echo "== Version $v =="
 		if [ ! -f abi_dumps/libqb/libqb_$v.abi.tar.gz ]
 		then
-			git checkout -B $b $t
+			git checkout  $t
 			./autogen.sh
 			./configure
 			make
@@ -249,7 +250,7 @@ check_abi() {
 	   -d1 abi_dumps/libqb/libqb_$ver1.abi.tar.gz \
 	   -d2 abi_dumps/libqb/libqb_$ver2.abi.tar.gz
 
-	google-chrome compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html
+	$BROWSER file://`pwd`/compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html
 
 	echo mv compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html abi_compat_report_$ver1\_to_$ver2.html
 	echo scp abi_compat_report_$ver1\_to_$ver2.html fedorahosted.org:quarterback
@@ -260,8 +261,8 @@ check_api_sanity() {
 	make
 	export CFLAGS="-Wall -ggdb2"
 	api-sanity-checker -l libqb -d build-aux/api-auto-test.xml -gen -build -run
-	google-chrome test_results/libqb/master/test_results.html
-	google-chrome test_results/libqb/master/test_results.html
+	$BROWSER file://`pwd`/test_results/libqb/master/test_results.html
+	$BROWSER file://`pwd`/test_results/libqb/master/test_results.html
 }
 
 check_all() {
