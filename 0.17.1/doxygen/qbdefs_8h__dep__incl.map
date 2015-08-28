@@ -1,0 +1,10 @@
+<map id="qbdefs.h" name="qbdefs.h">
+<area shape="rect" id="node2" href="$qbarray_8h.html" title="This is a dynamic array (it can grow, but without moving memory). " alt="" coords="49,80,124,107"/>
+<area shape="rect" id="node6" href="$qbatomic_8h.html" title="Basic atomic integer and pointer operations. " alt="" coords="148,80,233,107"/>
+<area shape="rect" id="node7" href="$qblist_8h.html" title="This is a kernel style list implementation. " alt="" coords="258,80,320,107"/>
+<area shape="rect" id="node8" href="$qbutil_8h.html" title="qbutil.h" alt="" coords="345,80,407,107"/>
+<area shape="rect" id="node3" href="$qbhdb_8h.html" title="The handle database is for reference counting objects. " alt="" coords="53,155,120,181"/>
+<area shape="rect" id="node4" href="$qbipcc_8h.html" title="Client IPC API. " alt="" coords="5,229,75,256"/>
+<area shape="rect" id="node5" href="$qbipcs_8h.html" title="Server IPC API. " alt="" coords="100,229,169,256"/>
+<area shape="rect" id="node9" href="$qblog_8h.html" title="The logging API provides four main parts (basics, filtering, threading &amp; blackbox). " alt="" coords="345,155,407,181"/>
+</map>
