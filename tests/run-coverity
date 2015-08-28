@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Helper script for running coverity
+#
+# Run in top level of checkout, then see ./cov/output/errors 
+#
+# If coverity gives errors about an unsupported platform,
+# do "export COVERITY_UNSUPPORTED=1" before running.
+
+COVDIR="$(pwd)/cov"
+COVARGS="--concurrency
+	--all
+	--aggressiveness-level high
+	--security
+	--wait-for-license"
+
+die() {
+	echo "$@" >&2
+	exit 1
+}
+
+which cov-build >/dev/null 2>&1
+[ $? -eq 0 ] || die "Coverity appears not to be installed on this machine."
+[ -x .git ]  || die "This script must be run from the top-level git checkout."
+
+set -e
+
+make clean
+cov-build --dir "$COVDIR" make
+cov-analyze --dir "$COVDIR" $COVARGS
+cov-format-errors --dir "$COVDIR" --html-output "$COVDIR/output/errors"
