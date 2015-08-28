@@ -233,11 +233,10 @@ check_abi() {
 	do
 		p=$(pwd)_inst_$v
 		t=v$v
-		b=api-check-$v
 		echo "== Version $v =="
 		if [ ! -f abi_dumps/libqb/libqb_$v.abi.tar.gz ]
 		then
-			git checkout  $t
+			git checkout $t
 			./autogen.sh
 			./configure
 			make
@@ -246,14 +245,15 @@ check_abi() {
 		fi
 	done
 
+	# Don't exit if there were incompatible ABI changes.
+	set +e
 	$checker -l libqb \
 	   -d1 abi_dumps/libqb/libqb_$ver1.abi.tar.gz \
 	   -d2 abi_dumps/libqb/libqb_$ver2.abi.tar.gz
+	set -e
 
-	$BROWSER file://`pwd`/compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html
+	$BROWSER file://`pwd`/compat_reports/libqb/$ver1\_to_$ver2/compat_report.html
 
-	echo mv compat_reports/libqb/$ver1\_to_$ver2/abi_compat_report.html abi_compat_report_$ver1\_to_$ver2.html
-	echo scp abi_compat_report_$ver1\_to_$ver2.html fedorahosted.org:quarterback
 	git checkout master
 }
 
