@@ -102,7 +102,7 @@ exit_handler(int32_t rsignal, void *data)
 {
 	qb_log(LOG_DEBUG, "caught signal %d", rsignal);
 	qb_ipcs_destroy(s1);
-	return -1;
+	exit(0);
 }
 
 static void
@@ -424,7 +424,7 @@ run_function_in_new_process(void (*run_ipc_server_fn)(void))
 
 	if (pid == 0) {
 		run_ipc_server_fn();
-		return 0;
+		exit(0);
 	}
 	return pid;
 }
