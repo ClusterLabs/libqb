@@ -673,7 +673,7 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 #if !(defined(QB_LINUX) || defined(QB_CYGWIN))
 		if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
 			length = strlen(un_addr.sun_path);
-			base_name = strndup(un_addr.sun_path,length-9);
+			base_name = strndup(un_addr.sun_path,length-8);
 			qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
 			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
 			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
