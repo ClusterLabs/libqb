@@ -1539,7 +1539,7 @@ make_shm_suite(void)
 
 	tc = tcase_create("ipc_stress_connections_shm");
 	tcase_add_test(tc, test_ipc_stress_connections_shm);
-	tcase_set_timeout(tc, 200);
+	tcase_set_timeout(tc, 3600);
 	suite_add_tcase(s, tc);
 
 	return s;
@@ -1618,7 +1618,7 @@ make_soc_suite(void)
 
 	tc = tcase_create("ipc_stress_connections_us");
 	tcase_add_test(tc, test_ipc_stress_connections_us);
-	tcase_set_timeout(tc, 200);
+	tcase_set_timeout(tc, 3600);
 	suite_add_tcase(s, tc);
 
 	return s;
