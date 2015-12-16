@@ -312,12 +312,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
 				   [Compiling for BSD platform])
 		case "$host_os" in
-			*freebsd[[234567]]*)
-			;;
-			*freebsd*)
-				AC_DEFINE_UNQUOTED([QB_FREEBSD_GE_8], [1],
-					   [Compiling for FreeBSD >= 8 platform])
-			;;
 			*netbsd*)
 				# this is because dlopen within a dl_iterate_phdr
 				# callback locks up.
