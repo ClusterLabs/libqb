@@ -1,0 +1,85 @@
+#!/bin/sh
+#
+# Helper script for building online documentation
+#
+# These packages must be installed:
+# * doxygen
+# * abi-compliance-checker
+
+set -e
+
+die() {
+	echo "$@" >&2
+	exit 1
+}
+
+git_checkout() {
+	BRANCH="$1"
+	git checkout "$BRANCH" >/dev/null 2>&1 || die "$BRANCH branch not found"
+}
+
+make_version_dir() {
+	# Make sure the online documentation branch exists
+	# and does not already have a directory for this version.
+	git_checkout gh-pages
+	[ ! -e "$NV" ] || die "gh-pages branch already has $NV"
+
+	# Create the online documentation directory for the new version.
+	mkdir "$NV/"
+}
+
+build_doxygen() {
+	# Build API documentation for exact revision of requested version
+	echo
+	echo "Building online API documentation in v$NV branch ..."
+	git_checkout "v$NV"
+
+	make doxygen
+	mv docs/html "$NV/doxygen"
+}
+
+build_abi_compat() {
+	# Make sure we're using latest version of check script
+	git_checkout master
+
+	# Some versions of check return error if ABI had incompatible changes
+	set +e
+	./check abi "$OV" "$NV"
+	set -e
+	mv "compat_reports/libqb/${OV}_to_${NV}/compat_report.html" "$NV/${OV}_to_${NV}.html"
+	rm -rf compat_reports
+}
+
+build_changelog() {
+	echo
+	echo "Building sorry excuse for a change log"
+
+	# Make sure we're using latest version of changelog script
+	git_checkout master
+
+	./build-aux/gitlog-to-changelog -- "v${OV}..v${NV}" > "$NV/Changelog.txt"
+}
+
+[ -x .git ] || die "This script must be run from the top-level git checkout."
+
+echo "Warning: This script changes git branches frequently and can leave you in any."
+echo
+while [ "$OV" = "" ]; do read -p "Previous version (e.g. 0.17.1): " OV; done
+while [ "$NV" = "" ]; do read -p "New version (e.g. 0.17.2): "      NV; done
+
+make_version_dir
+build_doxygen
+build_abi_compat
+build_changelog
+
+# Now switch to the online documentation branch and add the new files.
+echo
+echo "Adding online documentation to gh-pages branch ..."
+git checkout gh-pages
+git add "$NV"
+git commit -m "Add online documentation for v$NV"
+
+echo
+echo "Done building online documentation for $NV."
+echo "If the head commit looks OK, push it to the upstream gh-pages branch,"
+echo "and it should show up at: http://clusterlabs.github.io/libqb/"

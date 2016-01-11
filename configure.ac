@@ -5,7 +5,7 @@ AC_PREREQ([2.61])
 
 AC_INIT([libqb],
 	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
-	[quarterback-devel@fedorahosted.org])
+	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
