@@ -1,0 +1,247 @@
+2015-09-11  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Fix check_ipc tests so they exit correctly
+	On some platforms the check_ipc test can fail due to SIGTERM
+	being delivered to to exiting server process. There is a race
+	condition between the server main loop quitting and the
+	signal being delivered.
+	This patch closes that race loophole in two places, firstly
+	it makes SIGTERM/SIGSTOP exit immediately rather than just signalling
+	the mainloop, secondly it calls exit() rather than return when the server
+	mainloop completes to that the client code does not start executing!
+
+2015-08-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Somme minor fixes to the check script
+	Update for latest git command
+	add $BROWSER instead of ahrdcoded google-chrome
+
+2015-08-18  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #161 from kgaillot/fix
+	Fix: valgrind "invalid file descriptor" warning
+
+2015-08-18  Ken Gaillot  <kgaillot@redhat.com>
+
+	release version 0.17.2
+	This revision switches libtool soname versioning from -version-number to
+	-version-info, and updates the travis configuration to use their newly
+	recommended infrastructure.
+
+	doc: improve README and RPM description
+
+	Fix: valgrind "invalid file descriptor" warning
+
+2015-08-17  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #162 from ab-oe/master
+	Increase the length of description field.
+
+2015-08-06  Arkadiusz Bubala  <arkadiusz.bubala@open-e.com>
+
+	Increase the length of description field.
+	Make description field larger to satisfy all possible pids and file
+	descriptor values.
+
+2015-08-05  Arkadiusz Bubala  <arkadiusz.bubala@open-e.com>
+
+	Increase the length of description field.
+	When both the corosync and pacemaker has PID larger or equal 10000
+	and when the file descriptor is larger or equal 10 the desciption
+	will have at least 17 characters.
+
+2015-05-15  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #157 from davidvossel/solaris-compile-fix
+	Fix: resolves compile error for solaris
+
+	Fix: resolves compile error for solaris
+
+2015-04-30  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #155 from kgaillot/splitlogging
+	Implement extended information logging (aka split logging)
+
+2015-04-30  Ken Gaillot  <kgaillot@redhat.com>
+
+	Low: add unit test for new extended information logging
+
+	Feature: Implement "extended" logging using a marker character
+	If a log message contains a magic character, everything after that marker
+	will be considered "extended" information. Log targets default to showing
+	this extended information but qb_log_ctl() may be used to indicate that
+	the extended information should be stripped instead.
+	The use case is a log message that has some information of value to administrators
+	and other information that is only of value for debugging. Two targets can be
+	configured such that the administrator log is not cluttered with debug information,
+	but a separate debug log is still available with complete information.
+	The magic character is the bell (\a). If someone wants to log an actual bell
+	character, they can do so in the extended information or via a %c format
+	(only the first bell is magic and only in the format string).
+
+2015-04-30  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #154 from davidvossel/master
+	Low: examples: fix race condition in glib mainloop example
+
+2015-04-29  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #153 from credativ/hppa-alignment
+	Fix alignment issues on hppa
+
+2015-04-27  Ken Gaillot  <kgaillot@redhat.com>
+
+	Low: build: update .gitignore for vim swap files and "make check" output
+
+2015-04-24  David Vossel  <dvossel@redhat.com>
+
+	Low: examples: fix race condition in glib mainloop example
+
+2015-04-24  Helge Deller  <deller@gmx.de>
+
+	Fix alignment issues on hppa
+	libqb fails to build on the hppa architecture, because the built-in
+	testcases fail as can be seen here:
+	http://buildd.debian-ports.org/status/fetch.php?pkg=libqb&arch=hppa&ver=0.17.0-2&stamp=1409458262
+	I did analyzed why they fail, and the reason is that on hppa we have
+	somewhat more complicated requirements (e.g. alignments) which needs to
+	be followed in order to mmap shared pages between processes. It's
+	different than what can be done compared to ia64 and sparc.
+	The attached patch fixes libqb on the hppa architecture and with it all
+	testcases finish successful.
+	By the way, I fixed a small typo in configure.ac too where arm platforms
+	prints "ia64"...
+	Forwarded-From: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=760199
+
+2015-04-20  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #152 from wferi/small-fixups
+	Small fixups
+
+2015-04-20  Ferenc Wágner  <wferi@niif.hu>
+
+	Fix description of qbutil.h
+	The too early @author field stopped Doxygen from interpreting it.
+
+	Add Doxygen description for qbipc_common.h
+	The generated manpage lacked the whatis/apropos text in the synopsis.
+
+	Fix comment typo: neccessary -> necessary
+
+	Fix comment typos: incomming -> incoming
+
+	Clear DOT_FONTNAME, since FreeSans is not included anymore
+	The new default is Helvetica.
+
+	Remove obsolete options from doxyfiles
+	The SYMBOL_CACHE_SIZE, HTML_ALIGN_MEMBERS and USE_INLINE_TREES options
+	were at their default values, so it is safe to remove them now that they
+	only generate warnings.
+
+	Do not suppress echoing of Doxygen commands
+	This makes fixing Doxygen warnings easier.
+
+2015-04-16  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #150 from davidvossel/poll_starve
+	ipc test improvements.
+
+	Low: check_ipc: generate unique server names for tests
+	Package builders that run multiple builds of libqb in parallel
+	will fail because the IPC unit tests stomp on each other's namespace.
+	We have to give each IPC server a randomized unique name during
+	'make check' to avoid this.
+
+	Low: check_ipc: give connection stress tests for shm and socket unique names
+
+2015-04-15  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #147 from davidvossel/poll_starve
+	High: loop: fixes resource starvation in mainloop code
+
+2015-04-14  David Vossel  <dvossel@redhat.com>
+
+	Low: tests: regression tests for stress testing loop_poll ipc create/destroy
+
+	High: loop: fixes resource starvation in mainloop code
+
+2015-03-05  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #141 from davidvossel/recv-yield
+	High: yield to scheduler during connection processing
+
+	High: yield to scheduler during new connection auth processing
+
+2015-01-29  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #138 from rubenk/fix-clang-warning
+	The udata member of the kevent struct is a void *
+
+2015-01-23  Ruben Kerkhof  <ruben@rubenkerkhof.com>
+
+	The udata member of the kevent struct is a void *
+	Fixes the following warnings under clang:
+	loop_poll_kqueue.c:58:2: warning: incompatible integer to pointer conversion assigning to 'void *' from 'intptr_t' (aka 'long') [-Wint-conversion]
+	        EV_SET(&ke, fd, filters, EV_ADD | EV_ENABLE, 0, 0, (intptr_t)pe);
+	        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	/usr/include/sys/event.h:54:16: note: expanded from macro 'EV_SET'
+	        (kevp)->udata = (f);                    \
+	                      ^ ~~~
+
+2015-01-20  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #137 from rubenk/detect-warning-flags-better
+	Fix detection of warning flags for clang
+
+2015-01-19  Ruben Kerkhof  <ruben@rubenkerkhof.com>
+
+	Fix detection of warning flags for clang
+	Using ./configure CC=clang, the following flags are detected
+	as supported:
+	checking whether clang supports "-Wgnu89-inline"... yes
+	checking whether clang supports "-Wno-strict-aliasing"... yes
+	Which results in a lot of warnings during make:
+	warning: unknown warning option '-Wunsigned-char' [-Wunknown-warning-option]
+	warning: unknown warning option '-Wgnu89-inline' [-Wunknown-warning-option]
+	Clang doesn't support these flags, but the compile check returns a
+	warning, not an error:
+	configure:16649: checking whether clang supports "-Wunsigned-char"
+	configure:16662: clang -E  -Wunsigned-char conftest.c
+	warning: unknown warning option '-Wunsigned-char' [-Wunknown-warning-option]
+	1 warning generated.
+	configure:16662: $? = 0
+	configure:16663: result: yes
+
+2015-01-13  David Vossel  <dvossel@redhat.com>
+
+	Merge pull request #136 from grueni/upstream4
+	Fix: Unlink files bound to unix domain sockets
+
+2015-01-13  Andreas Grueninger  <Andreas.Grueninger@some.where>
+
+	Fix: Unlink files before qb_ipcc_us_sock_close
+	Changed the #if clauses to all non linux OSe.
+
+2014-12-22  Andreas Grueninger  <Andreas.Grueninger@some.where>
+
+	Fix: Unlink files bound to unix domain sockets
+	In qb_ipcs_us_connect 4 files are created and bound.
+	I dont' know how this works for QB_LINUX or QB_CYGWIN.
+	But for the other OS the files are created and must be unlinked.
+	I use the same logic to construct the file names and unlink the files.
+	qb_ipcc_us_connect calls this
+	...
+	  res = qb_ipc_dgram_sock_connect(r->response, "response", "request",
+	          r->max_msg_size, &c->request.u.us.sock);
+	and qb_ipc_dgram_sock_connect calls
+	..
+	set_sock_addr
+	and in set_sock_addr the files are created if not Linux or Cygwin.
+	...
+	#if defined(QB_LINUX) || defined(QB_CYGWIN)
+	  snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	#else
+	  snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
+	     socket_name);
+	#endif
+	...
