@@ -228,8 +228,8 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		if (c->setup.u.us.sock > 0) {
-			qb_ipcc_us_sock_close(c->setup.u.us.sock);
 			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
+			qb_ipcc_us_sock_close(c->setup.u.us.sock);
 			c->setup.u.us.sock = -1;
 		}
 	}

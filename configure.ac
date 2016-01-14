@@ -5,7 +5,7 @@ AC_PREREQ([2.61])
 
 AC_INIT([libqb],
 	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
-	[quarterback-devel@fedorahosted.org])
+	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
@@ -312,12 +312,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_BSD], [1],
 				   [Compiling for BSD platform])
 		case "$host_os" in
-			*freebsd[[234567]]*)
-			;;
-			*freebsd*)
-				AC_DEFINE_UNQUOTED([QB_FREEBSD_GE_8], [1],
-					   [Compiling for FreeBSD >= 8 platform])
-			;;
 			*netbsd*)
 				# this is because dlopen within a dl_iterate_phdr
 				# callback locks up.

@@ -49,8 +49,8 @@ typedef uint64_t qb_handle_t;
 /*
  * Formatting for string printing on 32/64 bit systems
  */
-#define QB_HDB_D_FORMAT "%"PRIu64
-#define QB_HDB_X_FORMAT "%"PRIx64
+#define QB_HDB_D_FORMAT "%" PRIu64
+#define QB_HDB_X_FORMAT "%" PRIx64
 
 struct qb_hdb_handle {
 	int32_t state;

@@ -556,7 +556,14 @@ send_response:
 				       "Error in connection setup (%s)",
 				       c->description);
 		}
-		qb_ipcs_disconnect(c);
+
+		if (c->state == QB_IPCS_CONNECTION_INACTIVE) {
+			/* This removes the initial alloc ref */
+			qb_ipcs_connection_unref(c);
+		        qb_ipcc_us_sock_close(sock);
+		} else {
+			qb_ipcs_disconnect(c);
+		}
 	}
 	return res;
 }
