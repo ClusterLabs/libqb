@@ -56,6 +56,20 @@ auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
 CLEANFILES += $(auto_c_files)
 MAINTAINERCLEANFILES += $(auto_c_files)
 
+#
+# The qbconfig.h file is generated from qbconfig.h.in into the build directory tree.
+# We have to have a separate rule for generating the auto_check_header_ source here.
+#
+$(builddir)/auto_check_header_qbconfig.c: $(top_builddir)/include/qb/qbconfig.h
+	@name=$$(echo "$<" | sed  "s|.*qb/qb||" | sed "s|\.h||") ;\
+	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
+	echo "#include <qb/qb$$name.h>" > $@_ ;\
+	echo "#ifndef QB_$${NAME}_H_DEFINED" >> $@_ ;\
+	echo "#error no header protector in file qb$$name.h" >> $@_ ;\
+	echo "#endif" >> $@_ ;\
+	echo "int main(void) {return 0;}" >> $@_
+	$(AM_V_GEN)mv $@_ $@
+
 $(builddir)/auto_check_header_%.c: $(top_srcdir)/include/qb/%.h
 	@name=$$(echo "$<" | sed  "s|.*qb/qb||" | sed "s|\.h||") ;\
 	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
