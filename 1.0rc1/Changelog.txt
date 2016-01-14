@@ -1,0 +1,109 @@
+2016-01-12  Christine Caulfield  <ccaulfie@redhat.com>
+
+	lib: update library version for new release
+
+2016-01-11  chrissie-c  <ccaulfie@redhat.com>
+
+	Merge pull request #164 from kgaillot/fixes
+	Improvements to build process
+
+2016-01-08  Christine Caulfield  <ccaulfie@redhat.com>
+
+	includes: Fix format string
+	The format strings for QB_HDB_D_FORMAT & QB_HDB_X_FORMAT had no spaces
+	between "%" and PRIx64. This is allowed, but technically incorrect and
+	breaks C++11
+
+2016-01-08  chrissie-c  <ccaulfie@redhat.com>
+
+	Merge pull request #167 from gao-yan/ipc-fd-memory-leaks
+	Fix: ipc: Prevent fd and memory leaks in handle_new_connection()
+
+2015-12-17  chrissie-c  <ccaulfie@redhat.com>
+
+	Merge pull request #169 from rubenk/remove-unused-define
+	configure.ac: remove an unused DEFINE
+
+	Merge pull request #168 from rubenk/point-at-the-correct-license-file
+	The license is in COPYING, not LICENSE
+
+2015-12-16  Ruben Kerkhof  <ruben@rubenkerkhof.com>
+
+	configure.ac: remove an unused DEFINE
+
+	The license is in COPYING, not LICENSE
+
+2015-10-06  Gao,Yan  <ygao@suse.com>
+
+	Fix: ipc: Prevent fd and memory leaks in handle_new_connection()
+	In handle_new_connection(), connection_accept() could fail, which would
+	leave the state of the connection inactive. Previously, in this case,
+	the socket and the allocated qb_ipcs_connection would be leaked.
+
+2015-10-01  Christine Caulfield  <ccaulfie@redhat.com>
+
+	log: don't call dlopen inside dl_iterate_phdr()
+	Some platforms (eg. FreeBSD 10+) don't support calling dlopen() from
+	within a dl_iterate_phdr() callback; so save all of the dlpi_names to
+	a list and iterate over them afterwards.
+	This fixes a deadlock which occurs in dlopen() when called from
+	within dl_iterate_phdr() on FreeBSD 10+ when linked to libthr.
+	Patch from dpejesh on github.
+	Reviewed-by: Christine Caulfield <ccaulfie@redhat.com>
+
+2015-09-25  Christine Caulfield  <ccaulfie@redhat.com>
+
+	tests: Allow more time for stress_connections tests
+	On *BSD and other platforms the stress_connections can timeout and
+	fail the tests. I've increased the timeout here to an hour as it
+	takes nearly that long on my VM environment but it seems that's not
+	common, luckily.
+	This was also seen on mips/mipsel.
+
+2015-09-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	ipc: Revert half of a previous *BSD ipc-name patch
+	Only one of the strndup calls should have subtracted 9 from
+	the name length. The other should have remained at 8.
+
+	ipc: Don't send the dispatch_del() function a closed fd
+	The current code closes the fd before passing it to the
+	provided delete function. In the default case this can generate
+	"epoll_ctl(del): Bad file descriptor" messages when debug logging
+	is enabled.
+	This patch swaps over the calls so that a valid FD is passed to
+	the delete function.
+	Reviewed-By: Ken Gaillot <kgaillot@redhat.com>
+
+2015-09-22  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Fix deletion of sockets on *BSD platforms
+	The code removed the last 8 characters of a socket name
+	to get the 'base name', but 9 are needed.
+
+2015-09-11  Ken Gaillot  <kgaillot@redhat.com>
+
+	Update last reference to quarterback-devel mailing list
+
+2015-09-09  Ken Gaillot  <kgaillot@redhat.com>
+
+	docs: update doxygen files
+	These are the results of "doxygen -u" to get rid of warnings.
+
+	Add helper script for generating online documentation
+	If build-aux/generate-docs is run from the top level of the checkout,
+	it will prompt for the old and new version numbers, and generate
+	doxygen, ABI compatibility and change log documentation,
+	and commit them to the gh-pages branch.
+
+	test: add helper script for running coverity
+
+2015-08-28  Ken Gaillot  <kgaillot@redhat.com>
+
+	update copy of gitlog-to-changelog to latest GNU version
+	downloaded from http://git.savannah.gnu.org/gitweb/?p=gnulib.git;a=blob_plain;f=build-aux/gitlog-to-changelog
+
+	minor fixes to check script's ABI report
+	- update location of HTML output
+	- don't exit if there were incompatible ABI changes
+	- don't need branch name variable since we're not creating new branch for build anymore
