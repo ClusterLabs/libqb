@@ -60,7 +60,7 @@ clean-generic:
 
 $(SPEC): $(SPEC).in
 	$(AM_V_GEN)rm -f $@-t $@
-	LC_ALL=C date="$(shell date "+%a %b %d %Y")" && \
+	date="$(shell LC_ALL=C date "+%a %b %d %Y")" && \
 	if [ -f .tarball-version ]; then \
 		gitver="$(shell cat .tarball-version)" && \
 		rpmver=$$gitver && \
