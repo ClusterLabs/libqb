@@ -84,6 +84,9 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 #endif
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+	chmod(local_address.sun_path, 0660);
+#endif
 	if (res < 0) {
 		goto error_connect;
 	}
