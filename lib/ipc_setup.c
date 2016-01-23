@@ -311,6 +311,80 @@ qb_ipcc_us_sock_close(int32_t sock)
 	close(sock);
 }
 
+static int32_t
+qb_ipc_auth_creds(struct ipc_auth_data *data)
+{
+	int32_t res = 0;
+
+	/*
+	 * currently support getpeerucred, getpeereid, and SO_PASSCRED credential
+	 * retrieval mechanisms for various Platforms
+	 */
+#ifdef HAVE_GETPEERUCRED
+	/*
+	 * Solaris and some BSD systems
+	 */
+	{
+		ucred_t *uc = NULL;
+
+		if (getpeerucred(data->sock, &uc) == 0) {
+			res = 0;
+			data->ugp.uid = ucred_geteuid(uc);
+			data->ugp.gid = ucred_getegid(uc);
+			data->ugp.pid = ucred_getpid(uc);
+			ucred_free(uc);
+		} else {
+			res = -errno;
+		}
+	}
+#elif HAVE_GETPEEREID
+	/*
+	* Usually MacOSX systems
+	*/
+	{
+		/*
+		* TODO get the peer's pid.
+		* c->pid = ?;
+		*/
+		if (getpeereid(data->sock, &data->ugp.uid, &data->ugp.gid) == 0) {
+			res = 0;
+		} else {
+			res = -errno;
+		}
+	}
+
+#elif SO_PASSCRED
+	/*
+	* Usually Linux systems
+	*/
+	{
+		struct ucred cred;
+		struct cmsghdr *cmsg;
+
+		res = -EINVAL;
+		for (cmsg = CMSG_FIRSTHDR(&data->msg_recv); cmsg != NULL;
+			cmsg = CMSG_NXTHDR(&data->msg_recv, cmsg)) {
+			if (cmsg->cmsg_type != SCM_CREDENTIALS)
+				continue;
+
+			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
+			res = 0;
+			data->ugp.pid = cred.pid;
+			data->ugp.uid = cred.uid;
+			data->ugp.gid = cred.gid;
+			break;
+		}
+	}
+#else /* no credentials */
+	data->ugp.pid = 0;
+	data->ugp.uid = 0;
+	data->ugp.gid = 0;
+	res = -ENOTSUP;
+#endif /* no credentials */
+
+	return res;
+}
+
 int32_t
 qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 			 struct qb_ipc_connection_response *r)
@@ -622,71 +696,7 @@ process_auth(int32_t fd, int32_t revents, void *d)
 		goto cleanup_and_return;
 	}
 
-	/*
-	 * currently support getpeerucred, getpeereid, and SO_PASSCRED credential
-	 * retrieval mechanisms for various Platforms
-	 */
-#ifdef HAVE_GETPEERUCRED
-	/*
-	 * Solaris and some BSD systems
-	 */
-	{
-		ucred_t *uc = NULL;
-
-		if (getpeerucred(data->sock, &uc) == 0) {
-			res = 0;
-			data->ugp.uid = ucred_geteuid(uc);
-			data->ugp.gid = ucred_getegid(uc);
-			data->ugp.pid = ucred_getpid(uc);
-			ucred_free(uc);
-		} else {
-			res = -errno;
-		}
-	}
-#elif HAVE_GETPEEREID
-	/*
-	 * Usually MacOSX systems
-	 */
-	{
-		/*
-		 * TODO get the peer's pid.
-		 * c->pid = ?;
-		 */
-		if (getpeereid(data->sock, &data->ugp.uid, &data->ugp.gid) == 0) {
-			res = 0;
-		} else {
-			res = -errno;
-		}
-	}
-
-#elif SO_PASSCRED
-	/*
-	 * Usually Linux systems
-	 */
-	{
-		struct ucred cred;
-		struct cmsghdr *cmsg;
-
-		res = -EINVAL;
-		for (cmsg = CMSG_FIRSTHDR(&data->msg_recv); cmsg != NULL;
-		     cmsg = CMSG_NXTHDR(&data->msg_recv, cmsg)) {
-			if (cmsg->cmsg_type != SCM_CREDENTIALS)
-				continue;
-
-			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
-			res = 0;
-			data->ugp.pid = cred.pid;
-			data->ugp.uid = cred.uid;
-			data->ugp.gid = cred.gid;
-			break;
-		}
-	}
-#else /* no credentials */
-	data->ugp.pid = 0;
-	data->ugp.uid = 0;
-	data->ugp.gid = 0;
-	res = -ENOTSUP;
-#endif /* no credentials */
+	res = qb_ipc_auth_creds(data);
 
 cleanup_and_return:
 #ifdef SO_PASSCRED
