@@ -385,6 +385,56 @@ qb_ipc_auth_creds(struct ipc_auth_data *data)
 	return res;
 }
 
+static void
+destroy_ipc_auth_data(struct ipc_auth_data *data)
+{
+	if (data->s) {
+		qb_ipcs_unref(data->s);
+	}
+
+#ifdef SO_PASSCRED
+	free(data->cmsg_cred);
+#endif
+	free(data);
+}
+
+static struct ipc_auth_data *
+init_ipc_auth_data(int sock, size_t len)
+{
+	struct ipc_auth_data *data = calloc(1, sizeof(struct ipc_auth_data));
+
+	if (data == NULL)
+		return 0;
+
+	data->msg_recv.msg_iov = &data->iov_recv;
+	data->msg_recv.msg_iovlen = 1;
+	data->msg_recv.msg_name = 0;
+	data->msg_recv.msg_namelen = 0;
+
+#ifdef SO_PASSCRED
+	data->cmsg_cred = calloc(1, CMSG_SPACE(sizeof(struct ucred)));
+	if (data->cmsg_cred == NULL) {
+		destroy_ipc_auth_data(data);
+		return 0;
+	}
+	data->msg_recv.msg_control = (void *)data->cmsg_cred;
+	data->msg_recv.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+#endif
+#ifdef QB_SOLARIS
+	data->msg_recv.msg_accrights = 0;
+	data->msg_recv.msg_accrightslen = 0;
+#else
+	data->msg_recv.msg_flags = 0;
+#endif /* QB_SOLARIS */
+
+	data->len = len;
+	data->iov_recv.iov_base = &data->msg;
+	data->iov_recv.iov_len = data->len;
+	data->sock = sock;
+
+	return data;
+}
+
 int32_t
 qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 			 struct qb_ipc_connection_response *r)
@@ -642,19 +692,6 @@ send_response:
 	return res;
 }
 
-static void
-destroy_ipc_auth_data(struct ipc_auth_data *data)
-{
-	if (data->s) {
-		qb_ipcs_unref(data->s);
-	}
-
-#ifdef SO_PASSCRED
-	free(data->cmsg_cred);
-#endif
-	free(data);
-}
-
 static int32_t
 process_auth(int32_t fd, int32_t revents, void *d)
 {
@@ -726,7 +763,7 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 	int on = 1;
 #endif
 
-	data = calloc(1, sizeof(struct ipc_auth_data));
+	data = init_ipc_auth_data(sock, sizeof(struct qb_ipc_connection_request));
 	if (data == NULL) {
 		close(sock);
 		/* -ENOMEM */
@@ -735,34 +772,6 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 
 	data->s = s;
 	qb_ipcs_ref(data->s);
-
-	data->msg_recv.msg_iov = &data->iov_recv;
-	data->msg_recv.msg_iovlen = 1;
-	data->msg_recv.msg_name = 0;
-	data->msg_recv.msg_namelen = 0;
-
-#ifdef SO_PASSCRED
-	data->cmsg_cred = calloc(1,CMSG_SPACE(sizeof(struct ucred)));
-	if (data->cmsg_cred == NULL) {
-		close(sock);
-		destroy_ipc_auth_data(data);
-		/* -ENOMEM */
-		return;
-	}
-	data->msg_recv.msg_control = (void *)data->cmsg_cred;
-	data->msg_recv.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
-#endif
-#ifdef QB_SOLARIS
-	data->msg_recv.msg_accrights = 0;
-	data->msg_recv.msg_accrightslen = 0;
-#else
-	data->msg_recv.msg_flags = 0;
-#endif /* QB_SOLARIS */
-
-	data->len = sizeof(struct qb_ipc_connection_request);
-	data->iov_recv.iov_base = &data->msg;
-	data->iov_recv.iov_len = data->len;
-	data->sock = sock;
 
 #ifdef SO_PASSCRED
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
