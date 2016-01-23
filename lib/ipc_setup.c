@@ -51,7 +51,10 @@ struct ipc_auth_ugp {
 struct ipc_auth_data {
 	int32_t sock;
 	struct qb_ipcs_service *s;
-	struct qb_ipc_connection_request msg;
+	union {
+		struct qb_ipc_connection_request req;
+		struct qb_ipc_connection_response res;
+	} msg;
 	struct msghdr msg_recv;
 	struct iovec iov_recv;
 	struct ipc_auth_ugp ugp;
@@ -441,6 +444,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 {
 	int32_t res;
 	struct qb_ipc_connection_request request;
+	struct ipc_auth_data *data;
 #ifdef QB_LINUX
 	int off = 0;
 	int on = 1;
@@ -464,21 +468,39 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return res;
 	}
+
+	data = init_ipc_auth_data(c->setup.u.us.sock, sizeof(struct qb_ipc_connection_response));
+	if (data == NULL) {
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
+		return -1;
+	}
+
+	qb_ipc_us_ready(&c->setup, NULL, -1, POLLIN);
+	res = qb_ipc_us_recv_msghdr(data);
+
 #ifdef QB_LINUX
 	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off,
 		   sizeof(off));
 #endif
 
-	res =
-	    qb_ipc_us_recv(&c->setup, r,
-			   sizeof(struct qb_ipc_connection_response), -1);
-	if (res < 0) {
+	if (res != data->len) {
+		destroy_ipc_auth_data(data);
 		return res;
 	}
 
+	memcpy(r, &data->msg.res, sizeof(struct qb_ipc_connection_response));
+
+	qb_ipc_auth_creds(data);
+	c->pid = data->ugp.pid;
+	c->euid = data->ugp.uid;
+	c->egid = data->ugp.gid;
+
 	if (r->hdr.error != 0) {
+		destroy_ipc_auth_data(data);
 		return r->hdr.error;
 	}
+
+	destroy_ipc_auth_data(data);
 	return 0;
 }
 
@@ -744,7 +766,7 @@ cleanup_and_return:
 
 	if (res < 0) {
 		close(data->sock);
-	} else if (data->msg.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
+	} else if (data->msg.req.hdr.id == QB_IPC_MSG_AUTHENTICATE) {
 		(void)handle_new_connection(data->s, res, data->sock, &data->msg, data->len, &data->ugp);
 	} else {
 		close(data->sock);
