@@ -91,8 +91,6 @@ struct qb_ipcc_funcs {
 struct qb_ipcc_connection {
 	char name[NAME_MAX];
 	int32_t needs_sock_for_poll;
-	pid_t pid;
-	uid_t euid;
 	gid_t egid;
 	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;

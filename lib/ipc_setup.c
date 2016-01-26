@@ -340,7 +340,7 @@ qb_ipc_auth_creds(struct ipc_auth_data *data)
 			res = -errno;
 		}
 	}
-#elif HAVE_GETPEEREID
+#elif defined(HAVE_GETPEEREID)
 	/*
 	* Usually MacOSX systems
 	*/
@@ -356,7 +356,7 @@ qb_ipc_auth_creds(struct ipc_auth_data *data)
 		}
 	}
 
-#elif SO_PASSCRED
+#elif defined(SO_PASSCRED)
 	/*
 	* Usually Linux systems
 	*/
@@ -406,8 +406,9 @@ init_ipc_auth_data(int sock, size_t len)
 {
 	struct ipc_auth_data *data = calloc(1, sizeof(struct ipc_auth_data));
 
-	if (data == NULL)
-		return 0;
+	if (data == NULL) {
+		return NULL;
+	}
 
 	data->msg_recv.msg_iov = &data->iov_recv;
 	data->msg_recv.msg_iovlen = 1;
@@ -418,7 +419,7 @@ init_ipc_auth_data(int sock, size_t len)
 	data->cmsg_cred = calloc(1, CMSG_SPACE(sizeof(struct ucred)));
 	if (data->cmsg_cred == NULL) {
 		destroy_ipc_auth_data(data);
-		return 0;
+		return NULL;
 	}
 	data->msg_recv.msg_control = (void *)data->cmsg_cred;
 	data->msg_recv.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
@@ -472,7 +473,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	data = init_ipc_auth_data(c->setup.u.us.sock, sizeof(struct qb_ipc_connection_response));
 	if (data == NULL) {
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
-		return -1;
+		return -ENOMEM;
 	}
 
 	qb_ipc_us_ready(&c->setup, NULL, -1, POLLIN);
@@ -491,17 +492,10 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	memcpy(r, &data->msg.res, sizeof(struct qb_ipc_connection_response));
 
 	qb_ipc_auth_creds(data);
-	c->pid = data->ugp.pid;
-	c->euid = data->ugp.uid;
 	c->egid = data->ugp.gid;
 
-	if (r->hdr.error != 0) {
-		destroy_ipc_auth_data(data);
-		return r->hdr.error;
-	}
-
 	destroy_ipc_auth_data(data);
-	return 0;
+	return r->hdr.error;
 }
 
 /*

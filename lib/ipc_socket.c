@@ -87,7 +87,7 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 		   sizeof(local_address));
 #if !(defined(QB_LINUX) || defined(QB_CYGWIN))
 	chmod(local_address.sun_path, 0660);
-	chown(local_address.sun_path, getuid(), gid);
+	chown(local_address.sun_path, -1, gid);
 #endif
 	if (res < 0) {
 		goto error_connect;
