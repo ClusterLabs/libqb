@@ -45,7 +45,6 @@ rm -rf $RPM_BUILD_ROOT
 %postun -p /sbin/ldconfig
 
 %files
-%defattr(-,root,root,-)
 %doc COPYING
 %{_sbindir}/qb-blackbox
 %{_libdir}/libqb.so.*
@@ -60,7 +59,6 @@ The %{name}-devel package contains libraries and header files for
 developing applications that use %{name}.
 
 %files devel
-%defattr(-,root,root,-)
 %doc COPYING README.markdown
 %{_includedir}/qb/
 %{_libdir}/libqb.so
