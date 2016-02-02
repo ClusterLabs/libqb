@@ -1,0 +1,86 @@
+2016-02-01  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #173 from dpejesh/socket
+	ipc: set gid on unix sockets
+
+2016-01-26  David Shane Holden  <dpejesh@yahoo.com>
+
+	update: per kgaillot review
+	* remove pid/euid from qb_ipcc_connection
+	* use proper #elif defines
+	* return NULL instead of 0 for pointers
+	* return -ENOMEM when malloc fails
+	* remove redundant if check
+	* use -1 for uid to chown()
+
+2016-01-23  David Shane Holden  <dpejesh@yahoo.com>
+
+	ipc: set gid on unix sockets
+	When creating a unix socket it's default gid is that of the parent
+	directory.  If the SOCKETDIR is owned by root:wheel with 1777 mode
+	some of the pacemaker daemons end up unable to communicate with one
+	another due to having insufficient permissions on the sockets.
+	This can be fixed by setting the client sockets gid to the primary
+	group of the server socket owner it's attempting to connect to.  And,
+	on the server side by setting the gid to the already captured gid
+	stored in the connection info.  This ensures that regardless of who
+	owns the socket directory, as long as the applications have r/w
+	access to it they should work.
+
+	lib: store server peer credentials in qb_ipcc_connection
+
+	lib: add init_ipc_auth_data() to initialize ipc_auth_data
+
+	lib: split peer credential loopup into it's own method
+
+2016-01-19  Christine Caulfield  <ccaulfie@redhat.com>
+
+	build: Correctly generate spec file's date
+	LC_ALL=C was outside of the shell environment so the date
+	was incorrect in the spec file if the system default language was not
+	C or English.
+
+2016-01-19  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #171 from dpejesh/socket
+	minor socket/mmap fixes
+
+2016-01-19  David Shane Holden  <dpejesh@yahoo.com>
+
+	lib: create mmap files in socket directory
+	Currently the mmap files are created in LOCALSTATEDIR/run on non-Linux
+	platforms which can be problematic with pacemaker since it spawns processes
+	as the hacluster user, which by default doesn't have write permissions to
+	it.  Using --with-socket-dir partially fixes the problem by allowing the
+	unix sockets to reside somewhere else but not the mmap files and this
+	patch puts them in the same directory.
+
+2016-01-18  David Shane Holden  <dpejesh@yahoo.com>
+
+	ipc: set file permissions on created sockets
+	When using sockets for IPC the file permissions default to whatever
+	the umask is.  This isn't a problem on Linux since it uses abstract
+	namespace sockets which don't have any permissions, but on other
+	platforms this causes problems with pacemaker which spawns processes
+	under the hacluster user and ends up failing to connect.
+
+2016-01-14  chrissie-c  <ccaulfie@redhat.com>
+
+	Merge pull request #170 from dkopecek/master
+	Add missing Makefile rule for generating the auto_check_header_qbconf…
+
+2016-01-14  Daniel Kopecek  <dkopecek@redhat.com>
+
+	Add missing Makefile rule for generating the auto_check_header_qbconfig.c file
+	Resolves issue #158
+	Addressing:
+	make[2]: Entering directory `/home/dkopecek/Projects/github/usbguard/src/ThirdParty/libqb/_build/tests'
+	...
+	  GEN      auto_check_header_qbarray.c
+	  CC       auto_check_header_qbarray.o
+	  CCLD     auto_check_header_qbarray
+	make[2]: *** No rule to make target `auto_check_header_qbconfig.c', needed by `auto_check_header_qbconfig.o'.  Stop.
+	make[2]: Leaving directory `/home/dkopecek/Projects/github/usbguard/src/ThirdParty/libqb/_build/tests'
+	make[1]: *** [all-recursive] Error 1
+	make[1]: Leaving directory `/home/dkopecek/Projects/github/usbguard/src/ThirdParty/libqb/_build'
+	make: *** [all] Error 2
