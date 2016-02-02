@@ -60,7 +60,8 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 
 static int32_t
 qb_ipc_dgram_sock_setup(const char *base_name,
-			const char *service_name, int32_t * sock_pt)
+			const char *service_name, int32_t * sock_pt,
+			gid_t gid)
 {
 	int32_t request_fd;
 	struct sockaddr_un local_address;
@@ -84,6 +85,10 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 #endif
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+	chmod(local_address.sun_path, 0660);
+	chown(local_address.sun_path, -1, gid);
+#endif
 	if (res < 0) {
 		goto error_connect;
 	}
@@ -218,12 +223,12 @@ static int32_t
 qb_ipc_dgram_sock_connect(const char *base_name,
 			  const char *local_name,
 			  const char *remote_name,
-			  int32_t max_msg_size, int32_t * sock_pt)
+			  int32_t max_msg_size, int32_t * sock_pt, gid_t gid)
 {
 	char sock_path[PATH_MAX];
 	struct sockaddr_un remote_address;
 	int32_t res = qb_ipc_dgram_sock_setup(base_name, local_name,
-					      sock_pt);
+					      sock_pt, gid);
 	if (res < 0) {
 		return res;
 	}
@@ -544,14 +549,14 @@ qb_ipcc_us_connect(struct qb_ipcc_connection * c,
 	fd_hdr = -1;
 
 	res = qb_ipc_dgram_sock_connect(r->response, "response", "request",
-					r->max_msg_size, &c->request.u.us.sock);
+					r->max_msg_size, &c->request.u.us.sock, c->egid);
 	if (res != 0) {
 		goto cleanup_hdr;
 	}
 	c->response.u.us.sock = c->request.u.us.sock;
 
 	res = qb_ipc_dgram_sock_connect(r->response, "event", "event-tx",
-					r->max_msg_size, &c->event.u.us.sock);
+					r->max_msg_size, &c->event.u.us.sock, c->egid);
 	if (res != 0) {
 		goto cleanup_hdr;
 	}
@@ -773,7 +778,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	/* request channel */
 	res = qb_ipc_dgram_sock_setup(r->response, "request",
-				      &c->request.u.us.sock);
+				      &c->request.u.us.sock, c->egid);
 	if (res < 0) {
 		goto cleanup_hdr;
 	}
@@ -787,7 +792,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	/* event channel */
 	res = qb_ipc_dgram_sock_setup(r->response, "event-tx",
-				      &c->event.u.us.sock);
+				      &c->event.u.us.sock, c->egid);
 	if (res < 0) {
 		goto cleanup_hdr;
 	}
