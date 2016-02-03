@@ -296,7 +296,8 @@ void qb_log_from_external_source(const char *function,
 				 uint8_t priority,
 				 uint32_t lineno,
 				 uint32_t tags,
-				 ...);
+				 ...)
+	__attribute__ ((format (printf, 3, 7)));
 
 /**
  * Get or create a callsite at the give position.
@@ -323,7 +324,8 @@ void qb_log_from_external_source_va(const char *function,
 				    uint8_t priority,
 				    uint32_t lineno,
 				    uint32_t tags,
-				    va_list ap);
+				    va_list ap)
+	__attribute__ ((format (printf, 3, 0)));
 
 /**
  * This is the function to generate a log message if you want to
