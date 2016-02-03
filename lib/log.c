@@ -172,6 +172,12 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
  * @param[in]  cs   Callsite containing format to use
  * @param[in]  ap   Variable arguments for format
  */
+#ifdef HAVE_GCC_SUGGEST_ATTRIBUTE_FORMAT
+/* suppress suggestion that we currently can do nothing better about
+   as the format specification is hidden in cs argument */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+#endif
 static inline void
 cs_format(char *str, struct qb_log_callsite *cs, va_list ap)
 {
@@ -188,6 +194,9 @@ cs_format(char *str, struct qb_log_callsite *cs, va_list ap)
 		str[len - 1] = '\0';
 	}
 }
+#ifdef HAVE_GCC_SUGGEST_ATTRIBUTE_FORMAT
+#pragma GCC diagnostic pop
+#endif
 
 void
 qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
