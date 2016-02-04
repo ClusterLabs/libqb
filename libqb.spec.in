@@ -5,13 +5,12 @@
 Name:           libqb
 Version:        @version@
 Release:        1%{?numcomm:.%{numcomm}}%{?alphatag:.%{alphatag}}%{?dirty:.%{dirty}}%{?dist}
-Summary:        An IPC library for high performance servers.
+Summary:        An IPC library for high performance servers
 
 Group:          System Environment/Libraries
 License:        LGPLv2+
 URL:            https://github.com/ClusterLabs/libqb
 Source0:        https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.gz
-BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  autoconf automake libtool doxygen procps check-devel
 
@@ -32,20 +31,15 @@ make %{?_smp_mflags}
 make check
 
 %install
-rm -rf $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT
 find $RPM_BUILD_ROOT -name '*.la' -exec rm -f {} ';'
 rm -rf $RPM_BUILD_ROOT/%{_datadir}/doc/libqb
-
-%clean
-rm -rf $RPM_BUILD_ROOT
 
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
 
 %files
-%defattr(-,root,root,-)
 %doc COPYING
 %{_sbindir}/qb-blackbox
 %{_libdir}/libqb.so.*
@@ -60,7 +54,6 @@ The %{name}-devel package contains libraries and header files for
 developing applications that use %{name}.
 
 %files devel
-%defattr(-,root,root,-)
 %doc COPYING README.markdown
 %{_includedir}/qb/
 %{_libdir}/libqb.so
