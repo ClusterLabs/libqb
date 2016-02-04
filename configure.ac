@@ -488,6 +488,12 @@ for j in $WARNLIST; do
 	fi
 done
 
+# warnings suppression
+if test x"$GCC" = xyes && cc_supports_flag -Wsuggest-attribute=format; then
+	AC_DEFINE([HAVE_GCC_SUGGEST_ATTRIBUTE_FORMAT], [],
+		  [gcc supports -Wsuggest-attribute=format])
+fi
+
 # --- coverage ---
 if test "x${enable_coverage}" = xyes && \
 		cc_supports_flag -ftest-coverage && \
