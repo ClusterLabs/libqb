@@ -420,6 +420,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_STATE_GET,
 	QB_LOG_CONF_FILE_SYNC,
 	QB_LOG_CONF_EXTENDED,
+	QB_LOG_CONF_IDENT,
 };
 
 enum qb_log_filter_type {
@@ -503,6 +504,15 @@ void qb_log_callsites_dump(void);
  * @retval qb_log_target_state for QB_LOG_CONF_STATE_GET
  */
 int32_t qb_log_ctl(int32_t target, enum qb_log_conf conf_type, int32_t arg);
+
+/**
+ * Extension of main logging control function accepting also strings.
+ *
+ * @param arg_s for QB_LOG_CONF_IDENT, a new identifier to openlog()
+ * @see qb_log_ctl
+ */
+int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type, int32_t arg,
+		    const char *arg_s);
 
 /**
  * This allows you modify the 'tags' and 'targets' callsite fields at runtime.

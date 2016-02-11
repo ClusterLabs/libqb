@@ -1060,7 +1060,7 @@ _log_target_disable(struct qb_log_target *t)
 }
 
 int32_t
-qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
+qb_log_ctl2(int32_t t, enum qb_log_conf c, int32_t arg, const char *arg_s)
 {
 	int32_t rc = 0;
 	int32_t need_reload = QB_FALSE;
@@ -1085,6 +1085,12 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		break;
 	case QB_LOG_CONF_FACILITY:
 		conf[t].facility = arg;
+		if (t == QB_LOG_SYSLOG) {
+			need_reload = QB_TRUE;
+		}
+		break;
+	case QB_LOG_CONF_IDENT:
+		(void)strlcpy(conf[t].name, arg_s, PATH_MAX);
 		if (t == QB_LOG_SYSLOG) {
 			need_reload = QB_TRUE;
 		}
@@ -1122,4 +1128,10 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		in_logger = QB_FALSE;
 	}
 	return rc;
+}
+
+int32_t
+qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
+{
+	return qb_log_ctl2(t, c, arg, NULL);
 }
