@@ -489,9 +489,20 @@ for j in $WARNLIST; do
 done
 
 # warnings suppression
+gcc_format_complaints=no
+if test x"$GCC" = xyes && cc_supports_flag -Wmissing-format-attribute; then
+	gcc_format_complaints=yes
+	AC_DEFINE([HAVE_GCC_MISSING_FORMAT_ATTRIBUTE], [],
+		  [gcc supports -Wmissing-format-attribute])
+fi
 if test x"$GCC" = xyes && cc_supports_flag -Wsuggest-attribute=format; then
+	gcc_format_complaints=yes
 	AC_DEFINE([HAVE_GCC_SUGGEST_ATTRIBUTE_FORMAT], [],
 		  [gcc supports -Wsuggest-attribute=format])
+fi
+if test x"$gcc_format_complaints" = xyes; then
+	AC_DEFINE([HAVE_GCC_FORMAT_COMPLAINTS], [],
+		  [gcc can complain about missing format attribute])
 fi
 
 # --- coverage ---
