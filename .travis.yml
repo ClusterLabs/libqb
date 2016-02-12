@@ -6,7 +6,7 @@ addons:
                   - check
                   - splint
 script: ./autogen.sh
-        && ./configure
+        && ./configure --enable-syslog-tests
         && make check
         && make distcheck
 sudo: false
