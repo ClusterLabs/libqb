@@ -128,7 +128,7 @@ set_sock_size(int sockfd, size_t max_msg_size)
 	}
 
 	if (rc != 0) {
-		return rc;
+		return -errno;
 	}
 
 	rc = getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &optval, &optlen);
@@ -143,6 +143,10 @@ set_sock_size(int sockfd, size_t max_msg_size)
 		optval = max_msg_size;
 		optlen = sizeof(optval);
 		rc = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &optval, optlen);
+	}
+
+	if (rc != 0) {
+		return -errno;
 	}
 
 	return rc;
