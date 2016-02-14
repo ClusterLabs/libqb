@@ -801,6 +801,12 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	if (res < 0) {
 		goto cleanup_hdr;
 	}
+
+	res = set_sock_size(c->request.u.us.sock, c->request.max_msg_size);
+	if (res != 0) {
+		goto cleanup_hdr;
+	}
+
 	c->setup.u.us.sock_name = NULL;
 	c->request.u.us.sock_name = NULL;
 
@@ -815,6 +821,12 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	if (res < 0) {
 		goto cleanup_hdr;
 	}
+
+	res = set_sock_size(c->event.u.us.sock, c->event.max_msg_size);
+	if (res != 0) {
+		goto cleanup_hdr;
+	}
+
 	snprintf(path, PATH_MAX, "%s-%s", r->response, "event");
 	c->event.u.us.sock_name = strdup(path);
 
