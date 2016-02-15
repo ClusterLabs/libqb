@@ -75,7 +75,8 @@ extern "C" {
  *
  * syslog, stderr and the blackbox are static (they don't need
  * to be created, just enabled or disabled. However you can open multiple
- * logfiles (32 - QB_LOG_BLACKBOX). To do this use the following code.
+ * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
+ * To do this, use the following code.
  * @code
  *	mytarget = qb_log_file_open("/var/log/mylogfile");
  *	qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);
@@ -397,10 +398,19 @@ void qb_log_from_external_source_va(const char *function,
 #define qb_enter() qb_log(LOG_TRACE, "ENTERING %s()", __func__)
 #define qb_leave() qb_log(LOG_TRACE, "LEAVING %s()", __func__)
 
+/*
+ * Note that QB_LOG_TARGET_{STATIC_,}MAX are sentinel indexes
+ * as non-inclusive higher bounds of the respective categories
+ * (static and all the log targets) and also denote the number
+ * of (reserved) items in the category.  Both are possibly subject
+ * of change, hence it is only adequate to always refer to them
+ * via these defined values.
+ */
 #define QB_LOG_SYSLOG 0
 #define QB_LOG_STDERR 1
 #define QB_LOG_BLACKBOX 2
 #define QB_LOG_STDOUT 3
+#define QB_LOG_TARGET_STATIC_MAX 4
 
 #define QB_LOG_TARGET_MAX 32
 
