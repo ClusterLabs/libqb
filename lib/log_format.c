@@ -87,13 +87,14 @@ static pthread_rwlock_t _formatlock;
 void
 qb_log_format_init(void)
 {
-	int32_t i;
+	int32_t l;
 	struct qb_log_target *t;
+	enum qb_log_target_slot i;
 
-	i = pthread_rwlock_init(&_formatlock, NULL);
-	assert(i == 0);
+	l = pthread_rwlock_init(&_formatlock, NULL);
+	assert(l == 0);
 
-	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+	for (i = QB_LOG_TARGET_START; i < QB_LOG_TARGET_MAX; i++) {
 		t = qb_log_target_get(i);
 		t->format = strdup("[%p] %b");
 	}
@@ -103,11 +104,11 @@ void
 qb_log_format_fini(void)
 {
 	struct qb_log_target *t;
-	int32_t i;
+	enum qb_log_target_slot i;
 
 	pthread_rwlock_destroy(&_formatlock);
 
-	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+	for (i = QB_LOG_TARGET_START; i < QB_LOG_TARGET_MAX; i++) {
 		t = qb_log_target_get(i);
 		free(t->format);
 	}

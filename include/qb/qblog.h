@@ -405,14 +405,25 @@ void qb_log_from_external_source_va(const char *function,
  * of (reserved) items in the category.  Both are possibly subject
  * of change, hence it is only adequate to always refer to them
  * via these defined values.
+ * Similarly, there are QB_LOG_TARGET_{STATIC_,DYNAMIC_,}START
+ * values, but these are inclusive lower bounds.
  */
-#define QB_LOG_SYSLOG 0
-#define QB_LOG_STDERR 1
-#define QB_LOG_BLACKBOX 2
-#define QB_LOG_STDOUT 3
-#define QB_LOG_TARGET_STATIC_MAX 4
+enum qb_log_target_slot {
+	QB_LOG_TARGET_START,
 
-#define QB_LOG_TARGET_MAX 32
+	/* static */
+	QB_LOG_TARGET_STATIC_START = QB_LOG_TARGET_START,
+	QB_LOG_SYSLOG = QB_LOG_TARGET_STATIC_START,
+	QB_LOG_STDERR,
+	QB_LOG_BLACKBOX,
+	QB_LOG_STDOUT,
+	QB_LOG_TARGET_STATIC_MAX,
+
+	/* dynamic */
+	QB_LOG_TARGET_DYNAMIC_START = QB_LOG_TARGET_STATIC_MAX,
+
+	QB_LOG_TARGET_MAX = 32,
+};
 
 enum qb_log_target_state {
 	QB_LOG_STATE_UNUSED = 1,

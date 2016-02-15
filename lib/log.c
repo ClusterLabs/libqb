@@ -843,13 +843,14 @@ _log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
 void
 qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
-	int32_t i;
+	int32_t l;
+	enum qb_log_target_slot i;
 
-	i = pthread_rwlock_init(&_listlock, NULL);
-	assert(i == 0);
+	l = pthread_rwlock_init(&_listlock, NULL);
+	assert(l == 0);
 	qb_log_format_init();
 
-	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+	for (i = QB_LOG_TARGET_START; i < QB_LOG_TARGET_MAX; i++) {
 		conf[i].pos = i;
 		conf[i].debug = QB_FALSE;
 		conf[i].file_sync = QB_FALSE;
@@ -923,8 +924,8 @@ qb_log_fini(void)
 struct qb_log_target *
 qb_log_target_alloc(void)
 {
-	int32_t i;
-	for (i = 0; i < QB_LOG_TARGET_MAX; i++) {
+	enum qb_log_target_slot i;
+	for (i = QB_LOG_TARGET_START; i < QB_LOG_TARGET_MAX; i++) {
 		if (conf[i].state == QB_LOG_STATE_UNUSED) {
 			_log_target_state_set(&conf[i], QB_LOG_STATE_DISABLED);
 			return &conf[i];
