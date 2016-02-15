@@ -65,7 +65,7 @@ extern "C" {
  * @endcode
  *
  * @par Configuring log targets.
- * A log target can by syslog, stderr, the blackbox or a text file.
+ * A log target can by syslog, stderr, the blackbox, stdout, or a text file.
  * By default only syslog is enabled.
  *
  * To enable a target do the following
@@ -73,7 +73,7 @@ extern "C" {
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
  * @endcode
  *
- * syslog, stderr and the blackbox are static (they don't need
+ * syslog, stderr, the blackbox, and stdout are static (they don't need
  * to be created, just enabled or disabled. However you can open multiple
  * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
  * To do this, use the following code.
@@ -406,7 +406,8 @@ void qb_log_from_external_source_va(const char *function,
  * of change, hence it is only adequate to always refer to them
  * via these defined values.
  * Similarly, there are QB_LOG_TARGET_{STATIC_,DYNAMIC_,}START
- * values, but these are inclusive lower bounds.
+ * and QB_LOG_TARGET_{STATIC_,DYNAMIC_,}END values, but these
+ * are inclusive lower and higher bounds, respectively.
  */
 enum qb_log_target_slot {
 	QB_LOG_TARGET_START,
@@ -418,11 +419,14 @@ enum qb_log_target_slot {
 	QB_LOG_BLACKBOX,
 	QB_LOG_STDOUT,
 	QB_LOG_TARGET_STATIC_MAX,
+	QB_LOG_TARGET_STATIC_END = QB_LOG_TARGET_STATIC_MAX - 1,
 
 	/* dynamic */
 	QB_LOG_TARGET_DYNAMIC_START = QB_LOG_TARGET_STATIC_MAX,
 
 	QB_LOG_TARGET_MAX = 32,
+	QB_LOG_TARGET_DYNAMIC_END = QB_LOG_TARGET_MAX - 1,
+	QB_LOG_TARGET_END = QB_LOG_TARGET_DYNAMIC_END,
 };
 
 enum qb_log_target_state {
@@ -589,7 +593,9 @@ void qb_log_format_set(int32_t t, const char* format);
  * Open a log file.
  *
  * @retval -errno on error
- * @retval 3 to 31 (to be passed into other qb_log_* functions)
+ * @retval value in inclusive range QB_LOG_TARGET_DYNAMIC_START
+ *         to QB_LOG_TARGET_DYNAMIC_END
+ *         (to be passed into other qb_log_* functions)
  */
 int32_t qb_log_file_open(const char *filename);
 
@@ -625,7 +631,9 @@ void qb_log_blackbox_print_from_file(const char* filename);
  * Open a custom log target.
  *
  * @retval -errno on error
- * @retval 3 to 31 (to be passed into other qb_log_* functions)
+ * @retval value in inclusive range QB_LOG_TARGET_DYNAMIC_START
+ *         to QB_LOG_TARGET_DYNAMIC_END
+ *         (to be passed into other qb_log_* functions)
  */
 int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
 			   qb_log_close_fn close_fn,
