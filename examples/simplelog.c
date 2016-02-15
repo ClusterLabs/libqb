@@ -73,6 +73,7 @@ show_usage(const char *name)
 	printf("\n");
 	printf("  -v             verbose\n");
 	printf("  -t             threaded logging\n");
+	printf("  -o             log to stdout\n");
 	printf("  -e             log to stderr\n");
 	printf("  -b             log to blackbox\n");
 	printf("  -f <filename>  log to a file\n");
