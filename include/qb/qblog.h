@@ -68,7 +68,7 @@ extern "C" {
  * A log target can by syslog, stderr, the blackbox, stdout, or a text file.
  * By default only syslog is enabled.
  *
- * To enable a target do the following
+ * To enable a target do the following:
  * @code
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
  * @endcode
@@ -76,7 +76,7 @@ extern "C" {
  * syslog, stderr, the blackbox, and stdout are static (they don't need
  * to be created, just enabled or disabled. However you can open multiple
  * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
- * To do this, use the following code.
+ * To do this, use the following code:
  * @code
  *	mytarget = qb_log_file_open("/var/log/mylogfile");
  *	qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);
@@ -115,19 +115,21 @@ extern "C" {
  * -# function name + priority
  * -# format string + priority
  *
- * So to make all logs from evil_fnunction() go to stderr do the following:
+ * So to make all logs from evil_fnunction() go to stderr, do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
  *			  QB_LOG_FILTER_FUNCTION, "evil_fnunction", LOG_TRACE);
  * @endcode
  *
- * So to make all logs from totem* (with  a priority <= LOG_INFO) go to stderr do the following:
+ * So to make all logs from totem* (with  a priority <= LOG_INFO) go to stderr,
+ * do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
  *			  QB_LOG_FILTER_FILE, "totem", LOG_INFO);
  * @endcode
  *
- * So to make all logs with the substring "ringbuffer" go to stderr do the following:
+ * So to make all logs with the substring "ringbuffer" go to stderr,
+ * do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
  *			  QB_LOG_FILTER_FORMAT, "ringbuffer", LOG_TRACE);
@@ -501,7 +503,7 @@ void qb_log_fini(void);
  * If you are using dynamically loadable modules via dlopen() and
  * you load them after qb_log_init() then after you load the module
  * you will need to do the following to get the filters to work
- * in that module.
+ * in that module:
  * @code
  * 	_start = dlsym (dl_handle, "__start___verbose");
  *	_stop = dlsym (dl_handle, "__stop___verbose");
@@ -549,7 +551,7 @@ int32_t qb_log_filter_ctl2(int32_t value, enum qb_log_filter_conf c,
  * Instead of using the qb_log_filter_ctl() functions you
  * can apply the filters manually by defining a callback
  * and setting the targets field using qb_bit_set() and
- * qb_bit_clear() like the following below.
+ * qb_bit_clear() like the following below:
  * @code
  * static void
  * m_filter(struct qb_log_callsite *cs)
