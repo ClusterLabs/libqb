@@ -70,7 +70,7 @@
  * @page qb_ipc_overview IPC Overview
  *
  * @par Overview
- * libqb provides a generically reusable very high performance shared memory IPC sytem for client
+ * libqb provides a generically reusable very high performance shared memory IPC system for client
  * and service applications.  It supports many features including:
  * - Multiple transport implementations
  *   -# Shared memory implementation for very high performance.
@@ -89,7 +89,7 @@
  * then determines if the UID and GID are authenticated for communication.
  *
  * @par Performance
- * For performance QB_IPC_SHM (shared memory) is recogmended. It is tuned for
+ * For performance, QB_IPC_SHM (shared memory) is recommended. It is tuned for
  * very high performance.
  *
  * @par Client API
