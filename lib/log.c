@@ -204,7 +204,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	int32_t found_threaded = QB_FALSE;
 	struct qb_log_target *t;
 	struct timespec tv;
-	int32_t pos;
+	enum qb_log_target_slot pos;
 	int32_t formatted = QB_FALSE;
 	char buf[QB_LOG_MAX_LEN];
 	char *str = buf;
@@ -232,7 +232,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	 * 1 if we can find a threaded target that needs this log then post it
 	 * 2 foreach non-threaded target call it's logger function
 	 */
-	for (pos = 0; pos <= conf_active_max; pos++) {
+	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
 		if ((t->state == QB_LOG_STATE_ENABLED)
 		    && qb_bit_is_set(cs->targets, pos)) {
@@ -282,9 +282,9 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 			time_t timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
-	int32_t pos;
+	enum qb_log_target_slot pos;
 
-	for (pos = 0; pos <= conf_active_max; pos++) {
+	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
 		if ((t->state == QB_LOG_STATE_ENABLED) && t->threaded
 		    && qb_bit_is_set(cs->targets, t->pos)) {
@@ -307,7 +307,7 @@ qb_log_callsite_get(const char *function,
 	struct qb_log_callsite *cs;
 	int32_t new_dcs = QB_FALSE;
 	struct qb_list_head *f_item;
-	int32_t pos;
+	enum qb_log_target_slot pos;
 
 	if (!logger_inited) {
 		return NULL;
@@ -321,7 +321,7 @@ qb_log_callsite_get(const char *function,
 
 	if (new_dcs) {
 		pthread_rwlock_rdlock(&_listlock);
-		for (pos = 0; pos <= conf_active_max; pos++) {
+		for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
 			t = &conf[pos];
 			if (t->state != QB_LOG_STATE_ENABLED) {
 				continue;
@@ -403,7 +403,7 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	struct qb_log_callsite *cs;
 	struct qb_log_target *t;
 	struct qb_log_filter *flt;
-	int32_t pos;
+	enum qb_log_target_slot pos;
 
 	if (_start == NULL || _stop == NULL) {
 		return -EINVAL;
@@ -432,7 +432,7 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	/*
 	 * Now apply the filters on these new callsites
 	 */
-	for (pos = 0; pos <= conf_active_max; pos++) {
+	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
 		if (t->state != QB_LOG_STATE_ENABLED) {
 			continue;
@@ -823,18 +823,18 @@ done:
 static void
 _log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
 {
-	int32_t i;
+	enum qb_log_target_slot i;
 	int32_t a_set = QB_FALSE;
 	int32_t u_set = QB_FALSE;
 
 	t->state = s;
 
-	for (i = 31; i >= 0; i--) {
-		if (!a_set && conf[i].state == QB_LOG_STATE_ENABLED) {
+	for (i = QB_LOG_TARGET_MAX; i > QB_LOG_TARGET_START; i--) {
+		if (!a_set && conf[i-1].state == QB_LOG_STATE_ENABLED) {
 			a_set = QB_TRUE;
-			conf_active_max = i;
+			conf_active_max = i-1;
 		}
-		if (!u_set && conf[i].state != QB_LOG_STATE_UNUSED) {
+		if (!u_set && conf[i-1].state != QB_LOG_STATE_UNUSED) {
 			u_set = QB_TRUE;
 		}
 	}
@@ -888,7 +888,7 @@ qb_log_fini(void)
 	struct qb_list_head *iter2;
 	struct qb_list_head *next;
 	struct qb_list_head *next2;
-	int32_t pos;
+	enum qb_log_target_slot pos;
 
 	if (!logger_inited) {
 		return;
@@ -897,7 +897,7 @@ qb_log_fini(void)
 	qb_log_thread_stop();
 	pthread_rwlock_destroy(&_listlock);
 
-	for (pos = 0; pos <= conf_active_max; pos++) {
+	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
 		t = &conf[pos];
 		_log_target_disable(t);
 		qb_list_for_each_safe(iter2, next2, &t->filter_head) {
