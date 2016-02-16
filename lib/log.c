@@ -868,9 +868,8 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	_log_so_walk_dlnames();
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
-	conf[QB_LOG_STDERR].state = QB_LOG_STATE_DISABLED;
-	conf[QB_LOG_BLACKBOX].state = QB_LOG_STATE_DISABLED;
-	conf[QB_LOG_STDOUT].state = QB_LOG_STATE_DISABLED;
+	for (i = QB_LOG_TARGET_STATIC_START; i < QB_LOG_TARGET_STATIC_MAX; i++)
+		conf[i].state = QB_LOG_STATE_DISABLED;
 
 	logger_inited = QB_TRUE;
 	(void)qb_log_syslog_open(&conf[QB_LOG_SYSLOG]);
