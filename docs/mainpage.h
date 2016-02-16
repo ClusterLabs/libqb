@@ -3,15 +3,13 @@
  *
  * @section overview Overview
  *
- * libqb is a thread-safe library with the primary purpose of providing high
- * performance client server reusable features.
+ * libqb is a thread-safe library with the primary purpose of providing
+ * high-performance, reusable features for client-server architecture,
+ * such as logging, tracing, inter-process communication (IPC), and polling.
  *
- * It provides high performance ipc, and poll.
- *
- * We don't intend be an all encompassing library, but instead provide very
- * specially focused APIs that are highly
- *
- * tuned for maximum performance for client/server applications.
+ * We don't intend this to be an all-encompassing library, but instead
+ * provide very specially focused APIs that are highly tuned for maximum
+ * performance for client/server applications.
  *
  * See the following pages for more info:
  * - @subpage qb_list_overview
