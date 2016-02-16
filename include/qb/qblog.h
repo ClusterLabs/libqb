@@ -53,7 +53,7 @@ extern "C" {
  * Call qb_log() to generate a log message. Then to write the message
  * somewhere meaningful call qb_log_ctl() to configure the targets.
  *
- * Simplist possible use:
+ * Simplest possible use:
  * @code
  * main() {
  *	qb_log_init("simple-log", LOG_DAEMON, LOG_INFO);
@@ -65,7 +65,7 @@ extern "C" {
  * @endcode
  *
  * @par Configuring log targets.
- * A log target can by syslog, stderr, the blackbox, stdout, or a text file.
+ * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
  * By default only syslog is enabled.
  *
  * To enable a target do the following:
@@ -74,7 +74,7 @@ extern "C" {
  * @endcode
  *
  * syslog, stderr, the blackbox, and stdout are static (they don't need
- * to be created, just enabled or disabled. However you can open multiple
+ * to be created, just enabled or disabled). However you can open multiple
  * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
  * To do this, use the following code:
  * @code
@@ -115,10 +115,10 @@ extern "C" {
  * -# function name + priority
  * -# format string + priority
  *
- * So to make all logs from evil_fnunction() go to stderr, do the following:
+ * So to make all logs from evil_function() go to stderr, do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
- *			  QB_LOG_FILTER_FUNCTION, "evil_fnunction", LOG_TRACE);
+ *			  QB_LOG_FILTER_FUNCTION, "evil_function", LOG_TRACE);
  * @endcode
  *
  * So to make all logs from totem* (with  a priority <= LOG_INFO) go to stderr,
@@ -141,8 +141,8 @@ extern "C" {
  * and use qg_log_filter_ctl to set the QB_LOG_CONF_THREADED flag on all the
  * logging targets in use.
  *
- * To achieve non-blocking logging you can use threaded logging as well
- * So any calls to write() or syslog() will not hold up your program.
+ * To achieve non-blocking logging, so that any calls to write() or syslog()
+ * will not hold up your program, you can use threaded logging as well.
  *
  * Threaded logging use:
  * @code
@@ -281,7 +281,7 @@ void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
  *
  * @note the performance of this will not impress you, as
  * the filtering is done on each log message, not
- * before hand. So try doing basic pre-filtering.
+ * beforehand. So try doing basic pre-filtering.
  *
  * @param function originating function name
  * @param filename originating filename
@@ -303,7 +303,7 @@ void qb_log_from_external_source(const char *function,
 	__attribute__ ((format (printf, 3, 7)));
 
 /**
- * Get or create a callsite at the give position.
+ * Get or create a callsite at the given position.
  *
  * The result can then be passed into qb_log_real_()
  *
@@ -495,7 +495,7 @@ void qb_log_init(const char *name,
  *
  * It releases any shared memory.
  * Stops the logging thread if running.
- * Flushes the last message to their destinations.
+ * Flushes the last messages to their destinations.
  */
 void qb_log_fini(void);
 
