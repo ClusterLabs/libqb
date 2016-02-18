@@ -1,10 +1,15 @@
 language: c
-compiler:
-  - gcc
+compiler: gcc
 addons:
         apt:
                 packages:
                   - check
                   - splint
-script: ./autogen.sh && ./configure && make check && make distcheck
+script: ./autogen.sh
+        && ./configure --enable-syslog-tests
+        && make check
+        && make distcheck
 sudo: false
+
+notifications:
+        irc: "irc.freenode.net#clusterlabs-dev"

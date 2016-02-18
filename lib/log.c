@@ -1065,10 +1065,14 @@ _log_target_disable(struct qb_log_target *t)
 }
 
 int32_t
-qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
+qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 {
 	int32_t rc = 0;
 	int32_t need_reload = QB_FALSE;
+
+	/* extract the constants and do not touch the origin anymore */
+	const int32_t arg_i32 = arg_not4directuse.i32;
+	const char * const arg_s = arg_not4directuse.s;
 
 	if (!logger_inited) {
 		return -EINVAL;
@@ -1079,7 +1083,7 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 	}
 	switch (c) {
 	case QB_LOG_CONF_ENABLED:
-		if (arg) {
+		if (arg_i32) {
 			rc = _log_target_enable(&conf[t]);
 		} else {
 			_log_target_disable(&conf[t]);
@@ -1089,33 +1093,39 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		rc = conf[t].state;
 		break;
 	case QB_LOG_CONF_FACILITY:
-		conf[t].facility = arg;
+		conf[t].facility = arg_i32;
+		if (t == QB_LOG_SYSLOG) {
+			need_reload = QB_TRUE;
+		}
+		break;
+	case QB_LOG_CONF_IDENT:
+		(void)strlcpy(conf[t].name, arg_s, PATH_MAX);
 		if (t == QB_LOG_SYSLOG) {
 			need_reload = QB_TRUE;
 		}
 		break;
 	case QB_LOG_CONF_FILE_SYNC:
-		conf[t].file_sync = arg;
+		conf[t].file_sync = arg_i32;
 		break;
 	case QB_LOG_CONF_PRIORITY_BUMP:
-		conf[t].priority_bump = arg;
+		conf[t].priority_bump = arg_i32;
 		break;
 	case QB_LOG_CONF_SIZE:
 		if (t == QB_LOG_BLACKBOX) {
-			if (arg <= 0) {
+			if (arg_i32 <= 0) {
 				return -EINVAL;
 			}
-			conf[t].size = arg;
+			conf[t].size = arg_i32;
 			need_reload = QB_TRUE;
 		} else {
 			return -ENOSYS;
 		}
 		break;
 	case QB_LOG_CONF_THREADED:
-		conf[t].threaded = arg;
+		conf[t].threaded = arg_i32;
 		break;
 	case QB_LOG_CONF_EXTENDED:
-		conf[t].extended = arg;
+		conf[t].extended = arg_i32;
 		break;
 
 	default:
@@ -1127,4 +1137,10 @@ qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
 		in_logger = QB_FALSE;
 	}
 	return rc;
+}
+
+int32_t
+qb_log_ctl(int32_t t, enum qb_log_conf c, int32_t arg)
+{
+	return qb_log_ctl2(t, c, QB_LOG_CTL2_I32(arg));
 }

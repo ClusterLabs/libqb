@@ -420,6 +420,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_STATE_GET,
 	QB_LOG_CONF_FILE_SYNC,
 	QB_LOG_CONF_EXTENDED,
+	QB_LOG_CONF_IDENT,
 };
 
 enum qb_log_filter_type {
@@ -503,6 +504,30 @@ void qb_log_callsites_dump(void);
  * @retval qb_log_target_state for QB_LOG_CONF_STATE_GET
  */
 int32_t qb_log_ctl(int32_t target, enum qb_log_conf conf_type, int32_t arg);
+
+typedef union {
+	int32_t i32;
+	const char *s;
+} qb_log_ctl2_arg_t;
+
+/**
+ * Extension of main logging control function accepting also strings.
+ *
+ * @param arg for QB_LOG_CONF_IDENT, 's' member as new identifier to openlog(),
+ *        for all original qb_log_ctl-compatible configuration directives,
+ *        'i32' member is assumed (although a preferred way is to use
+ *        that original function directly as it allows for more type safety)
+ * @see qb_log_ctl
+ *
+ * @note You can use <tt>QB_LOG_CTL2_I32</tt> and <tt>QB_LOG_CTL2_S</tt>
+ *       macros for a convenient on-the-fly construction of the object
+ *       to be passed as an <tt>arg</tt> argument.
+ */
+int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type,
+		    qb_log_ctl2_arg_t arg);
+
+#define QB_LOG_CTL2_I32(a)  ((qb_log_ctl2_arg_t) { .i32 = (a) })
+#define QB_LOG_CTL2_S(a)    ((qb_log_ctl2_arg_t) { .s = (a) })
 
 /**
  * This allows you modify the 'tags' and 'targets' callsite fields at runtime.
