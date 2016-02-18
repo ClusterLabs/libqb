@@ -29,12 +29,11 @@ dependent_headers = $(subst $(inc_dir),,$(shell \
 	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
 	| ${MAKE} --no-print-directory -f - inst_HEADERS.var \
 	|| echo $(inc_dir)/qb*.h))
+dependent_headers_omit = qbconfig.h qbdefs.h qbrb.h
 
-dist_man_MANS += man3/qbipcc.h.3 man3/qbipcs.h.3 man3/qbatomic.h.3 \
-		 man3/qbhdb.h.3 man3/qbipc_common.h.3 man3/qblist.h.3 \
-		 man3/qbloop.h.3 man3/qbutil.h.3 man3/qbarray.h.3 \
-		 man3/qblog.h.3 man3/qbmap.h.3
-
+dist_man_MANS += $(patsubst %,man3/%.3,$(filter-out \
+		     $(dependent_headers_omit),$(dependent_headers) \
+		 ))
 
 $(dist_man_MANS): man.dox $(dependent_headers:%=$(inc_dir)/%)
 	mkdir -p man3
