@@ -29,7 +29,7 @@ dependent_headers = $(subst $(inc_dir),,$(shell \
 	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
 	| ${MAKE} --no-print-directory -f - inst_HEADERS.var \
 	|| echo $(inc_dir)/qb*.h))
-dependent_headers_omit = qbconfig.h qbdefs.h qbrb.h
+dependent_headers_omit = qbconfig.h
 
 dist_man_MANS += $(patsubst %,man3/%.3,$(filter-out \
 		     $(dependent_headers_omit),$(dependent_headers) \
