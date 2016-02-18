@@ -10,3 +10,6 @@ script: ./autogen.sh
         && make check
         && make distcheck
 sudo: false
+
+notifications:
+        irc: "irc.freenode.net#clusterlabs-dev"
