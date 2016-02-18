@@ -147,6 +147,13 @@ ipc_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 log_test_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
 log_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
 log_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
+if HAVE_SYSLOG_TESTS
+log_test_LDADD += _syslog_override.la
+
+lib_LTLIBRARIES = _syslog_override.la
+_syslog_override_la_SOURCES = _syslog_override.c
+_syslog_override_la_LDFLAGS = -module
+endif
 
 util_test_SOURCES = check_util.c $(top_builddir)/include/qb/qbutil.h
 util_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include

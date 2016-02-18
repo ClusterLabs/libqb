@@ -29,6 +29,10 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
+#ifdef HAVE_SYSLOG_TESTS
+#include "_syslog_override.h"
+#endif
+
 extern size_t qb_vsnprintf_serialize(char *serialize, size_t max_len, const char *fmt, va_list ap);
 extern size_t qb_vsnprintf_deserialize(char *string, size_t strlen, const char *buf);
 
@@ -765,6 +769,25 @@ START_TEST(test_extended_information)
 }
 END_TEST
 
+#ifdef HAVE_SYSLOG_TESTS
+START_TEST(test_syslog)
+{
+	qb_log_init("flip", LOG_USER, LOG_INFO);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
+
+	qb_log(LOG_ERR, "first as flip");
+	ck_assert_int_eq(_syslog_opened, 1);
+	ck_assert_str_eq(_syslog_ident, "flip");
+
+	qb_log_ctl2(QB_LOG_SYSLOG, QB_LOG_CONF_IDENT, 0, "flop");
+	qb_log(LOG_ERR, "second as flop");
+	ck_assert_str_eq(_syslog_ident, "flop");
+
+	qb_log_fini();
+}
+END_TEST
+#endif
+
 static Suite *
 log_suite(void)
 {
@@ -811,6 +834,12 @@ log_suite(void)
 	tc = tcase_create("extended_information");
 	tcase_add_test(tc, test_extended_information);
 	suite_add_tcase(s, tc);
+
+#ifdef HAVE_SYSLOG_TESTS
+	tc = tcase_create("syslog");
+	tcase_add_test(tc, test_syslog);
+	suite_add_tcase(s, tc);
+#endif
 
 	return s;
 }
