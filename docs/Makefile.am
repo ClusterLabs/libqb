@@ -31,11 +31,11 @@ dependent_headers = $(subst $(inc_dir),,$(shell \
 	|| echo $(inc_dir)/qb*.h))
 dependent_headers_omit = qbconfig.h
 
-dist_man_MANS += $(patsubst %,man3/%.3,$(filter-out \
+dist_man3_MANS = $(patsubst %,man3/%.3,$(filter-out \
 		     $(dependent_headers_omit),$(dependent_headers) \
 		 ))
 
-$(dist_man_MANS): man.dox $(dependent_headers:%=$(inc_dir)/%)
+$(dist_man3_MANS): man.dox $(dependent_headers:%=$(inc_dir)/%)
 	mkdir -p man3
 	doxygen man.dox
 
