@@ -450,8 +450,10 @@ static const char *_test_tags_stringify(uint32_t tags)
 START_TEST(test_log_format)
 {
 	int32_t t;
-	char cmp_str[256];
+	/* following size/length related equation holds in the context of use:
+	   strlen(cmp_str) = strlen(host_str) + X; X ~ 20 < sizeof(host_str) */
 	char host_str[256];
+	char cmp_str[2 * sizeof(host_str)];
 
 	qb_log_init("test", LOG_USER, LOG_DEBUG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
@@ -498,16 +500,19 @@ START_TEST(test_log_format)
 
 	qb_log_tags_stringify_fn_set(NULL);
 
-	gethostname(host_str, 256);
+	gethostname(host_str, sizeof(host_str));
+	host_str[sizeof(host_str) - 1] = '\0';
 
 	qb_log_format_set(t, "%P %H %N %b");
 	qb_log(LOG_INFO, "Angus");
-	snprintf(cmp_str, 256, "%d %s test Angus", getpid(), host_str);
+	snprintf(cmp_str, sizeof(cmp_str), "%d %s test Angus", getpid(),
+		 host_str);
 	ck_assert_str_eq(test_buf, cmp_str);
 
 	qb_log_format_set(t, "%3N %H %P %b");
 	qb_log(LOG_INFO, "Angus");
-	snprintf(cmp_str, 256, "tes %s %d Angus", host_str, getpid());
+	snprintf(cmp_str, sizeof(cmp_str), "tes %s %d Angus", host_str,
+		 getpid());
 	ck_assert_str_eq(test_buf, cmp_str);
 }
 END_TEST

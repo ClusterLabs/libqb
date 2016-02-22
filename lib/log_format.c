@@ -273,10 +273,11 @@ qb_log_target_format_static(int32_t target, const char * format,
 				break;
 
 			case 'H':
-				if (gethostname(tmp_buf, 255) == 0) {
-					tmp_buf[254] = '\0';
+				if (gethostname(tmp_buf, sizeof(tmp_buf)) == 0) {
+					tmp_buf[sizeof(tmp_buf) - 1] = '\0';
 				} else {
-					(void)strlcpy(tmp_buf, "localhost", 255);
+					(void)strlcpy(tmp_buf, "localhost",
+						      sizeof(tmp_buf));
 				}
 				p = tmp_buf;
 				break;
