@@ -506,9 +506,17 @@ if test x"$GCC" = xyes && cc_supports_flag -Wsuggest-attribute=format; then
 	AC_DEFINE([HAVE_GCC_SUGGEST_ATTRIBUTE_FORMAT], [],
 		  [gcc supports -Wsuggest-attribute=format])
 fi
+dnl pretend GCC (<4.6) is not capable of format complaints when it does not
+dnl support diagnostic push/pop pragmas (cannot track state reliably, then)
 if test x"$gcc_format_complaints" = xyes; then
-	AC_DEFINE([HAVE_GCC_FORMAT_COMPLAINTS], [],
-		  [gcc can complain about missing format attribute])
+	backup_CFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS -Werror"
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#pragma GCC diagnostic push
+#pragma GCC diagnostic pop
+	]])], AC_DEFINE([HAVE_GCC_FORMAT_COMPLAINTS], [],
+			[gcc can complain about missing format attribute]))
+	CFLAGS="$backup_CFLAGS"
 fi
 
 # --- coverage ---
