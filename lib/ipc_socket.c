@@ -50,7 +50,7 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 	address->sun_len = QB_SUN_LEN(address);
 #endif
 
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
+#if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
 	snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 #else
 	snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
@@ -80,12 +80,12 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 	}
 	snprintf(sock_path, PATH_MAX, "%s-%s", base_name, service_name);
 	set_sock_addr(&local_address, sock_path);
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
 	res = unlink(local_address.sun_path);
 #endif
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
 	chmod(local_address.sun_path, 0660);
 	chown(local_address.sun_path, -1, gid);
 #endif
@@ -315,7 +315,7 @@ _finish_connecting(struct qb_ipc_one_way *one_way)
 static void
 qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 {
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
   struct sockaddr_un un_addr;
   socklen_t un_addr_len = sizeof(struct sockaddr_un);
   char *base_name;
@@ -326,7 +326,7 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	unlink(c->request.u.us.shared_file_name);
 
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
     if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
       length = strlen(un_addr.sun_path);
       base_name = strndup(un_addr.sun_path,length-9);
@@ -450,7 +450,7 @@ retry_peek:
 
 		if (errno != EAGAIN) {
 			final_rc = -errno;
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
 			if (errno == ECONNRESET || errno == EPIPE) {
 				final_rc = -ENOTCONN;
 			}
@@ -685,7 +685,7 @@ _sock_rm_from_mainloop(struct qb_ipcs_connection *c)
 static void
 qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 {
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
 	struct sockaddr_un un_addr;
 	socklen_t un_addr_len = sizeof(struct sockaddr_un);
 	char *base_name;
@@ -698,7 +698,7 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		_sock_rm_from_mainloop(c);
 
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
+#if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
 		if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
 			length = strlen(un_addr.sun_path);
 			base_name = strndup(un_addr.sun_path,length-8);
