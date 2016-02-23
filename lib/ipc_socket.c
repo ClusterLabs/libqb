@@ -51,7 +51,7 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 #endif
 
 #if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
-	snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	snprintf(address->sun_path, sizeof(address->sun_path), "%s", socket_name);
 #else
 	snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
 		 socket_name);
@@ -83,6 +83,8 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 #if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))
 	res = unlink(local_address.sun_path);
 #endif
+	/* Note: This makes the race go away even if res=-1 due to ENOENT */
+	res = unlink(local_address.sun_path);
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
 #if !(defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU))

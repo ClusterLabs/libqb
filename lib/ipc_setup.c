@@ -286,7 +286,7 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 #endif
 
 #if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
-	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	snprintf(address.sun_path, sizeof(address.sun_path), "%s", socket_name);
 #else
 	snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
 		 socket_name);
@@ -535,7 +535,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 
 	qb_util_log(LOG_INFO, "server name: %s", s->name);
 #if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
-	snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX - 1, "%s", s->name);
+	snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s", s->name);
 #else
 	{
 		struct stat stat_out;
