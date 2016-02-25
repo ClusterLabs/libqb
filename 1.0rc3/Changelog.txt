@@ -1,0 +1,205 @@
+2016-02-22  Christine Caulfield  <ccaulfie@redhat.com>
+
+	travis: Add a normal 'make' to the checks
+	make check doesn't build the docs and so errors in that part of
+	the build system will not be checked without a normal 'make'.
+
+2016-02-22  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #185 from jnpkrn/followup-fixes
+	Follow-up fixes
+
+2016-02-22  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: GCC < 4.6 does not support diagnostic push/pop pragmas
+	Better to get sort of a spurious warning then to possibly mess up
+	with a warnings safety net.
+	Reported by Chrissie (thanks).
+
+	build: fix man3 pages not installed
+	Issue with original version of the patch spotted by Chrissie (thanks).
+
+2016-02-22  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #179 from dpejesh/socket
+	socket improvements for freebsd
+
+	Merge pull request #184 from jnpkrn/maint-no_magic-build_manpages
+	Maintainance: no magic + better manpages building
+
+	Merge pull request #181 from jnpkrn/log-target-slot-enum
+	log: enum qb_log_target_slot introduction + qblog.h cleanup
+
+2016-02-18  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: header-based man pages: include also qbdefs.h+qbrb.h
+	No reason not to do that.  Situation with qbconfig.h is a bit more
+	complicated as this file gets generated from .in file and there is
+	currently no reliable inter-dir/makefile (siblings) targets
+	dependency tracking in place, AFAICT.
+
+	build: header-based man pages: dependent_headers - blacklist
+	IOW, make tracking of interfaces to document via man pages maintainable.
+
+	build: grab "dependent_headers" from respective Makefile.am
+	...with "echo path/*.h" fallback (equivalent of wildcard function) if
+	the new methods fails for some reason.
+
+	build: fix "dependant" typo
+
+	Low: no magic constants + gethostname usage sanity
+
+2016-02-18  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #177 from jnpkrn/changing-syslog-identifier-nicer
+	Changing syslog identifier + testing syslog, preferred edition
+
+	Merge pull request #180 from jnpkrn/example-simplelog-stdout
+	example: simplelog supports -o (for stdout sink)
+
+	Merge pull request #178 from jnpkrn/format-annotations
+	build: avoid too keen -Wmissing-format-attribute warning
+
+	Merge pull request #183 from jnpkrn/doc-fix-overview
+	Doc: fix overview
+
+2016-02-18  Jan Pokorný  <jpokorny@redhat.com>
+
+	CI: restore travis notifications, IRC this time around
+	While quarterback [dash] devel [at] lists [dot] fedorahosted [dot] org,
+	original notification target and development ML seems long gone (without
+	archives preserved!), let's use #clusterlabs-dev at freenode IRC
+	network.  This is in-line with the purpose of the channel and it's what
+	clufter, crmsh and hawk seem to be currently using.
+
+	CI: enable recently added syslog-tests in .travis.yml
+
+	CI: .travis.yml cosmetics
+
+	Feature: allow changing the identifier for syslog (+tests)
+	Original "qb_log_ctl" interface had to be extended for passing read-only
+	strings (new parameter), resulting in new "qb_log_ctl2" function, which
+	is what qb_log_ctl calls into with the new parameter set to NULL.
+	This ensures backward compatibility.
+	A new QB_LOG_CONF_IDENT configuration directive for the mentioned
+	interface is added with a goal to set new internal identifier
+	that is, notably, used for syslog sink.  This allows for switching
+	the identification without a need to reinitialize logging subsystem,
+	akin to changing target logging facility.
+	Also a brand new concept of testing syslog sink in particular is
+	introduced (finally).  During initial trial&error stage, it used
+	LD_PRELOAD hack but it seems that libtool is sophisticated enough
+	that no such extra intervention is needed and the desired symbol
+	resolution Just Works (tm).  However, the technique is highly
+	non-portable (there is even a warning about that from libtool,
+	which is partially on purpose as the _syslog_override.so should
+	rather be explicit it is by no mean a regular library) and hence
+	the syslog tests have to be enabled with explicit
+	    ./configure --enable-syslog-tests
+	rather than possibly break on untested platforms (far too many).
+	The concept can be extended upon, but initially, just the new
+	feature is being tested.
+	Post-review: thanks Chrissie for a suggestion how to deal with
+	extract-arg-and-forget in a less intrusive way (no defines).
+
+2016-02-16  Jan Pokorný  <jpokorny@redhat.com>
+
+	qblog.h: fix typos and make stylistic enhancements
+
+	qblog.h: unify descriptions before the code examples
+	- use semicolons at the end of the description
+	- use commas when there can be an issue with parsing a long sentence
+	  (and wrap such text at 79 characters if applicable)
+
+	log: convert few more instances to use enum qb_log_target_slot
+
+	log: refactor static target slots state initialization
+	It doesn't matter that also syslog is disabled first, as it will get
+	enabled few lines later on (uniformity + simplicity > optimization +
+	complexity).
+
+	log: better (fixed) documentation for funcs returning "slot" index
+	Also add missing "stdout" to the enumerations of the static ones.
+
+	doc: IPC overview: fix typos
+
+	doc: main overview: fix style + reword per spec file
+
+	log: convert log target defined values into enum values
+	Also use the new enum qb_log_target_slot type in for-loops together
+	with a proper substitute for the literal "0" initializer.
+	There could be more places that might be type-substituted for this enum
+	(and hence possibly catch more of an incorrect usage if the compiler
+	or checker has some notion of enum type narrowing), but leave it as
+	a possible enhancement for now.
+
+	log: defined value as an index-pointer after static slots
+	Amongst other uses, this allows for better (fixed) documentation
+	regarding how many additional logging targets the user can define.
+
+2016-02-15  Jan Pokorný  <jpokorny@redhat.com>
+
+	example: simplelog supports -o (for stdout sink)
+
+2016-02-14  David Shane Holden  <dpejesh@yahoo.com>
+
+	ipc: return -errno when getsockopt/setsockopt fail
+
+	ipc: set socket buffer size used by ipcs service
+
+	ipc: set socket receive buffer
+	Set the sockets receive buffer size to match the send buffer.  On
+	FreeBSD without this calls to sendto() will result in an ENOBUFS error
+	if the message is larger than net.local.dgram.recvspace sysctl.
+
+2016-02-12  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: avoid too keen -Wmissing-format-attribute warning
+	Grouped with pre-existing -Wsuggest-attribute=format treatment.
+
+2016-02-04  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #175 from jnpkrn/format-annotations
+	Format annotations
+
+	Merge pull request #174 from jnpkrn/spec-cleanup
+	Spec cleanup
+
+2016-02-03  Jan Pokorný  <jpokorny@redhat.com>
+
+	spec cleanup: drop redundant %{buildroot} cleaning
+	References:
+	http://pkgs.fedoraproject.org/cgit/rpms/redhat-rpm-config.git/commit/?id=159a65f
+	(~2010)
+
+	spec cleanup: summary should not end with a dot
+	References:
+	https://fedoraproject.org/wiki/Common_Rpmlint_issues#summary-ended-with-dot
+	https://en.opensuse.org/openSUSE:Specfile_guidelines#Summary
+	+ it's an internal inconsistency with Summary for -devel package
+
+	includes: format __attribute__ func. annotations in qblog.h
+
+	build: avoid too keen -Wsuggest-attribute=format warning
+	With gcc 5.3.1 20151207:
+	> log.c: In function 'cs_format':
+	> log.c:182:2: warning: function might be possible candidate for
+	>              'gnu_printf' format attribute [-Wsuggest-attribute=format]
+	>   len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+	>   ^
+	We certainly don't want to disable that warning globally so make use of
+	diagnostic pragmas for GCC instead in one instance that we cannot
+	annotate properly.
+
+	spec cleanup: get rid of redundant %clean section
+	References:
+	http://rpm.org/gitweb?p=rpm.git;a=commit;h=3fc5824 (~2009)
+
+	spec cleanup: remove ignored BuildRoot tag
+	References:
+	http://rpm.org/gitweb?p=rpm.git;a=commit;h=6c06519 (~2008)
+
+	spec cleanup: get rid of redundant defattr
+	References (first one is a direct trigger):
+	https://lists.fedoraproject.org/archives/list/devel@lists.fedoraproject.org/thread/KEO7AX3JXR2TY6OVL4M7HDISZ6YIJNKU/#2UFET77NHMJTG4NA2ECRVH2KO3W56ZWD
+	http://rpm.org/gitweb?p=rpm.git;a=commit;h=47ea5da (~2004)
