@@ -434,6 +434,12 @@ AC_ARG_ENABLE([slow-tests],
 	[  --enable-slow-tests     : build and run slow tests. ],
 	[ default="no" ])
 
+if test x"$with_check" = xyes; then
+AC_ARG_ENABLE([syslog-tests],
+	[  --enable-syslog-tests   : build and run syslog tests. ],
+	[ default="no" ])
+fi
+
 AC_ARG_WITH([socket-dir],
 	[  --with-socket-dir=DIR   : socket dir. ],
 	[ SOCKETDIR="$withval" ],
@@ -488,6 +494,31 @@ for j in $WARNLIST; do
 	fi
 done
 
+# warnings suppression
+gcc_format_complaints=no
+if test x"$GCC" = xyes && cc_supports_flag -Wmissing-format-attribute; then
+	gcc_format_complaints=yes
+	AC_DEFINE([HAVE_GCC_MISSING_FORMAT_ATTRIBUTE], [],
+		  [gcc supports -Wmissing-format-attribute])
+fi
+if test x"$GCC" = xyes && cc_supports_flag -Wsuggest-attribute=format; then
+	gcc_format_complaints=yes
+	AC_DEFINE([HAVE_GCC_SUGGEST_ATTRIBUTE_FORMAT], [],
+		  [gcc supports -Wsuggest-attribute=format])
+fi
+dnl pretend GCC (<4.6) is not capable of format complaints when it does not
+dnl support diagnostic push/pop pragmas (cannot track state reliably, then)
+if test x"$gcc_format_complaints" = xyes; then
+	backup_CFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS -Werror"
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#pragma GCC diagnostic push
+#pragma GCC diagnostic pop
+	]])], AC_DEFINE([HAVE_GCC_FORMAT_COMPLAINTS], [],
+			[gcc can complain about missing format attribute]))
+	CFLAGS="$backup_CFLAGS"
+fi
+
 # --- coverage ---
 if test "x${enable_coverage}" = xyes && \
 		cc_supports_flag -ftest-coverage && \
@@ -508,6 +539,12 @@ if test "x${enable_slow_tests}" = xyes ; then
 fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
 AC_SUBST(HAVE_SLOW_TESTS)
+if test "x${enable_syslog_tests}" = xyes ; then
+	AC_DEFINE([HAVE_SYSLOG_TESTS], 1,[have syslog tests])
+	AC_MSG_NOTICE([Enabling syslog tests])
+fi
+AM_CONDITIONAL(HAVE_SYSLOG_TESTS, [test "x${enable_syslog_tests}" = xyes])
+AC_SUBST(HAVE_SYSLOG_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then

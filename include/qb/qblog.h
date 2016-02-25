@@ -53,7 +53,7 @@ extern "C" {
  * Call qb_log() to generate a log message. Then to write the message
  * somewhere meaningful call qb_log_ctl() to configure the targets.
  *
- * Simplist possible use:
+ * Simplest possible use:
  * @code
  * main() {
  *	qb_log_init("simple-log", LOG_DAEMON, LOG_INFO);
@@ -65,17 +65,18 @@ extern "C" {
  * @endcode
  *
  * @par Configuring log targets.
- * A log target can by syslog, stderr, the blackbox or a text file.
+ * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
  * By default only syslog is enabled.
  *
- * To enable a target do the following
+ * To enable a target do the following:
  * @code
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
  * @endcode
  *
- * syslog, stderr and the blackbox are static (they don't need
- * to be created, just enabled or disabled. However you can open multiple
- * logfiles (32 - QB_LOG_BLACKBOX). To do this use the following code.
+ * syslog, stderr, the blackbox, and stdout are static (they don't need
+ * to be created, just enabled or disabled). However you can open multiple
+ * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
+ * To do this, use the following code:
  * @code
  *	mytarget = qb_log_file_open("/var/log/mylogfile");
  *	qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);
@@ -114,19 +115,21 @@ extern "C" {
  * -# function name + priority
  * -# format string + priority
  *
- * So to make all logs from evil_fnunction() go to stderr do the following:
+ * So to make all logs from evil_function() go to stderr, do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
- *			  QB_LOG_FILTER_FUNCTION, "evil_fnunction", LOG_TRACE);
+ *			  QB_LOG_FILTER_FUNCTION, "evil_function", LOG_TRACE);
  * @endcode
  *
- * So to make all logs from totem* (with  a priority <= LOG_INFO) go to stderr do the following:
+ * So to make all logs from totem* (with  a priority <= LOG_INFO) go to stderr,
+ * do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
  *			  QB_LOG_FILTER_FILE, "totem", LOG_INFO);
  * @endcode
  *
- * So to make all logs with the substring "ringbuffer" go to stderr do the following:
+ * So to make all logs with the substring "ringbuffer" go to stderr,
+ * do the following:
  * @code
  *	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
  *			  QB_LOG_FILTER_FORMAT, "ringbuffer", LOG_TRACE);
@@ -138,8 +141,8 @@ extern "C" {
  * and use qg_log_filter_ctl to set the QB_LOG_CONF_THREADED flag on all the
  * logging targets in use.
  *
- * To achieve non-blocking logging you can use threaded logging as well
- * So any calls to write() or syslog() will not hold up your program.
+ * To achieve non-blocking logging, so that any calls to write() or syslog()
+ * will not hold up your program, you can use threaded logging as well.
  *
  * Threaded logging use:
  * @code
@@ -278,7 +281,7 @@ void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
  *
  * @note the performance of this will not impress you, as
  * the filtering is done on each log message, not
- * before hand. So try doing basic pre-filtering.
+ * beforehand. So try doing basic pre-filtering.
  *
  * @param function originating function name
  * @param filename originating filename
@@ -296,10 +299,11 @@ void qb_log_from_external_source(const char *function,
 				 uint8_t priority,
 				 uint32_t lineno,
 				 uint32_t tags,
-				 ...);
+				 ...)
+	__attribute__ ((format (printf, 3, 7)));
 
 /**
- * Get or create a callsite at the give position.
+ * Get or create a callsite at the given position.
  *
  * The result can then be passed into qb_log_real_()
  *
@@ -323,7 +327,8 @@ void qb_log_from_external_source_va(const char *function,
 				    uint8_t priority,
 				    uint32_t lineno,
 				    uint32_t tags,
-				    va_list ap);
+				    va_list ap)
+	__attribute__ ((format (printf, 3, 0)));
 
 /**
  * This is the function to generate a log message if you want to
@@ -395,12 +400,36 @@ void qb_log_from_external_source_va(const char *function,
 #define qb_enter() qb_log(LOG_TRACE, "ENTERING %s()", __func__)
 #define qb_leave() qb_log(LOG_TRACE, "LEAVING %s()", __func__)
 
-#define QB_LOG_SYSLOG 0
-#define QB_LOG_STDERR 1
-#define QB_LOG_BLACKBOX 2
-#define QB_LOG_STDOUT 3
+/*
+ * Note that QB_LOG_TARGET_{STATIC_,}MAX are sentinel indexes
+ * as non-inclusive higher bounds of the respective categories
+ * (static and all the log targets) and also denote the number
+ * of (reserved) items in the category.  Both are possibly subject
+ * of change, hence it is only adequate to always refer to them
+ * via these defined values.
+ * Similarly, there are QB_LOG_TARGET_{STATIC_,DYNAMIC_,}START
+ * and QB_LOG_TARGET_{STATIC_,DYNAMIC_,}END values, but these
+ * are inclusive lower and higher bounds, respectively.
+ */
+enum qb_log_target_slot {
+	QB_LOG_TARGET_START,
 
-#define QB_LOG_TARGET_MAX 32
+	/* static */
+	QB_LOG_TARGET_STATIC_START = QB_LOG_TARGET_START,
+	QB_LOG_SYSLOG = QB_LOG_TARGET_STATIC_START,
+	QB_LOG_STDERR,
+	QB_LOG_BLACKBOX,
+	QB_LOG_STDOUT,
+	QB_LOG_TARGET_STATIC_MAX,
+	QB_LOG_TARGET_STATIC_END = QB_LOG_TARGET_STATIC_MAX - 1,
+
+	/* dynamic */
+	QB_LOG_TARGET_DYNAMIC_START = QB_LOG_TARGET_STATIC_MAX,
+
+	QB_LOG_TARGET_MAX = 32,
+	QB_LOG_TARGET_DYNAMIC_END = QB_LOG_TARGET_MAX - 1,
+	QB_LOG_TARGET_END = QB_LOG_TARGET_DYNAMIC_END,
+};
 
 enum qb_log_target_state {
 	QB_LOG_STATE_UNUSED = 1,
@@ -418,6 +447,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_STATE_GET,
 	QB_LOG_CONF_FILE_SYNC,
 	QB_LOG_CONF_EXTENDED,
+	QB_LOG_CONF_IDENT,
 };
 
 enum qb_log_filter_type {
@@ -466,7 +496,7 @@ void qb_log_init(const char *name,
  *
  * It releases any shared memory.
  * Stops the logging thread if running.
- * Flushes the last message to their destinations.
+ * Flushes the last messages to their destinations.
  */
 void qb_log_fini(void);
 
@@ -474,7 +504,7 @@ void qb_log_fini(void);
  * If you are using dynamically loadable modules via dlopen() and
  * you load them after qb_log_init() then after you load the module
  * you will need to do the following to get the filters to work
- * in that module.
+ * in that module:
  * @code
  * 	_start = dlsym (dl_handle, "__start___verbose");
  *	_stop = dlsym (dl_handle, "__stop___verbose");
@@ -502,6 +532,30 @@ void qb_log_callsites_dump(void);
  */
 int32_t qb_log_ctl(int32_t target, enum qb_log_conf conf_type, int32_t arg);
 
+typedef union {
+	int32_t i32;
+	const char *s;
+} qb_log_ctl2_arg_t;
+
+/**
+ * Extension of main logging control function accepting also strings.
+ *
+ * @param arg for QB_LOG_CONF_IDENT, 's' member as new identifier to openlog(),
+ *        for all original qb_log_ctl-compatible configuration directives,
+ *        'i32' member is assumed (although a preferred way is to use
+ *        that original function directly as it allows for more type safety)
+ * @see qb_log_ctl
+ *
+ * @note You can use <tt>QB_LOG_CTL2_I32</tt> and <tt>QB_LOG_CTL2_S</tt>
+ *       macros for a convenient on-the-fly construction of the object
+ *       to be passed as an <tt>arg</tt> argument.
+ */
+int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type,
+		    qb_log_ctl2_arg_t arg);
+
+#define QB_LOG_CTL2_I32(a)  ((qb_log_ctl2_arg_t) { .i32 = (a) })
+#define QB_LOG_CTL2_S(a)    ((qb_log_ctl2_arg_t) { .s = (a) })
+
 /**
  * This allows you modify the 'tags' and 'targets' callsite fields at runtime.
  */
@@ -522,7 +576,7 @@ int32_t qb_log_filter_ctl2(int32_t value, enum qb_log_filter_conf c,
  * Instead of using the qb_log_filter_ctl() functions you
  * can apply the filters manually by defining a callback
  * and setting the targets field using qb_bit_set() and
- * qb_bit_clear() like the following below.
+ * qb_bit_clear() like the following below:
  * @code
  * static void
  * m_filter(struct qb_log_callsite *cs)
@@ -566,7 +620,9 @@ void qb_log_format_set(int32_t t, const char* format);
  * Open a log file.
  *
  * @retval -errno on error
- * @retval 3 to 31 (to be passed into other qb_log_* functions)
+ * @retval value in inclusive range QB_LOG_TARGET_DYNAMIC_START
+ *         to QB_LOG_TARGET_DYNAMIC_END
+ *         (to be passed into other qb_log_* functions)
  */
 int32_t qb_log_file_open(const char *filename);
 
@@ -602,7 +658,9 @@ void qb_log_blackbox_print_from_file(const char* filename);
  * Open a custom log target.
  *
  * @retval -errno on error
- * @retval 3 to 31 (to be passed into other qb_log_* functions)
+ * @retval value in inclusive range QB_LOG_TARGET_DYNAMIC_START
+ *         to QB_LOG_TARGET_DYNAMIC_END
+ *         (to be passed into other qb_log_* functions)
  */
 int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
 			   qb_log_close_fn close_fn,

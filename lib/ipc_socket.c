@@ -112,7 +112,7 @@ set_sock_size(int sockfd, size_t max_msg_size)
 
 	rc = getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen);
 
-	qb_util_log(LOG_TRACE, "%d: getsockopt(%d, needed:%d) actual:%d",
+	qb_util_log(LOG_TRACE, "%d: getsockopt(%d, SO_SNDBUF, needed:%d) actual:%d",
 		rc, sockfd, max_msg_size, optval);
 
 	/* The optvat <= max_msg_size check is weird...
@@ -126,6 +126,29 @@ set_sock_size(int sockfd, size_t max_msg_size)
 		optlen = sizeof(optval);
 		rc = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &optval, optlen);
 	}
+
+	if (rc != 0) {
+		return -errno;
+	}
+
+	rc = getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &optval, &optlen);
+
+	qb_util_log(LOG_TRACE, "%d: getsockopt(%d, SO_RCVBUF, needed:%d) actual:%d",
+		rc, sockfd, max_msg_size, optval);
+
+	/* Set the sockets receive buffer size to match the send buffer.  On
+	 * FreeBSD without this calls to sendto() will result in an ENOBUFS error
+	 * if the message is larger than net.local.dgram.recvspace sysctl. */
+	if (rc == 0 && optval <= max_msg_size) {
+		optval = max_msg_size;
+		optlen = sizeof(optval);
+		rc = setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &optval, optlen);
+	}
+
+	if (rc != 0) {
+		return -errno;
+	}
+
 	return rc;
 }
 
@@ -782,6 +805,12 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	if (res < 0) {
 		goto cleanup_hdr;
 	}
+
+	res = set_sock_size(c->request.u.us.sock, c->request.max_msg_size);
+	if (res != 0) {
+		goto cleanup_hdr;
+	}
+
 	c->setup.u.us.sock_name = NULL;
 	c->request.u.us.sock_name = NULL;
 
@@ -796,6 +825,12 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	if (res < 0) {
 		goto cleanup_hdr;
 	}
+
+	res = set_sock_size(c->event.u.us.sock, c->event.max_msg_size);
+	if (res != 0) {
+		goto cleanup_hdr;
+	}
+
 	snprintf(path, PATH_MAX, "%s-%s", r->response, "event");
 	c->event.u.us.sock_name = strdup(path);
 
