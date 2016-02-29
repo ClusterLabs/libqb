@@ -201,6 +201,10 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		return;
 	}
 	chunk = malloc(max_size);
+	if (chunk == NULL) {
+		qb_util_log(LOG_ERR, "couldn't allocate memory");
+		goto cleanup;
+	}
 
 	do {
 		char *ptr;
@@ -292,6 +296,8 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 	} while (bytes_read > BB_MIN_ENTRY_SIZE);
 
 cleanup:
+	if (chunk) {
+		free(chunk);
+	}
 	qb_rb_close(instance);
-	free(chunk);
 }
