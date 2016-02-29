@@ -193,7 +193,8 @@ qb_ipcc_send(struct qb_ipcc_connection * c, const void *msg_ptr, size_t msg_len)
 	res = c->funcs.send(&c->request, msg_ptr, msg_len);
 	if (res == msg_len && c->needs_sock_for_poll) {
 		do {
-			res2 = qb_ipc_us_send(&c->setup, msg_ptr, 1);
+			/* signalling byte (value to be ignored) */
+			res2 = qb_ipc_us_send(&c->setup, &res, 1);
 		} while (res2 == -EAGAIN);
 		if (res2 == -EPIPE) {
 			res2 = -ENOTCONN;
@@ -250,6 +251,7 @@ qb_ipcc_sendv(struct qb_ipcc_connection * c, const struct iovec * iov,
 	res = c->funcs.sendv(&c->request, iov, iov_len);
 	if (res > 0 && c->needs_sock_for_poll) {
 		do {
+			/* signalling byte (value to be ignored) */
 			res2 = qb_ipc_us_send(&c->setup, &res, 1);
 		} while (res2 == -EAGAIN);
 		if (res2 == -EPIPE) {
@@ -381,6 +383,7 @@ qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 	}
 	size = c->funcs.recv(&c->event, msg_pt, msg_len, ms_timeout);
 	if (size > 0 && c->needs_sock_for_poll) {
+		/* signalling byte (of sender's deliberation, ignore) */
 		res = qb_ipc_us_recv(&c->setup, &one_byte, 1, -1);
 		if (res != 1) {
 			size = res;

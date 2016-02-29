@@ -337,24 +337,29 @@ qb_ipcs_response_sendv(struct qb_ipcs_connection * c, const struct iovec * iov,
 	return res;
 }
 
+#define MAX_RECV_MSGS 50
+
 static int32_t
 resend_event_notifications(struct qb_ipcs_connection *c)
 {
 	ssize_t res = 0;
+	static char bytes[MAX_RECV_MSGS];
 
 	if (!c->service->needs_sock_for_poll) {
 		return res;
 	}
 
 	if (c->outstanding_notifiers > 0) {
-		res = qb_ipc_us_send(&c->setup, c->receive_buf,
+		/* signalling bytes (value to be ignored) */
+		assert(c->outstanding_notifiers <= sizeof(bytes));
+		res = qb_ipc_us_send(&c->setup, bytes,
 				     c->outstanding_notifiers);
 	}
 	if (res > 0) {
 		c->outstanding_notifiers -= res;
 	}
-
 	assert(c->outstanding_notifiers >= 0);
+
 	if (c->outstanding_notifiers == 0) {
 		c->poll_events = POLLIN | POLLPRI | POLLNVAL;
 		(void)_modify_dispatch_descriptor_(c);
@@ -376,7 +381,8 @@ new_event_notification(struct qb_ipcs_connection * c)
 		c->outstanding_notifiers++;
 		res = resend_event_notifications(c);
 	} else {
-		res = qb_ipc_us_send(&c->setup, &c->outstanding_notifiers, 1);
+		/* signalling byte (value to be ignored) */
+		res = qb_ipc_us_send(&c->setup, &res, 1);
 		if (res == -EAGAIN) {
 			/*
 			 * notify the client later, when we can.
@@ -714,9 +720,6 @@ cleanup:
 	return res;
 }
 
-#define IPC_REQUEST_TIMEOUT 10
-#define MAX_RECV_MSGS 50
-
 static ssize_t
 _request_q_len_get(struct qb_ipcs_connection *c)
 {
@@ -738,6 +741,8 @@ _request_q_len_get(struct qb_ipcs_connection *c)
 	}
 	return q_len;
 }
+
+#define IPC_REQUEST_TIMEOUT 10
 
 int32_t
 qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
@@ -782,6 +787,7 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	avail = _request_q_len_get(c);
 
 	if (c->service->needs_sock_for_poll && avail == 0) {
+		/* signalling byte (of sender's deliberation, ignore) */
 		res2 = qb_ipc_us_recv(&c->setup, bytes, 1, 0);
 		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
 			errno = -res2;
@@ -814,6 +820,7 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	} while (avail > 0 && res > 0 && !c->fc_enabled);
 
 	if (c->service->needs_sock_for_poll && recvd > 0) {
+		/* signalling bytes (of sender's deliberation, ignore) */
 		res2 = qb_ipc_us_recv(&c->setup, bytes, recvd, -1);
 		if (qb_ipc_us_sock_error_is_disconnected(res2)) {
 			errno = -res2;
