@@ -248,7 +248,9 @@ main(int32_t argc, char *argv[])
 	}
 
 	if (do_blackbox) {
+		/* intentional segfault */
 		logfile = NULL;
+		/* cppcheck-suppress nullPointer */
 		logfile[5] = 'a';
 	} else {
 		qb_log_fini();
