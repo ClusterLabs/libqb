@@ -712,7 +712,7 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 		}
 	}
 
-	if (c && c->service->funcs.peek && c->service->funcs.reclaim) {
+	if (c->service->funcs.peek && c->service->funcs.reclaim) {
 		c->service->funcs.reclaim(&c->request);
 	}
 
