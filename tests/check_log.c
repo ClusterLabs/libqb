@@ -23,7 +23,8 @@
 
 #include "os_base.h"
 #include <pthread.h>
-#include <check.h>
+
+#include "check_common.h"
 
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
@@ -799,51 +800,19 @@ log_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("logging");
 
-	tc = tcase_create("va_serialize");
-	tcase_add_test(tc, test_va_serialize);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("limits");
-	tcase_add_test(tc, test_log_stupid_inputs);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("basic");
-	tcase_add_test(tc, test_log_basic);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("format");
-	tcase_add_test(tc, test_log_format);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("enable");
-	tcase_add_test(tc, test_log_enable);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("threads");
-	tcase_add_test(tc, test_log_threads);
-	tcase_set_timeout(tc, 360);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("long_msg");
-	tcase_add_test(tc, test_log_long_msg);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("filter_ft");
-	tcase_add_test(tc, test_log_filter_fn);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("threaded_logging");
-	tcase_add_test(tc, test_threaded_logging);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("extended_information");
-	tcase_add_test(tc, test_extended_information);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_va_serialize);
+	add_tcase(s, tc, test_log_stupid_inputs);
+	add_tcase(s, tc, test_log_basic);
+	add_tcase(s, tc, test_log_format);
+	add_tcase(s, tc, test_log_enable);
+	add_tcase(s, tc, test_log_threads, 360);
+	add_tcase(s, tc, test_log_long_msg);
+	add_tcase(s, tc, test_log_filter_fn);
+	add_tcase(s, tc, test_threaded_logging);
+	add_tcase(s, tc, test_extended_information);
 
 #ifdef HAVE_SYSLOG_TESTS
-	tc = tcase_create("syslog");
-	tcase_add_test(tc, test_syslog);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_syslog);
 #endif
 
 	return s;
