@@ -335,6 +335,11 @@ case "$host_os" in
 		CP=rsync
 		AC_MSG_RESULT([Solaris])
 	;;
+	*gnu*)
+		AC_DEFINE_UNQUOTED([QB_GNU], [1],
+				   [Compiling for GNU/Hurd platform])
+		AC_MSG_RESULT([GNU])
+	;;
 	*)
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;

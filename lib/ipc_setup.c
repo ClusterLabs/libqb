@@ -285,8 +285,8 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 	address.sun_len = QB_SUN_LEN(&address);
 #endif
 
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+#if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
+	snprintf(address.sun_path, sizeof(address.sun_path), "%s", socket_name);
 #else
 	snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
 		 socket_name);
@@ -534,8 +534,8 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 
 	qb_util_log(LOG_INFO, "server name: %s", s->name);
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX - 1, "%s", s->name);
+#if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
+	snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s", s->name);
 #else
 	{
 		struct stat stat_out;
@@ -566,7 +566,7 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	 * Allow everyone to write to the socket since the IPC layer handles
 	 * security automatically
 	 */
-#if !defined(QB_LINUX) && !defined(QB_CYGWIN)
+#if !defined(QB_LINUX) && !defined(QB_CYGWIN) && !defined(QB_GNU)
 	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
 #endif
 #ifdef SO_PASSCRED
