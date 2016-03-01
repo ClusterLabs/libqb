@@ -151,7 +151,7 @@ if HAVE_SYSLOG_TESTS
 log_test_LDADD += _syslog_override.la
 
 lib_LTLIBRARIES = _syslog_override.la
-_syslog_override_la_SOURCES = _syslog_override.c
+_syslog_override_la_SOURCES = _syslog_override.c _syslog_override.h
 _syslog_override_la_LDFLAGS = -module
 endif
 
