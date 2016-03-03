@@ -71,5 +71,6 @@ int32_t main(int32_t argc, char *argv[])
 		}
 	}
 	qb_rb_close(rb);
+	qb_log_fini();
 	return 0;
 }
