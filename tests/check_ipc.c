@@ -1645,6 +1645,7 @@ main(void)
 	}
 
 	qb_log_init("check", LOG_USER, LOG_EMERG);
+	atexit(qb_log_fini);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
