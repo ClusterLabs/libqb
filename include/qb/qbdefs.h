@@ -56,6 +56,15 @@ extern "C" {
 #define qb_bit_is_set(barray, bit) (barray & qb_bit_value(bit))
 #define qb_bit_is_clear(barray, bit) (!(barray & qb_bit_value(bit)))
 
+/*
+ * wrappers over preprocessor operators
+ */
+
+#define QB_PP_JOIN_(a, b)	a##b
+#define QB_PP_JOIN(a, b)	QB_PP_JOIN_(a, b)
+#define QB_PP_STRINGIFY_(arg)	#arg
+#define QB_PP_STRINGIFY(arg)	QB_PP_STRINGIFY_(arg)
+
 
 /*
  * handy time based converters.
