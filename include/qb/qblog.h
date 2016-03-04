@@ -253,14 +253,17 @@ struct qb_log_callsite {
 
 typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 
-/* will be assigned by ld linker magic */
+/* will be assigned by linker magic (assuming linker supports that):
+ * https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
+ */
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 extern struct qb_log_callsite __start___verbose[];
 extern struct qb_log_callsite __stop___verbose[];
 
-#define QB_LOG_INIT_DATA(name)						\
-    void name(void);							\
-    void name(void) { if (__start___verbose != __stop___verbose) {assert(1);} }	\
+/* mere linker sanity check, possible future extension for internal purposes */
+#define QB_LOG_INIT_DATA(name)							\
+    void name(void);								\
+    void name(void) { if (__start___verbose == __stop___verbose) assert(0); }	\
     void __attribute__ ((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
