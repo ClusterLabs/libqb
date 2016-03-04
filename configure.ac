@@ -548,10 +548,12 @@ AC_SUBST(HAVE_SYSLOG_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
-	AC_MSG_CHECKING([whether GCC supports __attribute__((section())])
+	AC_MSG_CHECKING([whether GCC supports __attribute__((section()) + ld supports orphan sections])
 	if test "x${ac_cv_link_attribute_section}" = x ; then
-		AC_TRY_LINK([],
+		AC_TRY_LINK([#include <assert.h>
+			     extern void * __start___verbose, * __stop___verbose;],
 			    [static int my_var __attribute__((section("__verbose"))) = 5;
+			     if (__start___verbose == __stop___verbose) assert(0);
 			     if (my_var == 5) return 0;
 			     else return -1;
 			     ],
