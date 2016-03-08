@@ -21,8 +21,6 @@
 
 SPEC			= $(PACKAGE_NAME).spec
 
-TARFILE			= $(PACKAGE_NAME)-$(VERSION).tar.gz
-
 EXTRA_DIST		= autogen.sh $(SPEC).in \
 			  build-aux/git-version-gen \
 			  build-aux/gitlog-to-changelog \
@@ -54,7 +52,7 @@ maintainer-clean-local:
 	$(AM_V_GEN)rm -f .version .tarball-version
 
 clean-generic:
-	$(AM_V_GEN)rm -rf $(SPEC) $(TARFILE)
+	$(AM_V_GEN)rm -rf $(SPEC) $(DIST_ARCHIVES)
 
 ## make rpm/srpm section.
 
@@ -98,25 +96,23 @@ $(SPEC): $(SPEC).in
 	$(AM_V_GEN)chmod a-w $@-t
 	$(AM_V_GEN)mv $@-t $@
 
-$(TARFILE):
-	$(MAKE) dist
-
 RPMBUILDOPTS	= --define "_sourcedir $(abs_builddir)" \
 		  --define "_specdir $(abs_builddir)" \
 		  --define "_builddir $(abs_builddir)" \
 		  --define "_srcrpmdir $(abs_builddir)" \
 		  --define "_rpmdir $(abs_builddir)"
 
-tarball: $(TARFILE)
+# generates both .tar.[gx]z (backward compatibility)
+tarball: dist
 
 srpm: clean
 	autoreconf -if
-	$(MAKE) $(SPEC) tarball
+	$(MAKE) $(SPEC) dist-gzip
 	rpmbuild $(RPMBUILDOPTS) --nodeps -bs $(SPEC)
 
 rpm: clean
 	autoreconf -if
-	$(MAKE) $(SPEC) tarball
+	$(MAKE) $(SPEC) dist-gzip
 	rpmbuild $(RPMBUILDOPTS) -ba $(SPEC)
 
 # release/versioning
