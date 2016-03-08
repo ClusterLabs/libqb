@@ -107,12 +107,12 @@ tarball: dist
 
 srpm: clean
 	autoreconf -if
-	$(MAKE) $(SPEC) dist-gzip
+	$(MAKE) $(SPEC) dist-xz
 	rpmbuild $(RPMBUILDOPTS) --nodeps -bs $(SPEC)
 
 rpm: clean
 	autoreconf -if
-	$(MAKE) $(SPEC) dist-gzip
+	$(MAKE) $(SPEC) dist-xz
 	rpmbuild $(RPMBUILDOPTS) -ba $(SPEC)
 
 # release/versioning
