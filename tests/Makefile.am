@@ -22,12 +22,8 @@ EXTRA_DIST =
 CLEANFILES =
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 
-noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
-	auto_check_header_qbarray auto_check_header_qbconfig auto_check_header_qbhdb \
-	auto_check_header_qbipc_common auto_check_header_qblist auto_check_header_qbloop \
-	auto_check_header_qbrb auto_check_header_qbatomic auto_check_header_qbdefs \
-	auto_check_header_qbipcc auto_check_header_qbipcs auto_check_header_qblog \
-	auto_check_header_qbmap auto_check_header_qbutil format_compare_speed
+noinst_PROGRAMS = bmc bmcpt bms rbreader rbwriter \
+	bench-log format_compare_speed loop
 
 format_compare_speed_SOURCES = format_compare_speed.c $(top_builddir)/include/qb/qbutil.h
 format_compare_speed_LDADD = $(top_builddir)/lib/libqb.la
@@ -51,16 +47,19 @@ rbreader_LDADD = $(top_builddir)/lib/libqb.la
 loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
 loop_LDADD = $(top_builddir)/lib/libqb.la
 
-public_headers = $(wildcard $(top_srcdir)/include/qb/qb*.h)
+inc_dir = $(top_srcdir)/include/qb
+public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
+	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
+	| ${MAKE} --no-print-directory -f- inst_HEADERS.var \
+	|| echo $(inc_dir)/qb*.h*))))
 auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
 CLEANFILES += $(auto_c_files)
-MAINTAINERCLEANFILES += $(auto_c_files)
 
 # this works for both non/generated headers thanks to VPATH being
 # automatically set to $(top_srcdir)/tests and $(top_builddir)
 # being resolved to ".." by automake
 # ($(top_srcdir)/tests/../include/qb/%.h = $(top_srcdir)/include/qb/%.h)
-$(builddir)/auto_check_header_%.c: $(top_builddir)/include/qb/%.h
+auto_check_header_%.c: $(top_builddir)/include/qb/%.h
 	@name=$$(echo "$<" | sed  "s|.*qb/qb||" | sed "s|\.h||") ;\
 	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
 	echo "#include <qb/qb$$name.h>" > $@_ ;\
@@ -69,6 +68,9 @@ $(builddir)/auto_check_header_%.c: $(top_builddir)/include/qb/%.h
 	echo "#endif" >> $@_ ;\
 	echo "int main(void) {return 0;}" >> $@_
 	$(AM_V_GEN)mv $@_ $@
+
+# rely on implicit automake rule to include right (local) includes
+check: $(auto_c_files:.c=.o)
 
 distclean-compile:
 	rm -rf auto_*.c
