@@ -81,6 +81,6 @@ run_splint.sh: $(top_srcdir)/configure.ac
 dist-clean-local:
 	$(AM_V_GEN)rm -f run_splint.sh
 
-clean-generic:
+clean-local:
 	$(AM_V_GEN)rm -f run_splint.sh
 endif

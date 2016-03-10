@@ -49,5 +49,5 @@ doxygen:
 	@echo WARNING: no doxygen to build man pages!
 endif
 
-clean-generic:
+clean-local:
 	rm -rf html man3

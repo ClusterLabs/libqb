@@ -51,7 +51,7 @@ maintainer-clean-local:
 	$(AM_V_GEN)rm -rf m4
 	$(AM_V_GEN)rm -f .version .tarball-version
 
-clean-generic:
+clean-local:
 	$(AM_V_GEN)rm -rf $(SPEC) $(DIST_ARCHIVES)
 
 ## make rpm/srpm section.

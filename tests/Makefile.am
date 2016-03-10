@@ -151,6 +151,6 @@ util_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
 endif
 
-clean-generic:
+clean-local:
 	$(AM_V_GEN)rm -f *.log
 	$(AM_V_GEN)rm -f *.fdata
