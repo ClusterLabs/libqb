@@ -45,20 +45,20 @@ doxygen:
 	$(MAKE) -C docs doxygen
 
 dist-clean-local:
-	$(AM_V_GEN)rm -f autoconf automake autoheader
+	rm -f autoconf automake autoheader
 
 maintainer-clean-local:
-	$(AM_V_GEN)rm -rf m4
-	$(AM_V_GEN)rm -f .version .tarball-version
+	rm -rf m4
+	rm -f .version .tarball-version
 
 clean-local:
-	$(AM_V_GEN)rm -rf $(SPEC) $(DIST_ARCHIVES)
+	rm -rf $(SPEC) $(DIST_ARCHIVES)
 
 ## make rpm/srpm section.
 
 $(SPEC): $(SPEC).in
-	$(AM_V_GEN)rm -f $@-t $@
-	date="$(shell LC_ALL=C date "+%a %b %d %Y")" && \
+	@rm -f $@-t $@
+	@date="$(shell LC_ALL=C date "+%a %b %d %Y")" && \
 	if [ -f .tarball-version ]; then \
 		gitver="$(shell cat .tarball-version)" && \
 		rpmver=$$gitver && \
@@ -93,7 +93,7 @@ $(SPEC): $(SPEC).in
 		$< > $@-t; \
 	fi; \
 	if [ -z "$$dirty" ]; then sed -i -e "s#%glo.*dirty.*##g" $@-t; fi
-	$(AM_V_GEN)chmod a-w $@-t
+	@chmod a-w $@-t
 	$(AM_V_GEN)mv $@-t $@
 
 RPMBUILDOPTS	= --define "_sourcedir $(abs_builddir)" \

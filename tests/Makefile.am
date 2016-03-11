@@ -85,7 +85,7 @@ nodist_bench_log_SOURCES = auto_write_logs.c
 
 bench_log: auto_write_logs.c
 $(builddir)/auto_write_logs.c: make-log-test.sh
-	$(srcdir)/make-log-test.sh > $(builddir)/write_logs-tmp.c
+	@$(srcdir)/make-log-test.sh > $(builddir)/write_logs-tmp.c
 	$(AM_V_GEN)mv $(builddir)/write_logs-tmp.c $(builddir)/auto_write_logs.c
 endif
 endif
@@ -154,5 +154,5 @@ util_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 endif
 
 clean-local:
-	$(AM_V_GEN)rm -f *.log
-	$(AM_V_GEN)rm -f *.fdata
+	rm -f *.log
+	rm -f *.fdata
