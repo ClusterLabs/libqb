@@ -564,8 +564,13 @@ typedef union {
 int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type,
 		    qb_log_ctl2_arg_t arg);
 
+# ifndef S_SPLINT_S
 #define QB_LOG_CTL2_I32(a)  ((qb_log_ctl2_arg_t) { .i32 = (a) })
 #define QB_LOG_CTL2_S(a)    ((qb_log_ctl2_arg_t) { .s = (a) })
+#else
+#define QB_LOG_CTL2_I32(a)  ((qb_log_ctl2_arg_t)(a))
+#define QB_LOG_CTL2_S(a)    ((qb_log_ctl2_arg_t)(a))
+#endif
 
 /**
  * This allows you modify the 'tags' and 'targets' callsite fields at runtime.

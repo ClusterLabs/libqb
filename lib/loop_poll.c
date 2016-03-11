@@ -20,7 +20,8 @@
  */
 #include "os_base.h"
 
-#ifdef HAVE_SYS_RESOURCE_H
+/* due to MinGW/splint emitting "< Location unknown >: Previous use of" */
+#if defined(HAVE_SYS_RESOURCE_H) && !defined(S_SPLINT_S)
 #include <sys/resource.h>
 #endif
 
