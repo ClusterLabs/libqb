@@ -69,8 +69,11 @@ auto_check_header_%.c: $(top_builddir)/include/qb/%.h
 	echo "int main(void) {return 0;}" >> $@_
 	$(AM_V_GEN)mv $@_ $@
 
+check: check-headers
+
 # rely on implicit automake rule to include right (local) includes
-check: $(auto_c_files:.c=.o)
+.PHONY: check-headers
+check-headers: $(auto_c_files:.c=.o)
 
 distclean-compile:
 	rm -rf auto_*.c
