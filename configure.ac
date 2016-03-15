@@ -173,6 +173,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                  )
 
 
+AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
+AC_RUN_IFELSE([AC_LANG_PROGRAM(
+[[#include <time.h>]],
+[[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
+                    [
+                      AC_MSG_RESULT([yes])
+                      AC_DEFINE_UNQUOTED([HAVE_CLOCK_GETRES_MONOTONIC], 1, [Define to 1 if clock_getres(CLOCK_MONOTONIC, &ts) works])
+                    ],
+                    [
+                      AC_MSG_RESULT([no])
+                    ]
+                 )
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
 AC_TRY_COMPILE([#include <sys/socket.h>],
 	       [ int f = MSG_NOSIGNAL; ],
@@ -334,6 +346,11 @@ case "$host_os" in
 				   [Compiling for Solaris platform])
 		CP=rsync
 		AC_MSG_RESULT([Solaris])
+	;;
+	*gnu*)
+		AC_DEFINE_UNQUOTED([QB_GNU], [1],
+				   [Compiling for GNU/Hurd platform])
+		AC_MSG_RESULT([GNU])
 	;;
 	*)
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
