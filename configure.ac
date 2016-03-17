@@ -619,8 +619,9 @@ AC_CONFIG_FILES([Makefile
 		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
-		 docs/man.dox
-		 docs/html.dox])
+		 docs/common.dox
+		 docs/html.dox
+		 docs/man.dox])
 
 AC_OUTPUT
 

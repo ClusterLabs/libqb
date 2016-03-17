@@ -18,7 +18,7 @@
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 
 MAINTAINERCLEANFILES	= Makefile.in
-EXTRA_DIST 		= man.dox html.dox
+EXTRA_DIST 		= common.dox html.dox man.dox
 noinst_HEADERS          = mainpage.h
 
 dist_man_MANS = man8/qb-blackbox.8
