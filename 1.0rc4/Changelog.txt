@@ -1,0 +1,173 @@
+2016-03-17  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #201 from jnpkrn/splint-better-support
+	build: better support for splint checker
+
+2016-03-17  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: make splint check tolerant of existing defects
+
+	build: make the code splint-friendly where not already
+
+	build: add flags for splint: +showscan +showsummary
+
+2016-03-17  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #204 from jnpkrn/docs-CURRENT-link
+	docs: make README.markdown always point to "CURRENT" docs
+
+2016-03-17  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: reorder LINT_FLAGS in a more logical way
+
+	docs: make README.markdown always point to "CURRENT" docs
+
+2016-03-17  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #203 from jnpkrn/docs-refactor-doxygen
+	Docs: refactor doxygen configuration files
+
+2016-03-17  Jan Pokorný  <jpokorny@redhat.com>
+
+	docs: *.dox.in: comment out the defaults/empty values
+	This should also silent most of the warning when using older doxygen
+	to compile the docs.
+
+	docs: common.dox: use symbolic PROJECT_NAME
+
+	docs: {html,man}.dox.in: extract common parts to common.dox
+
+	docs: {html,man}.dox.in: unify where reasonable
+
+	docs: {html,man}.dox.in: strip options for unused outputs
+
+	docs: apply "doxygen -u" on {html,man}.dox.in, fix deprecations
+	Previously, "make" in the top-level dir resulted in:
+	> doxygen man.dox
+	> warning: Tag `XML_SCHEMA' at line 1787 of file `man.dox' has become
+	>          obsolete.
+	>          To avoid this warning please remove this line from your
+	>          configuration file or upgrade it using "doxygen -u"
+	> warning: Tag `XML_DTD' at line 1793 of file `man.dox' has become
+	>          obsolete.
+	Reference doxygen version: doxygen-1.8.10-6.fc22.x86_64.
+	This is to serve as a reference full-blown versions only to be
+	subsequently compacted...
+
+	docs: enhance qb_log_ctl* description + fix doxygen warning
+
+2016-03-17  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #200 from jnpkrn/reenable-out-of-tree-build
+	build: fix out-of-tree build broken with 0b04ed5 (#184)
+
+	Merge pull request #202 from jnpkrn/CI-drop-redundant-check
+	CI: "make check" already included in "make distcheck"
+
+2016-03-14  Jan Pokorný  <jpokorny@redhat.com>
+
+	CI: "make check" already included in "make distcheck"
+	No need to waste time on redundant tests execution.
+
+2016-03-11  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: tests: add intermediate check-headers target
+	This is to allow running auto_header_check-based tests independently of
+	the rest of the (possibly lengthy) tests.
+
+	build: fix preposterous usage of $(AM_V_GEN)
+
+2016-03-10  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: include: fix extra trailing newline
+
+	build: tests: grab "public_headers" akin to docs precedent
+	This required moving the test programs over from *_PROGRAMS and hooking
+	the respective build recipe under explicit "check" target.
+
+	build: docs: {dependent -> public}_headers + more robust obtaining
+
+	build: extra clean-local rule instead of overriding clean-generic
+	Previously, stuffing CLEANFILES with anything would not work in the
+	affected files.
+
+	build: drop extra qbconfig.h rule for auto_check_header self-test
+	Although this is not as rigorously correct as the previous arrangement
+	(introduced with 80834ea), i.e., from the perspective of
+	$(abs_top_builddir)/tests/Makefile (generated from from
+	$(top_srcdir)/tests/Makefile.am), for which $(top_builddir)
+	is literally "..":
+	- qbconfig.h is generated from $(top_srcdir)/include/qb/qbconfig.h.in
+	  into $(top_builddir)/include/qb directory, and consumed from here
+	- rest of these header files are consumed directly from
+	  $(top_srcdir)/include/qb directory
+	this new simplified variant:
+	- avoids code duplication (DRY)
+	- works thanks to VPATH in $(abs_top_builddir)/tests/Makefile
+	  pointing to $(top_srcdir)/tests, which means that unsatisfied
+	  dependencies on "$(top_builddir)/include/qb/%.h" (resolved to
+	  "../include/qb/%.h") will be subsequently sought as
+	  "$(top_srcdir)/tests/../include/qb/%.h", which has the same effect
+	  as previous explicit "$(top_srcdir)/include/qb/%.h" specification
+	  (note that such automatic VPATH provision is supported by automake
+	   "since beginning" so no backward incompatibility is expected)
+
+	build: fix out-of-tree build broken with 0b04ed5 (#184)
+	Generating the man pages definitely doesn't depend on existence of
+	(possibly generated) header files that we omit anyway.
+
+2016-03-10  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #199 from jnpkrn/CI-make-rpm
+	CI: make sure RPM can be built all the time
+
+	Merge pull request #198 from jnpkrn/build-prefer-xz
+	Build: prefer XZ tarball format
+
+2016-03-09  Jan Pokorný  <jpokorny@redhat.com>
+
+	CI: make sure RPM can be built all the time
+	This is to prevent issues like the one being fixed with ebcff54
+	(https://github.com/ClusterLabs/libqb/pull/197).
+	Also, plain "make" invocation is dropped as it is an integral part
+	of "make rpm" (%build phase in libqb.spec).
+
+2016-03-08  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: switch to XZ tarball format for {,s}rpm packaging
+	References:
+	http://rpm.org/gitweb?p=rpm.git;a=commit;h=8078d0b (~2009)
+	http://rpm.org/gitweb?p=rpm.git;a=commit;h=3d63df6 (ditto)
+
+	build: do not try to second-guess "distdir" Automake variable
+	Also make {,s}rpm targets generate only the tarball format that is
+	consumed in the packaging process.
+
+2016-03-08  Christine Caulfield  <ccaulfie@redhat.com>
+
+	build: update library soname to 0.18.0
+	as per guidelines here:
+	http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+	This shouldn't affect existing packages as the major version is still 0.
+
+2016-03-08  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #197 from kskmori/syslog-tests-rpm
+	build: do not install syslog_override for the RPM packaging
+
+2016-03-08  Keisuke MORI  <kskmori@intellilink.co.jp>
+
+	build: do not install syslog_override for the RPM packaging
+
+2016-03-01  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #190 from jnpkrn/build-syslog-tests-followup
+	build: syslog tests follow-up
+
+2016-03-01  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: enable syslog tests when configuring in spec
+	...hence make syslog tests executed in %check.
+
+	build: fix tests/_syslog_override.h not being distributed
+	...in the tarball arising from "make dist".
