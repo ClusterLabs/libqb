@@ -75,12 +75,12 @@ ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 		 $(LINT_FLAGS)
 
 run_splint.sh: $(top_srcdir)/configure.ac
-	echo "$(SPLINT) $(ALL_LINT_FLAGS) $(addprefix $(top_srcdir)/lib/, $(source_to_lint))" > $@
+	@echo "$(SPLINT) $(ALL_LINT_FLAGS) $(addprefix $(top_srcdir)/lib/, $(source_to_lint))" > $@
 	$(AM_V_GEN)chmod +x $@
 
 dist-clean-local:
-	$(AM_V_GEN)rm -f run_splint.sh
+	rm -f run_splint.sh
 
-clean-generic:
-	$(AM_V_GEN)rm -f run_splint.sh
+clean-local:
+	rm -f run_splint.sh
 endif

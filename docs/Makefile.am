@@ -24,18 +24,16 @@ noinst_HEADERS          = mainpage.h
 dist_man_MANS = man8/qb-blackbox.8
 if HAVE_DOXYGEN
 inc_dir = $(top_srcdir)/include/qb
-
-dependent_headers = $(subst $(inc_dir),,$(shell \
+public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
 	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
-	| ${MAKE} --no-print-directory -f - inst_HEADERS.var \
-	|| echo $(inc_dir)/qb*.h))
-dependent_headers_omit = qbconfig.h
+	| ${MAKE} --no-print-directory -f- inst_HEADERS.var \
+	|| echo $(inc_dir)/qb*.h*))))
+public_headers_omit = qbconfig.h
+public_headers_pick = $(filter-out $(public_headers_omit),$(public_headers) )
 
-dist_man3_MANS = $(patsubst %,man3/%.3,$(filter-out \
-		     $(dependent_headers_omit),$(dependent_headers) \
-		 ))
+dist_man3_MANS = $(patsubst %,man3/%.3,$(public_headers_pick))
 
-$(dist_man3_MANS): man.dox $(dependent_headers:%=$(inc_dir)/%)
+$(dist_man3_MANS): man.dox $(public_headers_pick:%=$(inc_dir)/%)
 	mkdir -p man3
 	doxygen man.dox
 
@@ -48,5 +46,5 @@ doxygen:
 	@echo WARNING: no doxygen to build man pages!
 endif
 
-clean-generic:
+clean-local:
 	rm -rf html man3

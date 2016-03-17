@@ -24,4 +24,3 @@ EXTRA_DIST 		= $(noinst_HEADERS)
 noinst_HEADERS          = os_base.h tlist.h
 
 SUBDIRS			= qb
-

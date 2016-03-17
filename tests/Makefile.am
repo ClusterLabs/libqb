@@ -22,12 +22,8 @@ EXTRA_DIST =
 CLEANFILES =
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 
-noinst_PROGRAMS = bmc bmcpt bms rbwriter rbreader loop bench-log \
-	auto_check_header_qbarray auto_check_header_qbconfig auto_check_header_qbhdb \
-	auto_check_header_qbipc_common auto_check_header_qblist auto_check_header_qbloop \
-	auto_check_header_qbrb auto_check_header_qbatomic auto_check_header_qbdefs \
-	auto_check_header_qbipcc auto_check_header_qbipcs auto_check_header_qblog \
-	auto_check_header_qbmap auto_check_header_qbutil format_compare_speed
+noinst_PROGRAMS = bmc bmcpt bms rbreader rbwriter \
+	bench-log format_compare_speed loop
 
 format_compare_speed_SOURCES = format_compare_speed.c $(top_builddir)/include/qb/qbutil.h
 format_compare_speed_LDADD = $(top_builddir)/lib/libqb.la
@@ -51,16 +47,19 @@ rbreader_LDADD = $(top_builddir)/lib/libqb.la
 loop_SOURCES = loop.c $(top_builddir)/include/qb/qbloop.h
 loop_LDADD = $(top_builddir)/lib/libqb.la
 
-public_headers = $(wildcard $(top_srcdir)/include/qb/qb*.h)
+inc_dir = $(top_srcdir)/include/qb
+public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
+	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
+	| ${MAKE} --no-print-directory -f- inst_HEADERS.var \
+	|| echo $(inc_dir)/qb*.h*))))
 auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
 CLEANFILES += $(auto_c_files)
-MAINTAINERCLEANFILES += $(auto_c_files)
 
-#
-# The qbconfig.h file is generated from qbconfig.h.in into the build directory tree.
-# We have to have a separate rule for generating the auto_check_header_ source here.
-#
-$(builddir)/auto_check_header_qbconfig.c: $(top_builddir)/include/qb/qbconfig.h
+# this works for both non/generated headers thanks to VPATH being
+# automatically set to $(top_srcdir)/tests and $(top_builddir)
+# being resolved to ".." by automake
+# ($(top_srcdir)/tests/../include/qb/%.h = $(top_srcdir)/include/qb/%.h)
+auto_check_header_%.c: $(top_builddir)/include/qb/%.h
 	@name=$$(echo "$<" | sed  "s|.*qb/qb||" | sed "s|\.h||") ;\
 	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
 	echo "#include <qb/qb$$name.h>" > $@_ ;\
@@ -70,15 +69,11 @@ $(builddir)/auto_check_header_qbconfig.c: $(top_builddir)/include/qb/qbconfig.h
 	echo "int main(void) {return 0;}" >> $@_
 	$(AM_V_GEN)mv $@_ $@
 
-$(builddir)/auto_check_header_%.c: $(top_srcdir)/include/qb/%.h
-	@name=$$(echo "$<" | sed  "s|.*qb/qb||" | sed "s|\.h||") ;\
-	NAME=$$(echo $$name | tr [:lower:] [:upper:]) ;\
-	echo "#include <qb/qb$$name.h>" > $@_ ;\
-	echo "#ifndef QB_$${NAME}_H_DEFINED" >> $@_ ;\
-	echo "#error no header protector in file qb$$name.h" >> $@_ ;\
-	echo "#endif" >> $@_ ;\
-	echo "int main(void) {return 0;}" >> $@_
-	$(AM_V_GEN)mv $@_ $@
+check: check-headers
+
+# rely on implicit automake rule to include right (local) includes
+.PHONY: check-headers
+check-headers: $(auto_c_files:.c=.o)
 
 distclean-compile:
 	rm -rf auto_*.c
@@ -93,7 +88,7 @@ nodist_bench_log_SOURCES = auto_write_logs.c
 
 bench_log: auto_write_logs.c
 $(builddir)/auto_write_logs.c: make-log-test.sh
-	$(srcdir)/make-log-test.sh > $(builddir)/write_logs-tmp.c
+	@$(srcdir)/make-log-test.sh > $(builddir)/write_logs-tmp.c
 	$(AM_V_GEN)mv $(builddir)/write_logs-tmp.c $(builddir)/auto_write_logs.c
 endif
 endif
@@ -161,6 +156,6 @@ util_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
 endif
 
-clean-generic:
-	$(AM_V_GEN)rm -f *.log
-	$(AM_V_GEN)rm -f *.fdata
+clean-local:
+	rm -f *.log
+	rm -f *.fdata
