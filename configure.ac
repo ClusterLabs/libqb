@@ -409,9 +409,10 @@ if test x"$memory_barrier_needed" != xno; then
 			   [need atomic memory barrier])
 fi
 
-LINT_FLAGS="-syntax -weak -unrecog +posixlib +ignoresigns -fcnuse \
-	-badflag -D__gnuc_va_list=va_list -D__attribute\(x\)= \
-	-warnposix +matchanyintegral -sysunrecog"
+LINT_FLAGS="-weak -D__gnuc_va_list=va_list -D__attribute\(x\)= \
+	-badflag -fcnuse -syntax -unrecog -sysunrecog -warnposix \
+	+ignoresigns +matchanyintegral +posixlib \
+	+showscan +showsummary"
 
 # local options
 AC_ARG_ENABLE([ansi],
