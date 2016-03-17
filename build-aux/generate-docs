@@ -25,7 +25,8 @@ make_version_dir() {
 	[ ! -e "$NV" ] || die "gh-pages branch already has $NV"
 
 	# Create the online documentation directory for the new version.
-	mkdir "$NV/"
+	mkdir "$NV"
+	ln -fs "$NV" CURRENT
 }
 
 build_doxygen() {
@@ -76,7 +77,7 @@ build_changelog
 echo
 echo "Adding online documentation to gh-pages branch ..."
 git checkout gh-pages
-git add "$NV"
+git add "$NV" CURRENT
 git commit -m "Add online documentation for v$NV"
 
 echo
