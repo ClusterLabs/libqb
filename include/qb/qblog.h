@@ -522,8 +522,12 @@ void qb_log_callsites_dump(void);
  * Main logging control function.
  *
  * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
- * @param conf_type what to configure
- * @param arg the new value
+ * @param conf_type configuration directive ("what to configure") that accepts
+ *        <tt>int32_t</tt> argument determining the new value unless ignored
+ *        for particular directive altogether
+ *        (incompatible directives: QB_LOG_CONF_IDENT)
+ * @param arg the new value for a state-changing configuration directive,
+ *        ignored otherwise
  * @see qb_log_conf
  *
  * @retval -errno on error
@@ -540,8 +544,15 @@ typedef union {
 /**
  * Extension of main logging control function accepting also strings.
  *
- * @param arg for QB_LOG_CONF_IDENT, 's' member as new identifier to openlog(),
- *        for all original qb_log_ctl-compatible configuration directives,
+ * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
+ * @param conf_type configuration directive ("what to configure") that accepts
+ *        either <tt>int32_t</tt> or a null-terminated string argument
+ *        determining the new value unless ignored for particular directive
+ *        (compatible directives: those valid for qb_log_ctl
+ *                                + QB_LOG_CONF_IDENT)
+ * @param arg the new value for a state-changing configuration directive,
+ *        ignored otherwise;  for QB_LOG_CONF_IDENT, 's' member as new
+ *        identifier to openlog(), for all qb_log_ctl-compatible ones,
  *        'i32' member is assumed (although a preferred way is to use
  *        that original function directly as it allows for more type safety)
  * @see qb_log_ctl
@@ -553,8 +564,13 @@ typedef union {
 int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type,
 		    qb_log_ctl2_arg_t arg);
 
+# ifndef S_SPLINT_S
 #define QB_LOG_CTL2_I32(a)  ((qb_log_ctl2_arg_t) { .i32 = (a) })
 #define QB_LOG_CTL2_S(a)    ((qb_log_ctl2_arg_t) { .s = (a) })
+#else
+#define QB_LOG_CTL2_I32(a)  ((qb_log_ctl2_arg_t)(a))
+#define QB_LOG_CTL2_S(a)    ((qb_log_ctl2_arg_t)(a))
+#endif
 
 /**
  * This allows you modify the 'tags' and 'targets' callsite fields at runtime.

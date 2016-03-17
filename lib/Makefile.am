@@ -29,7 +29,7 @@ AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-libqb_la_LDFLAGS	= -version-info 17:3:17
+libqb_la_LDFLAGS	= -version-info 18:0:18
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
@@ -73,14 +73,27 @@ DEB_INCLUDES = -I/usr/include/x86_64-linux-gnu -I/usr/include/i386-linux-gnu
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
 		 $(LINT_FLAGS)
+# expected for the time being (but SHOULD be fixed eventually):
+# ipc_setup.c: (in function qb_ipcc_us_setup_connect)
+# ipc_setup.c:479:2: Return value (type int32_t) ignored: qb_ipc_us_ready(...
+# ipc_setup.c:494:2: Return value (type int32_t) ignored: qb_ipc_auth_cred...
+SPLINT_SUMMARY_EXP = " 2 code warnings"
 
 run_splint.sh: $(top_srcdir)/configure.ac
-	echo "$(SPLINT) $(ALL_LINT_FLAGS) $(addprefix $(top_srcdir)/lib/, $(source_to_lint))" > $@
-	$(AM_V_GEN)chmod +x $@
+	@echo '$(SPLINT) $(ALL_LINT_FLAGS) \' > $@-t
+	@echo '  $(addprefix $(top_srcdir)/lib/, $(source_to_lint)) \' >> $@-t
+	@echo '  2>&1 | tee $@-o' >> $@-t
+	@echo 'tail -n1 $@-o | grep -qF $(SPLINT_SUMMARY_EXP)' >> $@-t
+	@echo 'ret=$$?' >> $@-t
+	@echo 'rm -f $@-o' >> $@-t
+	@echo 'test $$ret = 0 || echo "EXPECTED:$(SPLINT_SUMMARY_EXP)"' >> $@-t
+	@echo 'exit $$ret' >> $@-t
+	@chmod +x $@-t
+	$(AM_V_GEN)mv $@-t $@
 
 dist-clean-local:
-	$(AM_V_GEN)rm -f run_splint.sh
+	rm -f run_splint.sh
 
-clean-generic:
-	$(AM_V_GEN)rm -f run_splint.sh
+clean-local:
+	rm -f run_splint.sh
 endif

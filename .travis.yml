@@ -5,11 +5,14 @@ addons:
                 packages:
                   - check
                   - splint
-script: ./autogen.sh
-        && ./configure --enable-syslog-tests
-        && make
-        && make check
-        && make distcheck
+                  # for "make rpm"
+                  - doxygen
+                  - rpm
+script: RPMBUILDOPTS_="--nodeps --define '_without_check 1'";
+        ./autogen.sh
+        && ./configure
+        && DISTCHECK_CONFIGURE_FLAGS=--enable-syslog-tests make distcheck
+        && sed "s|RPMBUILDOPTS =|\\0 ${RPMBUILDOPTS_}|" Makefile | make -f- rpm
 sudo: false
 
 notifications:
