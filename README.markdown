@@ -14,7 +14,7 @@ applications.
 ## For more information, see:
 * [libqb wiki](https://github.com/clusterlabs/libqb/wiki)
 * [Issues/Bugs](https://github.com/clusterlabs/libqb/issues)
-* [The doxygen generated manual](http://clusterlabs.github.io/libqb/0.16.0/doxygen/)
+* [The doxygen generated manual](http://clusterlabs.github.io/libqb/CURRENT/doxygen/)
 * You can build it yourself with the following commands:
 
     $ make doxygen
