@@ -1,0 +1,8 @@
+2016-03-18  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #205 from jnpkrn/docs-fix-make-doxygen
+	docs: fix "make doxygen" target not generating anything
+
+2016-03-17  Jan Pokorný  <jpokorny@redhat.com>
+
+	docs: fix "make doxygen" target not generating anything
