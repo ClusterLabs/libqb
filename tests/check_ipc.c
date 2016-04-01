@@ -24,7 +24,8 @@
 #include "os_base.h"
 #include <sys/wait.h>
 #include <signal.h>
-#include <check.h>
+
+#include "check_common.h"
 
 #include <qb/qbdefs.h>
 #include <qb/qblog.h>
@@ -877,7 +878,7 @@ test_ipc_dispatch(void)
 	verify_graceful_stop(pid);
 }
 
-START_TEST(test_ipc_disp_us)
+START_TEST(test_ipc_dispatch_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
@@ -1332,7 +1333,7 @@ START_TEST(test_ipc_server_fail_soc)
 }
 END_TEST
 
-START_TEST(test_ipc_disp_shm)
+START_TEST(test_ipc_dispatch_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
@@ -1482,65 +1483,18 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
-	tc = tcase_create("ipc_txrx_shm_timeout");
-	tcase_add_test(tc, test_ipc_txrx_shm_timeout);
-	tcase_set_timeout(tc, 30);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_server_fail_shm");
-	tcase_add_test(tc, test_ipc_server_fail_shm);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_shm_block");
-	tcase_add_test(tc, test_ipc_txrx_shm_block);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_shm_tmo");
-	tcase_add_test(tc, test_ipc_txrx_shm_tmo);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_fc_shm");
-	tcase_add_test(tc, test_ipc_fc_shm);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_dispatch_shm");
-	tcase_add_test(tc, test_ipc_disp_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_test_shm");
-	tcase_add_test(tc, test_ipc_stress_test_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_bulk_events_shm");
-	tcase_add_test(tc, test_ipc_bulk_events_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_exit_shm");
-	tcase_add_test(tc, test_ipc_exit_shm);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_event_on_created_shm");
-	tcase_add_test(tc, test_ipc_event_on_created_shm);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_service_ref_count_shm");
-	tcase_add_test(tc, test_ipc_service_ref_count_shm);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_connections_shm");
-	tcase_add_test(tc, test_ipc_stress_connections_shm);
-	tcase_set_timeout(tc, 3600);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 30);
+	add_tcase(s, tc, test_ipc_server_fail_shm, 8);
+	add_tcase(s, tc, test_ipc_txrx_shm_block, 8);
+	add_tcase(s, tc, test_ipc_txrx_shm_tmo, 8);
+	add_tcase(s, tc, test_ipc_fc_shm, 8);
+	add_tcase(s, tc, test_ipc_dispatch_shm, 16);
+	add_tcase(s, tc, test_ipc_stress_test_shm, 16);
+	add_tcase(s, tc, test_ipc_bulk_events_shm, 16);
+	add_tcase(s, tc, test_ipc_exit_shm, 8);
+	add_tcase(s, tc, test_ipc_event_on_created_shm, 10);
+	add_tcase(s, tc, test_ipc_service_ref_count_shm, 10);
+	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600);
 
 	return s;
 }
@@ -1551,75 +1505,20 @@ make_soc_suite(void)
 	Suite *s = suite_create("socket");
 	TCase *tc;
 
-	tc = tcase_create("ipc_txrx_us_timeout");
-	tcase_add_test(tc, test_ipc_txrx_us_timeout);
-	tcase_set_timeout(tc, 30);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_max_dgram_size");
-	tcase_add_test(tc, test_ipc_max_dgram_size);
-	tcase_set_timeout(tc, 30);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_server_fail_soc");
-	tcase_add_test(tc, test_ipc_server_fail_soc);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_us_block");
-	tcase_add_test(tc, test_ipc_txrx_us_block);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_us_tmo");
-	tcase_add_test(tc, test_ipc_txrx_us_tmo);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_fc_us");
-	tcase_add_test(tc, test_ipc_fc_us);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_exit_us");
-	tcase_add_test(tc, test_ipc_exit_us);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_dispatch_us");
-	tcase_add_test(tc, test_ipc_disp_us);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_test_us");
-	tcase_add_test(tc, test_ipc_stress_test_us);
-	tcase_set_timeout(tc, 60);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_bulk_events_us");
-	tcase_add_test(tc, test_ipc_bulk_events_us);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_event_on_created_us");
-	tcase_add_test(tc, test_ipc_event_on_created_us);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_disconnect_after_created_us");
-	tcase_add_test(tc, test_ipc_disconnect_after_created_us);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_service_ref_count_us");
-	tcase_add_test(tc, test_ipc_service_ref_count_us);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_connections_us");
-	tcase_add_test(tc, test_ipc_stress_connections_us);
-	tcase_set_timeout(tc, 3600);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_ipc_txrx_us_timeout, 30);
+	add_tcase(s, tc, test_ipc_max_dgram_size, 30);
+	add_tcase(s, tc, test_ipc_server_fail_soc, 8);
+	add_tcase(s, tc, test_ipc_txrx_us_block, 8);
+	add_tcase(s, tc, test_ipc_txrx_us_tmo, 8);
+	add_tcase(s, tc, test_ipc_fc_us, 8);
+	add_tcase(s, tc, test_ipc_exit_us, 8);
+	add_tcase(s, tc, test_ipc_dispatch_us, 16);
+	add_tcase(s, tc, test_ipc_stress_test_us, 60);
+	add_tcase(s, tc, test_ipc_bulk_events_us, 16);
+	add_tcase(s, tc, test_ipc_event_on_created_us, 10);
+	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 10);
+	add_tcase(s, tc, test_ipc_service_ref_count_us, 10);
+	add_tcase(s, tc, test_ipc_stress_connections_us, 3600);
 
 	return s;
 }

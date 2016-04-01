@@ -22,7 +22,8 @@
  */
 
 #include "os_base.h"
-#include <check.h>
+
+#include "check_common.h"
 
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
@@ -159,13 +160,8 @@ static Suite *util_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("qb_util");
 
-	tc = tcase_create("overwrite");
-	tcase_add_test(tc, test_check_overwrite);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("normal");
-	tcase_add_test(tc, test_check_normal);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_check_overwrite);
+	add_tcase(s, tc, test_check_normal);
 
 	return s;
 }

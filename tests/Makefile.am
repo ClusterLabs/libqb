@@ -25,6 +25,8 @@ AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 noinst_PROGRAMS = bmc bmcpt bms rbreader rbwriter \
 	bench-log format_compare_speed loop
 
+noinst_HEADERS = check_common.h
+
 format_compare_speed_SOURCES = format_compare_speed.c $(top_builddir)/include/qb/qbutil.h
 format_compare_speed_LDADD = $(top_builddir)/lib/libqb.la
 
