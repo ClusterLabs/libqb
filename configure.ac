@@ -3,8 +3,10 @@
 
 AC_PREREQ([2.61])
 
+dnl inject zero as a "patch" component of the version if missing in tag
 AC_INIT([libqb],
-	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
+	m4_esyscmd([build-aux/git-version-gen .tarball-version \
+		    's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$|\1.0\2|']),
 	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
