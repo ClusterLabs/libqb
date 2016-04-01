@@ -612,6 +612,28 @@ AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
 
+# version parsing (for qbconfig.h)
+AC_DEFINE_UNQUOTED([QB_VER_MAJOR],
+                   [$(echo "${VERSION}" \
+		      | sed -e 's|^\([[0-9]][[0-9]]*\).*|\1|' \
+		            -e t -e 's|.*|1|')],
+		   [libqb major version])
+AC_DEFINE_UNQUOTED([QB_VER_MINOR],
+                   [$(echo "${VERSION}" \
+		      | sed -e 's|^[[0-9]][[0-9]]*\.\([[0-9]][[0-9]]*\).*|\1|' \
+		            -e t -e 's|.*|0|')],
+		   [libqb minor version])
+AC_DEFINE_UNQUOTED([QB_VER_PATCH],
+	           [$(echo "${VERSION}" \
+		      | sed -e 's|^[[0-9]][[0-9]]*\.[[0-9]][[0-9]]*\.\([[0-9]][[0-9]]*\).*|\1|' \
+		            -e t -e 's|.*|0|')],
+		   [libqb patch version])
+AC_DEFINE_UNQUOTED([QB_VER_REST],
+	           [$(echo "${VERSION}" \
+		      | sed -e 's|^[[0-9]][[0-9]]*\(\.[[0-9]][[0-9]]*\)\{0,2\}\(.*\)|"\2"|' \
+		            -e t -e 's|.*|""|')],
+		   [libqb patch version])
+
 AC_CONFIG_FILES([Makefile
 		 include/Makefile
 		 include/qb/Makefile
