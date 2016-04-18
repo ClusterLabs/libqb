@@ -625,7 +625,7 @@ AC_DEFINE_UNQUOTED([QB_VER_MINOR],
 		      | sed -e 's|^[[0-9]][[0-9]]*\.\([[0-9]][[0-9]]*\).*|\1|' \
 		            -e t -e 's|.*|0|')],
 		   [libqb minor version])
-AC_DEFINE_UNQUOTED([QB_VER_PATCH],
+AC_DEFINE_UNQUOTED([QB_VER_MICRO],
 	           [$(echo "${VERSION}" \
 		      | sed -e 's|^[[0-9]][[0-9]]*\.[[0-9]][[0-9]]*\.\([[0-9]][[0-9]]*\).*|\1|' \
 		            -e t -e 's|.*|0|')],
