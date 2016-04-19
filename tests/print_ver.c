@@ -23,14 +23,14 @@
 
 #include "os_base.h"  /* instead of assert.h & stdio.h + defines VERSION */
 
-#include <qb/qbconfig.h>  /* QB_VER_{MAJOR,MINOR,PATCH,REST} + QB_VER_STR */
+#include <qb/qbconfig.h>  /* QB_VER_{MAJOR,MINOR,MICRO,REST} + QB_VER_STR */
 #include <qb/qbdefs.h>  /* QB_PP_STRINGIFY */
 
 int
 main(void)
 {
 	printf("%s consists of: %d, %d, %d, %s\n", QB_VER_STR,
-	       QB_VER_MAJOR, QB_VER_MINOR, QB_VER_PATCH, QB_VER_REST);
+	       QB_VER_MAJOR, QB_VER_MINOR, QB_VER_MICRO, QB_VER_REST);
 	return 0;
 }
 
