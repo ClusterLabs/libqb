@@ -33,7 +33,7 @@ make %{?_smp_mflags}
 
 %if 0%{?with_check}
 %check
-make check
+VERBOSE=1 make check
 %endif
 
 %install
