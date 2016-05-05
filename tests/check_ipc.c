@@ -36,6 +36,7 @@
 static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
+#ifndef __clang__
 static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
 
 #define DGRAM_MAX_MSG_SIZE \
@@ -44,6 +45,14 @@ static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
 	CALCULATED_DGRAM_MAX_MSG_SIZE)
 
 #define MAX_MSG_SIZE (ipc_type == QB_IPC_SOCKET ? DGRAM_MAX_MSG_SIZE : DEFAULT_MAX_MSG_SIZE)
+
+#else
+/* because of clang's
+   'variable length array in structure' extension will never be supported;
+   assign default for SHM as we'll skip test that would use run-time
+   established value (via qb_ipcc_verify_dgram_max_msg_size), anyway */
+static const int MAX_MSG_SIZE = DEFAULT_MAX_MSG_SIZE;
+#endif
 
 /* The size the giant msg's data field needs to be to make
  * this the largests msg we can successfully send. */
@@ -1144,6 +1153,7 @@ test_ipc_stress_test(void)
 	verify_graceful_stop(pid);
 }
 
+#ifndef __clang__ /* see variable length array in structure' at the top */
 START_TEST(test_ipc_stress_test_us)
 {
 	qb_enter();
@@ -1154,6 +1164,7 @@ START_TEST(test_ipc_stress_test_us)
 	qb_leave();
 }
 END_TEST
+#endif
 
 START_TEST(test_ipc_stress_connections_us)
 {
@@ -1513,7 +1524,9 @@ make_soc_suite(void)
 	add_tcase(s, tc, test_ipc_fc_us, 8);
 	add_tcase(s, tc, test_ipc_exit_us, 8);
 	add_tcase(s, tc, test_ipc_dispatch_us, 16);
+#ifndef __clang__ /* see variable length array in structure' at the top */
 	add_tcase(s, tc, test_ipc_stress_test_us, 60);
+#endif
 	add_tcase(s, tc, test_ipc_bulk_events_us, 16);
 	add_tcase(s, tc, test_ipc_event_on_created_us, 10);
 	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 10);
