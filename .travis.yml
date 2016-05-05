@@ -1,13 +1,15 @@
 language: c
-compiler: gcc
+compiler:
+        - gcc
+        - clang
 addons:
         apt:
                 packages:
-                  - check
-                  - splint
-                  # for "make rpm"
-                  - doxygen
-                  - rpm
+                        - check
+                        - splint
+                        # for "make rpm"
+                        - doxygen
+                        - rpm
 script: RPMBUILDOPTS_="--nodeps --define '_without_check 1'";
         ./autogen.sh
         && ./configure
