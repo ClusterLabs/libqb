@@ -604,9 +604,10 @@ reprocess:
 			int arg_int;
 			unsigned char arg_char;
 
-			if (location + sizeof (unsigned int) > max_len) {
+			if (location + sizeof (unsigned char) > max_len) {
 				return max_len;
 			}
+			/* va_arg only takes fully promoted types */
 			arg_int = va_arg(ap, unsigned int);
 			arg_char = (unsigned char)arg_int;
 			memcpy (&serialize[location], &arg_char, sizeof (unsigned char));
