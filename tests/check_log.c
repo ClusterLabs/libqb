@@ -86,6 +86,14 @@ START_TEST(test_va_serialize)
 	format_this(buf, "f1:%.5f, f2:%.2f", 23.34109, 23.34109);
 	ck_assert_str_eq(buf, "f1:23.34109, f2:23.34");
 
+	format_this(buf, "%zd", (size_t)13140964);
+	ck_assert_str_eq(buf, "13140964");
+	format_this(buf, "%jd", (intmax_t)30627823);
+	ck_assert_str_eq(buf, "30627823");
+	format_this(buf, "%td", buf-cmp_buf);
+	snprintf(cmp_buf, QB_LOG_MAX_LEN, "%td", buf-cmp_buf);
+	ck_assert_str_eq(buf, cmp_buf);
+
 	format_this(buf, ":%s:", "Hello, world!");
 	ck_assert_str_eq(buf, ":Hello, world!:");
 	format_this(buf, ":%15s:", "Hello, world!");

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Red Hat, Inc.
+ * Copyright (C) 2011,2016 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -536,6 +536,33 @@ reprocess:
 				format++;
 			}
 			goto reprocess;
+		case 'z':
+			format++;
+			if (sizeof(size_t) == sizeof(long long)) {
+				type_longlong = QB_TRUE;
+			}
+			else {
+				type_long = QB_TRUE;
+			}
+			goto reprocess;
+		case 't':
+ 			format++;
+			if (sizeof(ptrdiff_t) == sizeof(long long)) {
+				type_longlong = QB_TRUE;
+			}
+			else {
+				type_long = QB_TRUE;
+			}
+			goto reprocess;
+		case 'j':
+ 			format++;
+			if (sizeof(intmax_t) == sizeof(long long)) {
+				type_longlong = QB_TRUE;
+			}
+			else {
+				type_long = QB_TRUE;
+			}
+			goto reprocess;
 		case 'd': /* int argument */
 		case 'i': /* int argument */
 		case 'o': /* unsigned int argument */
@@ -735,6 +762,38 @@ reprocess:
 			if (*format == 'l') {
 				type_long = QB_FALSE;
 				type_longlong = QB_TRUE;
+			}
+			goto reprocess;
+		case 'z':
+			fmt[fmt_pos++] = *format;
+			format++;
+			if (sizeof(size_t) == sizeof(long long)) {
+				type_long = QB_FALSE;
+				type_longlong = QB_TRUE;
+			}
+			else {
+				type_longlong = QB_FALSE;
+				type_long = QB_TRUE;
+			}
+			goto reprocess;
+		case 't':
+			fmt[fmt_pos++] = *format;
+			format++;
+			if (sizeof(ptrdiff_t) == sizeof(long long)) {
+				type_longlong = QB_TRUE;
+			}
+			else {
+				type_long = QB_TRUE;
+			}
+			goto reprocess;
+		case 'j':
+			fmt[fmt_pos++] = *format;
+			format++;
+			if (sizeof(intmax_t) == sizeof(long long)) {
+				type_longlong = QB_TRUE;
+			}
+			else {
+				type_long = QB_TRUE;
 			}
 			goto reprocess;
 		case 'd': /* int argument */
