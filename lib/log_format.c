@@ -540,26 +540,23 @@ reprocess:
 			format++;
 			if (sizeof(size_t) == sizeof(long long)) {
 				type_longlong = QB_TRUE;
-			}
-			else {
+			} else {
 				type_long = QB_TRUE;
 			}
 			goto reprocess;
 		case 't':
- 			format++;
+			format++;
 			if (sizeof(ptrdiff_t) == sizeof(long long)) {
 				type_longlong = QB_TRUE;
-			}
-			else {
+			} else {
 				type_long = QB_TRUE;
 			}
 			goto reprocess;
 		case 'j':
- 			format++;
+			format++;
 			if (sizeof(intmax_t) == sizeof(long long)) {
 				type_longlong = QB_TRUE;
-			}
-			else {
+			} else {
 				type_long = QB_TRUE;
 			}
 			goto reprocess;
@@ -770,8 +767,7 @@ reprocess:
 			if (sizeof(size_t) == sizeof(long long)) {
 				type_long = QB_FALSE;
 				type_longlong = QB_TRUE;
-			}
-			else {
+			} else {
 				type_longlong = QB_FALSE;
 				type_long = QB_TRUE;
 			}
@@ -781,8 +777,7 @@ reprocess:
 			format++;
 			if (sizeof(ptrdiff_t) == sizeof(long long)) {
 				type_longlong = QB_TRUE;
-			}
-			else {
+			} else {
 				type_long = QB_TRUE;
 			}
 			goto reprocess;
@@ -791,8 +786,7 @@ reprocess:
 			format++;
 			if (sizeof(intmax_t) == sizeof(long long)) {
 				type_longlong = QB_TRUE;
-			}
-			else {
+			} else {
 				type_long = QB_TRUE;
 			}
 			goto reprocess;
