@@ -28,9 +28,9 @@ extern "C" {
 
 /**
  * @file qbdefs.h
- * @author Angus Salkeld <asalkeld@redhat.com>
- *
  * These are some convience macros and defines.
+ *
+ * @author Angus Salkeld <asalkeld@redhat.com>
  */
 
 /*
