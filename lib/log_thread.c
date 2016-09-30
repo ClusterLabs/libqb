@@ -48,9 +48,9 @@ static int logt_sched_param_queued = QB_FALSE;
 
 static int logt_sched_policy;
 
-#if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
+#if defined(HAVE_PTHREAD_SETSCHEDPARAM)
 static struct sched_param logt_sched_param;
-#endif /* HAVE_PTHREAD_SETSCHEDPARAM && HAVE_SCHED_GET_PRIORITY_MAX */
+#endif /* HAVE_PTHREAD_SETSCHEDPARAM */
 
 static pthread_t logt_thread_id = 0;
 
@@ -113,7 +113,7 @@ qb_log_thread_priority_set(int32_t policy, int32_t priority)
 {
 	int res = 0;
 
-#if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
+#if defined(HAVE_PTHREAD_SETSCHEDPARAM)
 
 	logt_sched_policy = policy;
 
