@@ -278,7 +278,7 @@ ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c,
 			       const struct iovec * iov, size_t iov_len);
 
 /**
- * Send an asyncronous event message to the client.
+ * Send an asynchronous event message to the client.
  *
  * @param c connection instance
  * @param data the message to send
@@ -297,7 +297,7 @@ ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data,
 			   size_t size);
 
 /**
- * Send an asyncronous event message to the client.
+ * Send an asynchronous event message to the client.
  *
  * @param c connection instance
  * @param iov the iovec struct that points to the message to send
