@@ -205,7 +205,6 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
                 pthread_mutexattr_setpshared \
                 pthread_condattr_setpshared \
 		sem_timedwait semtimedop \
-		sched_get_priority_max sched_setscheduler \
 		getpeerucred getpeereid])
 
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
