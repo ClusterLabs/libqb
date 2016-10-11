@@ -79,7 +79,7 @@ enum my_msg_ids {
 
 /* Test Cases
  *
- * 1) basic send & recv differnet message sizes
+ * 1) basic send & recv different message sizes
  *
  * 2) send message to start dispatch (confirm receipt)
  *
@@ -308,7 +308,7 @@ outq_flush (void *data)
 		qb_ipcs_destroy(s1);
 		s1 = NULL;
 	}
-	/* is the reference counting is not working, this should fail
+	/* if the reference counting is not working, this should fail
 	 * for i > 1.
 	 */
 	qb_ipcs_event_send(data, "test", 4);

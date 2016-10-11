@@ -1,20 +1,17 @@
 #!/bin/sh
 RETURN=0
 
-for d in /dev/shm /var/run
-do
+for d in /dev/shm /var/run; do
 	ls $d/qb-test* 2>/dev/null
-	if [ $? -eq 0 ]
-	then
+	if [ $? -eq 0 ]; then
 		echo
 		echo "Error: shared memory segments not closed/unlinked"
 		echo
 		RETURN=1
 	fi
 done
-ps aux | grep -v grep | grep lt-check
-if [ $? -eq 0 ]
-then
+ps aux | grep -v grep | grep -E 'lt-.*\.test'
+if [ $? -eq 0 ]; then
 	echo "test program frozen"
 	RETURN=1
 fi
