@@ -169,7 +169,12 @@ qb_util_nano_monotonic_hz(void)
 	uint64_t nano_monotonic_hz;
 	struct timespec ts;
 
+#if HAVE_CLOCK_GETRES_MONOTONIC
 	clock_getres(CLOCK_MONOTONIC, &ts);
+#else
+	if (clock_getres(CLOCK_REALTIME, &ts) != 0)
+	    qb_util_perror(LOG_ERR,"CLOCK_REALTIME");
+#endif
 
 	nano_monotonic_hz =
 	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) + ts.tv_nsec);

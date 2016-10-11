@@ -164,7 +164,11 @@ qb_log_thread_start(void)
 
 	if (logt_sched_param_queued) {
 		res = qb_log_thread_priority_set(logt_sched_policy,
+#if defined(HAVE_PTHREAD_SETSCHEDPARAM) && defined(HAVE_SCHED_GET_PRIORITY_MAX)
 		                                 logt_sched_param.sched_priority);
+#else
+		                                 0);
+#endif
 		if (res != 0) {
 			goto cleanup_pthread;
 		}
