@@ -114,7 +114,7 @@ struct qb_ipcs_poll_handlers {
 /**
  * This callback is to check whether you want to accept a new connection.
  *
- * The type of checks you should do are authentication, service availabilty
+ * The type of checks you should do are authentication, service availability
  * or process resource constraints. 
  * @return 0 to accept or -errno to indicate a failure (sent back to the client)
  *

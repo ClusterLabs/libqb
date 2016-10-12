@@ -91,7 +91,7 @@ enum my_msg_ids {
  *
  * 6) cleanup
  *
- * 7) service availabilty
+ * 7) service availability
  *
  * 8) multiple services
  */
