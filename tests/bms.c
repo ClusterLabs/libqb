@@ -21,6 +21,7 @@
 #include "os_base.h"
 #include <signal.h>
 
+#include <qb/qbarray.h>
 #include <qb/qbdefs.h>
 #include <qb/qblog.h>
 #include <qb/qbutil.h>
