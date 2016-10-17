@@ -30,7 +30,6 @@ extern "C" {
 #include <qb/qbconfig.h>
 
 #include <pthread.h>
-#include <sys/poll.h>
 #include <sys/socket.h>
 #include <qb/qbipc_common.h>
 

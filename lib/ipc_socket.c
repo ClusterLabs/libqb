@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+#include <poll.h>
 
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
