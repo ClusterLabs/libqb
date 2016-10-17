@@ -29,10 +29,11 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-#include <stdlib.h>
-#include <sys/uio.h>
-#include <qb/qbipc_common.h>
-#include <qb/qbloop.h>
+#include <sys/types.h>  /* size_t, ssize_t */
+#include <sys/uio.h>  /* iovec */
+
+#include <qb/qbipc_common.h>  /* qb_ipc_type */
+#include <qb/qbloop.h> /* qb_loop_priority */
 
 /**
  * @file qbipcs.h
