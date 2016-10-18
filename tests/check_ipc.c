@@ -400,8 +400,6 @@ run_ipc_server(void)
 	};
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGSTOP,
-			   NULL, exit_handler, &handle);
 	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
 			   NULL, exit_handler, &handle);
 
