@@ -352,8 +352,10 @@ qb_log_callsite_get(const char *function,
 			_custom_filter_fn(cs);
 		}
 		pthread_rwlock_unlock(&_listlock);
-	} else if (cs->tags != tags) {
-		cs->tags = tags;
+	} else {
+	        if (tags && cs->tags != tags) {
+		        cs->tags = tags;
+		}
 		if (_custom_filter_fn) {
 			_custom_filter_fn(cs);
 		}
