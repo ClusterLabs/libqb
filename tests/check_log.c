@@ -783,6 +783,46 @@ START_TEST(test_extended_information)
 }
 END_TEST
 
+static const char *tagtest_stringify_tag(uint32_t tag)
+{
+	static char buf[32];
+	sprintf(buf, "%5d", tag);
+	return buf;
+}
+
+START_TEST(test_zero_tags)
+{
+	int32_t rc;
+	int32_t t;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log_format_set(t, "[%g] %b");
+	qb_log_tags_stringify_fn_set(tagtest_stringify_tag);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+
+	qb_log_from_external_source("function", "filename", "%s: %d", LOG_DEBUG, 356, 2, "testlog", 2);
+	ck_assert_str_eq(test_buf, "[    2] testlog: 2");
+
+	qb_log_from_external_source("function", "filename", "%s: %d", LOG_DEBUG, 356, 0, "testlog", 0);
+	ck_assert_str_eq(test_buf, "[    2] testlog: 0");
+
+	qb_log_fini();
+
+
+}
+END_TEST
+
 #ifdef HAVE_SYSLOG_TESTS
 START_TEST(test_syslog)
 {
@@ -818,6 +858,7 @@ log_suite(void)
 	add_tcase(s, tc, test_log_filter_fn);
 	add_tcase(s, tc, test_threaded_logging);
 	add_tcase(s, tc, test_extended_information);
+	add_tcase(s, tc, test_zero_tags);
 
 #ifdef HAVE_SYSLOG_TESTS
 	add_tcase(s, tc, test_syslog);
