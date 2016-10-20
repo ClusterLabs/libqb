@@ -62,9 +62,7 @@ qb_logt_worker_thread(void *data)
 	int dropped = 0;
 	int res;
 
-	/*
-	 * Signal wthread_create that the initialization process may continue
-	 */
+	/* Signal qb_log_thread_start that the initialization may continue */
 	sem_post(&logt_thread_start);
 	for (;;) {
 retry_sem_wait:
@@ -72,9 +70,7 @@ retry_sem_wait:
 		if (res == -1 && errno == EINTR) {
 			goto retry_sem_wait;
 		} else if (res == -1) {
-			/*
-			 * This case shouldn't happen
-			 */
+			/* This case shouldn't happen */
 			pthread_exit(NULL);
 		}
 
