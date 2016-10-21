@@ -27,12 +27,9 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-#include <qb/qbconfig.h>
+#include <sys/types.h>  /* size_t, ssize_t */
+#include <sys/uio.h>  /* iovec */
 
-#include <pthread.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <qb/qbhdb.h>
 #include <qb/qbipc_common.h>
 
 /**

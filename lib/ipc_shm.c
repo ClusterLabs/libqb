@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+#include <poll.h>
 
 #include "ipc_int.h"
 #include "util_int.h"
@@ -121,9 +122,7 @@ qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out,
 static void
 qb_ipc_shm_reclaim(struct qb_ipc_one_way *one_way)
 {
-	if (one_way->u.shm.rb != NULL) {
-		qb_rb_chunk_reclaim(one_way->u.shm.rb);
-	}
+	qb_rb_chunk_reclaim(one_way->u.shm.rb);
 }
 
 static void

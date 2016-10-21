@@ -91,7 +91,7 @@ enum my_msg_ids {
  *
  * 6) cleanup
  *
- * 7) service availabilty
+ * 7) service availability
  *
  * 8) multiple services
  */
@@ -400,8 +400,6 @@ run_ipc_server(void)
 	};
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGSTOP,
-			   NULL, exit_handler, &handle);
 	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
 			   NULL, exit_handler, &handle);
 
