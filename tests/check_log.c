@@ -726,6 +726,42 @@ START_TEST(test_threaded_logging)
 }
 END_TEST
 
+#ifdef HAVE_PTHREAD_SETSCHEDPARAM
+START_TEST(test_threaded_logging_bad_sched_params)
+{
+	int32_t t;
+	int32_t rc;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(t, "%b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_THREADED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+#if defined(SCHED_RR)
+#define QB_SCHED SCHED_RR
+#elif defined(SCHED_FIFO)
+#define QB_SCHED SCHED_FIFO
+#else
+#define QB_SCHED (-1)
+#endif
+	rc = qb_log_thread_priority_set(QB_SCHED, -1);
+	ck_assert_int_eq(rc, 0);
+
+	rc = qb_log_thread_start();
+	ck_assert_int_ne(rc, 0);
+	qb_log_fini();
+}
+END_TEST
+#endif
+
 START_TEST(test_extended_information)
 {
 	int32_t t;
@@ -857,6 +893,9 @@ log_suite(void)
 	add_tcase(s, tc, test_log_long_msg);
 	add_tcase(s, tc, test_log_filter_fn);
 	add_tcase(s, tc, test_threaded_logging);
+#ifdef HAVE_PTHREAD_SETSCHEDPARAM
+	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
+#endif
 	add_tcase(s, tc, test_extended_information);
 	add_tcase(s, tc, test_zero_tags);
 

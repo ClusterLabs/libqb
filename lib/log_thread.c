@@ -62,9 +62,7 @@ qb_logt_worker_thread(void *data)
 	int dropped = 0;
 	int res;
 
-	/*
-	 * Signal wthread_create that the initialization process may continue
-	 */
+	/* Signal qb_log_thread_start that the initialization may continue */
 	sem_post(&logt_thread_start);
 	for (;;) {
 retry_sem_wait:
@@ -72,9 +70,7 @@ retry_sem_wait:
 		if (res == -1 && errno == EINTR) {
 			goto retry_sem_wait;
 		} else if (res == -1) {
-			/*
-			 * This case shouldn't happen
-			 */
+			/* This case shouldn't happen */
 			pthread_exit(NULL);
 		}
 
@@ -146,6 +142,7 @@ int32_t
 qb_log_thread_start(void)
 {
 	int res;
+	qb_thread_lock_t *wthread_lock;
 
 	if (wthread_active) {
 		return 0;
@@ -154,10 +151,16 @@ qb_log_thread_start(void)
 	wthread_active = QB_TRUE;
 	sem_init(&logt_thread_start, 0, 0);
 	sem_init(&logt_print_finished, 0, 0);
+	errno = 0;
+	logt_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
+	if (logt_wthread_lock == NULL) {
+		return errno ? -errno : -1;
+	}
 	res = pthread_create(&logt_thread_id, NULL,
 			     qb_logt_worker_thread, NULL);
 	if (res != 0) {
 		wthread_active = QB_FALSE;
+		(void)qb_thread_lock_destroy(logt_wthread_lock);
 		return -res;
 	}
 	sem_wait(&logt_thread_start);
@@ -174,10 +177,6 @@ qb_log_thread_start(void)
 		}
 		logt_sched_param_queued = QB_FALSE;
 	}
-	logt_wthread_lock = qb_thread_lock_create(QB_THREAD_LOCK_SHORT);
-	if (logt_wthread_lock == NULL) {
-		goto cleanup_pthread;
-	}
 
 	return 0;
 
@@ -185,6 +184,12 @@ cleanup_pthread:
 	wthread_should_exit = QB_TRUE;
 	sem_post(&logt_print_finished);
 	pthread_join(logt_thread_id, NULL);
+
+	wthread_active = QB_FALSE;
+	wthread_lock = logt_wthread_lock;
+	logt_wthread_lock = NULL;
+	(void)qb_thread_lock_destroy(wthread_lock);
+
 	sem_destroy(&logt_print_finished);
 	sem_destroy(&logt_thread_start);
 
