@@ -217,7 +217,8 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
                 pthread_mutexattr_setpshared \
                 pthread_condattr_setpshared \
 		sem_timedwait semtimedop \
-		getpeerucred getpeereid])
+		getpeerucred getpeereid \
+		openat unlinkat])
 
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
 	       [test "x$ac_cv_func_sem_timedwait" = xyes])
