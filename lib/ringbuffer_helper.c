@@ -306,3 +306,93 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	}
 	return rc;
 }
+
+
+/* For qb_rb_close_helper, we need to open directory in read-only
+   mode and with as lightweight + strict flags as available at
+   given platform (O_PATH for the former, O_DIRECTORY for the
+   latter); end result is available as RB_DIR_RO_FLAGS.
+ */
+#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
+#  ifndef O_DIRECTORY
+#    define RB_DIR_RO_FLAGS1 O_RDONLY
+#  else
+#    define RB_DIR_RO_FLAGS1 O_RDONLY|O_DIRECTORY
+#  endif
+#  ifndef O_PATH
+#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1
+#  else
+#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1|O_PATH
+#  endif
+
+int32_t
+qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
+		   int32_t truncate_fallback)
+{
+	int32_t res = 0, res2 = 0;
+	uint32_t word_size = rb->shared_hdr->word_size;
+	char *hdr_path = rb->shared_hdr->hdr_path;
+
+	if (unlink_it) {
+		qb_util_log(LOG_DEBUG, "Free'ing ringbuffer: %s", hdr_path);
+		if (rb->notifier.destroy_fn) {
+			(void)rb->notifier.destroy_fn(rb->notifier.instance);
+		}
+	} else {
+		qb_util_log(LOG_DEBUG, "Closing ringbuffer: %s", hdr_path);
+		hdr_path = NULL;
+	}
+
+	if (unlink_it) {
+		char *data_path = rb->shared_hdr->data_path;
+		char *sep = strrchr(data_path, '/');
+		/* we could modify data_path in-situ, but that would segfault if
+		   we hadn't write permissions to the underlying mmap'd file */
+		char dir_path[PATH_MAX];
+		int dirfd;
+
+		if (sep != NULL) {
+			strncpy(dir_path, data_path, sep - data_path);
+			dir_path[sep - data_path] = '\0';
+			if ((dirfd = open(dir_path, RB_DIR_RO_FLAGS)) != -1) {
+				res = qb_sys_unlink_or_truncate_at(dirfd, sep + 1,
+								   truncate_fallback);
+
+				/* the dirname part is assumed to be the same */
+				assert(!strncmp(dir_path, hdr_path, sep - data_path));
+
+				sep = hdr_path + (sep - data_path);
+				/* now, don't touch neither data_path nor hdr_path */
+				res2 = qb_sys_unlink_or_truncate_at(dirfd, sep + 1,
+								    truncate_fallback);
+				close(dirfd);
+			} else {
+				res = -errno;
+				qb_util_perror(LOG_DEBUG,
+					       "Cannot open dir: %s", hdr_path);
+			}
+		} else {
+			res = -EINVAL;
+			qb_util_perror(LOG_DEBUG,
+				       "Not dir-separable path: %s", hdr_path);
+		}
+#else
+		res = qb_sys_unlink_or_truncate(data_path, truncate_fallback);
+		res2 = qb_sys_unlink_or_truncate(hdr_path, truncate_fallback);
+#endif  /* defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT) */
+
+		res = res ? res : res2;
+		hdr_path = NULL;
+	}  /* if (unlink_it) */
+
+	if (munmap(rb->shared_data, (word_size * sizeof(uint32_t)) << 1) == -1) {
+		res = res ? res : -errno;
+		qb_util_perror(LOG_DEBUG, "Cannot munmap shared_data");
+	}
+	if (munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s)) == -1) {
+		res = res ? res : -errno;
+		qb_util_perror(LOG_DEBUG, "Cannot munmap shared_hdr");
+	}
+	free(rb);
+	return res;
+}

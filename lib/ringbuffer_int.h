@@ -82,6 +82,16 @@ struct qb_ringbuffer_s {
 
 void qb_rb_force_close(qb_ringbuffer_t * rb);
 
+/**
+ * Helper to munmap, and conditionally unlink the file or possibly truncate it.
+ * @param rb ringbuffer instance.
+ * @param unlink_it whether the underlying files should be unlinked.
+ * @param truncate_fallback whether to truncate the files when unlink fails.
+ * @return 0 (success) or -errno
+ */
+int32_t qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
+			   int32_t truncate_fallback);
+
 qb_ringbuffer_t *qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 			      size_t shared_user_data_size,
 			      struct qb_rb_notifier *notifier);
