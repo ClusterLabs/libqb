@@ -30,26 +30,21 @@
 #include <qb/qbrb.h>
 
 /*
- * utility functions
- * --------------------------------------------------------
- */
-/*
  * client functions
  * --------------------------------------------------------
  */
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
+	void (*rb_destructor)(struct qb_ringbuffer_s *) = c->is_connected
+		? qb_rb_close
+		: qb_rb_force_close;
+
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
-	if (c->is_connected) {
-		qb_rb_close(c->request.u.shm.rb);
-		qb_rb_close(c->response.u.shm.rb);
-		qb_rb_close(c->event.u.shm.rb);
-	} else {
-		qb_rb_force_close(c->request.u.shm.rb);
-		qb_rb_force_close(c->response.u.shm.rb);
-		qb_rb_force_close(c->event.u.shm.rb);
-	}
+
+	rb_destructor(c->request.u.shm.rb);
+	rb_destructor(c->response.u.shm.rb);
+	rb_destructor(c->event.u.shm.rb);
 }
 
 static ssize_t
