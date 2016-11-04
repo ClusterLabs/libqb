@@ -174,7 +174,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
-
 AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
 AC_RUN_IFELSE([AC_LANG_PROGRAM(
 [[#include <time.h>]],
@@ -187,23 +186,9 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM(
                       AC_MSG_RESULT([no])
                     ]
                  )
-AC_MSG_CHECKING(for MSG_NOSIGNAL)
-AC_TRY_COMPILE([#include <sys/socket.h>],
-	       [ int f = MSG_NOSIGNAL; ],
-	       [ AC_MSG_RESULT(yes)
-	         AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
-	         [Define this symbol if you have MSG_NOSIGNAL])],
-	       [ AC_MSG_RESULT(no)])
 
-AC_MSG_CHECKING(for SO_NOSIGPIPE )
-AC_TRY_COMPILE([#include <sys/socket.h>],
-		[ int f = SO_NOSIGPIPE; ],
-		[ AC_MSG_RESULT(yes)
-		  AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
-		  [Define this symbol if you have SO_NOSIGPIPE]) ],
-		[ AC_MSG_RESULT(no)])
 
-# Checks for library functions.
+# Checks for library functions
 AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
@@ -220,6 +205,36 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		getpeerucred getpeereid \
 		openat unlinkat])
 
+
+# Checks for defined macros
+AC_MSG_CHECKING(for MSG_NOSIGNAL)
+AC_TRY_COMPILE([#include <sys/socket.h>],
+	       [ int f = MSG_NOSIGNAL; ],
+	       [ AC_MSG_RESULT(yes)
+	         AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
+	         [Define this symbol if you have MSG_NOSIGNAL])],
+	       [ AC_MSG_RESULT(no)])
+
+AC_MSG_CHECKING(for SO_NOSIGPIPE )
+AC_TRY_COMPILE([#include <sys/socket.h>],
+		[ int f = SO_NOSIGPIPE; ],
+		[ AC_MSG_RESULT(yes)
+		  AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
+		  [Define this symbol if you have SO_NOSIGPIPE]) ],
+		[ AC_MSG_RESULT(no)])
+AC_MSG_CHECKING([for RTLD_NEXT])
+AC_TRY_COMPILE([#ifndef _GNU_SOURCE
+		#define _GNU_SOURCE
+		#endif
+                #include <dlfcn.h>],
+		[ void *h = RTLD_NEXT; ],
+		[ AC_MSG_RESULT([yes])
+		  AC_DEFINE([HAVE_FAILURE_INJECTION], 1,
+			    [have failure injection])
+		  have_RTLD_NEXT=yes ],
+		[ AC_MSG_RESULT([no])])
+
+
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
 	       [test "x$ac_cv_func_sem_timedwait" = xyes])
 AM_CONDITIONAL(HAVE_EPOLL,
@@ -228,6 +243,8 @@ AM_CONDITIONAL(HAVE_POLL,
 	       [test "x$ac_cv_func_poll" = xyes])
 AM_CONDITIONAL(HAVE_KQUEUE,
 	       [test "x$ac_cv_func_kqueue" = xyes])
+AM_CONDITIONAL(HAVE_FAILURE_INJECTION,
+	       [test "x$have_RTLD_NEXT" = xyes])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
 AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
