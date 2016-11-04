@@ -42,9 +42,9 @@ qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 
-	rb_destructor(c->request.u.shm.rb);
-	rb_destructor(c->response.u.shm.rb);
-	rb_destructor(c->event.u.shm.rb);
+	rb_destructor(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
+	rb_destructor(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
+	rb_destructor(qb_rb_lastref_and_ret(&c->event.u.shm.rb));
 }
 
 static ssize_t
@@ -199,10 +199,10 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 	return 0;
 
 cleanup_request_response:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
 
 cleanup_request:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 
 return_error:
 	errno = -res;
@@ -230,16 +230,13 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		if (c->response.u.shm.rb) {
-			qb_rb_close(c->response.u.shm.rb);
-			c->response.u.shm.rb = NULL;
+			qb_rb_close(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
 		}
 		if (c->event.u.shm.rb) {
-			qb_rb_close(c->event.u.shm.rb);
-			c->event.u.shm.rb = NULL;
+			qb_rb_close(qb_rb_lastref_and_ret(&c->event.u.shm.rb));
 		}
 		if (c->request.u.shm.rb) {
-			qb_rb_close(c->request.u.shm.rb);
-			c->request.u.shm.rb = NULL;
+			qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 		}
 	}
 }
@@ -274,7 +271,7 @@ qb_ipcs_shm_rb_open(struct qb_ipcs_connection *c,
 	return res;
 
 cleanup:
-	qb_rb_close(ow->u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&ow->u.shm.rb));
 	return res;
 }
 
@@ -327,13 +324,13 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	return 0;
 
 cleanup_request_response_event:
-	qb_rb_close(c->event.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->event.u.shm.rb));
 
 cleanup_request_response:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
 
 cleanup_request:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 
 cleanup:
 	r->hdr.error = res;

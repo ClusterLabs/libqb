@@ -34,6 +34,7 @@
 #endif
 #include "rpl_sem.h"
 #include "util_int.h"
+#include <qb/qbatomic.h>
 #include <qb/qbutil.h>
 #include <qb/qbrb.h>
 
@@ -94,5 +95,26 @@ union semun {
 	struct seminfo *__buf;
 };
 #endif /* HAVE_SEMUN */
+
+
+/* This function is to be used to "decorate" argument (with an extra
+   reference level added) to qb_rb_{force_,}_close() so as to avoid trivial
+   IPC API misuses such as recv-after-close rather than avoiding races in
+   multi-threaded applications (although it partially helps there, too);
+   it's debatable whether that should be fixed at higher level in ipc[cs].c */
+static inline struct qb_ringbuffer_s *
+qb_rb_lastref_and_ret(struct qb_ringbuffer_s ** rb)
+{
+	struct qb_ringbuffer_s *rb_res = *rb;
+
+	if (rb_res == NULL) {
+		return NULL;
+	}
+	*rb = NULL;
+	/* qb_rb_close will get rid of this "last reference" */
+	qb_atomic_int_set(&rb_res->shared_hdr->ref_count, 1);
+
+	return rb_res;
+}
 
 #endif /* _RINGBUFFER_H_ */
