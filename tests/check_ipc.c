@@ -33,6 +33,10 @@
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
 
+#ifdef HAVE_FAILURE_INJECTION
+#include "_failure_injection.h"
+#endif
+
 static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
@@ -1327,8 +1331,14 @@ test_ipc_server_fail(void)
 	fail_if(conn == NULL);
 
 	request_server_exit();
+	if (_fi_unlink_inject_failure == QB_TRUE) {
+		_fi_truncate_called = _fi_openat_called = 0;
+	}
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
 	qb_ipcc_disconnect(conn);
+	if (_fi_unlink_inject_failure == QB_TRUE) {
+		ck_assert_int_ne(_fi_truncate_called + _fi_openat_called, 0);
+	}
 	verify_graceful_stop(pid);
 }
 
@@ -1403,6 +1413,20 @@ START_TEST(test_ipc_server_fail_shm)
 	qb_leave();
 }
 END_TEST
+
+#ifdef HAVE_FAILURE_INJECTION
+START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
+{
+	qb_enter();
+	_fi_unlink_inject_failure = QB_TRUE;
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	test_ipc_server_fail();
+	_fi_unlink_inject_failure = QB_FALSE;
+	qb_leave();
+}
+END_TEST
+#endif
 
 static void
 test_ipc_service_ref_count(void)
@@ -1504,6 +1528,10 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipc_event_on_created_shm, 10);
 	add_tcase(s, tc, test_ipc_service_ref_count_shm, 10);
 	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600);
+
+#ifdef HAVE_FAILURE_INJECTION
+	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
+#endif
 
 	return s;
 }

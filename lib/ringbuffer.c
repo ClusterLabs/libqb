@@ -290,22 +290,7 @@ qb_rb_close(struct qb_ringbuffer_s * rb)
 	qb_enter();
 
 	(void)qb_atomic_int_dec_and_test(&rb->shared_hdr->ref_count);
-	if (rb->flags & QB_RB_FLAG_CREATE) {
-		if (rb->notifier.destroy_fn) {
-			(void)rb->notifier.destroy_fn(rb->notifier.instance);
-		}
-		unlink(rb->shared_hdr->data_path);
-		unlink(rb->shared_hdr->hdr_path);
-		qb_util_log(LOG_DEBUG,
-			    "Free'ing ringbuffer: %s",
-			    rb->shared_hdr->hdr_path);
-	} else {
-		qb_util_log(LOG_DEBUG,
-			    "Closing ringbuffer: %s", rb->shared_hdr->hdr_path);
-	}
-	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
-	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
-	free(rb);
+	(void)qb_rb_close_helper(rb, rb->flags & QB_RB_FLAG_CREATE, QB_FALSE);
 }
 
 void
@@ -316,24 +301,8 @@ qb_rb_force_close(struct qb_ringbuffer_s * rb)
 	}
 	qb_enter();
 
-	if (rb->notifier.destroy_fn) {
-		(void)rb->notifier.destroy_fn(rb->notifier.instance);
-	}
-
-        errno = 0;
-	unlink(rb->shared_hdr->data_path);
-	qb_util_perror(LOG_DEBUG,
-		    "Force free'ing ringbuffer: %s",
-		    rb->shared_hdr->data_path);
-
-        errno = 0;
-	unlink(rb->shared_hdr->hdr_path);
-	qb_util_perror(LOG_DEBUG,
-		    "Force free'ing ringbuffer: %s",
-		    rb->shared_hdr->hdr_path);
-	munmap(rb->shared_data, (rb->shared_hdr->word_size * sizeof(uint32_t)) << 1);
-	munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
-	free(rb);
+	qb_atomic_int_set(&rb->shared_hdr->ref_count, -1);
+	(void)qb_rb_close_helper(rb, QB_TRUE, QB_TRUE);
 }
 
 char *
