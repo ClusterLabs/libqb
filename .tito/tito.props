@@ -1,0 +1,11 @@
+[buildconfig]
+builder = custom.NativeFetchBuilder
+tagger = tito.tagger.VersionTagger
+lib_dir = .tito
+
+[builder]
+fetch_prep_command = $(test $(id -u) -eq 0 || echo :) \
+                        && $(which dnf && echo dnf || echo yum) install -y \
+                           autoconf automake libtool \
+                     && ./autogen.sh && ./configure \
+                     && make libqb.spec dist-xz
