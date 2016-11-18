@@ -107,9 +107,9 @@ TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.
 
 resources.log: rb.log log.log ipc.log
 
-check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
-check_SCRIPTS = resources.test blackbox-segfault.sh
 check_LTLIBRARIES =
+check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
+dist_check_SCRIPTS = resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
 TESTS += util.test
