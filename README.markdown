@@ -10,6 +10,7 @@ focused APIs that are highly tuned for maximum performance for client-server
 applications.
 
 [![Build Status](https://travis-ci.org/ClusterLabs/libqb.png)](https://travis-ci.org/ClusterLabs/libqb)
+[![COPR Build Status](https://copr.fedorainfracloud.org/coprs/g/ClusterLabs/devel/package/libqb/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/g/ClusterLabs/devel/package/libqb/)
 
 ## For more information, see:
 * [libqb wiki](https://github.com/clusterlabs/libqb/wiki)
