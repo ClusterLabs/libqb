@@ -52,7 +52,7 @@ loop_LDADD = $(top_builddir)/lib/libqb.la
 inc_dir = $(top_srcdir)/include/qb
 public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
 	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
-	| ${MAKE} --no-print-directory -f- inst_HEADERS.var \
+	| MAKEFLAGS= ${MAKE} --no-print-directory -f- inst_HEADERS.var \
 	|| echo $(inc_dir)/qb*.h*))))
 auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
 CLEANFILES += $(auto_c_files)
@@ -107,9 +107,9 @@ TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.
 
 resources.log: rb.log log.log ipc.log
 
-check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
-check_SCRIPTS = resources.test blackbox-segfault.sh
 check_LTLIBRARIES =
+check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
+dist_check_SCRIPTS = resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
 TESTS += util.test
