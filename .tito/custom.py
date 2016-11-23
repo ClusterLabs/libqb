@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 # Author: Jan Pokorny <jpokorny@redhat.com>
-# (using src/tito/builder from the tito project as a template)
+# (using src/tito/builder/fetch.py from the tito project as a template)
 #
 # libqb is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -70,10 +70,3 @@ class NativeFetchBuilder(FetchBuilder):
             dest_filepath = join(self.rpmbuild_sourcedir, base_name)
             copyfile(s, dest_filepath)
             self.sources.append(dest_filepath)
-
-    def _get_rpmbuild_dir_options(self):
-        return ('--define "_topdir %s" --define "_sourcedir %s" --define "_builddir %s" '
-            '--define "_srcrpmdir %s" --define "_rpmdir %s" ' % (
-                self.rpmbuild_dir,
-                self.rpmbuild_sourcedir, self.rpmbuild_builddir,
-                self.rpmbuild_basedir, self.rpmbuild_basedir))
