@@ -1,3 +1,4 @@
+sudo: false
 language: c
 compiler:
         - gcc
@@ -10,12 +11,18 @@ addons:
                         # for "make rpm"
                         - doxygen
                         - rpm
+
 script: RPMBUILDOPTS_="--nodeps --define '_without_check 1'";
         ./autogen.sh
         && ./configure
         && DISTCHECK_CONFIGURE_FLAGS=--enable-syslog-tests VERBOSE=1 make distcheck
         && sed "s|RPMBUILDOPTS =|\\0 ${RPMBUILDOPTS_}|" Makefile | make -f- rpm
-sudo: false
+
+after_failure:
+        # keep an eye on issue #234 if it recidivates
+        - for f in $(ls -1 /dev/shm/qb-test*); do ls -l "$f"; lsof -- "$f"; done
+        - mount | grep shm
+        - dh -h | grep shm
 
 notifications:
         irc: "irc.freenode.net#clusterlabs-dev"
