@@ -255,6 +255,55 @@ qb_sys_fd_nonblock_cloexec_set(int32_t fd)
 	return res;
 }
 
+int32_t
+qb_sys_unlink_or_truncate(const char *path, int32_t truncate_fallback)
+{
+	int32_t res = 0;
+
+	if (unlink(path) == -1) {
+		res = errno;
+		qb_util_perror(LOG_DEBUG,
+			       "Unlinking file: %s",
+			       path);
+		if (res != ENOENT && truncate_fallback) {
+			res = errno = 0;
+			if (truncate(path, 0) == -1) {
+				res = errno;
+				qb_util_perror(LOG_DEBUG,
+					       "Truncating file: %s", path);
+			}
+		}
+	}
+	return -res;
+}
+
+#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
+int32_t
+qb_sys_unlink_or_truncate_at(int32_t dirfd, const char *path,
+			     int32_t truncate_fallback)
+{
+	int32_t fd, res = 0;
+
+	if (unlinkat(dirfd, path, 0) == -1) {
+		res = errno;
+		qb_util_perror(LOG_DEBUG,
+			       "Unlinking file at dir: %s", path);
+		if (res != ENOENT && truncate_fallback) {
+			res = errno = 0;
+			if ((fd = openat(dirfd, path, O_WRONLY|O_TRUNC)) == -1) {
+				res = errno;
+				qb_util_perror(LOG_DEBUG,
+					       "Truncating file at dir: %s",
+					       path);
+			} else {
+				close(fd);
+			}
+		}
+	}
+	return -res;
+}
+#endif
+
 void
 qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
 {

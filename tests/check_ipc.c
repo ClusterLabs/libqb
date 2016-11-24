@@ -24,7 +24,8 @@
 #include "os_base.h"
 #include <sys/wait.h>
 #include <signal.h>
-#include <check.h>
+
+#include "check_common.h"
 
 #include <qb/qbdefs.h>
 #include <qb/qblog.h>
@@ -32,9 +33,14 @@
 #include <qb/qbipcs.h>
 #include <qb/qbloop.h>
 
+#ifdef HAVE_FAILURE_INJECTION
+#include "_failure_injection.h"
+#endif
+
 static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
+#ifndef __clang__
 static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
 
 #define DGRAM_MAX_MSG_SIZE \
@@ -43,6 +49,14 @@ static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
 	CALCULATED_DGRAM_MAX_MSG_SIZE)
 
 #define MAX_MSG_SIZE (ipc_type == QB_IPC_SOCKET ? DGRAM_MAX_MSG_SIZE : DEFAULT_MAX_MSG_SIZE)
+
+#else
+/* because of clang's
+   'variable length array in structure' extension will never be supported;
+   assign default for SHM as we'll skip test that would use run-time
+   established value (via qb_ipcc_verify_dgram_max_msg_size), anyway */
+static const int MAX_MSG_SIZE = DEFAULT_MAX_MSG_SIZE;
+#endif
 
 /* The size the giant msg's data field needs to be to make
  * this the largests msg we can successfully send. */
@@ -69,7 +83,7 @@ enum my_msg_ids {
 
 /* Test Cases
  *
- * 1) basic send & recv differnet message sizes
+ * 1) basic send & recv different message sizes
  *
  * 2) send message to start dispatch (confirm receipt)
  *
@@ -81,7 +95,7 @@ enum my_msg_ids {
  *
  * 6) cleanup
  *
- * 7) service availabilty
+ * 7) service availability
  *
  * 8) multiple services
  */
@@ -298,7 +312,7 @@ outq_flush (void *data)
 		qb_ipcs_destroy(s1);
 		s1 = NULL;
 	}
-	/* is the reference counting is not working, this should fail
+	/* if the reference counting is not working, this should fail
 	 * for i > 1.
 	 */
 	qb_ipcs_event_send(data, "test", 4);
@@ -390,8 +404,6 @@ run_ipc_server(void)
 	};
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGSTOP,
-			   NULL, exit_handler, &handle);
 	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
 			   NULL, exit_handler, &handle);
 
@@ -877,7 +889,7 @@ test_ipc_dispatch(void)
 	verify_graceful_stop(pid);
 }
 
-START_TEST(test_ipc_disp_us)
+START_TEST(test_ipc_dispatch_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
@@ -1143,6 +1155,7 @@ test_ipc_stress_test(void)
 	verify_graceful_stop(pid);
 }
 
+#ifndef __clang__ /* see variable length array in structure' at the top */
 START_TEST(test_ipc_stress_test_us)
 {
 	qb_enter();
@@ -1153,6 +1166,7 @@ START_TEST(test_ipc_stress_test_us)
 	qb_leave();
 }
 END_TEST
+#endif
 
 START_TEST(test_ipc_stress_connections_us)
 {
@@ -1317,8 +1331,14 @@ test_ipc_server_fail(void)
 	fail_if(conn == NULL);
 
 	request_server_exit();
+	if (_fi_unlink_inject_failure == QB_TRUE) {
+		_fi_truncate_called = _fi_openat_called = 0;
+	}
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
 	qb_ipcc_disconnect(conn);
+	if (_fi_unlink_inject_failure == QB_TRUE) {
+		ck_assert_int_ne(_fi_truncate_called + _fi_openat_called, 0);
+	}
 	verify_graceful_stop(pid);
 }
 
@@ -1332,7 +1352,7 @@ START_TEST(test_ipc_server_fail_soc)
 }
 END_TEST
 
-START_TEST(test_ipc_disp_shm)
+START_TEST(test_ipc_dispatch_shm)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
@@ -1393,6 +1413,20 @@ START_TEST(test_ipc_server_fail_shm)
 	qb_leave();
 }
 END_TEST
+
+#ifdef HAVE_FAILURE_INJECTION
+START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
+{
+	qb_enter();
+	_fi_unlink_inject_failure = QB_TRUE;
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	test_ipc_server_fail();
+	_fi_unlink_inject_failure = QB_FALSE;
+	qb_leave();
+}
+END_TEST
+#endif
 
 static void
 test_ipc_service_ref_count(void)
@@ -1482,65 +1516,22 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
-	tc = tcase_create("ipc_txrx_shm_timeout");
-	tcase_add_test(tc, test_ipc_txrx_shm_timeout);
-	tcase_set_timeout(tc, 30);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 30);
+	add_tcase(s, tc, test_ipc_server_fail_shm, 8);
+	add_tcase(s, tc, test_ipc_txrx_shm_block, 8);
+	add_tcase(s, tc, test_ipc_txrx_shm_tmo, 8);
+	add_tcase(s, tc, test_ipc_fc_shm, 8);
+	add_tcase(s, tc, test_ipc_dispatch_shm, 16);
+	add_tcase(s, tc, test_ipc_stress_test_shm, 16);
+	add_tcase(s, tc, test_ipc_bulk_events_shm, 16);
+	add_tcase(s, tc, test_ipc_exit_shm, 8);
+	add_tcase(s, tc, test_ipc_event_on_created_shm, 10);
+	add_tcase(s, tc, test_ipc_service_ref_count_shm, 10);
+	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600);
 
-	tc = tcase_create("ipc_server_fail_shm");
-	tcase_add_test(tc, test_ipc_server_fail_shm);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_shm_block");
-	tcase_add_test(tc, test_ipc_txrx_shm_block);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_shm_tmo");
-	tcase_add_test(tc, test_ipc_txrx_shm_tmo);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_fc_shm");
-	tcase_add_test(tc, test_ipc_fc_shm);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_dispatch_shm");
-	tcase_add_test(tc, test_ipc_disp_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_test_shm");
-	tcase_add_test(tc, test_ipc_stress_test_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_bulk_events_shm");
-	tcase_add_test(tc, test_ipc_bulk_events_shm);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_exit_shm");
-	tcase_add_test(tc, test_ipc_exit_shm);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_event_on_created_shm");
-	tcase_add_test(tc, test_ipc_event_on_created_shm);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_service_ref_count_shm");
-	tcase_add_test(tc, test_ipc_service_ref_count_shm);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_connections_shm");
-	tcase_add_test(tc, test_ipc_stress_connections_shm);
-	tcase_set_timeout(tc, 3600);
-	suite_add_tcase(s, tc);
+#ifdef HAVE_FAILURE_INJECTION
+	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
+#endif
 
 	return s;
 }
@@ -1551,75 +1542,22 @@ make_soc_suite(void)
 	Suite *s = suite_create("socket");
 	TCase *tc;
 
-	tc = tcase_create("ipc_txrx_us_timeout");
-	tcase_add_test(tc, test_ipc_txrx_us_timeout);
-	tcase_set_timeout(tc, 30);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_max_dgram_size");
-	tcase_add_test(tc, test_ipc_max_dgram_size);
-	tcase_set_timeout(tc, 30);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_server_fail_soc");
-	tcase_add_test(tc, test_ipc_server_fail_soc);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_us_block");
-	tcase_add_test(tc, test_ipc_txrx_us_block);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_txrx_us_tmo");
-	tcase_add_test(tc, test_ipc_txrx_us_tmo);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_fc_us");
-	tcase_add_test(tc, test_ipc_fc_us);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_exit_us");
-	tcase_add_test(tc, test_ipc_exit_us);
-	tcase_set_timeout(tc, 8);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_dispatch_us");
-	tcase_add_test(tc, test_ipc_disp_us);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_test_us");
-	tcase_add_test(tc, test_ipc_stress_test_us);
-	tcase_set_timeout(tc, 60);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_bulk_events_us");
-	tcase_add_test(tc, test_ipc_bulk_events_us);
-	tcase_set_timeout(tc, 16);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_event_on_created_us");
-	tcase_add_test(tc, test_ipc_event_on_created_us);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_disconnect_after_created_us");
-	tcase_add_test(tc, test_ipc_disconnect_after_created_us);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_service_ref_count_us");
-	tcase_add_test(tc, test_ipc_service_ref_count_us);
-	tcase_set_timeout(tc, 10);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("ipc_stress_connections_us");
-	tcase_add_test(tc, test_ipc_stress_connections_us);
-	tcase_set_timeout(tc, 3600);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_ipc_txrx_us_timeout, 30);
+	add_tcase(s, tc, test_ipc_max_dgram_size, 30);
+	add_tcase(s, tc, test_ipc_server_fail_soc, 8);
+	add_tcase(s, tc, test_ipc_txrx_us_block, 8);
+	add_tcase(s, tc, test_ipc_txrx_us_tmo, 8);
+	add_tcase(s, tc, test_ipc_fc_us, 8);
+	add_tcase(s, tc, test_ipc_exit_us, 8);
+	add_tcase(s, tc, test_ipc_dispatch_us, 16);
+#ifndef __clang__ /* see variable length array in structure' at the top */
+	add_tcase(s, tc, test_ipc_stress_test_us, 60);
+#endif
+	add_tcase(s, tc, test_ipc_bulk_events_us, 16);
+	add_tcase(s, tc, test_ipc_event_on_created_us, 10);
+	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 10);
+	add_tcase(s, tc, test_ipc_service_ref_count_us, 10);
+	add_tcase(s, tc, test_ipc_stress_connections_us, 3600);
 
 	return s;
 }

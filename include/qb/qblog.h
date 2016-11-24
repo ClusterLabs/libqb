@@ -138,7 +138,7 @@ extern "C" {
  * @par Thread safe non-blocking logging.
  * Logging is only thread safe when threaded logging is in use. If you plan
  * on logging from multiple threads, you must initialize libqb's logger thread
- * and use qg_log_filter_ctl to set the QB_LOG_CONF_THREADED flag on all the
+ * and use qb_log_filter_ctl to set the QB_LOG_CONF_THREADED flag on all the
  * logging targets in use.
  *
  * To achieve non-blocking logging, so that any calls to write() or syslog()
@@ -253,14 +253,26 @@ struct qb_log_callsite {
 
 typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 
-/* will be assigned by ld linker magic */
+/* will be assigned by linker magic (assuming linker supports that):
+ * https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
+ */
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
-extern struct qb_log_callsite __start___verbose[];
-extern struct qb_log_callsite __stop___verbose[];
 
-#define QB_LOG_INIT_DATA(name)						\
-    void name(void);							\
-    void name(void) { if (__start___verbose != __stop___verbose) {assert(1);} }	\
+#define QB_ATTR_SECTION			__verbose  /* conforms to C ident. */
+#define QB_ATTR_SECTION_STR		QB_PP_STRINGIFY(QB_ATTR_SECTION)
+#define QB_ATTR_SECTION_START		QB_PP_JOIN(__start_, QB_ATTR_SECTION)
+#define QB_ATTR_SECTION_STOP		QB_PP_JOIN(__stop_, QB_ATTR_SECTION)
+#define QB_ATTR_SECTION_START_STR	QB_PP_STRINGIFY(QB_ATTR_SECTION_START)
+#define QB_ATTR_SECTION_STOP_STR	QB_PP_STRINGIFY(QB_ATTR_SECTION_STOP)
+
+extern struct qb_log_callsite QB_ATTR_SECTION_START[];
+extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
+
+/* mere linker sanity check, possible future extension for internal purposes */
+#define QB_LOG_INIT_DATA(name)							\
+    void name(void);								\
+    void name(void) 								\
+    { if (QB_ATTR_SECTION_START == QB_ATTR_SECTION_STOP) assert(0); }	\
     void __attribute__ ((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
@@ -345,7 +357,7 @@ void qb_log_from_external_source_va(const char *function,
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 #define qb_logt(priority, tags, fmt, args...) do {			\
 	static struct qb_log_callsite descriptor			\
-	__attribute__((section("__verbose"), aligned(8))) =		\
+	__attribute__((section(QB_ATTR_SECTION_STR), aligned(8))) =	\
 	{ __func__, __FILE__, fmt, priority, __LINE__, 0, tags };	\
 	qb_log_real_(&descriptor, ##args);				\
     } while(0)
@@ -506,8 +518,8 @@ void qb_log_fini(void);
  * you will need to do the following to get the filters to work
  * in that module:
  * @code
- * 	_start = dlsym (dl_handle, "__start___verbose");
- *	_stop = dlsym (dl_handle, "__stop___verbose");
+ * 	_start = dlsym (dl_handle, QB_ATTR_SECTION_START_STR);
+ *	_stop = dlsym (dl_handle, QB_ATTR_SECTION_STOP_STR);
  *	qb_log_callsites_register(_start, _stop);
  * @endcode
  */

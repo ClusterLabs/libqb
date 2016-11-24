@@ -23,7 +23,8 @@
 
 #include "os_base.h"
 #include <pthread.h>
-#include <check.h>
+
+#include "check_common.h"
 
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
@@ -84,6 +85,14 @@ START_TEST(test_va_serialize)
 
 	format_this(buf, "f1:%.5f, f2:%.2f", 23.34109, 23.34109);
 	ck_assert_str_eq(buf, "f1:23.34109, f2:23.34");
+
+	format_this(buf, "%zd", (size_t)13140964);
+	ck_assert_str_eq(buf, "13140964");
+	format_this(buf, "%jd", (intmax_t)30627823);
+	ck_assert_str_eq(buf, "30627823");
+	format_this(buf, "%td", buf-cmp_buf);
+	snprintf(cmp_buf, QB_LOG_MAX_LEN, "%td", buf-cmp_buf);
+	ck_assert_str_eq(buf, cmp_buf);
 
 	format_this(buf, ":%s:", "Hello, world!");
 	ck_assert_str_eq(buf, ":Hello, world!:");
@@ -717,6 +726,42 @@ START_TEST(test_threaded_logging)
 }
 END_TEST
 
+#ifdef HAVE_PTHREAD_SETSCHEDPARAM
+START_TEST(test_threaded_logging_bad_sched_params)
+{
+	int32_t t;
+	int32_t rc;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(t, "%b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_THREADED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+#if defined(SCHED_RR)
+#define QB_SCHED SCHED_RR
+#elif defined(SCHED_FIFO)
+#define QB_SCHED SCHED_FIFO
+#else
+#define QB_SCHED (-1)
+#endif
+	rc = qb_log_thread_priority_set(QB_SCHED, -1);
+	ck_assert_int_eq(rc, 0);
+
+	rc = qb_log_thread_start();
+	ck_assert_int_ne(rc, 0);
+	qb_log_fini();
+}
+END_TEST
+#endif
+
 START_TEST(test_extended_information)
 {
 	int32_t t;
@@ -774,6 +819,46 @@ START_TEST(test_extended_information)
 }
 END_TEST
 
+static const char *tagtest_stringify_tag(uint32_t tag)
+{
+	static char buf[32];
+	sprintf(buf, "%5d", tag);
+	return buf;
+}
+
+START_TEST(test_zero_tags)
+{
+	int32_t rc;
+	int32_t t;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log_format_set(t, "[%g] %b");
+	qb_log_tags_stringify_fn_set(tagtest_stringify_tag);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+
+	qb_log_from_external_source("function", "filename", "%s: %d", LOG_DEBUG, 356, 2, "testlog", 2);
+	ck_assert_str_eq(test_buf, "[    2] testlog: 2");
+
+	qb_log_from_external_source("function", "filename", "%s: %d", LOG_DEBUG, 356, 0, "testlog", 0);
+	ck_assert_str_eq(test_buf, "[    2] testlog: 0");
+
+	qb_log_fini();
+
+
+}
+END_TEST
+
 #ifdef HAVE_SYSLOG_TESTS
 START_TEST(test_syslog)
 {
@@ -799,51 +884,23 @@ log_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("logging");
 
-	tc = tcase_create("va_serialize");
-	tcase_add_test(tc, test_va_serialize);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("limits");
-	tcase_add_test(tc, test_log_stupid_inputs);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("basic");
-	tcase_add_test(tc, test_log_basic);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("format");
-	tcase_add_test(tc, test_log_format);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("enable");
-	tcase_add_test(tc, test_log_enable);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("threads");
-	tcase_add_test(tc, test_log_threads);
-	tcase_set_timeout(tc, 360);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("long_msg");
-	tcase_add_test(tc, test_log_long_msg);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("filter_ft");
-	tcase_add_test(tc, test_log_filter_fn);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("threaded_logging");
-	tcase_add_test(tc, test_threaded_logging);
-	suite_add_tcase(s, tc);
-
-	tc = tcase_create("extended_information");
-	tcase_add_test(tc, test_extended_information);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_va_serialize);
+	add_tcase(s, tc, test_log_stupid_inputs);
+	add_tcase(s, tc, test_log_basic);
+	add_tcase(s, tc, test_log_format);
+	add_tcase(s, tc, test_log_enable);
+	add_tcase(s, tc, test_log_threads, 360);
+	add_tcase(s, tc, test_log_long_msg);
+	add_tcase(s, tc, test_log_filter_fn);
+	add_tcase(s, tc, test_threaded_logging);
+#ifdef HAVE_PTHREAD_SETSCHEDPARAM
+	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
+#endif
+	add_tcase(s, tc, test_extended_information);
+	add_tcase(s, tc, test_zero_tags);
 
 #ifdef HAVE_SYSLOG_TESTS
-	tc = tcase_create("syslog");
-	tcase_add_test(tc, test_syslog);
-	suite_add_tcase(s, tc);
+	add_tcase(s, tc, test_syslog);
 #endif
 
 	return s;

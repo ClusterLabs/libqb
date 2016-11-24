@@ -60,16 +60,20 @@ $(SPEC): $(SPEC).in
 	@rm -f $@-t $@
 	@date="$(shell LC_ALL=C date "+%a %b %d %Y")" && \
 	if [ -f .tarball-version ]; then \
-		gitver="$(shell cat .tarball-version)" && \
+		ver="$(shell cat .tarball-version)" && \
+		gitver=`echo $$ver | sed \
+			-e 's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$$|\1.0\2|'` && \
 		rpmver=$$gitver && \
 		alphatag="" && \
 		dirty="" && \
 		numcomm="0"; \
 	else \
-		gitver="$(shell git describe --abbrev=4 --match='v*' --tags HEAD 2>/dev/null)" && \
+		ver="$(shell git describe --abbrev=4 --match='v*' --tags HEAD 2>/dev/null)" && \
+		gitver=`echo $$ver | sed \
+			-e 's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$$|\1.0\2|'` && \
 		rpmver=`echo $$gitver | sed -e "s/^v//" -e "s/-.*//g"` && \
 		alphatag=`echo $$gitver | sed -e "s/.*-//" -e "s/^g//"` && \
-		vtag=`echo $$gitver | sed -e "s/-.*//g"` && \
+		vtag=`echo $$ver | sed -e "s/-.*//g"` && \
 		numcomm=`git rev-list $$vtag..HEAD | wc -l` && \
 		git update-index --refresh > /dev/null 2>&1 || true && \
 		dirty=`git diff-index --name-only HEAD 2>/dev/null`; \

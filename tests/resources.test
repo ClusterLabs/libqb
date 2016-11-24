@@ -1,20 +1,30 @@
 #!/bin/sh
 RETURN=0
 
-for d in /dev/shm /var/run
-do
-	ls $d/qb-test* 2>/dev/null
-	if [ $? -eq 0 ]
-	then
+for d in /dev/shm /var/run; do
+	leftovers=$(find $d -name qb-test* -size +0c 2>/dev/null | wc -l)
+	if [ "${leftovers}" -gt 0 ]; then
 		echo
 		echo "Error: shared memory segments not closed/unlinked"
 		echo
 		RETURN=1
 	fi
+	leftovers="$(find $d -name qb-test* -size 0c 2>/dev/null)"
+	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq 6 ]; then
+		echo
+		echo "There were some empty leftovers (expected), removing them"
+		echo "${leftovers}" | tee /dev/stderr | xargs rm
+		echo
+	elif [ -n "${leftovers}" ]; then
+		echo
+		echo "Error: unexpected number of empty leftovers"
+		echo "${leftovers}"
+		echo
+		RETURN=1
+	fi
 done
-ps aux | grep -v grep | grep lt-check
-if [ $? -eq 0 ]
-then
+ps aux | grep -v grep | grep -E 'lt-.*\.test'
+if [ $? -eq 0 ]; then
 	echo "test program frozen"
 	RETURN=1
 fi

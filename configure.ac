@@ -3,8 +3,10 @@
 
 AC_PREREQ([2.61])
 
+dnl inject zero as a "patch" component of the version if missing in tag
 AC_INIT([libqb],
-	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
+	m4_esyscmd([build-aux/git-version-gen .tarball-version \
+		    's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$|\1.0\2|']),
 	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
@@ -172,7 +174,39 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
+AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
+AC_RUN_IFELSE([AC_LANG_PROGRAM(
+[[#include <time.h>]],
+[[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
+                    [
+                      AC_MSG_RESULT([yes])
+                      AC_DEFINE_UNQUOTED([HAVE_CLOCK_GETRES_MONOTONIC], 1, [Define to 1 if clock_getres(CLOCK_MONOTONIC, &ts) works])
+                    ],
+                    [
+                      AC_MSG_RESULT([no])
+                    ]
+                 )
 
+
+# Checks for library functions
+AC_FUNC_CHOWN
+AC_FUNC_FORK
+AC_FUNC_MMAP
+AC_FUNC_STRERROR_R
+AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
+		localtime localtime_r memset munmap socket \
+		strchr strrchr strdup strstr strcasecmp \
+		poll epoll_create epoll_create1 kqueue \
+		random rand getrlimit sysconf \
+		pthread_spin_lock pthread_setschedparam \
+                pthread_mutexattr_setpshared \
+                pthread_condattr_setpshared \
+		sem_timedwait semtimedop \
+		getpeerucred getpeereid \
+		openat unlinkat])
+
+
+# Checks for defined macros
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
 AC_TRY_COMPILE([#include <sys/socket.h>],
 	       [ int f = MSG_NOSIGNAL; ],
@@ -188,23 +222,18 @@ AC_TRY_COMPILE([#include <sys/socket.h>],
 		  AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
 		  [Define this symbol if you have SO_NOSIGPIPE]) ],
 		[ AC_MSG_RESULT(no)])
+AC_MSG_CHECKING([for RTLD_NEXT])
+AC_TRY_COMPILE([#ifndef _GNU_SOURCE
+		#define _GNU_SOURCE
+		#endif
+                #include <dlfcn.h>],
+		[ void *h = RTLD_NEXT; ],
+		[ AC_MSG_RESULT([yes])
+		  AC_DEFINE([HAVE_FAILURE_INJECTION], 1,
+			    [have failure injection])
+		  have_RTLD_NEXT=yes ],
+		[ AC_MSG_RESULT([no])])
 
-# Checks for library functions.
-AC_FUNC_CHOWN
-AC_FUNC_FORK
-AC_FUNC_MMAP
-AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
-		localtime localtime_r memset munmap socket \
-		strchr strrchr strdup strstr strcasecmp \
-		poll epoll_create epoll_create1 kqueue \
-		random rand getrlimit sysconf \
-		pthread_spin_lock pthread_setschedparam \
-                pthread_mutexattr_setpshared \
-                pthread_condattr_setpshared \
-		sem_timedwait semtimedop \
-		sched_get_priority_max sched_setscheduler \
-		getpeerucred getpeereid])
 
 AM_CONDITIONAL(HAVE_SEM_TIMEDWAIT,
 	       [test "x$ac_cv_func_sem_timedwait" = xyes])
@@ -214,6 +243,8 @@ AM_CONDITIONAL(HAVE_POLL,
 	       [test "x$ac_cv_func_poll" = xyes])
 AM_CONDITIONAL(HAVE_KQUEUE,
 	       [test "x$ac_cv_func_kqueue" = xyes])
+AM_CONDITIONAL(HAVE_FAILURE_INJECTION,
+	       [test "x$have_RTLD_NEXT" = xyes])
 
 AC_CONFIG_LIBOBJ_DIR(lib)
 AC_REPLACE_FUNCS(strlcpy strlcat strchrnul)
@@ -334,6 +365,11 @@ case "$host_os" in
 				   [Compiling for Solaris platform])
 		CP=rsync
 		AC_MSG_RESULT([Solaris])
+	;;
+	*gnu*)
+		AC_DEFINE_UNQUOTED([QB_GNU], [1],
+				   [Compiling for GNU/Hurd platform])
+		AC_MSG_RESULT([GNU])
 	;;
 	*)
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
@@ -549,10 +585,12 @@ AC_SUBST(HAVE_SYSLOG_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
-	AC_MSG_CHECKING([whether GCC supports __attribute__((section())])
+	AC_MSG_CHECKING([whether GCC supports __attribute__((section()) + ld supports orphan sections])
 	if test "x${ac_cv_link_attribute_section}" = x ; then
-		AC_TRY_LINK([],
+		AC_TRY_LINK([#include <assert.h>
+			     extern void * __start___verbose, * __stop___verbose;],
 			    [static int my_var __attribute__((section("__verbose"))) = 5;
+			     if (__start___verbose == __stop___verbose) assert(0);
 			     if (my_var == 5) return 0;
 			     else return -1;
 			     ],
@@ -609,6 +647,28 @@ AC_SUBST([LINT_FLAGS])
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
+
+# version parsing (for qbconfig.h)
+AC_DEFINE_UNQUOTED([QB_VER_MAJOR],
+                   [$(echo "${VERSION}" \
+		      | sed -e 's|^\([[0-9]][[0-9]]*\).*|\1|' \
+		            -e t -e 's|.*|1|')],
+		   [libqb major version])
+AC_DEFINE_UNQUOTED([QB_VER_MINOR],
+                   [$(echo "${VERSION}" \
+		      | sed -e 's|^[[0-9]][[0-9]]*\.\([[0-9]][[0-9]]*\).*|\1|' \
+		            -e t -e 's|.*|0|')],
+		   [libqb minor version])
+AC_DEFINE_UNQUOTED([QB_VER_MICRO],
+	           [$(echo "${VERSION}" \
+		      | sed -e 's|^[[0-9]][[0-9]]*\.[[0-9]][[0-9]]*\.\([[0-9]][[0-9]]*\).*|\1|' \
+		            -e t -e 's|.*|0|')],
+		   [libqb patch version])
+AC_DEFINE_UNQUOTED([QB_VER_REST],
+	           [$(echo "${VERSION}" \
+		      | sed -e 's|^[[0-9]][[0-9]]*\(\.[[0-9]][[0-9]]*\)\{0,2\}\(.*\)|"\2"|' \
+		            -e t -e 's|.*|""|')],
+		   [libqb patch version])
 
 AC_CONFIG_FILES([Makefile
 		 include/Makefile

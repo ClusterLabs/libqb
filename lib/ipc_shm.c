@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+#include <poll.h>
 
 #include "ipc_int.h"
 #include "util_int.h"
@@ -29,26 +30,21 @@
 #include <qb/qbrb.h>
 
 /*
- * utility functions
- * --------------------------------------------------------
- */
-/*
  * client functions
  * --------------------------------------------------------
  */
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
+	void (*rb_destructor)(struct qb_ringbuffer_s *) = c->is_connected
+		? qb_rb_close
+		: qb_rb_force_close;
+
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
-	if (c->is_connected) {
-		qb_rb_close(c->request.u.shm.rb);
-		qb_rb_close(c->response.u.shm.rb);
-		qb_rb_close(c->event.u.shm.rb);
-	} else {
-		qb_rb_force_close(c->request.u.shm.rb);
-		qb_rb_force_close(c->response.u.shm.rb);
-		qb_rb_force_close(c->event.u.shm.rb);
-	}
+
+	rb_destructor(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
+	rb_destructor(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
+	rb_destructor(qb_rb_lastref_and_ret(&c->event.u.shm.rb));
 }
 
 static ssize_t
@@ -121,9 +117,7 @@ qb_ipc_shm_peek(struct qb_ipc_one_way *one_way, void **data_out,
 static void
 qb_ipc_shm_reclaim(struct qb_ipc_one_way *one_way)
 {
-	if (one_way->u.shm.rb != NULL) {
-		qb_rb_chunk_reclaim(one_way->u.shm.rb);
-	}
+	qb_rb_chunk_reclaim(one_way->u.shm.rb);
 }
 
 static void
@@ -205,10 +199,10 @@ qb_ipcc_shm_connect(struct qb_ipcc_connection * c,
 	return 0;
 
 cleanup_request_response:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
 
 cleanup_request:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 
 return_error:
 	errno = -res;
@@ -236,16 +230,13 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		if (c->response.u.shm.rb) {
-			qb_rb_close(c->response.u.shm.rb);
-			c->response.u.shm.rb = NULL;
+			qb_rb_close(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
 		}
 		if (c->event.u.shm.rb) {
-			qb_rb_close(c->event.u.shm.rb);
-			c->event.u.shm.rb = NULL;
+			qb_rb_close(qb_rb_lastref_and_ret(&c->event.u.shm.rb));
 		}
 		if (c->request.u.shm.rb) {
-			qb_rb_close(c->request.u.shm.rb);
-			c->request.u.shm.rb = NULL;
+			qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 		}
 	}
 }
@@ -280,7 +271,7 @@ qb_ipcs_shm_rb_open(struct qb_ipcs_connection *c,
 	return res;
 
 cleanup:
-	qb_rb_close(ow->u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&ow->u.shm.rb));
 	return res;
 }
 
@@ -333,13 +324,13 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	return 0;
 
 cleanup_request_response_event:
-	qb_rb_close(c->event.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->event.u.shm.rb));
 
 cleanup_request_response:
-	qb_rb_close(c->response.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->response.u.shm.rb));
 
 cleanup_request:
-	qb_rb_close(c->request.u.shm.rb);
+	qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 
 cleanup:
 	r->hdr.error = res;

@@ -83,6 +83,25 @@ int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes);
  */
 int32_t qb_sys_fd_nonblock_cloexec_set(int32_t fd);
 
+/**
+ * Try to unlink file, and possibly truncate it as a fallback.
+ * @param path the file to be unlinked or truncated.
+ * @param truncate_fallback whether to truncate the file when unlink fails.
+ * @return 0 (success) or -errno
+ */
+int32_t qb_sys_unlink_or_truncate(const char *path, int32_t truncate_fallback);
+
+#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
+/**
+ * Try to unlinkat file, and possibly truncate it as a fallback ("at" variant).
+ * @param path the file to be unlinked or truncated.
+ * @param truncate_fallback whether to truncate the file when unlink fails.
+ * @return 0 (success) or -errno
+ */
+int32_t qb_sys_unlink_or_truncate_at(int32_t dirfd, const char *path,
+				     int32_t truncate_fallback);
+#endif
+
 enum qb_sigpipe_ctl {
        QB_SIGPIPE_IGNORE,
        QB_SIGPIPE_DEFAULT,

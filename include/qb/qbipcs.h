@@ -29,11 +29,11 @@ extern "C" {
 #endif
 /* *INDENT-ON* */
 
-#include <stdlib.h>
-#include <sys/uio.h>
-#include <qb/qbipc_common.h>
-#include <qb/qbhdb.h>
-#include <qb/qbloop.h>
+#include <sys/types.h>  /* size_t, ssize_t */
+#include <sys/uio.h>  /* iovec */
+
+#include <qb/qbipc_common.h>  /* qb_ipc_type */
+#include <qb/qbloop.h> /* qb_loop_priority */
 
 /**
  * @file qbipcs.h
@@ -114,7 +114,7 @@ struct qb_ipcs_poll_handlers {
 /**
  * This callback is to check whether you want to accept a new connection.
  *
- * The type of checks you should do are authentication, service availabilty
+ * The type of checks you should do are authentication, service availability
  * or process resource constraints. 
  * @return 0 to accept or -errno to indicate a failure (sent back to the client)
  *
@@ -278,7 +278,7 @@ ssize_t qb_ipcs_response_sendv(qb_ipcs_connection_t *c,
 			       const struct iovec * iov, size_t iov_len);
 
 /**
- * Send an asyncronous event message to the client.
+ * Send an asynchronous event message to the client.
  *
  * @param c connection instance
  * @param data the message to send
@@ -297,7 +297,7 @@ ssize_t qb_ipcs_event_send(qb_ipcs_connection_t *c, const void *data,
 			   size_t size);
 
 /**
- * Send an asyncronous event message to the client.
+ * Send an asynchronous event message to the client.
  *
  * @param c connection instance
  * @param iov the iovec struct that points to the message to send

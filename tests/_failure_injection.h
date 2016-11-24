@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2011 Red Hat, Inc.
+ * Copyright (c) 2016 Red Hat, Inc.
  *
  * All rights reserved.
  *
- * Author: Angus Salkeld <asalkeld@redhat.com>
+ * Author: Jan Pokorny <jpokorny@redhat.com>
+ *
+ * This file is part of libqb.
  *
  * libqb is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,29 +21,11 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef QB_CONFIG_H_DEFINED
-#define QB_CONFIG_H_DEFINED
+#ifndef QB_FAILURE_INJECTION_H_DEFINED
+#define QB_FAILURE_INJECTION_H_DEFINED
 
-#include <qb/qbdefs.h>  /* QB_PP_STRINGIFY */
+extern int _fi_unlink_inject_failure;
+extern int _fi_truncate_called;
+extern int _fi_openat_called;
 
-/* need atomic memory barrier */
-#undef QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED
-
-/* Enabling code using __attribute__((section)) */
-#undef QB_HAVE_ATTRIBUTE_SECTION
-
-/* versioning info: MAJOR, MINOR, MICRO, and REST components */
-#undef QB_VER_MAJOR
-#undef QB_VER_MINOR
-#undef QB_VER_MICRO
-#undef QB_VER_REST
-
-#define QB_VER_STR   \
-	QB_PP_STRINGIFY(QB_VER_MAJOR) \
-	"." \
-	QB_PP_STRINGIFY(QB_VER_MINOR) \
-	"." \
-	QB_PP_STRINGIFY(QB_VER_MICRO) \
-	QB_VER_REST
-
-#endif /* QB_CONFIG_H_DEFINED */
+#endif

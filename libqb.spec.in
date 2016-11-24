@@ -33,7 +33,7 @@ make %{?_smp_mflags}
 
 %if 0%{?with_check}
 %check
-make check
+VERBOSE=1 make check
 %endif
 
 %install
@@ -47,8 +47,9 @@ rm -rf $RPM_BUILD_ROOT/%{_datadir}/doc/libqb
 
 %files
 %doc COPYING
-%{_sbindir}/qb-blackbox
 %{_libdir}/libqb.so.*
+%{_mandir}/man8/qb-blackbox.8.gz
+%{_sbindir}/qb-blackbox
 
 %package        devel
 Summary:        Development files for %{name}
@@ -65,7 +66,6 @@ developing applications that use %{name}.
 %{_libdir}/libqb.so
 %{_libdir}/pkgconfig/libqb.pc
 %{_mandir}/man3/qb*3*
-%{_mandir}/man8/qb-blackbox.8.gz
 
 %changelog
 * @date@ Autotools generated version <nobody@nowhere.org> - @version@-1-@numcomm@.@alphatag@.@dirty@

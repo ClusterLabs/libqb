@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
+#include <poll.h>
 
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
@@ -118,7 +119,7 @@ set_sock_size(int sockfd, size_t max_msg_size)
 	/* The optvat <= max_msg_size check is weird...
 	 * during testing it was discovered in some instances if the
 	 * default optval is exactly equal to our max_msg_size, we couldn't
-	 * actually send a message that large unless we explicilty set
+	 * actually send a message that large unless we explicitly set
 	 * it using setsockopt... there is no good explaination for this. Most
 	 * likely this is hitting some sort of "off by one" error in the kernel. */
 	if (rc == 0 && optval <= max_msg_size) {

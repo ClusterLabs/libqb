@@ -23,7 +23,9 @@ CLEANFILES =
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 noinst_PROGRAMS = bmc bmcpt bms rbreader rbwriter \
-	bench-log format_compare_speed loop
+	bench-log format_compare_speed loop print_ver
+
+noinst_HEADERS = check_common.h
 
 format_compare_speed_SOURCES = format_compare_speed.c $(top_builddir)/include/qb/qbutil.h
 format_compare_speed_LDADD = $(top_builddir)/lib/libqb.la
@@ -50,7 +52,7 @@ loop_LDADD = $(top_builddir)/lib/libqb.la
 inc_dir = $(top_srcdir)/include/qb
 public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
 	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
-	| ${MAKE} --no-print-directory -f- inst_HEADERS.var \
+	| MAKEFLAGS= ${MAKE} --no-print-directory -f- inst_HEADERS.var \
 	|| echo $(inc_dir)/qb*.h*))))
 auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
 CLEANFILES += $(auto_c_files)
@@ -105,8 +107,9 @@ TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.
 
 resources.log: rb.log log.log ipc.log
 
+check_LTLIBRARIES =
 check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
-check_SCRIPTS = resources.test blackbox-segfault.sh
+dist_check_SCRIPTS = resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
 TESTS += util.test
@@ -138,6 +141,13 @@ loop_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 ipc_test_SOURCES = check_ipc.c $(top_builddir)/include/qb/qbipcc.h $(top_builddir)/include/qb/qbipcs.h
 ipc_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
 ipc_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
+if HAVE_FAILURE_INJECTION
+ipc_test_LDADD += _failure_injection.la
+
+check_LTLIBRARIES += _failure_injection.la
+_failure_injection_la_SOURCES = _failure_injection.c _failure_injection.h
+_failure_injection_la_LDFLAGS = -module
+endif
 
 log_test_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
 log_test_CFLAGS = @CHECK_CFLAGS@ -I$(top_srcdir)/include
@@ -145,7 +155,7 @@ log_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 if HAVE_SYSLOG_TESTS
 log_test_LDADD += _syslog_override.la
 
-check_LTLIBRARIES = _syslog_override.la
+check_LTLIBRARIES += _syslog_override.la
 _syslog_override_la_SOURCES = _syslog_override.c _syslog_override.h
 _syslog_override_la_LDFLAGS = -module
 endif

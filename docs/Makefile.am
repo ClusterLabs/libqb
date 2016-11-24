@@ -26,7 +26,7 @@ if HAVE_DOXYGEN
 inc_dir = $(top_srcdir)/include/qb
 public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
 	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
-	| ${MAKE} --no-print-directory -f- inst_HEADERS.var \
+	| MAKEFLAGS= ${MAKE} --no-print-directory -f- inst_HEADERS.var \
 	|| echo $(inc_dir)/qb*.h*))))
 public_headers_omit = qbconfig.h
 public_headers_pick = $(filter-out $(public_headers_omit),$(public_headers) )

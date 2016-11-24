@@ -99,7 +99,7 @@ void qb_hdb_destroy(struct qb_hdb *hdb);
  * @param hdb the database instance
  * @param instance_size size of the object to malloc
  * @param handle_id_out new handle
- * @return (0 == ok, -errno faliure)
+ * @return (0 == ok, -errno failure)
  */
 int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 			     qb_handle_t * handle_id_out);
@@ -108,7 +108,7 @@ int32_t qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
  * @param handle_in the handle
  * @param hdb the database instance
  * @param instance (out) pointer to the desired object.
- * @return (0 == ok, -errno faliure)
+ * @return (0 == ok, -errno failure)
  */
 int32_t qb_hdb_handle_get(struct qb_hdb *hdb, qb_handle_t handle_in,
 			  void **instance);
@@ -117,7 +117,7 @@ int32_t qb_hdb_handle_get(struct qb_hdb *hdb, qb_handle_t handle_in,
  * @param handle_in the handle
  * @param hdb the database instance
  * @param instance (out) pointer to the desired object.
- * @return (0 == ok, -errno faliure)
+ * @return (0 == ok, -errno failure)
  */
 int32_t qb_hdb_handle_get_always(struct qb_hdb *hdb, qb_handle_t handle_in,
 				 void **instance);
@@ -125,7 +125,7 @@ int32_t qb_hdb_handle_get_always(struct qb_hdb *hdb, qb_handle_t handle_in,
  * Put the instance associated with this handle and decrease it's refcount.
  * @param handle_in the handle
  * @param hdb the database instance
- * @return (0 == ok, -errno faliure)
+ * @return (0 == ok, -errno failure)
  */
 int32_t qb_hdb_handle_put(struct qb_hdb *hdb, qb_handle_t handle_in);
 
@@ -136,7 +136,7 @@ int32_t qb_hdb_handle_put(struct qb_hdb *hdb, qb_handle_t handle_in);
  *
  * @param handle_in the handle
  * @param hdb the database instance
- * @return (0 == ok, -errno faliure)
+ * @return (0 == ok, -errno failure)
  */
 int32_t qb_hdb_handle_destroy(struct qb_hdb *hdb, qb_handle_t handle_in);
 
@@ -144,7 +144,7 @@ int32_t qb_hdb_handle_destroy(struct qb_hdb *hdb, qb_handle_t handle_in);
  * Get the current refcount.
  * @param handle_in the handle
  * @param hdb the database instance
- * @return (>= 0 is the refcount, -errno faliure)
+ * @return (>= 0 is the refcount, -errno failure)
  */
 int32_t qb_hdb_handle_refcount_get(struct qb_hdb *hdb, qb_handle_t handle_in);
 
@@ -162,7 +162,7 @@ void qb_hdb_iterator_reset(struct qb_hdb *hdb);
  * @param hdb the database instance
  * @param handle (out) the handle
  * @param instance (out) pointer to the desired object.
- * @return (0 == ok, -errno faliure)
+ * @return (0 == ok, -errno failure)
  */
 int32_t qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance,
 			     qb_handle_t * handle);
