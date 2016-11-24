@@ -1,0 +1,6 @@
+digraph "qb_ipcs_connection_stats_2"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  Node1 [label="{qb_ipcs_connection\l_stats_2\n|+ client_pid\l+ requests\l+ responses\l+ events\l+ send_retries\l+ recv_retries\l+ flow_control_state\l+ flow_control_count\l+ event_q_length\l|}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled" fontcolor="black"];
+}

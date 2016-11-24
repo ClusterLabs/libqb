@@ -1,0 +1,463 @@
+2016-11-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	version: Update version for 1.0.1 release
+
+2016-11-24  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #233 from jnpkrn/copr-tito
+	build: git -> automatic COPR builds integration followup
+
+2016-11-23  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: tito: minor adjustments
+
+2016-11-22  Jan Pokorný  <jpokorny@redhat.com>
+
+	doc: README: add a status badge+link for the COPR builds
+
+2016-11-22  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #232 from jnpkrn/copr-tito
+	build: allow for git -> automatic COPR builds integration
+
+2016-11-18  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: allow for git -> automatic COPR builds integration
+	New tito-related files makes the repository compatible with tito method
+	of building in COPR (https://fedorahosted.org/copr/wiki/UserDocs#Tito).
+
+	build: ensure debug make flags are not derived when unsuitable
+	Unfortunately, debug messages of GNU make are emitted to stdout, which
+	spoils the extracted output we rely on.  So prevent it (as well as
+	any other extraneous option) by force.
+	(discovered during git -> automatic COPR builds integration)
+
+	build: ensure check_SCRIPTS are distributed
+	(discovered during git -> automatic COPR builds integration)
+
+2016-11-08  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #231 from jnpkrn/unlink-or-truncate
+	Unlink or truncate (as a fallback) files when shm IPC client terminates connection forcibly
+
+2016-11-04  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: start stdlib failures injection effort with unlink{,at} + test
+	There are not many ways to test alternate code paths having failure of
+	some function from standard library as a precondition.
+	For a starter, we need to test failing unlink{,at} functions in a
+	controlled manner to mimic client and server path of the IPC connection
+	having different privileges to validate the previous commit.  But the
+	test suite cannot assume it has root privileges (so as to add artificial
+	user system-wide, which is a pretty stupid idea on its own), cannot
+	generally use stuff like chroot/namespacing (not to speak about
+	synergies of the former like docker).  So what's left is to make our
+	own playground, or better yet, use existing playground but just to
+	modify the rules of the game a bit when it's desired -- a variation
+	of old good LD_PRELOAD trick.
+	Note that this concept was already used in syslog tests (see commit
+	642f74d) and is now further extended using dlsym(RTLD_NEXT, "symbol")
+	to resolve the standard library symbol being shadowed by our little
+	"module".  This hence yields a customized wrapping we use to either
+	inject a call failure or to increase an invocation counter so as to
+	assure something has indeed been called.  As the mechanisms used are
+	not supposed to be available everywhere, the build system is
+	conditionalized respectively.
+	Back to our test when unlink{,at} fails, with the help of the described
+	mechanism, it was actually easy to massage test_ipc_server_fail_shm
+	into test_ipcc_truncate_when_unlink_fails_shm desired addition, which
+	is also featured in this commit, together with a modification to
+	resources.test script so that it expects particular number of empty
+	file leftovers (see previous commit).
+	It's expected that the module for failure injections will keep growing
+	so as to enable better overall coverage of the code (on the platforms
+	where this provision is available).
+
+	Med: rb: use new qb_rb_close_helper able to resort to file truncating
+	This changeset builds on previous 2-3 commits and represents the main
+	libqb's answer to the original question behind pacemaker's security
+	defect known as CVE-2016-7035.
+	Beside the helper partly unifying handling of qb_rb_force_close and
+	qb_rb_close, it provides the former with ability to use file truncating
+	as a fallback for when unlinking fails, e.g., because client (note that
+	mentioned is currently only relevant for the client side as normally
+	server is responsible for the lifecycle of the materialized files,
+	unless it crashes and only client is left to do its best) is not the
+	owner while they are placed at a directory with restricted deletion,
+	which enforces this very ownership condition.
+	In practice, this means that, at worst, just the zero-size files are
+	left behind, so not that much space exhaustion (usually "ramdisk"
+	like tmpfs is what backs default storage directory /dev/shm, so it
+	boils down to physical memory exhaustion, even if it can be just
+	for page cache and related overhead) can happen even on repeated
+	crashes as the memory mappings are cleared as much as possible.
+	Also openat/unlinkat functions (sported in qb_sys_unlink_or_truncate_at
+	as of the previous commit) are, when applicable, used so as to limit
+	possible race conditions between/during individual path traversals
+	(both files being got rid of presumably share the same directory).
+	Few words on which actions are attempted in which order for the
+	equivalent of qb_rb_force_close now:
+	There are subtle interactions between what's externally visible
+	(files) and what's not (memory mappings associated with such files),
+	and perhaps between memory pages management from the perspective of
+	the former (usually "ramdisk"/tmpfs) and the latter (mmap + munmap).
+	If the associated file is no longer publicly exposed by the means of
+	unlink (even if the object survives internally as refcounting is in
+	the game, with mmap holding a reference), memory mapping is not
+	affected.  On the other hand, if it's just limited by truncation
+	to zero size, memory mapping is aware and generates SIGBUS in response
+	to accessing respective addresses.  Similarly, accessing munmap'd
+	(no refcounting here) memory generates SIGSEGV.  For delicacy,
+	the inputs for all of unlink, truncate, and munmap are stored
+	at the mmap'd location we are about to drop, but that's just a matter
+	of making copies ahead of time.
+	At Ken's suggestion, the scheme is: (unlink or truncate) then munmap,
+	which has a benefit that externally visible (and program's life span
+	otherwise surviving!) part is eliminated first, with memory mappings
+	(disposed at program termination automatically at latest) to follow.
+	(There was originally a paranoid expectation on my side that truncate
+	on tmpfs actually does silent munmap, so that our munmap could in fact
+	tear down the mapping added in the interim by the libraries, signal
+	handler or due to requirements of another thread, also because of
+	munmap on the range without any current mappings will not fail, and
+	thus there's likely no portable way to non-intrusively check the
+	status, but also due to documented SIGBUS vs. SIGSEGV differences
+	the whole assumption appears bogus on the second thought.)
+	Relevant unit tests that exercise client-side unlinking:
+	- check_ipc: test_ipc_server_fail_shm, test_ipc_exit_shm
+	- new test in a subsequent commit
+
+	Low: unix: new qb_sys_unlink_or_truncate{,_at} helpers
+	These are intended for subsequent qb_rb_{force_,}close refactorization
+	and utilization of this new truncate as a fallback after unlink failure
+	as detailed in the commit to follow.
+	For newer POSIX revision compliant systems, there's "at" variant using
+	openat/unlinkat functions so that paths do not have to be traversed
+	in full anew when not needed (as both unlink and truncate operate on
+	the same path).
+
+	Med: rb: make it more robust against trivial IPC API misuses
+	...using a new private inline helper that is intended to "decorate"
+	argument (plus extra reference level added) to qb_rb_{force_,}close().
+	It is purposefully not hardwired to neither qb_rb_close (it's a public
+	API function that should not change its semantics) nor qb_rb_force_close
+	(just for symmetry, preempting issues when the two would differ, and
+	also makes them more mutually compatible, which is already expected
+	at qb_ipcc_shm_disconnect).
+	It sets the original ringbuffer pointer to NULL (having the immediate
+	impact on other threads/asynchronous handling) and also sets the
+	(currently underused) reference counter set to exacly 1 (that is
+	subsequently going to be decremented in qb_rb_close so that it's
+	sound in the current arrangement).
+	More in the comment at the helper.
+	Suitable places are also made to use it right away.
+
+	Refactor: ipc_shm: better grip on ringbuffers to close
+	Also remove unused comment-introduced section of code.
+
+2016-10-21  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #230 from jnpkrn/log_thread
+	Med: log_thread: logt_wthread_lock is vital for logging thread
+
+	Merge pull request #228 from jnpkrn/maint
+	Various cleanups (symbol imports, typos, doc)
+
+2016-10-21  Jan Pokorný  <jpokorny@redhat.com>
+
+	Refactor: log_thread: fix and diminish inferior comments
+
+	Med: log_thread: logt_wthread_lock is vital for logging thread
+	This fixes issue with would-fail-if-applied-to-thread-right-away
+	qb_log_thread_priority_set invocation when logging thread doesn't
+	exist yet, which will arrange for calling itself at the time of
+	thread's birth that is the moment it will actually fail.
+	In this + lock-could-not-have-been-initialized corner cases, the
+	already running thread would proceed as allowed by error condition
+	handling in the main thread, trying to dereference uninitialized
+	(or outdated) pointer to the lock at hand, resulting in segfault.
+	Also include the test that would have been caught that (we use the
+	fact that it doesn't matter whether setting of the scheduler parameters
+	fails due to bad input or just because of lack of privileges as it's
+	the failure at the right moment that is of our interest).
+	See also:
+	https://github.com/ClusterLabs/libqb/issues/229
+
+2016-10-20  Christine Caulfield  <ccaulfie@redhat.com>
+
+	tests: Unit test for previous zero tag patch
+
+	log: Remove check for HAVE_SCHED_GET_PRIORITY_MAX
+	it doesn't exist
+
+2016-10-18  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: SIGSTOP cannot be caught, blocked, or ignored
+	...per signal(7), so it is foolish trying to do so.
+
+2016-10-18  Christine Caulfield  <ccaulfie@redhat.com>
+
+	log: Don't overwrite valid tags
+	If a tag of 0 is passed into the logger and an existing callsite
+	is found with a non-zero tag, the don't overwrite the existing tag.
+
+2016-10-17  Jan Pokorný  <jpokorny@redhat.com>
+
+	Low: ipc_shm: fix superfluous NULL check
+	That's what qb_rb_chunk_reclaim does since commit
+	ef7739873842a3e7933ef610b9b61e0f4a7d2fde that made this
+	check redundant.
+
+	doc: elaborate more on thread safety as it's not so pure
+
+	Low: further sanitize qbipc[cs].h public headers wrt. includes
+
+	Low: sanitize import of <poll.h> symbols
+
+	Low: sanitize import of <qb/qbarray.h> symbols
+
+2016-10-12  Jan Pokorný  <jpokorny@redhat.com>
+
+	Fix typos: availabi{l -> li}ty, explici{lt -> tl}y
+
+2016-10-11  Christine Caulfield  <ccaulfie@redhat.com>
+
+	Merge branch 'jnpkrn-Svante-Signell-Hurd'
+
+	Merge branch 'Svante-Signell-Hurd' of https://github.com/jnpkrn/libqb into jnpkrn-Svante-Signell-Hurd
+
+2016-10-11  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #226 from jnpkrn/maint
+	Maint: fix typos + resources.test
+
+2016-10-07  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: resources: check for proper names of leftover processes
+	Unfortunately, the change in test names introduced with commit e990681
+	hadn't been reflected (until now).
+	Also reformat shell syntax per more usual convention.
+
+	Fix typos: differ{ne -> en}t, is -> if
+
+2016-10-04  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #224 from jnpkrn/maint
+	Maint: typo + unused functions checked in configure
+
+2016-09-30  Jan Pokorný  <jpokorny@redhat.com>
+
+	Fix typo: asyncronous -> asynchronous
+
+	Build: configure: do not check for unused "sched" functions
+	Do not compile-time-conditionalize based on one of them being available,
+	either.
+
+2016-09-23  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #223 from jnpkrn/maint
+	maint: qb-blackbox man page should accompany the binary
+
+2016-09-22  Jan Pokorný  <jpokorny@redhat.com>
+
+	maint: qb-blackbox man page should accompany the binary
+
+2016-08-01  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #218 from wferi/apropos
+	docs: qbdefs.h: description must directly follow @file
+
+2016-07-31  Ferenc Wágner  <wferi@niif.hu>
+
+	docs: qbdefs.h: description must directly follow @file
+	If we want to see it again in the man page NAME section, where it can
+	be indexed by apropos or whatis.
+
+2016-06-30  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #221 from jnpkrn/typo-qblog.h
+	Fix typo: qblog.h: q{g -> b}_log_filter_ctl
+
+2016-06-29  Jan Pokorný  <jpokorny@redhat.com>
+
+	Fix typo: qblog.h: q{g -> b}_log_filter_ctl
+
+2016-06-20  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #217 from jnpkrn/log-serialize-check-char-properly
+	Low: log: check for appropriate space when serializing a char
+
+2016-06-20  Christine Caulfield  <ccaulfie@redhat.com>
+
+	log: Add missing z,j, & t types to the logger
+	Reviewed-by: Ken Gaillot <kgaillot@redhat.com>
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+2016-06-17  Jan Pokorný  <jpokorny@redhat.com>
+
+	Low: log: check for appropriate space when serializing a char
+	... where appropriate space is measured for, surprisingly, a char,
+	not for an int.  Note that's also the actual type used for both
+	de-/serializing, so there's no conflict.
+	Also bother to explain why, now surprisingly for real, an unsigned int
+	is scraped out from va_list (akin to to STDARG(3)).
+
+2016-06-06  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #213 from liu4480/master
+	low:fixed:Spelling error of failure in qbhdb.h
+
+2016-06-06  bin.liu  <bliu@suse.com>
+
+	low:fixed:Spelling error of failure in qbhdb.h
+	There are spelling error in include/qb/qbhdb.h, "failure" is
+	wroten as "faliure"
+
+2016-05-06  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #211 from jnpkrn/CI-travis-clang
+	CI: make travis use also clang compiler (for good measure)
+
+2016-05-05  Jan Pokorný  <jpokorny@redhat.com>
+
+	CI: make travis use also clang compiler (for good measure)
+	Also, unify the indentation.
+
+	tests: make clang-friendly (avoid using run-time VLAs)
+	This is to also get libqb from the Debian's shame list:
+	http://clang.debian.net/status.php?version=3.4.2&key=VARIABLE_LENGTH_ARRAY
+
+2016-04-29  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #210 from jnpkrn/tests-ensure-failure-output
+	tests: ensure verbose output on failure w/ more recent automake
+
+2016-04-28  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: ensure verbose output on failure w/ more recent automake
+	...so as to obtain a first glance diagnostics in all cases with possibly
+	remote build system preventing other means of investigation.
+
+2016-04-19  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #209 from jnpkrn/header-based-versioning-PATCH-to-MICRO
+	API: header-based versioning: s/PATCH/MICRO
+
+2016-04-18  Jan Pokorný  <jpokorny@redhat.com>
+
+	API: header-based versioning: s/PATCH/MICRO
+	Under the influence of libxml2 and considering that actual "patch"
+	information in fact, if significant, ends up encoded in QB_VER_REST,
+	shift away from convention codified, e.g., by semver.org (not adored
+	by libqb, anyway) and rename designated PATCH component of the version
+	to MICRO accordingly.
+	Note that at this point, after a release without any header-based
+	versioning present and just a few commits after it was tentatively
+	introduced, it's a painless change.  Once this PATCH nomenclature
+	is leaked into a full release, there's no way to get rid of it
+	reasonably...
+
+2016-04-07  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #208 from jnpkrn/update-git-version-gen
+	build: use latest git-version-gen from gnulib (rev. 6118065)
+
+	Merge pull request #207 from jnpkrn/alternative-header-based-versioning
+	API: introduce alternative, header-based versioning
+
+2016-04-04  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: persuade git-version-gen vMAJOR.MINOR tags just miss .0
+	Recent "v1.0" discovered this discrepancy propagated all around
+	and also this is not very compatible with the logic of commit 26d3911.
+	Treat missing "patch" component of the version as an implicit zero
+	to make such oddity go away.
+	Adjust spec file generation accordingly.
+
+	build: use latest git-version-gen from gnulib (rev. 6118065)
+	Preserve, however, the modification by David Vossel to keep the script
+	working as expected also with lightweight tags (e.g., v1.0rc3).
+
+2016-04-01  Jan Pokorný  <jpokorny@redhat.com>
+
+	API: introduce alternative, header-based versioning
+	Mainly as a light-weight alternative to full-blown autoconf/pkg-config
+	machineries, whereby one can:
+	* workaround functionality not present in libqb up to 1.0 (inclusive)
+	  - note that this versioning schema is being introduced *after*
+	    1.0.0 release so one cannot tell that version from any older,
+	    but will be able to safely identify any later one (1.0.1+)
+	    and act accordingly
+	  - example:
+	  #if !defined(QB_VER_MAJOR) || ((QB_VER_MAJOR == 1) && (QB_VER_MINOR < 1))
+	  #warning "Feature X not supported"
+	  int do_foo(int arg) { };
+	  #else
+	  int
+	  do_foo(int arg)
+	  {
+	      /* use feature X of libqb */
+	  }
+	  #endif
+	* make its program report libqb API version it was built with by
+	  emitting QB_VER_STR symbolic string (see tests/print_ver.c for example)
+	Also added is a print_ver test program to:
+	* emit how original unparsed version is parsed to particular components
+	  defined in qbconfig.h (QB_VER_{MAJOR,MINOR,PATCH} symbolic integer
+	  constants and QB_VER_REST symbolic string) when being compiled
+	* emit mentioned QB_VER_STR symbolic string joining the components
+	  back to a single string, plus the components themselves
+	Resolves: https://github.com/ClusterLabs/libqb/issues/186
+
+2016-04-01  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #196 from jnpkrn/demystify-qblog.h
+	Low: explain mysterious lines in a public header (qblog.h)
+
+	Merge pull request #191 from jnpkrn/refactor-test-case-defs
+	tests: refactor test case defs using versatile add_tcase macro
+
+2016-03-17  Svante Signell  <svante.signell@gmail.com>
+
+	Add Hurd support
+	  * configure.ac: Define QB_GNU.
+	  Add a check for a working clock_getres for the CLOCK_MONOTONIC
+	  option defining HAVE_CLOCK_GETRES_MONOTONIC.
+	  * lib/log_thread.c: Replace second argument of
+	  qb_log_thread_priority_set(): logt_sched_param.sched_priority by 0
+	  when not supported by the OS.
+	  * lib/util.c: Use the CLOCK_REALTIME option in clock_getres() if
+	  HAVE_CLOCK_GETRES_MONOTONIC os not defined.
+
+2016-03-04  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: be more restrictive about QB_HAVE_ATTRIBUTE_SECTION
+	That's because the code relies on (fairly unportable) treatment by the
+	linker, specifically ld linker from binutils suite:
+	    <https://sourceware.org/binutils/docs/ld/Orphan-Sections.html>
+	and without that in place, QB_HAVE_ATTRIBUTE_SECTION cannot be enabled
+	as the __{start,stop}_SECNAME extern references in qb/qblog.h will not
+	get resolved at the link time.
+
+	Low: further avoid magic in qblog.h by using named constants
+	Also advise to use these constants and obey this in the internal code.
+
+	defs: add wrappers over preprocessor operators
+
+	Low: explain mysterious lines in a public header (qblog.h)
+	Also fix the previous inversion of the expression that in fact did not
+	use to check for anything (for "assert(1)" being a NOOP).
+
+2016-03-01  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: refactor test case defs using versatile add_tcase macro
+	This reduces repeated code significantly, and allows for easier
+	supervision of what's being grouped to the suites + possibly what
+	timeouts apply.
+	Note that some artificial test case identifiers (in check_array.c,
+	check_log.c, check_loop.c, check_rb.c, check_utils.c) got changed
+	so they now follow 1:1 the test (function) name that is being run
+	for the case at hand without the "test_" prefix (strict convention).
+	Exception to this are test_ipc_disp_* tests in check_ipc.c that got,
+	conversely, changed to test_ipc_dispatch_* to follow the test case
+	identifiers.
