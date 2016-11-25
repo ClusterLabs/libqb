@@ -1,8 +1,10 @@
 # to build official release tarballs, handle tagging and publish.
 
 project=libqb
+distribution_exts=tar.gz tar.xz
 
 project_release=$(project)-$(version)
+distribution_archives=$(distribution_exts:%=$(project_release).%)
 
 
 all: sign
@@ -37,16 +39,16 @@ endif
 	@touch $@
 endif
 
-tarballs: tag-$(version)
+$(distribution_archives): tag-$(version)
 	./autogen.sh
 	./configure
 	MAKEFLAGS= $(MAKE) distcheck
 
-$(project_release).sha256: tarballs
+$(project_release).sha256: $(distribution_archives)
 ifeq (,$(release))
 	@echo 'Building test release $(version), no sha256'
 else
-	sha256sum $(project_release).tar.* | sort -k2 > $@
+	sha256sum $(distribution_archives) | sort -k2 > $@
 endif
 
 $(project_release).sha256.asc: $(project_release).sha256
@@ -71,6 +73,8 @@ sign: $(project_release).sha256.asc
 sha256: $(project_release).sha256
 
 tag: tag-$(version)
+
+tarballs: $(distribution_archives)
 
 
 # extra targets
