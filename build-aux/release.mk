@@ -7,7 +7,7 @@ project_release=$(project)-$(version)
 distribution_archives=$(distribution_exts:%=$(project_release).%)
 
 
-all: sign
+all: sign-archives
 
 
 # subtargets of all target
@@ -51,7 +51,7 @@ else
 	sha256sum $(distribution_archives) | sort -k2 > $@
 endif
 
-$(project_release).sha256.asc: $(project_release).sha256
+$(project_release)%.asc: $(project_release)%
 ifeq (,$(gpgsignkey))
 	@echo 'No GPG signing key defined'
 else
@@ -61,14 +61,16 @@ else
 	gpg --default-key $(gpgsignkey) \
 		--detach-sign \
 		--armor \
-		$<
+		$^
 endif
 endif
 
-sign: $(project_release).sha256.asc
+sign-archives: $(distribution_archives:=.asc)
 
 
 # backward compatibility targets
+
+sign: $(project_release).sha256.asc
 
 sha256: $(project_release).sha256
 
@@ -78,6 +80,10 @@ tarballs: $(distribution_archives)
 
 
 # extra targets
+
+sign-checksum: $(project_release).sha256.asc
+
+sign-all: sign-checksum sign-archives
 
 publish:
 ifeq (,$(release))
