@@ -36,7 +36,7 @@ endif
 tarballs: tag
 	./autogen.sh
 	./configure
-	make distcheck
+	MAKEFLAGS= $(MAKE) distcheck
 
 sha256: tarballs $(project)-$(version).sha256
 
