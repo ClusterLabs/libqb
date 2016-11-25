@@ -44,7 +44,7 @@ $(project)-$(version).sha256:
 ifeq (,$(release))
 	@echo 'Building test release $(version), no sha256'
 else
-	sha256sum $(project)-$(version)*tar* | sort -k2 > $@
+	sha256sum $(project)-$(version).tar.* | sort -k2 > $@
 endif
 
 sign: sha256 $(project)-$(version).sha256.asc
