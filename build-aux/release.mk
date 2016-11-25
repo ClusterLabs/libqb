@@ -2,6 +2,9 @@
 
 project=libqb
 
+project_release=$(project)-$(version)
+
+
 all: sign
 
 
@@ -39,14 +42,14 @@ tarballs: tag-$(version)
 	./configure
 	MAKEFLAGS= $(MAKE) distcheck
 
-$(project)-$(version).sha256: tarballs
+$(project_release).sha256: tarballs
 ifeq (,$(release))
 	@echo 'Building test release $(version), no sha256'
 else
-	sha256sum $(project)-$(version).tar.* | sort -k2 > $@
+	sha256sum $(project_release).tar.* | sort -k2 > $@
 endif
 
-$(project)-$(version).sha256.asc: $(project)-$(version).sha256
+$(project_release).sha256.asc: $(project_release).sha256
 ifeq (,$(gpgsignkey))
 	@echo 'No GPG signing key defined'
 else
@@ -60,12 +63,12 @@ else
 endif
 endif
 
-sign: $(project)-$(version).sha256.asc
+sign: $(project_release).sha256.asc
 
 
 # backward compatibility targets
 
-sha256: $(project)-$(version).sha256
+sha256: $(project_release).sha256
 
 tag: tag-$(version)
 
