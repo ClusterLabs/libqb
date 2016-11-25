@@ -2,7 +2,10 @@
 
 project=libqb
 
-all: checks setup tag tarballs sha256 sign
+all: sign
+
+
+# subtargets of all target
 
 checks:
 ifeq (,$(version))
@@ -19,9 +22,7 @@ setup: checks
 	./configure
 	make maintainer-clean
 
-tag: setup ./tag-$(version)
-
-tag-$(version):
+tag-$(version): setup
 ifeq (,$(release))
 	@echo 'Building test release $(version), no tagging'
 else
@@ -33,21 +34,17 @@ endif
 	@touch $@
 endif
 
-tarballs: tag
+tarballs: tag-$(version)
 	./autogen.sh
 	./configure
 	MAKEFLAGS= $(MAKE) distcheck
 
-sha256: tarballs $(project)-$(version).sha256
-
-$(project)-$(version).sha256:
+$(project)-$(version).sha256: tarballs
 ifeq (,$(release))
 	@echo 'Building test release $(version), no sha256'
 else
 	sha256sum $(project)-$(version).tar.* | sort -k2 > $@
 endif
-
-sign: sha256 $(project)-$(version).sha256.asc
 
 $(project)-$(version).sha256.asc: $(project)-$(version).sha256
 ifeq (,$(gpgsignkey))
@@ -62,6 +59,18 @@ else
 		$<
 endif
 endif
+
+sign: $(project)-$(version).sha256.asc
+
+
+# backward compatibility targets
+
+sha256: $(project)-$(version).sha256
+
+tag: tag-$(version)
+
+
+# extra targets
 
 publish:
 ifeq (,$(release))
