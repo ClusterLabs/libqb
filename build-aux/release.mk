@@ -1,8 +1,5 @@
 # to build official release tarballs, handle tagging and publish.
 
-# signing key
-gpgsignkey=582A3454
-
 project=libqb
 
 all: checks setup tag tarballs sha256 sign
