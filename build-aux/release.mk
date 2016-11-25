@@ -25,7 +25,11 @@ tag-$(version):
 ifeq (,$(release))
 	@echo Building test release $(version), no tagging
 else
+ifeq (,$(gpgsignkey))
 	git tag -a -m "v$(version) release" v$(version) HEAD
+else
+	git tag -u $(gpgsignkey) -m "v$(version) release" v$(version) HEAD
+endif
 	@touch $@
 endif
 
