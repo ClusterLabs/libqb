@@ -98,3 +98,6 @@ endif
 
 clean:
 	rm -rf $(project)-* tag-*
+
+
+.PHONY: all checks setup tag sgin sha256 tarballs sign-checksum sign-all publish clean
