@@ -6,11 +6,11 @@ all: checks setup tag tarballs sha256 sign
 
 checks:
 ifeq (,$(version))
-	@echo ERROR: need to define version=
+	@echo 'ERROR: need to define version='
 	@exit 1
 endif
 	@if [ ! -d .git ]; then \
-		echo This script needs to be executed from top level cluster git tree; \
+		echo 'This script needs to be executed from top level cluster git tree'; \
 		exit 1; \
 	fi
 
@@ -23,7 +23,7 @@ tag: setup ./tag-$(version)
 
 tag-$(version):
 ifeq (,$(release))
-	@echo Building test release $(version), no tagging
+	@echo 'Building test release $(version), no tagging'
 else
 ifeq (,$(gpgsignkey))
 	git tag -a -m "v$(version) release" v$(version) HEAD
@@ -42,7 +42,7 @@ sha256: tarballs $(project)-$(version).sha256
 
 $(project)-$(version).sha256:
 ifeq (,$(release))
-	@echo Building test release $(version), no sha256
+	@echo 'Building test release $(version), no sha256'
 else
 	sha256sum $(project)-$(version)*tar* | sort -k2 > $@
 endif
@@ -51,10 +51,10 @@ sign: sha256 $(project)-$(version).sha256.asc
 
 $(project)-$(version).sha256.asc: $(project)-$(version).sha256
 ifeq (,$(gpgsignkey))
-	@echo No GPG signing key defined
+	@echo 'No GPG signing key defined'
 else
 ifeq (,$(release))
-	@echo Building test release $(version), no sign
+	@echo 'Building test release $(version), no sign'
 else
 	gpg --default-key $(gpgsignkey) \
 		--detach-sign \
@@ -65,11 +65,13 @@ endif
 
 publish:
 ifeq (,$(release))
-	@echo Building test release $(version), no publishing!
+	@echo 'Building test release $(version), no publishing!'
 else
-	@echo CHANGEME git push --tags origin
-	@echo CHANGEME scp $(project)-$(version).* \
-		fedorahosted.org:$(project)
+	@echo 'CHANGEME git push --follow-tags origin'
+	@echo 'CHANGEME ...supposing branch has not yet been pushed...'
+	@echo 'CHANGEME ...so as to achieve just a single CI build...'
+	@echo 'CHANGEME ...otherwise:  git push --tags origin'
+	@echo 'CHANGEME + put the tarballs to GitHub (ClusterLabs/$(project))'
 endif
 
 clean:
