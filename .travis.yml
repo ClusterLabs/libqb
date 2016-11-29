@@ -21,8 +21,10 @@ script: RPMBUILDOPTS_="--nodeps --define '_without_check 1'";
 after_failure:
         # keep an eye on issue #234 if it recidivates
         - for f in $(ls -1 /dev/shm/qb-test*); do ls -l "$f"; lsof -- "$f"; done
-        - mount | grep shm
-        - dh -h | grep shm
+        #- ls -l /var/run/*
+        - mount | grep -e /shm  #-e /var
+        - du -h | grep -e /shm  #-e /var
+        - lsblk -f
 
 notifications:
         irc: "irc.freenode.net#clusterlabs-dev"

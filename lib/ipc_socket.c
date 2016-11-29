@@ -164,13 +164,18 @@ dgram_verify_msg_size(size_t max_msg_size)
 	char buf[max_msg_size];
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockets) < 0) {
+		qb_util_perror(LOG_DEBUG, "error calling socketpair()");
 		goto cleanup_socks;
 	}
 
 	if (set_sock_size(sockets[0], max_msg_size) != 0) {
+		qb_util_log(LOG_DEBUG, "error set_sock_size(sockets[0],%#x)",
+			    max_msg_size);
 		goto cleanup_socks;
 	}
 	if (set_sock_size(sockets[1], max_msg_size) != 0) {
+		qb_util_log(LOG_DEBUG, "error set_sock_size(sockets[1],%#x)",
+			    max_msg_size);
 		goto cleanup_socks;
 	}
 
