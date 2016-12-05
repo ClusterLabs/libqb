@@ -102,12 +102,7 @@ case $exec_prefix in
 esac
 
 # Checks for libraries.
-dnl librt from glibc NEEDs libpthread
-dnl so. if test for libpthread after librt
-dnl it will always be "none needed", but it is not true
-dnl when linking libraries. Looks like a bug.
-AC_SEARCH_LIBS([pthread_create], [pthread])
-AC_SEARCH_LIBS([mq_open], [rt])
+AX_PTHREAD
 AX_SAVE_FLAGS
 AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
 AC_SUBST([dlopen_LIBS],[$LIBS])
@@ -201,13 +196,17 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		strchr strrchr strdup strstr strcasecmp \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
-		pthread_spin_lock pthread_setschedparam \
-                pthread_mutexattr_setpshared \
-                pthread_condattr_setpshared \
-		sem_timedwait semtimedop \
 		getpeerucred getpeereid \
 		openat unlinkat])
 
+AX_SAVE_FLAGS
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+LIBS="$LIBS $PTHREAD_LIBS"
+AC_CHECK_FUNCS([pthread_spin_lock pthread_setschedparam \
+		pthread_mutexattr_setpshared \
+		pthread_condattr_setpshared \
+		sem_timedwait semtimedop])
+AX_RESTORE_FLAGS
 
 # Checks for defined macros
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
