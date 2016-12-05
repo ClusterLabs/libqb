@@ -111,7 +111,10 @@ AX_SAVE_FLAGS
 AC_SEARCH_LIBS([socket], [socket],,[AC_MSG_ERROR([cannot find socket() function])])
 AC_SUBST([socket_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
-AC_SEARCH_LIBS([gethostbyname], [nsl])
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([gethostbyname], [nsl],,[AC_MSG_ERROR([cannot find gethostbyname() function])])
+AC_SUBST([nsl_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
 
 # look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])

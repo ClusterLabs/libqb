@@ -33,7 +33,7 @@ simplelog_LDADD = $(top_builddir)/lib/libqb.la
 
 tcpclient_SOURCES = tcpclient.c $(top_builddir)/include/qb/qbloop.h
 tcpclient_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-tcpclient_LDADD = $(top_builddir)/lib/libqb.la $(socket_LIBS)
+tcpclient_LDADD = $(top_builddir)/lib/libqb.la $(socket_LIBS) $(nsl_LIBS)
 
 tcpserver_SOURCES = tcpserver.c $(top_builddir)/include/qb/qbloop.h
 tcpserver_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
