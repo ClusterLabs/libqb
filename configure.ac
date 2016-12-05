@@ -107,7 +107,10 @@ AX_SAVE_FLAGS
 AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
 AC_SUBST([dlopen_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
-AC_SEARCH_LIBS([socket], [socket])
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([socket], [socket],,[AC_MSG_ERROR([cannot find socket() function])])
+AC_SUBST([socket_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
 AC_SEARCH_LIBS([gethostbyname], [nsl])
 
 # look for testing harness "check"
