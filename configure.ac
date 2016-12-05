@@ -108,7 +108,10 @@ dnl it will always be "none needed", but it is not true
 dnl when linking libraries. Looks like a bug.
 AC_SEARCH_LIBS([pthread_create], [pthread])
 AC_SEARCH_LIBS([mq_open], [rt])
-AC_SEARCH_LIBS([dlopen], [dl])
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
+AC_SUBST([dlopen_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
 AC_SEARCH_LIBS([socket], [socket])
 AC_SEARCH_LIBS([gethostbyname], [nsl])
 

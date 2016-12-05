@@ -147,6 +147,7 @@ ipc_test_LDADD += _failure_injection.la
 check_LTLIBRARIES += _failure_injection.la
 _failure_injection_la_SOURCES = _failure_injection.c _failure_injection.h
 _failure_injection_la_LDFLAGS = -module
+_failure_injection_la_LIBADD = $(dlopen_LIBS)
 endif
 
 log_test_SOURCES = check_log.c $(top_builddir)/include/qb/qblog.h
