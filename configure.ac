@@ -452,33 +452,27 @@ LINT_FLAGS="-weak -D__gnuc_va_list=va_list -D__attribute\(x\)= \
 
 # local options
 AC_ARG_ENABLE([ansi],
-	[  --enable-ansi           : force to build with ANSI standards. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-ansi],[force to build with ANSI standards])])
 
 AC_ARG_ENABLE([fatal-warnings],
-	[  --enable-fatal-warnings : enable fatal warnings. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-fatal-warnings],[enable fatal warnings])])
 
 AC_ARG_ENABLE([debug],
-	[  --enable-debug          : enable debug build. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-debug],[enable debug build])])
 
 AC_ARG_ENABLE([coverage],
-	[  --enable-coverage       : coverage analysis of the codebase. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-coverage],[coverage analysis of the codebase])])
 
 AC_ARG_ENABLE([slow-tests],
-	[  --enable-slow-tests     : build and run slow tests. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
 
 if test x"$with_check" = xyes; then
 AC_ARG_ENABLE([syslog-tests],
-	[  --enable-syslog-tests   : build and run syslog tests. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-syslog-tests],[build and run syslog tests])])
 fi
 
 AC_ARG_WITH([socket-dir],
-	[  --with-socket-dir=DIR   : socket dir. ],
+  [AS_HELP_STRING([--with-socket-dir=DIR],[socket directory @<:@LOCALSTATEDIR/run@:>@])],
 	[ SOCKETDIR="$withval" ],
 	[ SOCKETDIR="$localstatedir/run" ])
 
