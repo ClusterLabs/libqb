@@ -474,11 +474,6 @@ AC_ARG_ENABLE([coverage],
 AC_ARG_ENABLE([slow-tests],
   [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
 
-if test x"$with_check" = xyes; then
-AC_ARG_ENABLE([syslog-tests],
-  [AS_HELP_STRING([--enable-syslog-tests],[build and run syslog tests])])
-fi
-
 AC_ARG_WITH([socket-dir],
   [AS_HELP_STRING([--with-socket-dir=DIR],[socket directory @<:@LOCALSTATEDIR/run@:>@])],
 	[ SOCKETDIR="$withval" ],
@@ -578,12 +573,6 @@ if test "x${enable_slow_tests}" = xyes ; then
 fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
 AC_SUBST(HAVE_SLOW_TESTS)
-if test "x${enable_syslog_tests}" = xyes ; then
-	AC_DEFINE([HAVE_SYSLOG_TESTS], 1,[have syslog tests])
-	AC_MSG_NOTICE([Enabling syslog tests])
-fi
-AM_CONDITIONAL(HAVE_SYSLOG_TESTS, [test "x${enable_syslog_tests}" = xyes])
-AC_SUBST(HAVE_SYSLOG_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
