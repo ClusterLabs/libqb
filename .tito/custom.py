@@ -1,24 +1,13 @@
-#
-# Copyright (c) 2016 Red Hat, Inc.
-#
-# All rights reserved.
-#
-# Author: Jan Pokorny <jpokorny@redhat.com>
-# (using src/tito/builder/fetch.py from the tito project as a template)
-#
-# libqb is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation, either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# libqb is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with libqb.  If not, see <http://www.gnu.org/licenses/>.
-#
+# -*- coding: UTF-8 -*-
+"""Tito ad-hoc module for custom git repo -> spec + archive metamorphosis"""
+
+from __future__ import (print_function, unicode_literals, absolute_import,
+                        division)
+
+__author__ = "Jan Pokorný <jpokorny@redhat.com>"
+__copyright__ = "Copyright 2016 Red Hat, Inc."
+__license__ = "LGPLv2.1+ WITHOUT ANY WARRANTY"
+
 
 from os.path import basename, join
 from shutil import copyfile
@@ -32,18 +21,20 @@ class NativeFetchBuilder(FetchBuilder):
     """
     A specialized FetchBuilder to just setup the specfile + archive
     using package-native scripts, which currently boils down to a sequence
-    that needs to be configured (e.g.,
-    "./autogen.sh && ./configure && make dist foo.spec").
+    that needs to be configured via fetch_prep_command option in builder
+    section (e.g., "./autogen.sh && ./configure && make dist foo.spec").
+
+    Uses code of src/tito/builder/fetch.py from the tito project as a template.
     """
     REQUIRED_ARGS = []
 
     def __init__(self, name=None, tag=None, build_dir=None,
-            config=None, user_config=None,
-            args=None, **kwargs):
+                 config=None, user_config=None,
+                 args=None, **kwargs):
 
         BuilderBase.__init__(self, name=name, build_dir=build_dir,
-                config=config,
-                user_config=user_config, args=args, **kwargs)
+                             config=config,
+                             user_config=user_config, args=args, **kwargs)
 
         if tag:
             error_out("FetchBuilder does not support building specific tags.")

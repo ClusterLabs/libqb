@@ -1501,6 +1501,9 @@ static void test_max_dgram_size(void)
 		/* extra troubleshooting, report also on i and errno variables;
 		   related: https://github.com/ClusterLabs/libqb/issues/234 */
 		if (init != try) {
+#ifdef ci_dump_shm_usage
+			system("df -h | grep -e /shm >/tmp/_shm_usage");
+#endif
 			ck_abort_msg("Assertion 'init==try' failed:"
 				     " init==%#x, try==%#x, i=%d, errno=%d",
 				     init, try, i, errno);
