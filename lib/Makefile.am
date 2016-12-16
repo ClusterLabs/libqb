@@ -40,7 +40,8 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  map.c skiplist.c hashtable.c trie.c
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
-libqb_la_LIBADD	        = @LTLIBOBJS@
+libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
+libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
 
 AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 

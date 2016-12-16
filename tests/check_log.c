@@ -30,9 +30,7 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
-#ifdef HAVE_SYSLOG_TESTS
 #include "_syslog_override.h"
-#endif
 
 extern size_t qb_vsnprintf_serialize(char *serialize, size_t max_len, const char *fmt, va_list ap);
 extern size_t qb_vsnprintf_deserialize(char *string, size_t strlen, const char *buf);
@@ -859,7 +857,6 @@ START_TEST(test_zero_tags)
 }
 END_TEST
 
-#ifdef HAVE_SYSLOG_TESTS
 START_TEST(test_syslog)
 {
 	qb_log_init("flip", LOG_USER, LOG_INFO);
@@ -876,7 +873,6 @@ START_TEST(test_syslog)
 	qb_log_fini();
 }
 END_TEST
-#endif
 
 static Suite *
 log_suite(void)
@@ -898,10 +894,7 @@ log_suite(void)
 #endif
 	add_tcase(s, tc, test_extended_information);
 	add_tcase(s, tc, test_zero_tags);
-
-#ifdef HAVE_SYSLOG_TESTS
 	add_tcase(s, tc, test_syslog);
-#endif
 
 	return s;
 }
