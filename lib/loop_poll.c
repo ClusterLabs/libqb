@@ -469,7 +469,14 @@ _handle_real_signal_(int signal_num, siginfo_t * si, void *context)
 {
 	int32_t sig = signal_num;
 	int32_t res = 0;
+	struct sigaction temp_sa, old_sa;
 
+	/* prevent recursive invocation for this very signal */
+	temp_sa.sa_flags = SA_NODEFER;
+	temp_sa.sa_handler = SIG_IGN;
+	sigemptyset(&temp_sa.sa_mask);
+
+	sigaction(signal_num, &temp_sa, &old_sa);
 	if (pipe_fds[1] > 0) {
 try_again:
 		res = write(pipe_fds[1], &sig, sizeof(int32_t));
@@ -481,6 +488,8 @@ try_again:
 		}
 	}
 	qb_util_log(LOG_TRACE, "got real signal [%d] sent to pipe", sig);
+
+	sigaction(signal_num, &old_sa, NULL);
 }
 
 static void
