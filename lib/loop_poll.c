@@ -723,6 +723,7 @@ qb_loop_signal_mod(qb_loop_t * lp,
 	sig->p = p;
 
 	if (sig->signal != the_sig) {
+		signal(sig->signal, SIG_DFL);
 		sig->signal = the_sig;
 		_adjust_sigactions_(s);
 	}
