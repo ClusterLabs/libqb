@@ -324,6 +324,7 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_LINUX], [1],
 				   [Compiling for Linux platform])
 		AC_MSG_RESULT([Linux])
+    		AC_DEFINE_UNQUOTED([QB_ABSTRACT_SOCKETS],[1], [use Linux abstract sockets])
 	;;
 	*cygwin*)
 		AC_DEFINE_UNQUOTED([QB_CYGWIN], [1],
@@ -332,6 +333,7 @@ case "$host_os" in
 		nongcc_memory_barrier_needed=yes
 		gcc_has_builtin_sync_operations=no
 		AC_MSG_RESULT([Cygwin])
+    		AC_DEFINE_UNQUOTED([QB_ABSTRACT_SOCKETS],[1], [use Linux abstract sockets])
 	;;
 	darwin*)
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
@@ -473,6 +475,10 @@ AC_ARG_ENABLE([coverage],
 
 AC_ARG_ENABLE([slow-tests],
   [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
+
+AC_ARG_ENABLE([filesystem-sockets],
+  [AS_HELP_STRING([--enable-filesysten-sockets], [use filesystem sockets on Linux/Cygwin])],
+        AC_DEFINE_UNQUOTED([QB_ABSTRACT_SOCKETS],[0], [use Linux abstract sockets]))
 
 AC_ARG_WITH([socket-dir],
   [AS_HELP_STRING([--with-socket-dir=DIR],[socket directory @<:@LOCALSTATEDIR/run@:>@])],
