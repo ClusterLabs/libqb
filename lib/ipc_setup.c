@@ -590,9 +590,22 @@ error_close:
 int32_t
 qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 {
+#if !defined(QB_ABSTRACT_SOCKETS) || QB_ABSTRACT_SOCKETS==0
+	struct sockaddr_un sockname;
+	socklen_t socklen = sizeof(sockname);
+#endif
+	int res;
+
 	qb_util_log(LOG_INFO, "withdrawing server sockets");
 	(void)s->poll_fns.dispatch_del(s->server_sock);
 	shutdown(s->server_sock, SHUT_RDWR);
+
+#if !defined(QB_ABSTRACT_SOCKETS) || QB_ABSTRACT_SOCKETS==0
+	if ((getsockname(s->server_sock, &sockname, &socklen) == 0) &&
+	    sockname.sun_family == AF_LOCAL) {
+		unlink(sockname.sun_path);
+	}
+#endif
 	close(s->server_sock);
 	s->server_sock = -1;
 	return 0;
