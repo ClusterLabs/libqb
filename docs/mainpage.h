@@ -95,11 +95,15 @@
  * very high performance.
  *
  * @par Multithreading
- * As of current implementation, there are not many guarantees about ipc system
- * being thread-safe.  What remains there is mostly owing to the encapsulation
- * of independent IPC connections.  Therefore it is highly recommended to have
- * a single one pushed throughout its lifecycle just with a single thread;
- * anything else would likely warrant external synchronization enforcement.
+ * There are not many guarantees about the ipc system being thread-safe.
+ * It is essential that all sends and all receives are in their own thread,
+ * though having separate threads for each is supported.
+ *
+ * If you need to send on multiple threads then either use locking
+ * or create a separate connection for each thread. In practice this
+ * should not be a problem as multi-threaded sends will just end up with
+ * mixed-up replies.
+ *
  *
  * @par Client API
  * @copydoc qbipcc.h
