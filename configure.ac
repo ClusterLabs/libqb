@@ -477,7 +477,7 @@ AC_ARG_ENABLE([slow-tests],
   [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
 
 AC_ARG_ENABLE([filesystem-sockets],
-  [AS_HELP_STRING([--enable-filesysten-sockets], [use filesystem sockets on Linux/Cygwin])],
+  [AS_HELP_STRING([--enable-filesystem-sockets], [use filesystem sockets on Linux/Cygwin])],
         AC_DEFINE_UNQUOTED([QB_ABSTRACT_SOCKETS],[0], [use Linux abstract sockets]))
 
 AC_ARG_WITH([socket-dir],
