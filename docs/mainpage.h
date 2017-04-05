@@ -100,9 +100,7 @@
  * though having separate threads for each is supported.
  *
  * If you need to send on multiple threads then either use locking
- * or create a separate connection for each thread. In practice this
- * should not be a problem as multi-threaded sends will just end up with
- * mixed-up replies.
+ * around the calls or create a separate connection for each thread.
  *
  *
  * @par Client API
