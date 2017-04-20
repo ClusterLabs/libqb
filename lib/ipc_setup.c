@@ -69,7 +69,7 @@ struct ipc_auth_data {
 
 };
 
-
+int use_filesystem_sockets(void);
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 
 ssize_t
@@ -286,12 +286,13 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 	address.sun_len = QB_SUN_LEN(&address);
 #endif
 
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
+        if(use_filesystem_sockets() == 0) {
 	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
-#else
+        } else {
 	snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
 		 socket_name);
-#endif
+        }
+
 	if (connect(request_fd, (struct sockaddr *)&address,
 		    QB_SUN_LEN(&address)) == -1) {
 		res = -errno;
@@ -593,6 +594,16 @@ qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 	qb_util_log(LOG_INFO, "withdrawing server sockets");
 	(void)s->poll_fns.dispatch_del(s->server_sock);
 	shutdown(s->server_sock, SHUT_RDWR);
+
+        if(use_filesystem_sockets()) {
+            struct sockaddr_un sockname;
+            socklen_t socklen = sizeof(sockname);
+            if ((getsockname(s->server_sock, (struct sockaddr *)&sockname, &socklen) == 0) &&
+                sockname.sun_family == AF_LOCAL) {
+		unlink(sockname.sun_path);
+            }
+        }
+
 	close(s->server_sock);
 	s->server_sock = -1;
 	return 0;

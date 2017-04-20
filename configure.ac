@@ -479,6 +479,11 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$withval" ],
 	[ SOCKETDIR="$localstatedir/run" ])
 
+AC_ARG_WITH([force-sockets-config-file],
+  [AS_HELP_STRING([--with-force-sockets-config-file=FILE],[config file to force filesystem sockets directory @<:@SYSCONFDIR/.libqb.enable.filesystem.sockets@:>@])],
+	[ FORCESOCKETSFILE="$withval" ],
+	[ FORCESOCKETSFILE="$sysconfdir/.libqb.enable.filesystem.sockets" ])
+
 AC_SUBST(CP)
 # *FLAGS handling goes here
 
@@ -634,10 +639,13 @@ AM_CONDITIONAL([HAVE_DICT_WORDS], [test "x$HAVE_DICT_WORDS" = xyes])
 # substitute what we need:
 AC_SUBST([SOCKETDIR])
 AC_SUBST([LINT_FLAGS])
+AC_SUBST([FORCESOCKETSFILE])
 
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
+
+AC_DEFINE_UNQUOTED([FORCESOCKETSFILE], "$(eval echo ${FORCESOCKETSFILE})", [for sockets config file])
 
 # version parsing (for qbconfig.h)
 AC_DEFINE_UNQUOTED([QB_VER_MAJOR],
