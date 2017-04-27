@@ -1417,10 +1417,17 @@ END_TEST
 #ifdef HAVE_FAILURE_INJECTION
 START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
 {
+	char sock_file[PATH_MAX];
 	qb_enter();
-	_fi_unlink_inject_failure = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
 	set_ipc_name(__func__);
+
+	sprintf(sock_file, "%s/%s", SOCKETDIR, ipc_name);
+	/* If there's an old socket left from a previous run this test will fail
+	   unexpectedly, so try to remove it first */
+	unlink(sock_file);
+
+	_fi_unlink_inject_failure = QB_TRUE;
 	test_ipc_server_fail();
 	_fi_unlink_inject_failure = QB_FALSE;
 	qb_leave();
