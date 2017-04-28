@@ -69,7 +69,6 @@ struct ipc_auth_data {
 
 };
 
-
 static int32_t qb_ipcs_us_connection_acceptor(int fd, int revent, void *data);
 
 ssize_t
@@ -286,12 +285,13 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 	address.sun_len = QB_SUN_LEN(&address);
 #endif
 
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
-#else
-	snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
-		 socket_name);
-#endif
+	if (!use_filesystem_sockets()) {
+		snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	} else {
+		snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
+			 socket_name);
+	}
+
 	if (connect(request_fd, (struct sockaddr *)&address,
 		    QB_SUN_LEN(&address)) == -1) {
 		res = -errno;
@@ -535,10 +535,11 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 #endif
 
 	qb_util_log(LOG_INFO, "server name: %s", s->name);
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX - 1, "%s", s->name);
-#else
-	{
+
+	if (!use_filesystem_sockets()) {
+		snprintf(un_addr.sun_path + 1, UNIX_PATH_MAX - 1, "%s", s->name);
+	}
+	else {
 		struct stat stat_out;
 		res = stat(SOCKETDIR, &stat_out);
 		if (res == -1 || (res == 0 && !S_ISDIR(stat_out.st_mode))) {
@@ -552,7 +553,6 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 			 s->name);
 		unlink(un_addr.sun_path);
 	}
-#endif
 
 	res = bind(s->server_sock, (struct sockaddr *)&un_addr,
 		   QB_SUN_LEN(&un_addr));
@@ -561,15 +561,15 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 		qb_util_perror(LOG_ERR, "Could not bind AF_UNIX (%s)",
 			       un_addr.sun_path);
 		goto error_close;
-	}
+        }
 
 	/*
 	 * Allow everyone to write to the socket since the IPC layer handles
 	 * security automatically
 	 */
-#if !defined(QB_LINUX) && !defined(QB_CYGWIN)
-	res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
-#endif
+	if (use_filesystem_sockets()) {
+	        res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
+        }
 #ifdef SO_PASSCRED
 	setsockopt(s->server_sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
@@ -593,6 +593,16 @@ qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 	qb_util_log(LOG_INFO, "withdrawing server sockets");
 	(void)s->poll_fns.dispatch_del(s->server_sock);
 	shutdown(s->server_sock, SHUT_RDWR);
+
+	if (use_filesystem_sockets()) {
+		struct sockaddr_un sockname;
+		socklen_t socklen = sizeof(sockname);
+		if ((getsockname(s->server_sock, (struct sockaddr *)&sockname, &socklen) == 0) &&
+		    sockname.sun_family == AF_UNIX) {
+			unlink(sockname.sun_path);
+		}
+	}
+
 	close(s->server_sock);
 	s->server_sock = -1;
 	return 0;

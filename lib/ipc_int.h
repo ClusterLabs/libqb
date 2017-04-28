@@ -205,4 +205,6 @@ int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 
 int32_t qb_ipc_us_sock_error_is_disconnected(int err);
 
+int use_filesystem_sockets(void);
+
 #endif /* QB_IPC_INT_H_DEFINED */
