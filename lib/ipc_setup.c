@@ -598,7 +598,7 @@ qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 		struct sockaddr_un sockname;
 		socklen_t socklen = sizeof(sockname);
 		if ((getsockname(s->server_sock, (struct sockaddr *)&sockname, &socklen) == 0) &&
-		    sockname.sun_family == AF_LOCAL) {
+		    sockname.sun_family == AF_UNIX) {
 			unlink(sockname.sun_path);
 		}
 	}
