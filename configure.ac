@@ -480,9 +480,9 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$localstatedir/run" ])
 
 AC_ARG_WITH([force-sockets-config-file],
-  [AS_HELP_STRING([--with-force-sockets-config-file=FILE],[config file to force filesystem sockets directory @<:@SYSCONFDIR/.libqb.enable.filesystem.sockets@:>@])],
+  [AS_HELP_STRING([--with-force-sockets-config-file=FILE],[config file to force IPC to use filesystem sockets (Linux & Cygwin only) @<:@SYSCONFDIR/libqb/force-filesystem-sockets@:>@])],
 	[ FORCESOCKETSFILE="$withval" ],
-	[ FORCESOCKETSFILE="$sysconfdir/.libqb.enable.filesystem.sockets" ])
+	[ FORCESOCKETSFILE="$sysconfdir/libqb/force-filesystem-sockets" ])
 
 AC_SUBST(CP)
 # *FLAGS handling goes here
