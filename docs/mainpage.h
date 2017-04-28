@@ -101,6 +101,19 @@
  * a single one pushed throughout its lifecycle just with a single thread;
  * anything else would likely warrant external synchronization enforcement.
  *
+ * @par IPC sockets (Linux only)
+ * On Linux IPC, abstract (non-filesystem) sockets are used by default. If you
+ * need to override this (say in a net=host container) and use sockets that reside
+ * in the filesystem, then create a file called /etc/libqb/force-filesystem-sockets
+ * - this is the default name and can be changed at ./configure time.
+ * The file need contain no text, it's not a configuration file as such, just its
+ * presence will activate the feature.
+ *
+ * Note that this is a global option and read each time a new IPC connection
+ * (client or server) is created. So, to avoid having clients that cannot
+ * connect to running servers it is STRONGLY recommended to only create or remove
+ * this file prior to a system reboot or container restart.
+ *
  * @par Client API
  * @copydoc qbipcc.h
  * @see qbipcc.h
