@@ -106,10 +106,10 @@
  * @par IPC sockets (Linux only)
  * On Linux IPC, abstract (non-filesystem) sockets are used by default. If you
  * need to override this (say in a net=host container) and use sockets that reside
- * in the filesystem, then create a file called /etc/libqb/force-filesystem-sockets
+ * in the filesystem, then you need to create a file called /etc/libqb/force-filesystem-sockets
  * - this is the default name and can be changed at ./configure time.
- * The file need contain no text, it's not a configuration file as such, just its
- * presence will activate the feature.
+ * The file does not need to contain any content, it's not a configuration file as such,
+ * just its presence will activate the feature.
  *
  * Note that this is a global option and read each time a new IPC connection
  * (client or server) is created. So, to avoid having clients that cannot
