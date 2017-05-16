@@ -367,6 +367,7 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
 			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
 			unlink(sock_name);
+			free(base_name);
 		}
 	}
 	qb_ipcc_us_sock_close(c->event.u.us.sock);
@@ -737,6 +738,7 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
 				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
 				unlink(sock_name);
+				free(base_name);
 			}
 		}
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
