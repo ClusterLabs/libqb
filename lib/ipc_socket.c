@@ -329,6 +329,9 @@ _finish_connecting(struct qb_ipc_one_way *one_way)
 		return error;
 	}
 
+	/* Beside disposing no longer needed value, this also signals that
+	   we are done with connect-on-send arrangement at the server side
+	   (i.e. for response and event channels). */
 	free(one_way->u.us.sock_name);
 	one_way->u.us.sock_name = NULL;
 
@@ -715,6 +718,17 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		_sock_rm_from_mainloop(c);
+
+		/* Free the temporaries denoting which respective socket
+		   name on the client's side to connect upon the first
+		   send operation -- normally the variable is free'd once
+		   the connection is established but there may have been
+		   no chance for that.  */
+		free(c->response.u.us.sock_name);
+		c->response.u.us.sock_name = NULL;
+
+		free(c->event.u.us.sock_name);
+		c->event.u.us.sock_name = NULL;
 
 		if (use_filesystem_sockets()) {
 			struct sockaddr_un un_addr;
