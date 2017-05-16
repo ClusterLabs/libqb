@@ -356,7 +356,8 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 		size_t length;
 		if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
 			length = strlen(un_addr.sun_path);
-			base_name = strndup(un_addr.sun_path,length-9);
+			base_name = strndup(un_addr.sun_path,
+					    length - /* strlen("-response") */ 9);
 			qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
 			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
 			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
@@ -736,9 +737,10 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 			char *base_name;
 			char sock_name[PATH_MAX];
 			size_t length;
-			if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
+			if (getsockname(c->request.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
 				length = strlen(un_addr.sun_path);
-				base_name = strndup(un_addr.sun_path,length-8);
+				base_name = strndup(un_addr.sun_path,
+						    length - /* strlen("-request") */ 8);
 				qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
 				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
 				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
