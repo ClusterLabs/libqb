@@ -329,6 +329,9 @@ _finish_connecting(struct qb_ipc_one_way *one_way)
 		return error;
 	}
 
+	/* Beside disposing no longer needed value, this also signals that
+	   we are done with connect-on-send arrangement at the server side
+	   (i.e. for response and event channels). */
 	free(one_way->u.us.sock_name);
 	one_way->u.us.sock_name = NULL;
 
@@ -353,7 +356,8 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 		size_t length;
 		if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
 			length = strlen(un_addr.sun_path);
-			base_name = strndup(un_addr.sun_path,length-9);
+			base_name = strndup(un_addr.sun_path,
+					    length - /* strlen("-response") */ 9);
 			qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
 			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
 			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
@@ -367,6 +371,7 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
 			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
 			unlink(sock_name);
+			free(base_name);
 		}
 	}
 	qb_ipcc_us_sock_close(c->event.u.us.sock);
@@ -715,15 +720,27 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		_sock_rm_from_mainloop(c);
 
+		/* Free the temporaries denoting which respective socket
+		   name on the client's side to connect upon the first
+		   send operation -- normally the variable is free'd once
+		   the connection is established but there may have been
+		   no chance for that.  */
+		free(c->response.u.us.sock_name);
+		c->response.u.us.sock_name = NULL;
+
+		free(c->event.u.us.sock_name);
+		c->event.u.us.sock_name = NULL;
+
 		if (use_filesystem_sockets()) {
 			struct sockaddr_un un_addr;
 			socklen_t un_addr_len = sizeof(struct sockaddr_un);
 			char *base_name;
 			char sock_name[PATH_MAX];
 			size_t length;
-			if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
+			if (getsockname(c->request.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
 				length = strlen(un_addr.sun_path);
-				base_name = strndup(un_addr.sun_path,length-8);
+				base_name = strndup(un_addr.sun_path,
+						    length - /* strlen("-request") */ 8);
 				qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
 				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
 				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
@@ -737,6 +754,7 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
 				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
 				unlink(sock_name);
+				free(base_name);
 			}
 		}
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
