@@ -48,16 +48,16 @@ int use_filesystem_sockets(void)
 	static int filesystem_sockets = 0;
 
 	if (need_init) {
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
 		struct stat buf;
 
-		need_init = 0;
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
 		if (stat(FORCESOCKETSFILE, &buf) == 0) {
 			filesystem_sockets = 1;
 		}
 #else
 		filesystem_sockets = 1;
 #endif
+		need_init = 0;
 	}
 	return filesystem_sockets;
 }
