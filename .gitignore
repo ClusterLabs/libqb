@@ -16,7 +16,11 @@ autom4te.cache/
 config.status
 configure
 .libs
-m4
+
+# ignore "libtoolized" m4 files, but keep our (custom-prefixed) ones
+/m4/*
+!/m4/ax_*.m4
+
 libtool
 .version
 .tarball-version
