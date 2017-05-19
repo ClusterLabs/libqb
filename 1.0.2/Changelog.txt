@@ -1,0 +1,230 @@
+2017-05-19  Christine Caulfield  <ccaulfie@redhat.com>
+
+	lib: update library version for upcoming 1.0.2 release
+
+2017-05-19  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: follow-up on introducing custom m4 macros
+	Various "configure" commits by wferi recently introduced new
+	compat/custom m4 macro files in m4 directory, which itself was,
+	so far, assumed ephemeral (not strictly needed for reproducing
+	the build successfully, i.e., bits that can be completely purged
+	when cutting down the project files to the bone).  Apparently,
+	this assumption no longer holds so several places need to be
+	adapted.
+	Amonst others, m4 directory no longer needs to be reinsured in
+	autogen.sh, and special care must be taken with .gitignore
+	and maintainer-clean-local target of the main Makafile.
+
+2017-05-18  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	ipc: fix compile warning on non-Linux platforms (#252)
+
+2017-05-18  jonesmz  <jonesmz@users.noreply.github.com>
+
+	Require c99 language support or newer (#251)
+
+2017-05-18  Jan Pokorný  <jnpkrn@users.noreply.github.com>
+
+	Memleak fixes (#194)
+	* memleak: ipc_socket: properly dispose local-scoped strndup values
+	Leaking memory was only possible when using filesystem sockets (see
+	use_filesystem_sockets function) and either:
+	- client is deliberately disconnecting from a server (continued run
+	  imposes a risk of exhausting memory)
+	- server is deliberately disconnecting from its client (ditto, but
+	  more substantial risk due to the common shared-resource nature
+	  of the server)
+	* memleak: ipc_socket: properly dispose inter-function strdup values
+	Leaking memory was only possible when the server accepted the client,
+	but didn't get (or was too shy) to talk to it prior to proceeding with
+	a disconnect.
+	* ipc_socket: care to explain what's going on with file name inference
+	Related to the code parts at hand, there was an investigation/fix in
+	the past, initiated by "make check" failure on FreeBSD 9 [rhbz#1256701].
+	Unfortunately, not only the magic constant being modified was not
+	explained in 1908e6c, but (one can derive because of a lack of solid
+	background of what's going on here, which might have caused that),
+	it was modified incorrectly at one instance (see also [PR165 comment]),
+	which was then reinstated in 7ebcb3d.
+	So, finally de-mystify those magic constants.  Also break the symmetry
+	between the client/server further with depending on the canonical
+	"request socket" alias at the server side (the former worked equally but
+	it was unnecessarily confusing and there's a risk this artificial alias
+	will get removed in the future).
+	[rhbz#1256701] https://bugzilla.redhat.com/1256701
+	[PR165 comment] https://github.com/ClusterLabs/libqb/issues/165#issuecomment-142949541
+
+2017-05-02  Christine Caulfield  <ccaulfie@redhat.com>
+
+	doc: Clarify IPC caution text
+	It was not clear to non-native English speakers.
+	Reviewed by: Jan Pokorný <jpokorny@redhat.com>
+
+2017-04-28  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Allow Linux to use filesystem sockets (#248)
+	* IPC: Allow filesystem sockets to be chosen at run-time on Linux
+	Most of this patch came from Andrew Beekhof.
+	Keep a global variable that decides whether or not to use filesystem sockets
+	or abstract sockets for IPC connections. This variable is set by the presence of a file (default /etc/libqb/force-filesystem-sockets).
+	* tests: Fix test_ipcc_truncate_when_unlink_fails_shm test using FS sockets
+	When using filesystem sockets, the
+	test_ipcc_truncate_when_unlink_fails_shm test always fails, this was
+	because the unlink() call is wrapped to fail and so it never cleans up
+	the old version of the socket.
+	The fix is to preemptively remove the file before unlink gets wrapped.
+	* doc: Explain the force-filesystem-sockets option
+
+	Merge pull request #250 from jnpkrn/test-ipc-random-name
+	test: Fix random number generation in IPC tests
+
+2017-04-28  Jan Pokorný  <jpokorny@redhat.com>
+
+	test: Fix random number generation in IPC tests
+	The sockets are named using a random() suffix in at attempt to isolate
+	concurrent test.  However random() always returns the same random number
+	by design ... unless pre-seeded with some value being unique enough for
+	the particular execution.
+	Borrowing the most of the above message from original "srandom" fix by
+	Chrissie who also discovered this issue (nice!), I thought it would be
+	more viable if we encoded such "unique enough" variables directly to
+	IPC name being generated, not relying on pseudorandom generators in any
+	way.  Hence this other fix.
+
+2017-04-05  Christine Caulfield  <ccaulfie@redhat.com>
+
+	doc: Remove unclear part of the clarification on IPC threading.
+
+2017-03-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	doc: clarify thread-safety (or not) in IPC doc
+
+2017-03-06  Christine Caulfield  <ccaulfie@redhat.com>
+
+	loop: Fix splint error
+
+2017-02-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	loop: Also set signals changed in qb_loop_signal_mod() back to SIG_DFL
+
+	loop: don't override external signal handlers
+	qb_loop_signal_add() used to set any signals it wasn't managing
+	back to SIG_DFL. This is unfriendly behaviour in a library.
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+2017-01-31  Christine Caulfield  <ccaulfie@redhat.com>
+
+	[tests] Fix qb_rb_chunk_peek test so it's consistent with qb_rb_read
+	Now that the library code is too.
+
+	[ringbuffer] Return error from peek if RB is corrupted.
+	This should prevent libqb from looping in the server if the
+	ringbuffer gets corrupted. Instead the client will be disconnected.
+
+2016-12-16  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #242 from jnpkrn/travis-issue-234
+	CI: travis: fix du -> df and capture it also directly from test
+
+2016-12-16  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: tito: unify custom.py with pacemaker's version
+
+	CI: travis: fix du -> df and capture it also directly from test
+
+2016-12-16  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #241 from jnpkrn/PR240-addendum
+	PR #240 + addendum (drop syslog-tests opt-in switch)
+
+2016-12-12  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: drop allegedly no longer intrusive syslog-tests opt-in switch
+	The intention behind enabling the syslog tests on demand (642f74d) was
+	to tread cautiously as libtool used to alert that something controversial
+	is going on:
+	$ ./autogen.sh && ./configure --enable-syslog-tests && make check
+	> ...
+	> *** Warning: Linking the executable log.test against the loadable module
+	> *** _syslog_override.so is not portable!
+	> ...
+	owing to the fact that _syslog_override.so is being linked (through
+	libtool) with LDFLAGS=-module.
+	In fact, the issue did go away with a fix to the "make install" process
+	(ebcff54) for which _syslog_override.so* files were being picked
+	undesirably prior to the fix, which manifested itself also on
+	"make rpm" (hence the respective commit message):
+	> RPM build errors:
+	>     Installed (but unpackaged) file(s) found:
+	>    /usr/lib64/_syslog_override.so
+	>    /usr/lib64/_syslog_override.so.0
+	>    /usr/lib64/_syslog_override.so.0.0.0
+	The explanation for the secondary positive effect on the mentioned
+	libtool's warning going away is rather simple:
+	"lib" prefix switches the expectations about the result as a library
+	(also due to "libdir" destination) rather than as an executable object.
+	Change like that ensures the result is what libtool's manual calls
+	"dynamic module that can be opened by lt_dlopen" rather than "runtime
+	library that cannot" in the context of Mac OS X, which was likely the
+	cause of the portability warning.
+	(https://www.gnu.org/software/libtool/manual/libtool.html#FOOT10)
+	And because the tests themselves are run through the libtool wrapper
+	scripts capable of relinking and other magic
+	What libtool manual has to say on this topic:
+	> Note that libtool modules don’t need to have a "lib" prefix. However,
+	> Automake 1.4 or higher is required to build such modules.
+	referring to version released 15+ years back, which is assumed anyway.
+	(https://www.gnu.org/software/libtool/manual/libtool.html#Modules-for-libltdl)
+	* * *
+	That being said, there's now no longer a reason to have "syslog-tests"
+	enablement conditionalized (no longer supposed intrusive), hence enable
+	them unconditionally along the other libcheck-based tests
+	-- whenever libcheck is detected.
+	This changeset also drops any trace of --enable-syslog-tests switch
+	in various places using that (spec file, Travis CI configuration)
+	making for a complete vaporizatio of this choice.
+
+2016-12-12  Ferenc Wágner  <wferi@debian.org>
+
+	configure: restrict nsl lib to where it's actually needed
+
+	configure: restrict socket lib to where it's actually needed
+
+	configure: restrict pthreads to where it's actually needed
+	mq_open() is no longer relevant beyond 70a9623 (Remove message queues).
+
+2016-12-08  Ferenc Wágner  <wferi@debian.org>
+
+	configure: restrict -ldl to where it's actually needed
+	This reduces overlinking of qb-blackbox.  Being a seldom used executable,
+	the gains are mostly theoretical, but at least this silences warnings
+	from some QA tools.
+
+	configure: LTLIBOBJS is also a Make variable
+	So let's use the more friendly syntax.
+
+	configure: help string cleanup
+	The [ default="no" ] branches were sense- and (mostly) harmless.
+
+	Fix typos: synchonization -> synchronization, paramaters -> parameters
+
+2016-11-29  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #238 from jnpkrn/travis-issue-234
+	Continue with investigation of intermittent failures in Travis CI (#234)
+
+2016-11-28  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: better diagnose test_max_dgram_size test failures
+
+	CI: travis: fix dh -> du + add "lsblk -f" diagnostics
+
+2016-11-24  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Merge pull request #235 from jnpkrn/travis-issue-234
+	CI: make travis watch for the issue #234
+
+2016-11-24  Jan Pokorný  <jpokorny@redhat.com>
+
+	CI: make travis watch for the issue #234
