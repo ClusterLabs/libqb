@@ -42,6 +42,26 @@ struct ipc_us_control {
 };
 #define SHM_CONTROL_SIZE (3 * sizeof(struct ipc_us_control))
 
+int use_filesystem_sockets(void)
+{
+	static int need_init = 1;
+	static int filesystem_sockets = 0;
+
+	if (need_init) {
+#if defined(QB_LINUX) || defined(QB_CYGWIN)
+		struct stat buf;
+
+		if (stat(FORCESOCKETSFILE, &buf) == 0) {
+			filesystem_sockets = 1;
+		}
+#else
+		filesystem_sockets = 1;
+#endif
+		need_init = 0;
+	}
+	return filesystem_sockets;
+}
+
 static void
 set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 {
@@ -51,12 +71,12 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 	address->sun_len = QB_SUN_LEN(address);
 #endif
 
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
-#else
-	snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
-		 socket_name);
-#endif
+	if (!use_filesystem_sockets()) {
+		snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	} else {
+		snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
+			 socket_name);
+	}
 }
 
 static int32_t
@@ -81,15 +101,16 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 	}
 	snprintf(sock_path, PATH_MAX, "%s-%s", base_name, service_name);
 	set_sock_addr(&local_address, sock_path);
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-	res = unlink(local_address.sun_path);
-#endif
+	if (use_filesystem_sockets()) {
+		res = unlink(local_address.sun_path);
+	}
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-	chmod(local_address.sun_path, 0660);
-	chown(local_address.sun_path, -1, gid);
-#endif
+
+	if (use_filesystem_sockets()) {
+		chmod(local_address.sun_path, 0660);
+		chown(local_address.sun_path, -1, gid);
+	}
 	if (res < 0) {
 		goto error_connect;
 	}
@@ -164,13 +185,18 @@ dgram_verify_msg_size(size_t max_msg_size)
 	char buf[max_msg_size];
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockets) < 0) {
+		qb_util_perror(LOG_DEBUG, "error calling socketpair()");
 		goto cleanup_socks;
 	}
 
 	if (set_sock_size(sockets[0], max_msg_size) != 0) {
+		qb_util_log(LOG_DEBUG, "error set_sock_size(sockets[0],%#x)",
+			    max_msg_size);
 		goto cleanup_socks;
 	}
 	if (set_sock_size(sockets[1], max_msg_size) != 0) {
+		qb_util_log(LOG_DEBUG, "error set_sock_size(sockets[1],%#x)",
+			    max_msg_size);
 		goto cleanup_socks;
 	}
 
@@ -303,6 +329,9 @@ _finish_connecting(struct qb_ipc_one_way *one_way)
 		return error;
 	}
 
+	/* Beside disposing no longer needed value, this also signals that
+	   we are done with connect-on-send arrangement at the server side
+	   (i.e. for response and event channels). */
 	free(one_way->u.us.sock_name);
 	one_way->u.us.sock_name = NULL;
 
@@ -316,36 +345,35 @@ _finish_connecting(struct qb_ipc_one_way *one_way)
 static void
 qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 {
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-  struct sockaddr_un un_addr;
-  socklen_t un_addr_len = sizeof(struct sockaddr_un);
-  char *base_name;
-  char sock_name[PATH_MAX];
-  size_t length;
-#endif
-
 	munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 	unlink(c->request.u.us.shared_file_name);
 
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-    if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
-      length = strlen(un_addr.sun_path);
-      base_name = strndup(un_addr.sun_path,length-9);
-      qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
-      snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
-      qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-      unlink(sock_name);
-      snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event");
-      qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-      unlink(sock_name);
-      snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event-tx");
-      qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-      unlink(sock_name);
-      snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
-      qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-      unlink(sock_name);
-    }
-#endif
+	if (use_filesystem_sockets()) {
+		struct sockaddr_un un_addr;
+		socklen_t un_addr_len = sizeof(struct sockaddr_un);
+		char *base_name;
+		char sock_name[PATH_MAX];
+		size_t length;
+		if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
+			length = strlen(un_addr.sun_path);
+			base_name = strndup(un_addr.sun_path,
+					    length - /* strlen("-response") */ 9);
+			qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
+			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
+			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+			unlink(sock_name);
+			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event");
+			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+			unlink(sock_name);
+			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event-tx");
+			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+			unlink(sock_name);
+			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
+			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+			unlink(sock_name);
+			free(base_name);
+		}
+	}
 	qb_ipcc_us_sock_close(c->event.u.us.sock);
 	qb_ipcc_us_sock_close(c->request.u.us.sock);
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
@@ -451,11 +479,11 @@ retry_peek:
 
 		if (errno != EAGAIN) {
 			final_rc = -errno;
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-			if (errno == ECONNRESET || errno == EPIPE) {
-				final_rc = -ENOTCONN;
+			if (use_filesystem_sockets()) {
+				if (errno == ECONNRESET || errno == EPIPE) {
+					final_rc = -ENOTCONN;
+				}
 			}
-#endif
 			goto cleanup_sigpipe;
 		}
 
@@ -686,38 +714,49 @@ _sock_rm_from_mainloop(struct qb_ipcs_connection *c)
 static void
 qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 {
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-	struct sockaddr_un un_addr;
-	socklen_t un_addr_len = sizeof(struct sockaddr_un);
-	char *base_name;
-	char sock_name[PATH_MAX];
-	size_t length;
-#endif
 	qb_enter();
 
 	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		_sock_rm_from_mainloop(c);
 
-#if !(defined(QB_LINUX) || defined(QB_CYGWIN))
-		if (getsockname(c->response.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
-			length = strlen(un_addr.sun_path);
-			base_name = strndup(un_addr.sun_path,length-8);
-			qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
-			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
-			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-			unlink(sock_name);
-			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event");
-			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-			unlink(sock_name);
-			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event-tx");
-			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-			unlink(sock_name);
-			snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
-			qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
-			unlink(sock_name);
+		/* Free the temporaries denoting which respective socket
+		   name on the client's side to connect upon the first
+		   send operation -- normally the variable is free'd once
+		   the connection is established but there may have been
+		   no chance for that.  */
+		free(c->response.u.us.sock_name);
+		c->response.u.us.sock_name = NULL;
+
+		free(c->event.u.us.sock_name);
+		c->event.u.us.sock_name = NULL;
+
+		if (use_filesystem_sockets()) {
+			struct sockaddr_un un_addr;
+			socklen_t un_addr_len = sizeof(struct sockaddr_un);
+			char *base_name;
+			char sock_name[PATH_MAX];
+			size_t length;
+			if (getsockname(c->request.u.us.sock, (struct sockaddr *)&un_addr, &un_addr_len) == 0) {
+				length = strlen(un_addr.sun_path);
+				base_name = strndup(un_addr.sun_path,
+						    length - /* strlen("-request") */ 8);
+				qb_util_log(LOG_DEBUG, "unlinking socket bound files with base_name=%s length=%d",base_name,length);
+				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"request");
+				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+				unlink(sock_name);
+				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event");
+				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+				unlink(sock_name);
+				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"event-tx");
+				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+				unlink(sock_name);
+				snprintf(sock_name,PATH_MAX,"%s-%s",base_name,"response");
+				qb_util_log(LOG_DEBUG, "unlink sock_name=%s",sock_name);
+				unlink(sock_name);
+				free(base_name);
+			}
 		}
-#endif
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		qb_ipcc_us_sock_close(c->request.u.us.sock);
 		qb_ipcc_us_sock_close(c->event.u.us.sock);

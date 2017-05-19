@@ -605,6 +605,36 @@ START_TEST(test_loop_sig_handling)
 }
 END_TEST
 
+/* Globals for this test only */
+static int our_signal_called = 0;
+static qb_loop_t *this_l;
+static void handle_nonqb_signal(int num)
+{
+	our_signal_called = 1;
+	qb_loop_job_add(this_l, QB_LOOP_LOW, NULL, job_stop);
+}
+
+START_TEST(test_loop_dont_override_other_signals)
+{
+	qb_loop_signal_handle handle;
+
+	this_l = qb_loop_create();
+	fail_if(this_l == NULL);
+
+	signal(SIGUSR1, handle_nonqb_signal);
+
+	qb_loop_signal_add(this_l, QB_LOOP_HIGH, SIGINT,
+			   this_l, sig_handler, &handle);
+	kill(getpid(), SIGUSR1);
+	qb_loop_run(this_l);
+
+	ck_assert_int_eq(our_signal_called, 1);
+
+	qb_loop_destroy(this_l);
+}
+END_TEST
+
+
 START_TEST(test_loop_sig_only_get_one)
 {
 	int res;
@@ -706,6 +736,7 @@ loop_signal_suite(void)
 	add_tcase(s, tc, test_loop_sig_handling, 10);
 	add_tcase(s, tc, test_loop_sig_only_get_one);
 	add_tcase(s, tc, test_loop_sig_delete);
+	add_tcase(s, tc, test_loop_dont_override_other_signals);
 
 	return s;
 }

@@ -65,6 +65,10 @@ AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
 AM_PROG_CC_C_O
+AC_PROG_CC_C99
+if test "x$ac_cv_prog_cc_c99" = "xno"; then
+	AC_MSG_ERROR(["C99 support is required"])
+fi
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -102,15 +106,19 @@ case $exec_prefix in
 esac
 
 # Checks for libraries.
-dnl librt from glibc NEEDs libpthread
-dnl so. if test for libpthread after librt
-dnl it will always be "none needed", but it is not true
-dnl when linking libraries. Looks like a bug.
-AC_SEARCH_LIBS([pthread_create], [pthread])
-AC_SEARCH_LIBS([mq_open], [rt])
-AC_SEARCH_LIBS([dlopen], [dl])
-AC_SEARCH_LIBS([socket], [socket])
-AC_SEARCH_LIBS([gethostbyname], [nsl])
+AX_PTHREAD
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
+AC_SUBST([dlopen_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([socket], [socket],,[AC_MSG_ERROR([cannot find socket() function])])
+AC_SUBST([socket_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([gethostbyname], [nsl],,[AC_MSG_ERROR([cannot find gethostbyname() function])])
+AC_SUBST([nsl_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
 
 # look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
@@ -198,13 +206,17 @@ AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
 		strchr strrchr strdup strstr strcasecmp \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
-		pthread_spin_lock pthread_setschedparam \
-                pthread_mutexattr_setpshared \
-                pthread_condattr_setpshared \
-		sem_timedwait semtimedop \
 		getpeerucred getpeereid \
 		openat unlinkat])
 
+AX_SAVE_FLAGS
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+LIBS="$LIBS $PTHREAD_LIBS"
+AC_CHECK_FUNCS([pthread_spin_lock pthread_setschedparam \
+		pthread_mutexattr_setpshared \
+		pthread_condattr_setpshared \
+		sem_timedwait semtimedop])
+AX_RESTORE_FLAGS
 
 # Checks for defined macros
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
@@ -452,35 +464,29 @@ LINT_FLAGS="-weak -D__gnuc_va_list=va_list -D__attribute\(x\)= \
 
 # local options
 AC_ARG_ENABLE([ansi],
-	[  --enable-ansi           : force to build with ANSI standards. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-ansi],[force to build with ANSI standards])])
 
 AC_ARG_ENABLE([fatal-warnings],
-	[  --enable-fatal-warnings : enable fatal warnings. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-fatal-warnings],[enable fatal warnings])])
 
 AC_ARG_ENABLE([debug],
-	[  --enable-debug          : enable debug build. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-debug],[enable debug build])])
 
 AC_ARG_ENABLE([coverage],
-	[  --enable-coverage       : coverage analysis of the codebase. ],
-	[ default="no" ])
+  [AS_HELP_STRING([--enable-coverage],[coverage analysis of the codebase])])
 
 AC_ARG_ENABLE([slow-tests],
-	[  --enable-slow-tests     : build and run slow tests. ],
-	[ default="no" ])
-
-if test x"$with_check" = xyes; then
-AC_ARG_ENABLE([syslog-tests],
-	[  --enable-syslog-tests   : build and run syslog tests. ],
-	[ default="no" ])
-fi
+  [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
 
 AC_ARG_WITH([socket-dir],
-	[  --with-socket-dir=DIR   : socket dir. ],
+  [AS_HELP_STRING([--with-socket-dir=DIR],[socket directory @<:@LOCALSTATEDIR/run@:>@])],
 	[ SOCKETDIR="$withval" ],
 	[ SOCKETDIR="$localstatedir/run" ])
+
+AC_ARG_WITH([force-sockets-config-file],
+  [AS_HELP_STRING([--with-force-sockets-config-file=FILE],[config file to force IPC to use filesystem sockets (Linux & Cygwin only) @<:@SYSCONFDIR/libqb/force-filesystem-sockets@:>@])],
+	[ FORCESOCKETSFILE="$withval" ],
+	[ FORCESOCKETSFILE="$sysconfdir/libqb/force-filesystem-sockets" ])
 
 AC_SUBST(CP)
 # *FLAGS handling goes here
@@ -576,12 +582,6 @@ if test "x${enable_slow_tests}" = xyes ; then
 fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
 AC_SUBST(HAVE_SLOW_TESTS)
-if test "x${enable_syslog_tests}" = xyes ; then
-	AC_DEFINE([HAVE_SYSLOG_TESTS], 1,[have syslog tests])
-	AC_MSG_NOTICE([Enabling syslog tests])
-fi
-AM_CONDITIONAL(HAVE_SYSLOG_TESTS, [test "x${enable_syslog_tests}" = xyes])
-AC_SUBST(HAVE_SYSLOG_TESTS)
 
 # --- callsite sections ---
 if test "x${GCC}" = xyes; then
@@ -643,10 +643,13 @@ AM_CONDITIONAL([HAVE_DICT_WORDS], [test "x$HAVE_DICT_WORDS" = xyes])
 # substitute what we need:
 AC_SUBST([SOCKETDIR])
 AC_SUBST([LINT_FLAGS])
+AC_SUBST([FORCESOCKETSFILE])
 
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
+
+AC_DEFINE_UNQUOTED([FORCESOCKETSFILE], "$(eval echo ${FORCESOCKETSFILE})", [for sockets config file])
 
 # version parsing (for qbconfig.h)
 AC_DEFINE_UNQUOTED([QB_VER_MAJOR],

@@ -122,13 +122,26 @@ exit_handler(int32_t rsignal, void *data)
 static void
 set_ipc_name(const char *prefix)
 {
-	/* We have to give the server name a random postfix because
-	 * some build systems attempt to generate packages for libqb
-	 * in parallel. These unit tests are run during the package
-	 * build process. Two builds executing on the same machine
-	 * can stomp on each other's unit tests if the ipc server
-	 * names aren't unique... This was very confusing to debug */
-	snprintf(ipc_name, 256, "%s-%d", prefix, (int32_t)random());
+	/* We have to make the server name as unique as possible given
+	 * the build- (seconds part of preprocessor's timestamp) and
+	 * run-time (pid + lower 16 bits of the current timestamp)
+	 * circumstances, because some build systems attempt to generate
+	 * packages for libqb in parallel.  These unit tests are run
+	 * during the package build process.  2+ builds executing on
+	 * the same machine (whether containerized or not because of
+	 * abstract unix sockets namespace sharing) can stomp on each
+	 * other's unit tests if the ipc server names aren't unique... */
+
+	/* single-shot grab of seconds part of preprocessor's timestamp */
+	static char t_sec[3] = "";
+	if (t_sec[0] == '\0') {
+		const char const *found = strrchr(__TIME__, ':');
+		strncpy(t_sec, found ? found + 1 : "-", sizeof(t_sec) - 1);
+		t_sec[sizeof(t_sec) - 1] = '\0';
+	}
+
+	snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
+		 (long)getpid(), (int) ((long) time(NULL) % (0x10000)));
 }
 
 static int32_t
@@ -1417,10 +1430,17 @@ END_TEST
 #ifdef HAVE_FAILURE_INJECTION
 START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
 {
+	char sock_file[PATH_MAX];
 	qb_enter();
-	_fi_unlink_inject_failure = QB_TRUE;
 	ipc_type = QB_IPC_SHM;
 	set_ipc_name(__func__);
+
+	sprintf(sock_file, "%s/%s", SOCKETDIR, ipc_name);
+	/* If there's an old socket left from a previous run this test will fail
+	   unexpectedly, so try to remove it first */
+	unlink(sock_file);
+
+	_fi_unlink_inject_failure = QB_TRUE;
 	test_ipc_server_fail();
 	_fi_unlink_inject_failure = QB_FALSE;
 	qb_leave();
@@ -1495,7 +1515,20 @@ static void test_max_dgram_size(void)
 	fail_if(init <= 0);
 	for (i = 0; i < 100; i++) {
 		int try = qb_ipcc_verify_dgram_max_msg_size(1000000);
+#if 0
 		ck_assert_int_eq(init, try);
+#else
+		/* extra troubleshooting, report also on i and errno variables;
+		   related: https://github.com/ClusterLabs/libqb/issues/234 */
+		if (init != try) {
+#ifdef ci_dump_shm_usage
+			system("df -h | grep -e /shm >/tmp/_shm_usage");
+#endif
+			ck_abort_msg("Assertion 'init==try' failed:"
+				     " init==%#x, try==%#x, i=%d, errno=%d",
+				     init, try, i, errno);
+		}
+#endif
 	}
 
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,

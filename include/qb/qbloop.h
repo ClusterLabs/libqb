@@ -115,7 +115,7 @@ int32_t qb_loop_job_add(qb_loop_t *l,
  * This will try to delete the job if it hasn't run yet.
  *
  * @note this will remove the first job that matches the
- * paramaters (priority, data, dispatch_fn).
+ * parameters (priority, data, dispatch_fn).
  *
  * @param l pointer to the loop instance
  * @param p the priority

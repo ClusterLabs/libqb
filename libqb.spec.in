@@ -1,5 +1,4 @@
 %bcond_without check
-%bcond_without syslog_tests
 
 %global alphatag @alphatag@
 %global numcomm @numcomm@
@@ -27,8 +26,7 @@ and polling.
 
 %build
 ./autogen.sh
-%configure --disable-static \
-           %{?with_syslog_tests:--enable-syslog-tests}
+%configure --disable-static
 make %{?_smp_mflags}
 
 %if 0%{?with_check}

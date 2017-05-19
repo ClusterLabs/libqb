@@ -47,9 +47,10 @@ doxygen:
 dist-clean-local:
 	rm -f autoconf automake autoheader
 
+# this will also get rid of "libtoolized" m4 files
 maintainer-clean-local:
-	rm -rf m4
 	rm -f .version .tarball-version
+	rm -f $(patsubst $(top_srcdir)/m4/ax_%,,$(wildcard $(top_srcdir)/m4/*.m4))
 
 clean-local:
 	rm -rf $(SPEC) $(DIST_ARCHIVES)

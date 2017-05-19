@@ -643,8 +643,6 @@ _adjust_sigactions_(struct qb_signal_source *s)
 		if (needed) {
 			sigaddset(&s->signal_superset, i);
 			sigaction(i, &sa, NULL);
-		} else {
-			(void)signal(i, SIG_DFL);
 		}
 	}
 }
@@ -725,6 +723,7 @@ qb_loop_signal_mod(qb_loop_t * lp,
 	sig->p = p;
 
 	if (sig->signal != the_sig) {
+		(void)signal(sig->signal, SIG_DFL);
 		sig->signal = the_sig;
 		_adjust_sigactions_(s);
 	}
@@ -775,6 +774,7 @@ qb_loop_signal_del(qb_loop_t * lp, qb_loop_signal_handle handle)
 	}
 
 	qb_list_del(&sig->item.list);
+	(void)signal(sig->signal, SIG_DFL);
 	free(sig);
 	_adjust_sigactions_(s);
 	return 0;

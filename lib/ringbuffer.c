@@ -619,7 +619,11 @@ qb_rb_chunk_peek(struct qb_ringbuffer_s * rb, void **data_out, int32_t timeout)
 		if (rb->notifier.post_fn) {
 			(void)rb->notifier.post_fn(rb->notifier.instance, res);
 		}
-		return 0;
+#ifdef EBADMSG
+		return -EBADMSG;
+#else
+		return -EINVAL;
+#endif
 	}
 	chunk_size = QB_RB_CHUNK_SIZE_GET(rb, read_pt);
 	*data_out = QB_RB_CHUNK_DATA_GET(rb, read_pt);

@@ -29,7 +29,7 @@ AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-libqb_la_LDFLAGS	= -version-info 18:1:18
+libqb_la_LDFLAGS	= -version-info 18:2:18
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
@@ -40,7 +40,8 @@ source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  map.c skiplist.c hashtable.c trie.c
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
-libqb_la_LIBADD	        = @LTLIBOBJS@
+libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
+libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
 
 AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 

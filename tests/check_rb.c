@@ -179,7 +179,8 @@ START_TEST(test_ring_buffer4)
 	}
 	for (i = 0; i < 2000; i++) {
 		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
-		if (l == 0) {
+		if (l < 0) {
+			/* no more to read */
 			break;
 		}
 		ck_assert_int_eq(l, strlen(data));
