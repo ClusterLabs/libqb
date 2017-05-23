@@ -128,10 +128,11 @@ qb_loop_destroy(struct qb_loop *l)
 void
 qb_loop_stop(struct qb_loop *l)
 {
-	if (l == NULL) {
-		default_instance->stop_requested = QB_TRUE;
+	struct qb_loop *apply_loop = (l != NULL) ? l : default_instance;
+	if (apply_loop != NULL) {
+		apply_loop->stop_requested = QB_TRUE;
 	} else {
-		l->stop_requested = QB_TRUE;
+		qb_util_log(LOG_CRIT, "API misuse: cannot stop nonexisting loop");
 	}
 }
 
