@@ -265,10 +265,12 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 		}
 
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_FAIL) {
+		qb_ipcs_destroy(s1);
 		exit(0);
 	} else if (req_pt->id == IPC_MSG_REQ_SERVER_DISCONNECT) {
 		multiple_connections = QB_FALSE;
 		qb_ipcs_disconnect(c);
+		qb_ipcs_destroy(s1);
 	}
 	return 0;
 }
@@ -417,9 +419,6 @@ run_ipc_server(void)
 	};
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
-			   NULL, exit_handler, &handle);
-
 	my_loop = qb_loop_create();
 
 	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
@@ -429,15 +428,18 @@ run_ipc_server(void)
 		qb_ipcs_enforce_buffer_size(s1, max_size);
 	}
 	qb_ipcs_poll_handlers_set(s1, &ph);
+	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
+			   NULL, exit_handler, &handle);
 
 	res = qb_ipcs_run(s1);
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(my_loop);
+	qb_ipcs_destroy(s1);
 	qb_log(LOG_DEBUG, "loop finished - done ...");
 }
 
-static int32_t
+static pid_t
 run_function_in_new_process(void (*run_ipc_server_fn)(void))
 {
 	pid_t pid = fork ();
@@ -1444,6 +1446,9 @@ START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
 	test_ipc_server_fail();
 	_fi_unlink_inject_failure = QB_FALSE;
 	qb_leave();
+
+	/* And tidy up after ourself */
+	unlink(sock_file);
 }
 END_TEST
 #endif
