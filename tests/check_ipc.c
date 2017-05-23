@@ -417,10 +417,10 @@ run_ipc_server(void)
 	};
 	uint32_t max_size = MAX_MSG_SIZE;
 
+	my_loop = qb_loop_create();
 	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
 			   NULL, exit_handler, &handle);
 
-	my_loop = qb_loop_create();
 
 	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
 	fail_if(s1 == 0);
@@ -437,7 +437,7 @@ run_ipc_server(void)
 	qb_log(LOG_DEBUG, "loop finished - done ...");
 }
 
-static int32_t
+static pid_t
 run_function_in_new_process(void (*run_ipc_server_fn)(void))
 {
 	pid_t pid = fork ();
