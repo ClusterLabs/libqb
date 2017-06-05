@@ -535,6 +535,7 @@ WARNLIST="
 	uninitialized
 	unknown-pragmas
 	no-unused-parameter
+	no-format-nonliteral
 	"
 
 for j in $WARNLIST; do
