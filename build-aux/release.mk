@@ -1,19 +1,24 @@
 # to build official release tarballs, handle tagging and publish.
 
-# signing key
-gpgsignkey=582A3454
-
 project=libqb
+distribution_exts=tar.gz tar.xz
 
-all: checks setup tag tarballs sha256 sign
+project_release=$(project)-$(version)
+distribution_archives=$(distribution_exts:%=$(project_release).%)
+
+
+all: sign-archives
+
+
+# subtargets of all target
 
 checks:
 ifeq (,$(version))
-	@echo ERROR: need to define version=
+	@echo 'ERROR: need to define version='
 	@exit 1
 endif
 	@if [ ! -d .git ]; then \
-		echo This script needs to be executed from top level cluster git tree; \
+		echo 'This script needs to be executed from top level cluster git tree'; \
 		exit 1; \
 	fi
 
@@ -22,54 +27,77 @@ setup: checks
 	./configure
 	make maintainer-clean
 
-tag: setup ./tag-$(version)
-
-tag-$(version):
+tag-$(version): setup
 ifeq (,$(release))
-	@echo Building test release $(version), no tagging
+	@echo 'Building test release $(version), no tagging'
 else
+ifeq (,$(gpgsignkey))
 	git tag -a -m "v$(version) release" v$(version) HEAD
+else
+	git tag -u $(gpgsignkey) -m "v$(version) release" v$(version) HEAD
+endif
 	@touch $@
 endif
 
-tarballs: tag
+$(distribution_archives): tag-$(version)
 	./autogen.sh
 	./configure
-	make distcheck
+	MAKEFLAGS= $(MAKE) distcheck
 
-sha256: tarballs $(project)-$(version).sha256
-
-$(project)-$(version).sha256:
+$(project_release).sha256: $(distribution_archives)
 ifeq (,$(release))
-	@echo Building test release $(version), no sha256
+	@echo 'Building test release $(version), no sha256'
 else
-	sha256sum $(project)-$(version)*tar* | sort -k2 > $@
+	sha256sum $(distribution_archives) | sort -k2 > $@
 endif
 
-sign: sha256 $(project)-$(version).sha256.asc
-
-$(project)-$(version).sha256.asc: $(project)-$(version).sha256
+$(project_release)%.asc: $(project_release)%
 ifeq (,$(gpgsignkey))
-	@echo No GPG signing key defined
+	@echo 'No GPG signing key defined'
 else
 ifeq (,$(release))
-	@echo Building test release $(version), no sign
+	@echo 'Building test release $(version), no sign'
 else
 	gpg --default-key $(gpgsignkey) \
 		--detach-sign \
 		--armor \
-		$<
+		$^
 endif
 endif
 
+sign-archives: $(distribution_archives:=.asc)
+
+
+# backward compatibility targets
+
+sign: $(project_release).sha256.asc
+
+sha256: $(project_release).sha256
+
+tag: tag-$(version)
+
+tarballs: $(distribution_archives)
+
+
+# extra targets
+
+sign-checksum: $(project_release).sha256.asc
+
+sign-all: sign-checksum sign-archives
+
 publish:
 ifeq (,$(release))
-	@echo Building test release $(version), no publishing!
+	@echo 'Building test release $(version), no publishing!'
 else
-	@echo CHANGEME git push --tags origin
-	@echo CHANGEME scp $(project)-$(version).* \
-		fedorahosted.org:$(project)
+	@echo 'CHANGEME git push --follow-tags origin'
+	@echo 'CHANGEME ...supposing branch has not yet been pushed...'
+	@echo 'CHANGEME ...so as to achieve just a single CI build...'
+	@echo 'CHANGEME ...otherwise:  git push --tags origin'
+	@echo 'CHANGEME + put the tarballs to GitHub (ClusterLabs/$(project))'
 endif
 
 clean:
 	rm -rf $(project)-* tag-*
+
+
+.PHONY: all checks setup tag sgin sha256 tarballs sign-checksum sign-all publish clean
