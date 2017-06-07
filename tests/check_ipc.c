@@ -1605,6 +1605,8 @@ main(void)
 	Suite *s;
 	int32_t do_shm_tests = QB_TRUE;
 
+	srandom(getpid());
+
 	set_ipc_name("ipc_test");
 #ifdef DISABLE_IPC_SHM
 	do_shm_tests = QB_FALSE;
