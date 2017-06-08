@@ -1,7 +1,7 @@
 # to build official release tarballs, handle tagging and publish.
 
 # signing key
-gpgsignkey=582A3454
+gpgsignkey=A70D4537
 
 project=libqb
 
@@ -46,7 +46,9 @@ else
 	sha256sum $(project)-$(version)*tar* | sort -k2 > $@
 endif
 
-sign: sha256 $(project)-$(version).sha256.asc
+sign: sha256 $(project)-$(version).sha256.asc \
+      $(project)-$(version).tar.gz.asc \
+      $(project)-$(version).tar.xz.asc
 
 $(project)-$(version).sha256.asc: $(project)-$(version).sha256
 ifeq (,$(gpgsignkey))
@@ -61,6 +63,35 @@ else
 		$<
 endif
 endif
+
+$(project)-$(version).tar.gz.asc: $(project)-$(version).tar.gz
+ifeq (,$(gpgsignkey))
+	@echo No GPG signing key defined
+else
+ifeq (,$(release))
+	@echo Building test release $(version), no sign
+else
+	gpg --default-key $(gpgsignkey) \
+		--detach-sign \
+		--armor \
+		$<
+endif
+endif
+
+$(project)-$(version).tar.xz.asc:  $(project)-$(version).tar.xz
+ifeq (,$(gpgsignkey))
+	@echo No GPG signing key defined
+else
+ifeq (,$(release))
+	@echo Building test release $(version), no sign
+else
+	gpg --default-key $(gpgsignkey) \
+		--detach-sign \
+		--armor \
+		$<
+endif
+endif
+
 
 publish:
 ifeq (,$(release))
