@@ -1,9 +1,12 @@
 # to build official release tarballs, handle tagging and publish.
 
-# signing key
-gpgsignkey=A70D4537
+gpgsignkey = A70D4537  # signing key
 
-project=libqb
+project = libqb
+
+deliverables = $(project)-$(version).sha256 \
+               $(project)-$(version).tar.gz \
+               $(project)-$(version).tar.xz
 
 all: checks setup tag tarballs sha256 sign
 
@@ -37,48 +40,23 @@ tarballs: tag
 	./configure
 	make distcheck
 
-sha256: tarballs $(project)-$(version).sha256
+sha256: $(project)-$(version).sha256
+
+# NOTE: dependency backtrack may fail trying to sign missing tarballs otherwise
+$(deliverables): tarballs
 
 $(project)-$(version).sha256:
 ifeq (,$(release))
 	@echo Building test release $(version), no sha256
 else
-	sha256sum $(project)-$(version)*tar* | sort -k2 > $@
+	# checksum anything from deliverables except for in-prep checksums file
+	sha256sum $(deliverables:$@=) | sort -k2 > $@
 endif
 
-sign: sha256 $(project)-$(version).sha256.asc \
-      $(project)-$(version).tar.gz.asc \
-      $(project)-$(version).tar.xz.asc
+sign: $(deliverables:=.asc)
 
-$(project)-$(version).sha256.asc: $(project)-$(version).sha256
-ifeq (,$(gpgsignkey))
-	@echo No GPG signing key defined
-else
-ifeq (,$(release))
-	@echo Building test release $(version), no sign
-else
-	gpg --default-key $(gpgsignkey) \
-		--detach-sign \
-		--armor \
-		$<
-endif
-endif
-
-$(project)-$(version).tar.gz.asc: $(project)-$(version).tar.gz
-ifeq (,$(gpgsignkey))
-	@echo No GPG signing key defined
-else
-ifeq (,$(release))
-	@echo Building test release $(version), no sign
-else
-	gpg --default-key $(gpgsignkey) \
-		--detach-sign \
-		--armor \
-		$<
-endif
-endif
-
-$(project)-$(version).tar.xz.asc:  $(project)-$(version).tar.xz
+# NOTE: cannot sign multiple files at once like this
+$(project)-$(version).%.asc: $(project)-$(version).%
 ifeq (,$(gpgsignkey))
 	@echo No GPG signing key defined
 else
