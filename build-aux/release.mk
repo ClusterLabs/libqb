@@ -85,9 +85,13 @@ publish:
 ifeq (,$(release))
 	@echo Building test release $(version), no publishing!
 else
-	@echo CHANGEME git push --tags origin
-	@echo CHANGEME scp $(project)-$(version).* \
-		fedorahosted.org:$(project)
+	@echo CHANGEME git push --follow-tags origin
+	@echo : Since the switch to publishing non-generated, customized and signed
+	@echo : upstream tarballs solely to GitHub, we cannot simply use scp anymore.
+	@echo : TODO: investigate automation using GH API, directly or not:
+	@echo : https://developer.github.com/v3/repos/releases/#upload-a-release-asset
+	@echo : http://github3py.readthedocs.io/en/latest/repos.html#github3.repos.release.Release.upload_asset
+	@echo : NOTE: precaution needs to be taken so as NOT TO LEAK the API token!
 endif
 
 
