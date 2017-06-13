@@ -8,8 +8,12 @@ deliverables = $(project)-$(version).sha256 \
                $(project)-$(version).tar.gz \
                $(project)-$(version).tar.xz
 
-all: checks setup tag tarballs sha256 sign
 
+.PHONY: all
+all: tag tarballs sign  # first/last skipped per release/gpgsignkey respectively
+
+
+.PHONY: checks
 checks:
 ifeq (,$(version))
 	@echo ERROR: need to define version=
@@ -20,11 +24,15 @@ endif
 		exit 1; \
 	fi
 
+
+.PHONY: setup
 setup: checks
 	./autogen.sh
 	./configure
 	make maintainer-clean
 
+
+.PHONY: tag
 tag: setup ./tag-$(version)
 
 tag-$(version):
@@ -37,11 +45,15 @@ else
 	@touch $@
 endif
 
+
+.PHONY: tarballs
 tarballs: tag
 	./autogen.sh
 	./configure
 	make distcheck
 
+
+.PHONY: sha256
 sha256: $(project)-$(version).sha256
 
 # NOTE: dependency backtrack may fail trying to sign missing tarballs otherwise
@@ -51,6 +63,8 @@ $(project)-$(version).sha256:
 	# checksum anything from deliverables except for in-prep checksums file
 	sha256sum $(deliverables:$@=) | sort -k2 > $@
 
+
+.PHONY: sign
 ifeq (,$(gpgsignkey))
 sign: tarballs
 	@echo No GPG signing key defined
@@ -65,6 +79,8 @@ $(project)-$(version).%.asc: $(project)-$(version).%
 		--armor \
 		$<
 
+
+.PHONY: publish
 publish:
 ifeq (,$(release))
 	@echo Building test release $(version), no publishing!
@@ -74,5 +90,7 @@ else
 		fedorahosted.org:$(project)
 endif
 
+
+.PHONY: clean
 clean:
 	rm -rf $(project)-* tag-* .tarball-version
