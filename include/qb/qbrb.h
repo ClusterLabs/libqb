@@ -40,7 +40,7 @@ extern "C" {
  * is full.
  *
  * This implementation is capable of working across processes, but one process
- * must only write and the other prrocess read.
+ * must only write and the other process read.
  *
  * The read process will do the following:
  * @code
