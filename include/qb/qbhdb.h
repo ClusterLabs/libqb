@@ -39,6 +39,11 @@ extern "C" {
 /**
  * @file qbhdb.h
  * The handle database is for reference counting objects.
+ *
+ * @note
+ * Historically, handle database implementation also served internal needs
+ * of libqb (e.g. for IPC services tracking), which was eventually replaced
+ * with indirection-less reference counters and their direct modifications.
  */
 
 /**
