@@ -46,7 +46,7 @@ extern "C" {
  * @code
  *	rb = qb_rb_open("test2", 2000, QB_RB_FLAG_SHARED_PROCESS|QB_RB_FLAG_CREATE);
  *	for (i = 0; i < 200; i++) {
- *	try_read_again:
+ * try_read_again:
  *		l = qb_rb_chunk_read(rb, (void *)out, 32, 1000);
  *		if (l < 0) {
  *			goto try_read_again;
