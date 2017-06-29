@@ -32,9 +32,9 @@ extern "C" {
 
 /**
  * @file qbrb.h
- * This implements a ring buffer that works in "chunks" not bytes.
+ * This implements a ring buffer that works in "chunks", not bytes.
  * So you write/read a complete chunk or not at all.
- * There are two types of ring buffer normal and overwrite.
+ * There are two types of ring buffer: normal and overwrite.
  * Overwrite will reclaim the oldest chunks inorder to make way for new ones,
  * the normal version will refuse to write a new chunk if the ring buffer
  * is full.
@@ -75,7 +75,7 @@ extern "C" {
  */
 
 /**
- * create a ring buffer (rather than open and existing one)
+ * Create a ring buffer (rather than open and existing one).
  * @see qb_rb_open()
  */
 #define QB_RB_FLAG_CREATE		0x01
@@ -126,7 +126,7 @@ qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 			    size_t shared_user_data_size);
 
 /**
- * Dereference the ringbuffer and if we are the last user destroy it.
+ * Dereference the ringbuffer and, if we are the last user, destroy it.
  *
  * All files, mmaped memory, semaphores and locks will be destroyed.
  *
@@ -184,7 +184,7 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len);
 void *qb_rb_chunk_alloc(qb_ringbuffer_t * rb, size_t len);
 
 /**
- * finalize the chunk.
+ * Finalize the chunk.
  * @param rb ringbuffer instance
  * @param len (in) the size of the chunk.
  */
@@ -277,7 +277,7 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd);
 qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags);
 
 /**
- * Like 'chown' it changes the owner and group of the ringbuffers
+ * Like 'chown', it changes the owner and group of the ringbuffer's
  * resources.
  * @param owner uid of the owner to change to
  * @param group gid of the group to change to
@@ -287,7 +287,7 @@ qb_ringbuffer_t *qb_rb_create_from_file(int32_t fd, uint32_t flags);
 int32_t qb_rb_chown(qb_ringbuffer_t * rb, uid_t owner, gid_t group);
 
 /**
- * Like 'chmod' it changes the mode of the ringbuffers resources.
+ * Like 'chmod', it changes the mode of the ringbuffer's resources.
  * @param mode mode to change to
  * @param rb ringbuffer instance
  * @retval 0 == ok
