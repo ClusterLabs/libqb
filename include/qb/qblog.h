@@ -641,6 +641,14 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * %H hostname
  *
  * Any number between % and character specify field length to pad or chop.
+ *
+ * @note Some of the fields are immediately evaluated and remembered
+ *       for performance reasons, so when there's an objective for log
+ *       messages to carry PIDs (not in the default setup) and, moreover,
+ *       precisely, this function needs to be reinvoked upon @c fork
+ *       (@c clone) in the respective children.  When already linking
+ *       to @c libpthread, @c pthread_atfork callback registration
+ *       could be useful.
  */
 void qb_log_format_set(int32_t t, const char* format);
 
