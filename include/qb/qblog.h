@@ -535,7 +535,7 @@ void qb_log_callsites_dump(void);
  *
  * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
  * @param conf_type configuration directive ("what to configure") that accepts
- *        <tt>int32_t</tt> argument determining the new value unless ignored
+ *        @c int32_t argument determining the new value unless ignored
  *        for particular directive altogether
  *        (incompatible directives: QB_LOG_CONF_IDENT)
  * @param arg the new value for a state-changing configuration directive,
@@ -558,7 +558,7 @@ typedef union {
  *
  * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
  * @param conf_type configuration directive ("what to configure") that accepts
- *        either <tt>int32_t</tt> or a null-terminated string argument
+ *        either @c int32_t or a null-terminated string argument
  *        determining the new value unless ignored for particular directive
  *        (compatible directives: those valid for qb_log_ctl
  *                                + QB_LOG_CONF_IDENT)
@@ -569,9 +569,9 @@ typedef union {
  *        that original function directly as it allows for more type safety)
  * @see qb_log_ctl
  *
- * @note You can use <tt>QB_LOG_CTL2_I32</tt> and <tt>QB_LOG_CTL2_S</tt>
- *       macros for a convenient on-the-fly construction of the object
- *       to be passed as an <tt>arg</tt> argument.
+ * @note You can use @ref QB_LOG_CTL2_I32 and @ref QB_LOG_CTL2_S macros
+ *       for a convenient on-the-fly construction of the object
+ *       to be passed as an @p arg argument.
  */
 int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type,
 		    qb_log_ctl2_arg_t arg);
@@ -640,7 +640,15 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * %P PID
  * %H hostname
  *
- * any number between % and character specify field length to pad or chop
+ * Any number between % and character specify field length to pad or chop.
+ *
+ * @note Some of the fields are immediately evaluated and remembered
+ *       for performance reasons, so when there's an objective for log
+ *       messages to carry PIDs (not in the default setup) and, moreover,
+ *       precisely, this function needs to be reinvoked upon @c fork
+ *       (@c clone) in the respective children.  When already linking
+ *       to @c libpthread, @c pthread_atfork callback registration
+ *       could be useful.
  */
 void qb_log_format_set(int32_t t, const char* format);
 
@@ -707,13 +715,13 @@ void qb_log_custom_close(int32_t t);
 void *qb_log_target_user_data_get(int32_t t);
 
 /**
- * Associate user data with this log target
+ * Associate user data with this log target.
  * @note only use this with custom targets
  */
 int32_t qb_log_target_user_data_set(int32_t t, void *user_data);
 
 /**
- * format the callsite and timestamp info according to the format
+ * Format the callsite and timestamp info according to the format.
  * set using qb_log_format_set()
  * It is intended to be used from your custom logger function.
  */

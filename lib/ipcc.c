@@ -323,6 +323,8 @@ qb_ipcc_sendv_recv(qb_ipcc_connection_t * c,
 	}
 
 	do {
+		/* following is a liveness-driven interleaving
+		   (for cases the server side failed/exited) */
 		if (timeout_rem > QB_IPC_MAX_WAIT_MS || ms_timeout == -1) {
 			timeout_now = QB_IPC_MAX_WAIT_MS;
 		} else {
