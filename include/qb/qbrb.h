@@ -171,7 +171,7 @@ ssize_t qb_rb_chunk_write(qb_ringbuffer_t * rb, const void *data, size_t len);
  * Allocate space for a chunk of the given size.
  *
  * If type == QB_RB_FLAG_OVERWRITE and NULL is returned, memory corruption of
- * the memory file has occured. The ringbuffer should be destroyed.
+ * the memory file has occurred. The ringbuffer should be destroyed.
  * If type == QB_RB_NORMAL then when there is not enough space it will
  * return NULL.
  *
