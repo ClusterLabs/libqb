@@ -201,8 +201,10 @@ AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime ftruncate gettimeofday \
-		localtime localtime_r memset munmap socket \
+AC_CHECK_FUNCS([alarm clock_gettime \
+		fsync fdatasync ftruncate \
+		gettimeofday localtime localtime_r \
+		memset munmap socket \
 		strchr strrchr strdup strstr strcasecmp \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
@@ -270,6 +272,7 @@ fi
 
 nongcc_memory_barrier_needed=no
 arch_force_shmlba=no
+file_sync=fdatasync
 AC_MSG_CHECKING([for architecture in ${host_cpu}])
 case $host_cpu in
 	sparc*)
@@ -387,6 +390,29 @@ case "$host_os" in
 		AC_MSG_ERROR([Unsupported OS? hmmmm])
 	;;
 esac
+
+dnl break on first hit, fallthrough otherwise, until empty or unsupported
+dnl string reached; output QB_FILE_SYNC macro operates on a file descriptor
+while : ; do
+	case ${file_sync} in
+	fdatasync)
+		test "x${ac_cv_func_fdatasync}" = x || break
+		file_sync=fsync;;
+	fsync)
+		test "x${ac_cv_func_fsync}" = x || break
+		file_sync=;;
+	"")
+		break;;
+	*)
+		AC_MSG_ERROR([Cannot select file sync method]);;
+	esac
+done
+if test "x${file_sync}" != x; then
+	AC_DEFINE_UNQUOTED([QB_FILE_SYNC(fd)], [${file_sync}(fd)], [File sync method])
+else
+	AC_MSG_WARN([No file sync method applicable!])
+	AC_DEFINE([QB_FILE_SYNC(x)], [], [File sync method])
+fi
 
 AC_MSG_CHECKING([whether GCC supports builtin sync intrinsics])
 if test -z "$gcc_has_builtin_sync_operations"; then
@@ -709,7 +735,7 @@ AC_MSG_RESULT([  Arch-independent files   = ${datadir}])
 AC_MSG_RESULT([  State information        = ${localstatedir}])
 AC_MSG_RESULT([  System configuration     = ${sysconfdir}])
 AC_MSG_RESULT([  SOCKETDIR                = ${SOCKETDIR}])
-AC_MSG_RESULT([  Features                 =${PACKAGE_FEATURES}])
+AC_MSG_RESULT([  Features                 = ${PACKAGE_FEATURES}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([$PACKAGE build info:])
 AC_MSG_RESULT([  Optimization             = ${OPT_CFLAGS}])
