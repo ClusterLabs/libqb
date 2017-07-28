@@ -21,9 +21,12 @@ configure
 /m4/*
 !/m4/ax_*.m4
 
+# build-aux/release.mk related litter
+/.tarball-version
+/tag-*
+
 libtool
 .version
-.tarball-version
 libqb.spec
 libqb-*
 cov
