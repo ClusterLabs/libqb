@@ -402,6 +402,22 @@ qb_log_from_external_source(const char *function,
 	va_end(ap);
 }
 
+static void
+qb_log_callsites_dump_sect(struct callsite_section *sect)
+{
+	struct qb_log_callsite *cs;
+
+	printf(" start %p - stop %p\n", sect->start, sect->stop);
+	printf("filename    lineno targets         tags\n");
+	for (cs = sect->start; cs < sect->stop; cs++) {
+		if (cs->lineno > 0) {
+			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
+			       cs->targets, cs->tags);
+		}
+	}
+}
+
+
 int32_t
 qb_log_callsites_register(struct qb_log_callsite *_start,
 			  struct qb_log_callsite *_stop)
@@ -466,21 +482,6 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	/* qb_log_callsites_dump_sect(sect); */
 
 	return 0;
-}
-
-static void
-qb_log_callsites_dump_sect(struct callsite_section *sect)
-{
-	struct qb_log_callsite *cs;
-
-	printf(" start %p - stop %p\n", sect->start, sect->stop);
-	printf("filename    lineno targets         tags\n");
-	for (cs = sect->start; cs < sect->stop; cs++) {
-		if (cs->lineno > 0) {
-			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
-			       cs->targets, cs->tags);
-		}
-	}
 }
 
 void
