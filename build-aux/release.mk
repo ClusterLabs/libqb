@@ -66,7 +66,7 @@ $(project)-$(version).sha256:
 
 .PHONY: sign
 ifeq (,$(gpgsignkey))
-sign: tarballs
+sign: $(deliverables)
 	@echo No GPG signing key defined
 else
 sign: $(deliverables:=.asc)

@@ -189,7 +189,7 @@ int32_t qb_loop_poll_low_fds_event_set(qb_loop_t *l,
 
 /**
  * Add a poll job to the mainloop.
- * @note it is a re-occuring job.
+ * @note it is a re-occurring job.
  *
  * @param l pointer to the loop instance
  * @param p the priority

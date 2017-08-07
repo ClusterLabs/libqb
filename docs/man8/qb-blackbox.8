@@ -18,14 +18,22 @@
 .\" * You should have received a copy of the GNU Lesser General Public License
 .\" * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 .\" */
-.TH QB-BLACKBOX 8 2012-05-28
+.TH QB-BLACKBOX 8 2017-07-27
 .SH NAME
 qb-blackbox \- Display "flight data" from the "blackbox".
 .SH SYNOPSIS
-.B "qb-blackbox <blackbox files>..."
+\fBqb-blackbox\fR [\fIblackbox-file\fR...]
 .SH DESCRIPTION
-.B qb-blackbox
-Print out the logs (including debug logs) that were recorded using libqb's blackbox.
+\fBqb-blackbox\fR prints out the logs (including debug logs) that were
+recorded using libqb's blackbox mechanism.
+.SS Portability notes
+Due to variations amongst platforms, some of which directly impact
+the libqb's blackbox format handling (e.g. page size), there's currently
+only the commitment that \fBqb-blackbox\fR shall decode the blackbox files
+recorded at the same plaform (plus the same page size) while using libqb
+compiled with the same relevant compile-time options
+(e.g. \fBUSE_CACHE_LINE_ALIGNMENT\fR) as linked to this decoder.
+Otherwise, your mileage may vary.
 .SH EXAMPLES
 .TP
 Get info to help developers diagnose a crash.
@@ -53,7 +61,7 @@ Mar 23 20:58:57 member_object_joined():301 Member joined: r(0) ip(192.168.122.1)
 Mar 23 20:58:57 sync_abort():594 ENTERING sync_abort()
 .br
 .SH SEE ALSO
-.BR qblog.h (3),
+.BR qblog.h (3)
 .SH AUTHOR
 Angus Salkeld
 .PP
