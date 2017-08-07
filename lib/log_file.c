@@ -40,7 +40,7 @@ _file_logger(int32_t t,
 
 	fflush(f);
 	if (target->file_sync) {
-		fsync(fileno(f));
+		QB_FILE_SYNC(fileno(f));
 	}
 }
 
