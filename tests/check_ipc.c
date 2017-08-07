@@ -135,7 +135,7 @@ set_ipc_name(const char *prefix)
 	/* single-shot grab of seconds part of preprocessor's timestamp */
 	static char t_sec[3] = "";
 	if (t_sec[0] == '\0') {
-		const char const *found = strrchr(__TIME__, ':');
+		const char *const found = strrchr(__TIME__, ':');
 		strncpy(t_sec, found ? found + 1 : "-", sizeof(t_sec) - 1);
 		t_sec[sizeof(t_sec) - 1] = '\0';
 	}
