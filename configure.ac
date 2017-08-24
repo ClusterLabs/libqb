@@ -396,10 +396,10 @@ dnl string reached; output QB_FILE_SYNC macro operates on a file descriptor
 while : ; do
 	case ${file_sync} in
 	fdatasync)
-		test "x${ac_cv_func_fdatasync}" = x || break
+		test "x${ac_cv_func_fdatasync}" = "xno" || break
 		file_sync=fsync;;
 	fsync)
-		test "x${ac_cv_func_fsync}" = x || break
+		test "x${ac_cv_func_fsync}" = "xno" || break
 		file_sync=;;
 	"")
 		break;;
