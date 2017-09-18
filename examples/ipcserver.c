@@ -400,5 +400,6 @@ main(int32_t argc, char *argv[])
 		       "You don't seem to have glib-devel installed.\n");
 #endif
 	}
+	qb_log_fini();
 	return EXIT_SUCCESS;
 }

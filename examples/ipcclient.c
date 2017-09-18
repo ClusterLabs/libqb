@@ -237,5 +237,6 @@ main(int argc, char *argv[])
 
 	qb_ipcc_disconnect(conn);
 	free(data);
+	qb_log_fini();
 	return EXIT_SUCCESS;
 }
