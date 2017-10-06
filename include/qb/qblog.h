@@ -42,6 +42,10 @@ extern "C" {
 #undef QB_HAVE_ATTRIBUTE_SECTION
 #endif /* S_SPLINT_S */
 
+#ifdef QB_HAVE_ATTRIBUTE_SECTION
+#include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */
+#endif
+
 /**
  * @file qblog.h
  * The logging API provides four main parts (basics, filtering, threading & blackbox).
@@ -63,6 +67,17 @@ extern "C" {
  *	qb_log_fini();
  * }
  * @endcode
+ *
+ * @note
+ * In practice, such a minimalistic approach hardly caters real use cases.
+ * Following section discusses the customization.  Moreover, it's quite
+ * vital to instrument the target user of this logging subsystem with
+ * @c QB_LOG_INIT_DATA() macro placed in the top file scope in an exactly
+ * one source file (preferably the main one) to be mixed into the resulting
+ * compilation unit.  This is a self-defensive measure for when the
+ * linker-assisted collection of callsite data silently fails, which
+ * could otherwise go unnoticed, causing troubles down the road.
+ *
  *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
@@ -268,11 +283,31 @@ typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 extern struct qb_log_callsite QB_ATTR_SECTION_START[];
 extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
 
-/* mere linker sanity check, possible future extension for internal purposes */
-#define QB_LOG_INIT_DATA(name)							\
-    void name(void);								\
-    void name(void) 								\
-    { if (QB_ATTR_SECTION_START == QB_ATTR_SECTION_STOP) assert(0); }	\
+/* optional on-demand self-check of 1/ toolchain sanity (prerequisite for
+   the logging subsystem to work properly) and 2/ non-void active use of
+   logging (satisfied with a justifying existence of a logging callsite as
+   defined with a @c qb_logt invocation) at the target (but see below), which
+   is supposedly assured by it's author(!) as of relying on this very macro
+   [technically, the symbols that happen to be resolved under the respective
+   identifiers do not necessarily originate in the same compilation unit as
+   when it's not the end executable (or by induction, a library positioned
+   earlier in the symbol lookup order) but a shared library, the former takes
+   a precedence unless that site comes short of exercising the logging,
+   making its callsite section empty and, in turn, without such boundary
+   symbols, hence making the resolution continue further in the lookup order
+   -- despite fuzzily targeted attestation, the check remains reasonable];
+   only effective when link-time ("run-time amortizing") callsite collection
+   is;  as a side effect, it can ensure the boundary-denoting symbols for the
+   target collection area are kept alive with some otherwise unkind linkers;
+   may be extended in future for more in-depth self-validation */
+#define QB_LOG_INIT_DATA(name)						\
+    void name(void);							\
+    void name(void) {							\
+    /* our own (target's) sanity, or possibly that of higher priority	\
+       symbol resolution site (unless target equals end executable)	\
+       or even the lower one if no such predecessor defines these */	\
+    assert("implicit callsite section is populated"			\
+           && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }		\
     void __attribute__ ((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
