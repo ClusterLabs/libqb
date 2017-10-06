@@ -19,8 +19,12 @@
 
 include ../log.am
 
-log_client_LDFLAGS = -lqb
-liblog_inter_la_LIBADD = -lqb
+# while linking with system-wide version of libqb, we are still pursuing
+# local in-tree header file, hence we need to link with dynamic linking
+# library (which is a prerequisite for using QB_LOG_INIT_DATA defined
+# in qblog.h) explicitly
+log_client_LDFLAGS = -lqb @client_dlopen_LIBS@
+liblog_inter_la_LIBADD = -lqb @client_dlopen_LIBS@
 
 # extras for log_external: comparable, generated callsite-heavy logging clients
 

@@ -19,6 +19,7 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 EXTRA_DIST = GNUmakefile log_test_client.err log_test_interlib_client.err \
-             log_test_client.sh log_test_interlib_client.sh log_test_mock.sh \
+             log_test_client.sh log_test_interlib_client.sh \
+             log_test_mock.sh syslog-stdout.py \
              log_callsite_bench_gen.py
 SUBDIRS = log_external log_internal

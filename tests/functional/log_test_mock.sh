@@ -166,10 +166,19 @@ do_compile_and_test_client () {
 			-exec rm -- {} \;"
 		;;
 	esac
+	mock ${mock_args} --copyin "syslog-stdout.py" "builddir"
 	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; ./configure )"
 	mock ${mock_args} --shell \
-		"make -C \"builddir/build/BUILD/$1/tests/functional/log_external\" \
-		check-TESTS \"TESTS=../${_logfile}.sh\" $5" \
+		"python3 builddir/syslog-stdout.py \
+		  >\"builddir/build/BUILD/$1/tests/functional/log_external/.syslog\" & \
+		{ sleep 2; make -C \"builddir/build/BUILD/$1/tests/functional/log_external\" \
+		  check-TESTS \"TESTS=../${_logfile}.sh\" $5; } \
+		&& ! test -s \"builddir/build/BUILD/$1/tests/functional/log_external/.syslog\"; \
+		ret_ec=\$?; \
+		( cd \"builddir/build/BUILD/$1/tests/functional/log_external\"; \
+		  cat .syslog >> test-suite.log; \
+		  echo SYSLOG-begin; cat .syslog; echo SYSLOG-end ); \
+		ret () { return \$1; }; ret \${ret_ec}" \
 	  && _result="${_result}_good" \
 	  || _result="${_result}_bad"
 	mock ${mock_args} --copyout \

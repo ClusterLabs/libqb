@@ -21,7 +21,7 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES = log_test_client.err.real log_test_interlib_client.err.real \
              ../log_callsite_bench.c
 
-AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
+AM_CPPFLAGS = -D_GNU_SOURCE -I$(top_builddir)/include -I$(top_srcdir)/include
 
 noinst_PROGRAMS = log_client log_interlib_client
 # cannot use {check,noinst}_LTLIBRARIES because it leads to solely static lib

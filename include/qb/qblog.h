@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright 2017 Red Hat, Inc.
  *
  * All rights reserved.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
+ *         Jan Pokorny <jpokorny@redhat.com>
  *
  * libqb is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -44,6 +45,7 @@ extern "C" {
 
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 #include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */
+#include <dlfcn.h>  /* dynamic linking: dlopen, dlsym, dladdr, ... */
 #endif
 
 /**
@@ -70,14 +72,14 @@ extern "C" {
  *
  * @note
  * In practice, such a minimalistic approach hardly caters real use cases.
- * Following section discusses the customization.  Moreover, it's quite
- * vital to instrument the target user of this logging subsystem with
- * @c QB_LOG_INIT_DATA() macro placed in the top file scope in an exactly
- * one source file (preferably the main one) to be mixed into the resulting
- * compilation unit.  This is a self-defensive measure for when the
- * linker-assisted collection of callsite data silently fails, which
- * could otherwise go unnoticed, causing troubles down the road.
- *
+ * Following section discusses the customization.  Moreover when employing
+ * the log module is bound to its active use (some log messages are assuredly
+ * emitted within the target compilation unit), it's quite vital to instrument
+ * the target side with @c QB_LOG_INIT_DATA() macro placed in the top file
+ * scope in exactly one source file (preferably the main one) to be mixed into
+ * the resulting compilation unit.  This is a self-defensive measure for when
+ * the linker-assisted collection of callsite data silently fails, which could
+ * otherwise go unnoticed, causing troubles down the road.
  *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
@@ -283,35 +285,85 @@ typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 extern struct qb_log_callsite QB_ATTR_SECTION_START[];
 extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
 
-/* optional on-demand self-check of 1/ toolchain sanity (prerequisite for
-   the logging subsystem to work properly) and 2/ non-void active use of
-   logging (satisfied with a justifying existence of a logging callsite as
-   defined with a @c qb_logt invocation) at the target (but see below), which
-   is supposedly assured by it's author(!) as of relying on this very macro
-   [technically, the symbols that happen to be resolved under the respective
-   identifiers do not necessarily originate in the same compilation unit as
-   when it's not the end executable (or by induction, a library positioned
-   earlier in the symbol lookup order) but a shared library, the former takes
-   a precedence unless that site comes short of exercising the logging,
-   making its callsite section empty and, in turn, without such boundary
-   symbols, hence making the resolution continue further in the lookup order
-   -- despite fuzzily targeted attestation, the check remains reasonable];
-   only effective when link-time ("run-time amortizing") callsite collection
-   is;  as a side effect, it can ensure the boundary-denoting symbols for the
-   target collection area are kept alive with some otherwise unkind linkers;
-   may be extended in future for more in-depth self-validation */
+/* Related to the next macro that is -- unlike this one -- a public API */
+#ifndef _GNU_SOURCE
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_					\
+	_Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
+	        without "_GNU_SOURCE" defined (directly or not) 	\
+		QB_LOG_INIT_DATA cannot check sanity of libqb proper)))
+#else
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_					\
+    { Dl_info work_dli;							\
+    /* libqb sanity (locating libqb by it's relatively unique		\
+       -- and currently only such per-linkage global one --		\
+       non-functional symbol, due to possible confusion otherwise) */	\
+    if (dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli)		\
+        && (work_handle = dlopen(work_dli.dli_fname,			\
+                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("libqb's callsite section is observable, otherwise \
+libqb's build is at fault, preventing reliable logging"			\
+               && work_s1 != NULL && work_s2 != NULL);			\
+        assert("libqb's callsite section is populated, otherwise \
+libqb's build is at fault, preventing reliable logging"			\
+               && work_s1 != work_s2);					\
+        dlclose(work_handle); } }
+#endif  /* _GNU_SOURCE */
+
+/**
+ * Optional on-demand self-check of 1/ toolchain sanity (prerequisite for
+ * the logging subsystem to work properly) and 2/ non-void active use of
+ * logging (satisfied with a justifying existence of a logging callsite as
+ * defined with a @c qb_logt invocation) at the target (but see below), which
+ * is supposedly assured by it's author(!) as of relying on this very macro
+ * [technically, the symbols that happen to be resolved under the respective
+ * identifiers do not necessarily originate in the same compilation unit as
+ * when it's not the end executable (or by induction, a library positioned
+ * earlier in the symbol lookup order) but a shared library, the former takes
+ * a precedence unless that site comes short of exercising the logging,
+ * making its callsite section empty and, in turn, without such boundary
+ * symbols, hence making the resolution continue further in the lookup order
+ * -- despite fuzzily targeted attestation, the check remains reasonable];
+ * only effective when link-time ("run-time amortizing") callsite collection
+ * is;  as a side effect, it can ensure the boundary-denoting symbols for the
+ * target collection area are kept alive with some otherwise unkind linkers.
+ *
+ * Applying this macro in the target program/library is strongly recommended
+ * whenever the logging as framed by this header file is in use.
+ * Moreover, it's important to state that using this check while not ensuring
+ * @c _GNU_SOURCE macro definition is present at compile-time means only half
+ * of the available sanity checking will be performed, possibly resulting
+ * in libqb's own internally logged messages being lost without warning.
+ */
 #define QB_LOG_INIT_DATA(name)						\
     void name(void);							\
     void name(void) {							\
+    void *work_handle; struct qb_log_callsite *work_s1, *work_s2;	\
     /* our own (target's) sanity, or possibly that of higher priority	\
        symbol resolution site (unless target equals end executable)	\
        or even the lower one if no such predecessor defines these */	\
-    assert("implicit callsite section is populated"			\
+    if ((work_handle = dlopen(NULL, RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("implicit callsite section is observable, otherwise \
+target's and/or libqb's build is at fault, preventing reliable logging" \
+               && work_s1 != NULL && work_s2 != NULL);			\
+        dlclose(work_handle);  /* perhaps overly eager thing to do */ }	\
+    /* better targeted attestations when available  */			\
+    QB_NONAPI_LOG_INIT_DATA_EXTRA_;					\
+    /* finally, original, straightforward check */			\
+    assert("implicit callsite section is populated, otherwise \
+target's build is at fault, preventing reliable logging"		\
            && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }		\
     void __attribute__ ((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
-#endif
+#endif  /* QB_HAVE_ATTRIBUTE_SECTION */
 
 /**
  * Internal function: use qb_log() or qb_logt()

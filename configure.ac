@@ -657,6 +657,7 @@ if test "x${GCC}" = xyes; then
 		AC_DEFINE([QB_HAVE_ATTRIBUTE_SECTION], 1,
 			  [Enabling code using __attribute__((section))])
 		PACKAGE_FEATURES="$PACKAGE_FEATURES attribute-section"
+		AC_SUBST([client_dlopen_LIBS],[$dlopen_LIBS])
 	fi
 fi
 
