@@ -77,6 +77,7 @@ AC_CHECK_PROGS([DOXYGEN], [doxygen])
 AM_CONDITIONAL(HAVE_DOXYGEN, test -n "${DOXYGEN}")
 AC_CHECK_PROGS([SPLINT], [splint])
 AM_CONDITIONAL(HAVE_SPLINT, test -n "${SPLINT}")
+AC_CHECK_TOOLS([NM], [eu-nm nm], [:])
 
 ## local helper functions
 
@@ -620,15 +621,31 @@ AC_SUBST(HAVE_SLOW_TESTS)
 if test "x${GCC}" = xyes; then
 	AC_MSG_CHECKING([whether GCC supports __attribute__((section()) + ld supports orphan sections])
 	if test "x${ac_cv_link_attribute_section}" = x ; then
-		AC_TRY_LINK([#include <assert.h>
-			     extern void * __start___verbose, * __stop___verbose;],
-			    [static int my_var __attribute__((section("__verbose"))) = 5;
-			     if (__start___verbose == __stop___verbose) assert(0);
-			     if (my_var == 5) return 0;
-			     else return -1;
-			     ],
-			     [gcc_has_attribute_section=yes],
-			     [gcc_has_attribute_section=no])
+		dnl could be turned to AC_TRY_RUN (first assertion is equivalent to
+		dnl the further check in action-if-true), but that would prevent
+		dnl cross-building
+		AC_LINK_IFELSE(
+			[AC_LANG_PROGRAM(
+			    [[#include <assert.h>
+			      extern void * __start___verbose, * __stop___verbose;]],
+			    [[static int my_var __attribute__((section("__verbose"))) = 5;
+			      assert("non-empty data section"
+			             && __start___verbose != __stop___verbose);
+			      assert("no data section value loss"
+			             && my_var == 5);]]
+			)],
+			[# alternatively something like (but requires number parsing):
+			 #   readelf -SW "conftest${ac_exeext}" \
+			 #   | sed -n '/__verbose/s/^\s*//p' | tr -s ' ' | cut -d" " -f6
+			 verbose_start_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
+			                      | grep __start___verbose | cut -d" " -f 3)
+			 verbose_stop_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
+			                      | grep __stop___verbose | cut -d" " -f 3)
+			 test "${verbose_start_addr}" = "${verbose_stop_addr}" \
+			   && gcc_has_attribute_section=no \
+			   || gcc_has_attribute_section=yes],
+			[gcc_has_attribute_section=no]
+		)
 	else
 		gcc_has_attribute_section=${ac_cv_link_attribute_section}
 	fi
