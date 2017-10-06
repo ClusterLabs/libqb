@@ -1,0 +1,2 @@
+[MAIN |debug] ../log_client.c:64:hello
+[libqb|error] log_blackbox.c:196:qb_log_blackbox_print_from_file:

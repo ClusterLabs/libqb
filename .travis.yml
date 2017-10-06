@@ -15,7 +15,9 @@ addons:
 script: RPMBUILDOPTS_="--nodeps --define '_without_check 1'";
         ./autogen.sh
         && ./configure
-        && make distcheck CPPFLAGS=-Dci_dump_shm_usage VERBOSE=1
+        && make -C lib V=1
+        && make -C tests/functional/log_internal V=1 check
+        && make V=1 CPPFLAGS=-Dci_dump_shm_usage distcheck
         && sed "s|RPMBUILDOPTS =|\\0 ${RPMBUILDOPTS_}|" Makefile | make -f- rpm
 
 after_failure:

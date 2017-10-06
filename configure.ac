@@ -13,7 +13,7 @@ AC_CONFIG_SRCDIR([lib/ringbuffer.c])
 AC_CONFIG_HEADERS([include/config.h include/qb/qbconfig.h])
 AC_USE_SYSTEM_EXTENSIONS
 
-AM_INIT_AUTOMAKE([-Wno-portability dist-xz])
+AM_INIT_AUTOMAKE([-Wno-portability dist-xz subdir-objects])
 dnl automake >= 1.11 offers --enable-silent-rules for suppressing the output from
 dnl normal compilation.  When a failure occurs, it will then display the full
 dnl command line
@@ -730,12 +730,17 @@ AC_CONFIG_FILES([Makefile
 		 lib/libqb.pc
 		 tools/Makefile
 		 tests/Makefile
+		 tests/functional/Makefile
+		 tests/functional/log_external/Makefile
+		 tests/functional/log_internal/Makefile
 		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
 		 docs/common.dox
 		 docs/html.dox
 		 docs/man.dox])
+
+AC_CONFIG_LINKS([tests/functional/GNUmakefile:tests/functional/GNUmakefile])
 
 AC_OUTPUT
 

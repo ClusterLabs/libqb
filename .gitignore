@@ -17,6 +17,9 @@ config.status
 configure
 .libs
 
+# since we use subdir-objects as automake option
+.dirstamp
+
 # ignore "libtoolized" m4 files, but keep our (custom-prefixed) ones
 /m4/*
 !/m4/ax_*.m4
@@ -35,4 +38,10 @@ abi_dumps
 TAGS
 *~
 test-driver
-tests/*.trs
+
+/tests/**/*.real
+/tests/**/*.trs
+/tests/functional/**/log_client
+/tests/functional/**/log_interlib_client
+/tests/functional/_pkgs
+/tests/functional/_results
