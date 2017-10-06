@@ -299,9 +299,11 @@ extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
 #define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
     { Dl_info work_dli;							\
     /* libqb sanity (locating libqb by it's relatively unique		\
-       -- and currently only such per-linkage global one --		\
-       non-functional symbol, due to possible confusion otherwise) */	\
-    if (dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli)		\
+       non-functional symbols -- the two are mutually exclusive, the	\
+       ordinarily latter was introduced by accident, the former is	\
+       intentional -- due to possible confusion otherwise) */		\
+    if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)		\
+         || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))	\
         && (work_handle = dlopen(work_dli.dli_fname,			\
                                  RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
         work_s1 = (struct qb_log_callsite *)				\

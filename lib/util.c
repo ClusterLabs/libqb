@@ -23,6 +23,7 @@
 #include "util_int.h"
 #include <pthread.h>
 #include <sys/stat.h>
+#include <qb/qbconfig.h>
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 
@@ -372,3 +373,12 @@ qb_util_stopwatch_time_split_get(qb_util_stopwatch_t *sw,
 	}
 	return (time_start - time_end) / QB_TIME_NS_IN_USEC;
 }
+
+const struct qb_version qb_ver = {
+	.major = QB_VER_MAJOR,
+	.minor = QB_VER_MINOR,
+	.micro = QB_VER_MICRO,
+	.rest = QB_VER_REST,
+};
+
+const char *const qb_ver_str = QB_VER_STR;

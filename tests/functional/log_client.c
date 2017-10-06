@@ -54,6 +54,11 @@ main(int32_t argc, char *argv[])
 	qb_log_format_set(QB_LOG_STDERR, "[%5g|%p] %f:%l:%b");
 
 #if 0
+	printf("\n==%s consists of: %d, %d, %d, %s==\n\n", qb_ver_str,
+	       qb_ver.major, qb_ver.minor, qb_ver.micro, qb_ver.rest);
+#endif
+
+#if 0
 	printf("--\n");
 	qb_log_callsites_dump();
 	printf("--\n");

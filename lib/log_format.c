@@ -49,7 +49,7 @@ static struct syslog_names prioritynames[] = {
 	{NULL, -1}
 };
 
-struct syslog_names facilitynames[] = {
+static struct syslog_names facilitynames[] = {
 	{"auth", LOG_AUTH},
 #if defined(LOG_AUTHPRIV)
 	{"authpriv", LOG_AUTHPRIV},

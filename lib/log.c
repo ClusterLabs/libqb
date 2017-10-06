@@ -892,10 +892,12 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 	/* sanity check that target chain supplied QB_ATTR_SECTION_ST{ART,OP}
 	   symbols and hence the local references to them are not referencing
-	   the proper libqb's ones (locating libqb-self by it's relatively
-	   unique -- and currently only such per-linkage global one --
-	   non-functional symbol, due to possible confusion otherwise) */
-	if (dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli)
+	   the proper libqb's ones (locating libqb by it's relatively unique
+	   non-functional symbols -- the two are mutually exclusive, the
+	   ordinarily latter was introduced by accident, the former is
+	   intentional -- due to possible confusion otherwise) */
+	if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)
+	     || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))
 	    && (work_handle = dlopen(work_dli.dli_fname,
 	                             RTLD_LOCAL|RTLD_LAZY)) != NULL) {
 		work_s1 = (struct qb_log_callsite *)
