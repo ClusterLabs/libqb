@@ -90,6 +90,8 @@ check_nosection() {
 	echo "checking nosection"
 	echo "======================="
 	# no __attribute__((section))
+	# NOTE: alternatively CPPFLAGS=-DQB_KILL_ATTRIBUTE_SECTION, but
+	#       that won't shortcut many initial/configure decisions
 	check "ac_cv_link_attribute_section=no"
 }
 

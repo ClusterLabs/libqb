@@ -15,6 +15,7 @@ aclocal.m4
 autom4te.cache/
 config.status
 configure
+conftest.*
 .libs
 
 # since we use subdir-objects as automake option
@@ -27,6 +28,9 @@ configure
 # build-aux/release.mk related litter
 /.tarball-version
 /tag-*
+
+/lib/qblog_script.ld
+# already captured with wildcard: /lib/qblog_script.la
 
 libtool
 .version

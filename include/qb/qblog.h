@@ -79,7 +79,10 @@ extern "C" {
  * scope in exactly one source file (preferably the main one) to be mixed into
  * the resulting compilation unit.  This is a self-defensive measure for when
  * the linker-assisted collection of callsite data silently fails, which could
- * otherwise go unnoticed, causing troubles down the road.
+ * otherwise go unnoticed, causing troubles down the road, but alas it cannot
+ * discern misuse of @c QB_LOG_INIT_DATA() macro in no-logging context from
+ * broken callsite section handling assumptions owing to overboard fancy
+ * linker -- situation that the self-check aims to detect in the first place.
  *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
@@ -287,12 +290,13 @@ extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
 
 /* Related to the next macro that is -- unlike this one -- a public API */
 #ifndef _GNU_SOURCE
-#define QB_NONAPI_LOG_INIT_DATA_EXTRA_					\
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
 	_Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
 	        without "_GNU_SOURCE" defined (directly or not) 	\
-		QB_LOG_INIT_DATA cannot check sanity of libqb proper)))
+		QB_LOG_INIT_DATA cannot check sanity of libqb proper	\
+		nor of the target site originating this check alone)))
 #else
-#define QB_NONAPI_LOG_INIT_DATA_EXTRA_					\
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
     { Dl_info work_dli;							\
     /* libqb sanity (locating libqb by it's relatively unique		\
        -- and currently only such per-linkage global one --		\
@@ -309,6 +313,23 @@ libqb's build is at fault, preventing reliable logging"			\
                && work_s1 != NULL && work_s2 != NULL);			\
         assert("libqb's callsite section is populated, otherwise \
 libqb's build is at fault, preventing reliable logging"			\
+               && work_s1 != work_s2);					\
+        dlclose(work_handle); }						\
+    /* sanity of the target site originating this check alone */	\
+    if (dladdr(dlsym(RTLD_DEFAULT, QB_PP_STRINGIFY(name)), &work_dli)	\
+        && (work_handle = dlopen(work_dli.dli_fname,			\
+                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("target's own callsite section observable, otherwise \
+target's own linkage at fault and logging would not work reliably \
+(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
+               && work_s1 != NULL && work_s2 != NULL);			\
+        assert("target's own callsite section non-empty, otherwise \
+target's own linkage at fault and logging would not work reliably \
+(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
                && work_s1 != work_s2);					\
         dlclose(work_handle); } }
 #endif  /* _GNU_SOURCE */
@@ -354,8 +375,7 @@ libqb's build is at fault, preventing reliable logging"			\
 target's and/or libqb's build is at fault, preventing reliable logging" \
                && work_s1 != NULL && work_s2 != NULL);			\
         dlclose(work_handle);  /* perhaps overly eager thing to do */ }	\
-    /* better targeted attestations when available  */			\
-    QB_NONAPI_LOG_INIT_DATA_EXTRA_;					\
+    QB_NONAPI_LOG_INIT_DATA_EXTRA_(name);				\
     /* finally, original, straightforward check */			\
     assert("implicit callsite section is populated, otherwise \
 target's build is at fault, preventing reliable logging"		\

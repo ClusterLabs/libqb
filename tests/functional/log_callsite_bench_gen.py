@@ -112,7 +112,7 @@ def main(opts, args):
 
     width = int(floor(log10(CALLSITE_COUNT))) + 1
     print('\n'.join([
-        "/* compile with -lqb OR with -DQB_KILL_ATTRIBUTE_SECTION -lqb */",
+        "/* compile with -lqb OR with -DQB_KILL_ATTRIBUTE_SECTION -l:libqb.so.0 */",
         "#include <qb/qblog.h>",
     ] + list_to_c_source(worklist, FNC_PREFIX, width) + [
         "int main(int argc, char *argv[]) {",

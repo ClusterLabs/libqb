@@ -1,0 +1,30 @@
+#include <qb/qblog.h>
+/* GNU ld script
+   This atypical arrangement enforces global visibility of boundary symbols
+   (QB_ATTR_SECTION_START, QB_ATTR_SECTION_STOP) for the custom section
+   QB_ATTR_SECTION used for compile-time offloading of the logging call sites
+   tracking.  While libqb relies on these being global, default linker from
+   binutils change the visibility as of version 2.29, making the logging
+   unusable without artificial stimulus: https://bugzilla.redhat.com/1477354
+
+   NOTE: If -lqb not usable for linking (e.g. linker not compatible with
+         linker scripts ad-hoc modifying output sections), try recent
+         ld.bfd/binutils linker first when available, otherwise you can
+         try "-l:libqb.so.<digit>" link switch that bypasses said linker
+         script -- but beware, logging may be less efficient and may lack
+         possible future optimizations and extra features.  Consequently,
+         logging issues (typically bound to QB_LOG_INIT_DATA macro) can be
+         mitigated with QB_KILL_ATTRIBUTE_SECTION macro defined for a build.
+   NOTE: When concerned about a warning coming from the build process like
+         warning: [...]libqb.so contains output sections; did you forget -T?
+         while it finishes OK, consider it merely a harmless side-effect.
+ */
+SECTIONS {
+#ifdef QB_HAVE_ATTRIBUTE_SECTION
+  QB_ATTR_SECTION : {
+    QB_ATTR_SECTION_START = .;
+    *(QB_ATTR_SECTION);
+    QB_ATTR_SECTION_STOP = .;
+  }
+#endif
+}

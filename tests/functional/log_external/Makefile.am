@@ -36,5 +36,5 @@ log_callsite_bench_sectionfull_SOURCES = ../log_callsite_bench.c
 log_callsite_bench_sectionfull_LDFLAGS = -lqb
 
 log_callsite_bench_sectionless_SOURCES = ../log_callsite_bench.c
-log_callsite_bench_sectionless_LDFLAGS = -lqb
+log_callsite_bench_sectionless_LDFLAGS = -l:libqb.so.0
 log_callsite_bench_sectionless_CPPFLAGS = -DQB_KILL_ATTRIBUTE_SECTION
