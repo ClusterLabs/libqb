@@ -185,7 +185,15 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 [[#include <time.h>]],
-[[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
+[[
+#include <unistd.h>
+int main() {
+#if !(defined(_POSIX_MONOTONIC_CLOCK) && _POSIX_MONOTONIC_CLOCK >= 0 && defined(CLOCK_MONOTONIC))
+        #error No monotonic clock
+#endif
+    return 0;
+
+]])],
                     [
                       AC_MSG_RESULT([yes])
                       AC_DEFINE_UNQUOTED([HAVE_CLOCK_GETRES_MONOTONIC], 1, [Define to 1 if clock_getres(CLOCK_MONOTONIC, &ts) works])
