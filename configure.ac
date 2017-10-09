@@ -183,7 +183,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                  )
 
 AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
-AC_RUN_IFELSE([AC_LANG_PROGRAM(
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 [[#include <time.h>]],
 [[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
                     [
