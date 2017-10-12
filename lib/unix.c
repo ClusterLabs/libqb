@@ -80,7 +80,7 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
 	} else {
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
+#if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
 		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
 #else
 		snprintf(path, PATH_MAX, "%s/%s", SOCKETDIR, file);
