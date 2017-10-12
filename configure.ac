@@ -191,20 +191,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
-AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-[[#include <time.h>]],
-[[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
-                    [
-                      AC_MSG_RESULT([yes])
-                      AC_DEFINE_UNQUOTED([HAVE_CLOCK_GETRES_MONOTONIC], 1, [Define to 1 if clock_getres(CLOCK_MONOTONIC, &ts) works])
-                    ],
-                    [
-                      AC_MSG_RESULT([no])
-                    ]
-                 )
-
-
 # Checks for library functions
 AC_FUNC_CHOWN
 AC_FUNC_FORK
