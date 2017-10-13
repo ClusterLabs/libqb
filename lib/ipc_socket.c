@@ -137,7 +137,7 @@ set_sock_size(int sockfd, size_t max_msg_size)
 	qb_util_log(LOG_TRACE, "%d: getsockopt(%d, SO_SNDBUF, needed:%d) actual:%d",
 		rc, sockfd, max_msg_size, optval);
 
-	/* The optvat <= max_msg_size check is weird...
+	/* The optval <= max_msg_size check is weird...
 	 * during testing it was discovered in some instances if the
 	 * default optval is exactly equal to our max_msg_size, we couldn't
 	 * actually send a message that large unless we explicitly set
