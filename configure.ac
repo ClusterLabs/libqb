@@ -106,7 +106,7 @@ case $exec_prefix in
 esac
 
 # Checks for libraries.
-AX_PTHREAD
+AX_PTHREAD(,[AC_MSG_ERROR([POSIX threads support is required])])
 AX_SAVE_FLAGS
 AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
 AC_SUBST([dlopen_LIBS],[$LIBS])
