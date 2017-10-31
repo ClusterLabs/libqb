@@ -41,6 +41,8 @@ test-driver
 
 /tests/**/*.real
 /tests/**/*.trs
+/tests/functional/log_callsite_bench.c
+/tests/functional/**/log_callsite_bench_section*.c
 /tests/functional/**/log_client
 /tests/functional/**/log_interlib_client
 /tests/functional/_pkgs

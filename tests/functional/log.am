@@ -18,7 +18,8 @@
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 
 MAINTAINERCLEANFILES = Makefile.in
-CLEANFILES = log_test_client.err.real log_test_interlib_client.err.real
+CLEANFILES = log_test_client.err.real log_test_interlib_client.err.real \
+             ../log_callsite_bench.c
 
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 
@@ -45,5 +46,13 @@ log_test.log: $(check_PROGRAMS)
 
 ../log_test_client.log: log_client
 ../log_test_interlib_client.log: log_interlib_client
+
+../log_callsite_bench.c: ../log_callsite_bench_gen.py
+if HAVE_PYTHON
+	$(AM_V_GEN)$(PYTHON) $< >$@
+else
+	@echo 'configure script did not detect python prerequisite'
+	false
+endif
 
 # vim: ft=automake

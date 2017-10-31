@@ -38,9 +38,9 @@ extern "C" {
 #include <qb/qbutil.h>
 #include <qb/qbconfig.h>
 
-#ifdef S_SPLINT_S
+#if defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S)
 #undef QB_HAVE_ATTRIBUTE_SECTION
-#endif /* S_SPLINT_S */
+#endif  /* defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S) */
 
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 #include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */

@@ -78,6 +78,8 @@ AM_CONDITIONAL(HAVE_DOXYGEN, test -n "${DOXYGEN}")
 AC_CHECK_PROGS([SPLINT], [splint])
 AM_CONDITIONAL(HAVE_SPLINT, test -n "${SPLINT}")
 AC_CHECK_TOOLS([NM], [eu-nm nm], [:])
+AM_PATH_PYTHON([2.6],, [:])
+AM_CONDITIONAL([HAVE_PYTHON], [test "$PYTHON" != :])
 
 ## local helper functions
 

@@ -21,3 +21,16 @@ include ../log.am
 
 log_client_LDFLAGS = -lqb
 liblog_inter_la_LIBADD = -lqb
+
+# extras for log_external: comparable, generated callsite-heavy logging clients
+
+if HAVE_PYTHON
+noinst_PROGRAMS += log_callsite_bench_sectionfull log_callsite_bench_sectionless
+endif
+
+log_callsite_bench_sectionfull_SOURCES = ../log_callsite_bench.c
+log_callsite_bench_sectionfull_LDFLAGS = -lqb
+
+log_callsite_bench_sectionless_SOURCES = ../log_callsite_bench.c
+log_callsite_bench_sectionless_LDFLAGS = -lqb
+log_callsite_bench_sectionless_CPPFLAGS = -DQB_KILL_ATTRIBUTE_SECTION
