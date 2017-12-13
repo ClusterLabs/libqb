@@ -86,7 +86,12 @@ extern "C" {
  *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
- * By default only syslog is enabled.
+ * By default, only syslog is enabled.  While this is customary for daemons,
+ * it is rarely appropriate for ordinary programs, which should promptly
+ * disable that when other targets (read on) are to be utilized:
+ * @code
+ *	qb_log_ctl(B_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+ * @endcode
  *
  * To enable a target do the following:
  * @code
