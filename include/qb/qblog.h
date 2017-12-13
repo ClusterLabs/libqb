@@ -99,16 +99,16 @@ extern "C" {
  * @endcode
  *
  * syslog, stderr, the blackbox, and stdout are static (they don't need
- * to be created, just enabled or disabled). However you can open multiple
- * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
- * To do this, use the following code:
+ * to be created, just enabled or disabled).  However, you can open multiple
+ * logfiles (falling within inclusive range @c QB_LOG_TARGET_DYNAMIC_START
+ * up to @c QB_LOG_TARGET_DYNAMIC_END).  To do this, use the following code:
  * @code
  *	mytarget = qb_log_file_open("/var/log/mylogfile");
  *	qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);
  * @endcode
  *
- * Once your targets are enabled/opened you can configure them as follows:
- * Configure the size of blackbox
+ * Once your targets are enabled/opened, you can configure them as follows:
+ * Configure the size of blackbox:
  * @code
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);
  * @endcode
@@ -118,13 +118,21 @@ extern "C" {
  *	qb_log_ctl(mytarget, QB_LOG_CONF_THREADED, QB_TRUE);
  * @endcode
  *
- * To workaround your syslog daemon filtering all messages > LOG_INFO
+ * Sometimes, syslog daemons are (pre)configured to filter messages not
+ * exceeding a particular priority.  When this happens to be the logging
+ * target, the designated priority of the message is passed along unchanged,
+ * possibly resulting in message loss.  For messages up to @c LOG_DEBUG
+ * importance, this can be worked around by proportionally bumping the
+ * priorities to be passed to syslog (here, the step is such that
+ * @c LOG_DEBUG gets promoted to @c LOG_INFO):
  * @code
  *	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP,
- *		   LOG_INFO - LOG_DEBUG);
+ *	           LOG_INFO - LOG_DEBUG);
  * @endcode
  *
- * To ensure all logs to file targets are fsync'ed (default QB_FALSE)
+ * To ensure all logs to file targets are fsync'ed (new messages expressly
+ * transferred to the storage device as they keep coming, otherwise defaults
+ * to @c QB_FALSE):
  * @code
  *	qb_log_ctl(mytarget, QB_LOG_CONF_FILE_SYNC, QB_TRUE);
  * @endcode
