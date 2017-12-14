@@ -74,7 +74,7 @@ endif
 
 # NOTE: cannot sign multiple files at once
 $(project)-$(version).%.asc: $(project)-$(version).%
-	gpg --default-key "$(gpgsignkey)" \
+	gpg --default-key "$(strip $(gpgsignkey))" \
 		--detach-sign \
 		--armor \
 		$<
