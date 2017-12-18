@@ -60,7 +60,7 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 {
 	int32_t handle;
 	int32_t res = 0;
-	uint32_t check;
+	int32_t check;
 	int32_t found = QB_FALSE;
 	void *instance;
 	int32_t i;
@@ -98,15 +98,16 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 	}
 
 	/*
-	 * This code makes sure the random number isn't zero
-	 * We use 0 to specify an invalid handle out of the 1^64 address space
-	 * If we get 0 200 times in a row, the RNG may be broken
+	 * Make sure just positive integers are used for the integrity(?)
+	 * checks within 2^32 address space, if we miss 200 times in a row
+	 * (just 0 is concerned per specification of random), the PRNG may be
+	 * broken -> the value is unspecified, subject of stack allocation.
 	 */
 	for (i = 0; i < 200; i++) {
 		check = random();
 
-		if (check != 0 && check != UINT32_MAX) {
-			break;
+		if (check > 0) {
+			break;  /* covers also check == UINT32_MAX */
 		}
 	}
 
@@ -125,7 +126,7 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 int32_t
 qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in, void **instance)
 {
-	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
+	int32_t check = handle_in >> 32;
 	uint32_t handle = handle_in & UINT32_MAX;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
@@ -143,7 +144,7 @@ qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in, void **instance)
 		return (-EBADF);
 	}
 
-	if (check != UINT32_MAX && check != entry->check) {
+	if (check != (int32_t) UINT32_MAX && check != entry->check) {
 		return (-EBADF);
 	}
 	qb_atomic_int_inc(&entry->ref_count);
@@ -163,7 +164,7 @@ qb_hdb_handle_get_always(struct qb_hdb * hdb, qb_handle_t handle_in,
 int32_t
 qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
-	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
+	int32_t check = handle_in >> 32;
 	uint32_t handle = handle_in & UINT32_MAX;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
@@ -176,7 +177,7 @@ qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 	}
 
 	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
-	    (check != UINT32_MAX && check != entry->check)) {
+	    (check != (int32_t) UINT32_MAX && check != entry->check)) {
 		return (-EBADF);
 	}
 
@@ -193,7 +194,7 @@ qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 int32_t
 qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
-	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
+	int32_t check = handle_in >> 32;
 	uint32_t handle = handle_in & UINT32_MAX;
 	int32_t res;
 	struct qb_hdb_handle *entry;
@@ -207,7 +208,7 @@ qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 	}
 
 	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
-	    (check != UINT32_MAX && check != entry->check)) {
+	    (check != (int32_t) UINT32_MAX && check != entry->check)) {
 		return (-EBADF);
 	}
 
@@ -219,7 +220,7 @@ qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 int32_t
 qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
-	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
+	int32_t check = handle_in >> 32;
 	uint32_t handle = handle_in & UINT32_MAX;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
@@ -233,7 +234,7 @@ qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 	}
 
 	if (qb_array_index(hdb->handles, handle, (void **)&entry) != 0 ||
-	    (check != UINT32_MAX && check != entry->check)) {
+	    (check != (int32_t) UINT32_MAX && check != entry->check)) {
 		return (-EBADF);
 	}
 
