@@ -132,7 +132,7 @@ _timer_from_handle_(struct qb_timer_source *s,
 	}
 
 	check = ((uint32_t) (((uint64_t) handle_in) >> 32));
-	install_pos = handle_in & 0xffffffff;
+	install_pos = handle_in & UINT32_MAX;
 
 	rc = qb_array_index(s->timers, install_pos, (void **)&timer);
 	if (rc != 0) {
@@ -205,7 +205,7 @@ qb_loop_timer_add(struct qb_loop * lp,
 	for (i = 0; i < 200; i++) {
 		t->check = random();
 
-		if (t->check != 0 && t->check != 0xffffffff) {
+		if (t->check != 0 && t->check != UINT32_MAX) {
 			break;
 		}
 	}

@@ -125,7 +125,7 @@ _poll_entry_from_handle_(struct qb_poll_source *s,
 {
 	int32_t res = 0;
 	uint32_t check = ((uint32_t) (((uint64_t) handle_in) >> 32));
-	uint32_t handle = handle_in & 0xffffffff;
+	uint32_t handle = handle_in & UINT32_MAX;
 	struct qb_poll_entry *pe;
 
 	res = qb_array_index(s->poll_entries, handle, (void **)&pe);
