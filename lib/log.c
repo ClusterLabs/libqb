@@ -146,8 +146,10 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 		break;
 	case QB_LOG_FILTER_FILE_REGEX:
 		next = next ? next : cs->filename;
+		/* fallthrough */
 	case QB_LOG_FILTER_FUNCTION_REGEX:
 		next = next ? next : cs->function;
+		/* fallthrough */
 	case QB_LOG_FILTER_FORMAT_REGEX:
 		next = next ? next : cs->format;
 
