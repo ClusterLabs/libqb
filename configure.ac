@@ -112,6 +112,11 @@ esac
 # Checks for libraries.
 AX_PTHREAD(,[AC_MSG_ERROR([POSIX threads support is required])])
 AX_SAVE_FLAGS
+AC_SEARCH_LIBS([clock_gettime],[rt])
+AC_CHECK_FUNCS([clock_gettime])
+AC_SUBST([rt_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
+AX_SAVE_FLAGS
 AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
 AC_SUBST([dlopen_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
@@ -205,7 +210,7 @@ AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime \
+AC_CHECK_FUNCS([alarm \
 		fsync fdatasync ftruncate \
 		gettimeofday localtime localtime_r \
 		memset munmap socket \

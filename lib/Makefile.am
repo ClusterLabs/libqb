@@ -78,7 +78,7 @@ EXTRA_DIST		= qblog_script.ld.in qblog_script.la.in qblog_script_noop.ld
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
-libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
+libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS) $(rt_LIBS)
 if NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND
 libqb_la_LIBADD 	+= qblog_script.la
 endif
