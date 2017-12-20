@@ -80,7 +80,7 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 	}
 
 	if (found == QB_FALSE) {
-		res = qb_array_grow(hdb->handles, handle_count + 1);
+		res = qb_array_grow(hdb->handles, handle_count + 1U);
 		if (res != 0) {
 			return res;
 		}
@@ -89,6 +89,8 @@ qb_hdb_handle_create(struct qb_hdb *hdb, int32_t instance_size,
 		if (res != 0) {
 			return res;
 		}
+		/* NB: qb_array_grow above guarantees that handle_count
+		       will not overflow INT32_MAX */
 		qb_atomic_int_inc((int32_t *)&hdb->handle_count);
 	}
 
@@ -127,7 +129,7 @@ int32_t
 qb_hdb_handle_get(struct qb_hdb * hdb, qb_handle_t handle_in, void **instance)
 {
 	int32_t check = handle_in >> 32;
-	uint32_t handle = handle_in & UINT32_MAX;
+	int32_t handle = handle_in & UINT32_MAX;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
 
@@ -165,7 +167,7 @@ int32_t
 qb_hdb_handle_put(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	int32_t check = handle_in >> 32;
-	uint32_t handle = handle_in & UINT32_MAX;
+	int32_t handle = handle_in & UINT32_MAX;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
 
@@ -195,7 +197,7 @@ int32_t
 qb_hdb_handle_destroy(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	int32_t check = handle_in >> 32;
-	uint32_t handle = handle_in & UINT32_MAX;
+	int32_t handle = handle_in & UINT32_MAX;
 	int32_t res;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
@@ -221,7 +223,7 @@ int32_t
 qb_hdb_handle_refcount_get(struct qb_hdb * hdb, qb_handle_t handle_in)
 {
 	int32_t check = handle_in >> 32;
-	uint32_t handle = handle_in & UINT32_MAX;
+	int32_t handle = handle_in & UINT32_MAX;
 	struct qb_hdb_handle *entry;
 	int32_t handle_count;
 	int32_t refcount = 0;
@@ -255,7 +257,7 @@ qb_hdb_iterator_next(struct qb_hdb *hdb, void **instance, qb_handle_t * handle)
 	int32_t res = -1;
 	uint64_t checker;
 	struct qb_hdb_handle *entry;
-	int32_t handle_count;
+	uint32_t handle_count;
 
 	handle_count = qb_atomic_int_get(&hdb->handle_count);
 	while (hdb->iterator < handle_count) {
