@@ -407,7 +407,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
 void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
 
 #define QB_LOG_TAG_LIBQB_MSG_BIT 31
-#define QB_LOG_TAG_LIBQB_MSG (1 << QB_LOG_TAG_LIBQB_MSG_BIT)
+#define QB_LOG_TAG_LIBQB_MSG (1U << QB_LOG_TAG_LIBQB_MSG_BIT)
 
 /**
  * This function is to import logs from other code (like libraries)
