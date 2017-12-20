@@ -99,10 +99,6 @@
 #endif /* HAVE_SYSLOG_H */
 #endif /* S_SPLINT_S */
 
-#if defined HAVE_CLOCK_GETTIME && defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
-#define HAVE_MONOTONIC_CLOCK 1
-#endif /* have monotonic clock */
-
 #ifdef HAVE_EPOLL_CREATE1
 #define HAVE_EPOLL 1
 #endif /* HAVE_EPOLL_CREATE */

@@ -136,7 +136,7 @@ qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 #endif /* S_SPLINT_S */
 }
 
-#ifdef HAVE_MONOTONIC_CLOCK
+#ifdef HAVE_CLOCK_GETTIME
 uint64_t
 qb_util_nano_current_get(void)
 {
@@ -229,7 +229,7 @@ qb_util_nano_from_epoch_get(void)
 
 	return (nano_from_epoch);
 }
-#endif /* HAVE_MONOTONIC_CLOCK */
+#endif /* HAVE_CLOCK_GETTIME */
 
 struct qb_util_stopwatch {
 	uint64_t started;
