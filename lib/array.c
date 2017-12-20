@@ -57,9 +57,9 @@ qb_array_create(size_t max_elements, size_t element_size)
 }
 
 static int32_t
-_grow_bin_array(struct qb_array * a, int32_t new_bin_size)
+_grow_bin_array(struct qb_array * a, size_t new_bin_size)
 {
-	int32_t b;
+	size_t b;
 
 	a->bin = realloc(a->bin, sizeof(void*) * new_bin_size);
 	if (a->bin == NULL) {
@@ -78,7 +78,7 @@ qb_array_create_2(size_t max_elements, size_t element_size,
 		  size_t autogrow_elements)
 {
 	struct qb_array *a = NULL;
-	int32_t b;
+	size_t b;
 
 	if (max_elements > QB_ARRAY_MAX_ELEMENTS) {
 		errno = -EINVAL;
@@ -112,7 +112,7 @@ qb_array_create_2(size_t max_elements, size_t element_size,
 int32_t
 qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 {
-	int32_t b;
+	size_t b;
 	int32_t elem;
 	char *bin;
 	int32_t rc = 0;
@@ -123,7 +123,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 	if (idx < 0) {
 		return -ERANGE;
 	}
-	if (idx >= a->max_elements) {
+	if ((uint32_t) idx >= a->max_elements) {
 		if (a->autogrow_elements == 0) {
 			return -ERANGE;
 		} else {
@@ -133,7 +133,7 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 			}
 		}
 	}
-	b = BIN_NUM_GET(idx);
+	b = BIN_NUM_GET((uint32_t) idx);
 	assert(b < MAX_BINS);
 
 	if (b >= a->num_bins || a->bin[b] == NULL) {
@@ -207,7 +207,7 @@ qb_array_elems_per_bin_get(struct qb_array * a)
 int32_t
 qb_array_grow(struct qb_array * a, size_t max_elements)
 {
-	int32_t b;
+	size_t b;
 	int32_t rc = 0;
 
 	if (a == NULL || max_elements > QB_ARRAY_MAX_ELEMENTS) {
@@ -231,7 +231,7 @@ qb_array_grow(struct qb_array * a, size_t max_elements)
 void
 qb_array_free(struct qb_array *a)
 {
-	int32_t i;
+	size_t i;
 	for (i = 0; i < a->num_bins; i++) {
 		free(a->bin[i]);
 	}
