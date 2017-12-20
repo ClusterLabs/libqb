@@ -148,7 +148,7 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h \
 		  stdint.h stddef.h stdlib.h string.h strings.h \
-		  dlfcn.h time.h sys/time.h sys/types.h sys/stat.h \
+		  dlfcn.h time.h sys/types.h sys/stat.h \
 		  sys/param.h sys/socket.h sys/time.h sys/poll.h sys/epoll.h \
 		  sys/uio.h sys/event.h sys/sockio.h sys/un.h sys/resource.h \
 		  syslog.h errno.h unistd.h sys/mman.h \
