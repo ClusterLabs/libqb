@@ -288,7 +288,7 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 	if (!use_filesystem_sockets()) {
 		snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 	} else {
-		snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
+		snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", qb_socketdir(),
 			 socket_name);
 	}
 
@@ -541,15 +541,17 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	}
 	else {
 		struct stat stat_out;
-		res = stat(SOCKETDIR, &stat_out);
+		const char *socketdir = qb_socketdir();
+
+		res = stat(socketdir, &stat_out);
 		if (res == -1 || (res == 0 && !S_ISDIR(stat_out.st_mode))) {
 			res = -errno;
 			qb_util_log(LOG_CRIT,
 				    "Required directory not present %s",
-				    SOCKETDIR);
+				    socketdir);
 			goto error_close;
 		}
-		snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s/%s", SOCKETDIR,
+		snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s/%s", socketdir,
 			 s->name);
 		unlink(un_addr.sun_path);
 	}
