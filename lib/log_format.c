@@ -465,8 +465,8 @@ qb_vsnprintf_serialize(char *serialize, size_t max_len,
 	char *qb_xc;
 	int type_long = QB_FALSE;
 	int type_longlong = QB_FALSE;
-        int sformat_length = 0;
-        int sformat_precision = QB_FALSE;
+	size_t sformat_length = 0;
+	int sformat_precision = QB_FALSE;
 	uint32_t location = my_strlcpy(serialize, fmt, max_len) + 1;
 
 	/* Assume serialized output always wants extended information
