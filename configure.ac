@@ -574,7 +574,10 @@ WARNLIST="
 	unknown-pragmas
 	no-unused-parameter
 	no-format-nonliteral
+	no-format-truncation
+	no-sign-compare
 	"
+# at least no-sign-compare assumed temporary!
 
 for j in $WARNLIST; do
 	if cc_supports_flag -W$j; then
