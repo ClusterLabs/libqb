@@ -141,7 +141,7 @@ set_ipc_name(const char *prefix)
 	}
 
 	snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
-		 (long)getpid(), (int) ((long) time(NULL) % (0x10000)));
+		 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
 }
 
 static int32_t

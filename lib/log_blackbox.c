@@ -243,11 +243,15 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		/* function size & name */
 		memcpy(&fn_size, ptr, sizeof(uint32_t));
 		if ((fn_size + BB_MIN_ENTRY_SIZE) > bytes_read) {
-			printf("ERROR Corrupt file: fn_size way too big %d\n", fn_size);
+#ifndef S_SPLINT_S
+			printf("ERROR Corrupt file: fn_size way too big %" PRIu32 "\n", fn_size);
+#endif /* S_SPLINT_S */
 			goto cleanup;
 		}
 		if (fn_size <= 0) {
-			printf("ERROR Corrupt file: fn_size negative %d\n", fn_size);
+#ifndef S_SPLINT_S
+			printf("ERROR Corrupt file: fn_size negative %" PRIu32 "\n", fn_size);
+#endif /* S_SPLINT_S */
 			goto cleanup;
 		}
 		ptr += sizeof(uint32_t);
@@ -270,7 +274,9 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		/* message length */
 		memcpy(&msg_len, ptr, sizeof(uint32_t));
 		if (msg_len > QB_LOG_MAX_LEN || msg_len <= 0) {
-			printf("ERROR Corrupt file: msg_len out of bounds %d\n", msg_len);
+#ifndef S_SPLINT_S
+			printf("ERROR Corrupt file: msg_len out of bounds %" PRIu32 "\n", msg_len);
+#endif /* S_SPLINT_S */
 			goto cleanup;
 		}
 

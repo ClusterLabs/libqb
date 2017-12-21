@@ -65,20 +65,20 @@ store_this_snprintf(const char *fmt, ...)
 static void
 test_this_one(const char *name, snprintf_like_func func)
 {
-	int i;
+	unsigned i;
 	qb_util_stopwatch_t *sw = qb_util_stopwatch_create();
 	float elapsed = 452.245252343;
 	float ops_per_sec = 0.345624523;
 
 	qb_util_stopwatch_start(sw);
 	for (i = 0; i < ITERATIONS; i++) {
-		func("%d %s %llu %9.3f", i, "hello", 3425ULL, elapsed);
-		func("[%10s] %.32x -> %p", "hello", i, func);
+		func("%u %s %llu %9.3f", i, "hello", 3425ULL, elapsed);
+		func("[%10s] %.32xd -> %p", "hello", i, func);
 		func("Client %s.%.9s wants to fence (%s) '%s' with device '%3.5f'",
 		     "bla", "foooooooooooooooooo",
 		     name, "target", ops_per_sec);
 		func("Node %s now has process list: %.32x (was %.32x)",
-		     "18builder", 2, 0);
+		     "18builder", 2U, 0U);
 	}
 	qb_util_stopwatch_stop(sw);
 	elapsed = qb_util_stopwatch_sec_elapsed_get(sw);

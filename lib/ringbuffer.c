@@ -698,12 +698,12 @@ print_header(struct qb_ringbuffer_s * rb)
 	} else {
 		printf(" ->NORMAL\n");
 	}
-	printf(" ->write_pt [%d]\n", rb->shared_hdr->write_pt);
-	printf(" ->read_pt [%d]\n", rb->shared_hdr->read_pt);
-	printf(" ->size [%d words]\n", rb->shared_hdr->word_size);
 #ifndef S_SPLINT_S
-	printf(" =>free [%zu bytes]\n", qb_rb_space_free(rb));
-	printf(" =>used [%zu bytes]\n", qb_rb_space_used(rb));
+	printf(" ->write_pt [%" PRIu32 "]\n", rb->shared_hdr->write_pt);
+	printf(" ->read_pt [%" PRIu32 "]\n", rb->shared_hdr->read_pt);
+	printf(" ->size [%" PRIu32 " words]\n", rb->shared_hdr->word_size);
+	printf(" =>free [%zd bytes]\n", qb_rb_space_free(rb));
+	printf(" =>used [%zd bytes]\n", qb_rb_space_used(rb));
 #endif /* S_SPLINT_S */
 }
 

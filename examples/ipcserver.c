@@ -128,7 +128,7 @@ s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 	response.id = 13;
 	response.error = 0;
 
-	sl = snprintf(resp, 100, "ACK %zd bytes", size) + 1;
+	sl = snprintf(resp, 100, "ACK %zu bytes", size) + 1;
 	iov[0].iov_len = sizeof(response);
 	iov[0].iov_base = &response;
 	iov[1].iov_len = sl;

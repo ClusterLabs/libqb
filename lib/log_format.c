@@ -385,7 +385,9 @@ qb_log_target_format(int32_t target,
 				break;
 
 			case 'l':
-				snprintf(tmp_buf, 30, "%d", cs->lineno);
+#ifndef S_SPLINT_S
+				snprintf(tmp_buf, 30, "%" PRIu32, cs->lineno);
+#endif /* S_SPLINT_S */
 				p = tmp_buf;
 				break;
 

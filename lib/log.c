@@ -415,13 +415,15 @@ static void
 qb_log_callsites_dump_sect(struct callsite_section *sect)
 {
 	struct qb_log_callsite *cs;
-
 	printf(" start %p - stop %p\n", sect->start, sect->stop);
 	printf("filename    lineno targets         tags\n");
 	for (cs = sect->start; cs < sect->stop; cs++) {
 		if (cs->lineno > 0) {
-			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
-			       cs->targets, cs->tags);
+#ifndef S_SPLINT_S
+			printf("%12s %6" PRIu32 " %16" PRIu32 " %16u\n",
+			       cs->filename, cs->lineno, cs->targets,
+			       cs->tags);
+#endif /* S_SPLINT_S */
 		}
 	}
 }
@@ -1060,7 +1062,9 @@ qb_log_custom_open(qb_log_logger_fn log_fn,
 	}
 
 	t->instance = user_data;
-	snprintf(t->filename, PATH_MAX, "custom-%d", t->pos);
+#ifndef S_SPLINT_S
+	snprintf(t->filename, PATH_MAX, "custom-%" PRIu32, t->pos);
+#endif /* S_SPLINT_S */
 
 	t->logger = log_fn;
 	t->vlogger = NULL;

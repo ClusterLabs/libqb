@@ -408,12 +408,14 @@ trie_print_node(struct trie_node *n, struct trie_node *r, const char *suffix)
 		return;
 	}
 
-	printf("[%c", TRIE_INDEX2CHAR(n->idx));
+	printf("[%c", (char) TRIE_INDEX2CHAR(n->idx));
 	for (i = 0; i < n->num_segments; i++) {
 		printf("%c", n->segment[i]);
 	}
 	if (n == r) {
-		printf("] (%d) %s\n", n->refcount, suffix);
+#ifndef S_SPLINT_S
+		printf("] (%" PRIu32 ") %s\n", n->refcount, suffix);
+#endif /* S_SPLINT_S */
 	} else {
 		printf("] ");
 	}
@@ -502,7 +504,9 @@ qb_trie_dump(qb_map_t* m)
 		return;
 	}
 
-	printf("nodes: %d, bytes: %d\n", t->num_nodes, t->mem_used);
+#ifndef S_SPLINT_S
+	printf("nodes: %" PRIu32 ", bytes: %" PRIu32 "\n", t->num_nodes, t->mem_used);
+#endif /* S_SPLINT_S */
 
 	n = t->header;
 	do {
