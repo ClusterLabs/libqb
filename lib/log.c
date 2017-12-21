@@ -43,8 +43,8 @@
 #if defined(QB_NEED_ATTRIBUTE_SECTION_WORKAROUND) && !defined(S_SPLINT_S)
 /* following only needed to force these symbols be global
    with ld 2.29: https://bugzilla.redhat.com/1477354 */
-struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_START[] = { 0 };
-struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_STOP[] = { 0 };
+struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_START[] = { {0} };
+struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_STOP[] = { {0} };
 #endif
 
 static struct qb_log_target conf[QB_LOG_TARGET_MAX];
