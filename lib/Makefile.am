@@ -146,6 +146,7 @@ DEB_INCLUDES = -I/usr/include/x86_64-linux-gnu -I/usr/include/i386-linux-gnu
 
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
+		 -Dclockid_t=int \
 		 $(LINT_FLAGS)
 # expected for the time being (but SHOULD be fixed eventually):
 # ipc_setup.c: (in function qb_ipcc_us_setup_connect)
