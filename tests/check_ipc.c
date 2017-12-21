@@ -1499,6 +1499,7 @@ START_TEST(test_ipc_service_ref_count_us)
 }
 END_TEST
 
+#if 0
 static void test_max_dgram_size(void)
 {
 	/* most implementations will not let you set a dgram buffer 
@@ -1542,6 +1543,7 @@ START_TEST(test_ipc_max_dgram_size)
 	qb_leave();
 }
 END_TEST
+#endif
 
 static Suite *
 make_shm_suite(void)
