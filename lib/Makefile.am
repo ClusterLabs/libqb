@@ -101,7 +101,9 @@ endif
 endif
 
 qblog_script.ld: %.ld: %.ld.in
-	$(AM_V_GEN)$(CPP) -xc -I$(top_srcdir)/include -D_GNU_SOURCE -C -P $< \
+	$(AM_V_GEN)$(CPP) -C -D_GNU_SOURCE -P \
+	  -I$(top_srcdir)/include -I$(top_builddir)/include \
+	  -xc $< \
 	  | sed -n "/$$(sed -n '/^[^#]/{s/[*\/]/\\&/g;p;q;}' $<)/,$$ p" \
 	  > $@
 

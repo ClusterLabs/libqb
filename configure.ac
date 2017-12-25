@@ -710,7 +710,7 @@ if test "x${GCC}" = xyes; then
 			                      | grep __stop___verbose | cut -d" " -f 3)
 			 test "${verbose_start_addr}" = "${verbose_stop_addr}" \
 			   && gcc_has_attribute_section_visible=no \
-			   || { verbose_start_type=$(${READELF} -s backup \
+			   || { verbose_start_type=$(${READELF} -s "conftest${shrext_cmds}" \
 			                             | sed -n '/__start___verbose/{s/^\s*//p;q}' \
 			                             | tr -s ' ' \
 			                             | cut -d" " -f6)
