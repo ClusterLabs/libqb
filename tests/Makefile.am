@@ -108,12 +108,15 @@ bench_log_SOURCES = bench-log.c
 bench_log_LDADD = $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
-TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.test resources.test
+TESTS = array.test ipc.test list.test log.test loop.test \
+	map.test rb.test resources.test blackbox-segfault.sh
 
 resources.log: rb.log log.log ipc.log
 
 check_LTLIBRARIES =
-check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
+check_PROGRAMS = array.test ipc.test list.test log.test loop.test \
+		 map.test rb.test util.test \
+		 crash_test_dummy file_change_bytes
 dist_check_SCRIPTS = resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
@@ -167,6 +170,10 @@ log_test_LDADD += _syslog_override.la
 util_test_SOURCES = check_util.c
 util_test_CFLAGS = @CHECK_CFLAGS@
 util_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
+
+list_test_SOURCES = check_list.c
+list_test_CFLAGS = @CHECK_CFLAGS@
+list_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
 endif
 
