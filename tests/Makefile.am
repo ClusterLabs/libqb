@@ -78,7 +78,13 @@ check: check-headers
 
 # rely on implicit automake rule to include right (local) includes
 .PHONY: check-headers
-check-headers: $(auto_c_files:.c=.o)
+check-headers: $(auto_c_files:.c=.o) $(auto_c_files:.c=.opp)
+
+# this is to attest basic sanity for using libqb from C++ code when possible
+%.opp: %.c
+	@which $(CXX) >/dev/null || { echo '$<: cannot test C++ compat'; exit 0; }
+	$(AM_V_GEN)$(CXX) $(AM_CPPFLAGS) -c $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+CLEANFILES += ${auto_c_files:.c=.opp}
 
 distclean-compile:
 	rm -rf auto_*.c
