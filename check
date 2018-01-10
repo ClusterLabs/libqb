@@ -231,8 +231,8 @@ check_abi() {
 	fi
 
 	mkdir -p abi_dumps/libqb
-	# current script should always be accompanied with current template
-	for v in $ver1 $ver2; do cp "${TMPL}" "abi_dumps/libqb/${v}.tmpl"; done
+	# ABICC only: current script always accompanied with current template
+	#for v in $ver1 $ver2; do cp "${TMPL}" "abi_dumps/libqb/${v}.tmpl"; done
 
 	for v in $ver1 $ver2
 	do
@@ -243,22 +243,29 @@ check_abi() {
 		then
 			git checkout "${t}"
 			./autogen.sh
-			./configure
+			# XXX still complains about missing -Og (-O0 is used)
+			./configure --enable-debug
 			make
 			make install DESTDIR="${p}"
-			skiplib_cmt=
 			lib_suffix=$(cut -c 1-32 "${p}/usr/lib64/libqb.so" \
 			             | sed -n 's/^INPUT(libqb\.so\([^)]*\).*$/\1/p;q')
-			[ -n "${lib_suffix}" ] || skiplib_cmt='#'
-			sed -e "s|@PREFIX@|${p}|" \
-			    -e "s|@VERSION@|${v}|" \
-			    -e "s|@SKIPLIB_CMT@|${skiplib_cmt}|" \
-			    -e "s|@LIB_SUFFIX@|${lib_suffix}|" \
-			    "abi_dumps/libqb/${v}.tmpl" > "abi_dumps/libqb/${v}.xml"
-			rm -f "abi_dumps/libqb/${v}.tmpl"
-			# XXX -lang C
-			${checker} -l libqb -dump_abi "abi_dumps/libqb/${v}.xml" \
-			    -dump-path "abi_dumps/libqb/libqb_${v}.abi.tar.gz"
+			# this is currently recommended way of using abi-dumper
+			# instead of relying on internal processing with ABICC
+			# itself (still kept around for reference below)
+			abi-dumper -loud -debug "${p}/usr/lib64/libqb.so${lib_suffix}" \
+			  -vnum "${v}" -o "abi_dumps/libqb/libqb_${v}.abi.tar.gz"
+
+			# former approach of relying solely on ABICC (XXX -lang C)
+			#skiplib_cmt=
+			#[ -n "${lib_suffix}" ] || skiplib_cmt='#'
+			#sed -e "s|@PREFIX@|${p}|" \
+			#    -e "s|@VERSION@|${v}|" \
+			#    -e "s|@SKIPLIB_CMT@|${skiplib_cmt}|" \
+			#    -e "s|@LIB_SUFFIX@|${lib_suffix}|" \
+			#    "abi_dumps/libqb/${v}.tmpl" > "abi_dumps/libqb/${v}.xml"
+			#rm -f "abi_dumps/libqb/${v}.tmpl"
+			#${checker} -l libqb -dump_abi "abi_dumps/libqb/${v}.xml" \
+			#    -dump-path "abi_dumps/libqb/libqb_${v}.abi.tar.gz"
 		fi
 	done
 
