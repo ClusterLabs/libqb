@@ -199,10 +199,16 @@ do_proceed () {
 	_interlibselfcheck=1
 	_clientlogging=1
 	_interliblogging=1
+	_picktest=
 	while :; do
 		case "$1" in
 		shell) shift; do_shell "$@"; return;;
 		-v)    _makevars="${_makevars} V=1"; shift;;
+		-t=?*) _picktest=${1#-t=}; shift;;
+		-t=)   do_die "missing -t option value";;
+		-t?*)  _picktest=${1#-t}; shift;;
+		-t)    test $# -gt 1 && { shift; _picktest=$1; } \
+		       || do_die "missing -t option value"; shift;;
 		-nsc)  case "${_resultsdir_tag}" in
 		       *sc*) do_die "do not combine \"sc\" flags";; esac
 		       _resultsdir_tag="${_resultsdir_tag}$1"; shift;
@@ -334,9 +340,11 @@ do_proceed () {
 }
 
 { test $# -eq 0 || test "$1" = -h || test "$1" = --help; } \
-  && printf '%s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n' \
-            "usage: $0 {[-{v,n{{,c,i}sc,cl,il}}]* <libqb.src.rpm> | shell}" \
+  && printf '%s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n' \
+            "usage: $0 {[-{v,t{, ,=}<ts>,n{{,c,i}sc,cl,il}}]* <libqb.src.rpm> | shell}" \
             "- use '-v' to show the compilation steps verbosely" \
+            "- use '-t[=]<testspec>' to pick just one item of the test matrix" \
+            "  (pass the identifier matching the result file, e.g. qb+c-)" \
             "- use '-nsc' to suppress self-check (\"see whole story\") wholly" \
             "- use '-ncsc' to suppress self-check client-side only" \
             "- use '-nisc' to suppress self-check interlib-side only" \
