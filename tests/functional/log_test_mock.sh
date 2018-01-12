@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2018 Red Hat, Inc.
 #
 # Author: Jan Pokorny <jpokorny@redhat.com>
 #
@@ -195,24 +195,37 @@ do_proceed () {
 
 	_makevars=
 	_resultsdir_tag=
-	_selfcheck=1
+	_clientselfcheck=1
+	_interlibselfcheck=1
 	_clientlogging=1
 	_interliblogging=1
 	while :; do
 		case "$1" in
 		shell) shift; do_shell "$@"; return;;
-		-nsc) _resultsdir_tag="${_resultsdir_tag}$1"; shift; _selfcheck=0;;
-		-ncl) _resultsdir_tag="${_resultsdir_tag}$1"; shift; _clientlogging=0;;
-		-nil) _resultsdir_tag="${_resultsdir_tag}$1"; shift; _interliblogging=0;;
-		-*) do_die "Uknown option: $1";;
-		*) break;;
+		-nsc)  case "${_resultsdir_tag}" in
+		       *sc*) do_die "do not combine \"sc\" flags";; esac
+		       _resultsdir_tag="${_resultsdir_tag}$1"; shift;
+		       _clientselfcheck=0; _interlibselfcheck=0;;
+		-ncsc) case "${_resultsdir_tag}" in
+		       *sc*) do_die "do not combine \"sc\" flags";; esac
+		       _resultsdir_tag="${_resultsdir_tag}$1"; shift; _clientselfcheck=0;;
+		-nisc) case "${_resultsdir_tag}" in
+		       *sc*) do_die "do not combine \"sc\" flags";; esac
+		       _resultsdir_tag="${_resultsdir_tag}$1"; shift; _interlibselfcheck=0;;
+		-ncl)  _resultsdir_tag="${_resultsdir_tag}$1"; shift; _clientlogging=0;;
+		-nil)  _resultsdir_tag="${_resultsdir_tag}$1"; shift; _interliblogging=0;;
+		-*)    do_die "Uknown option: $1";;
+		*)     break;;
 		esac
 	done
 
 	if test -n "${_resultsdir_tag}"; then
-		_makevars="CPPFLAGS=\"$(test "${_selfcheck}" -eq 1 || printf %s ' -DNSELFCHECK') \
+		_makevars="CPPFLAGS=\" \
+		           $(test "${_clientselfcheck}" -eq 1 || printf %s ' -DNSELFCHECK') \
+		           $(test "${_interlibselfcheck}" -eq 1 || printf %s ' -DNLIBSELFCHECK') \
 		           $(test "${_clientlogging}" -eq 1 || printf %s ' -DNLOG') \
-		           $(test "${_interliblogging}" -eq 1 || printf %s ' -DNLIBLOG')\""
+		           $(test "${_interliblogging}" -eq 1 || printf %s ' -DNLIBLOG') \
+		           \""
 		_makevars=$(echo ${_makevars})
 	fi
 
@@ -243,6 +256,12 @@ do_proceed () {
 		*) _outfile_qb="?";;
 		esac
 
+		case "${_picktest}" in
+		""|${_outfile_qb}*) ;;
+		*) do_progress "skipping '${_outfile_qb}' branch (no match with '${_picktest}')"
+		   continue;;
+		esac
+
 		do_progress "installing ${_pkg_binutils_libqb} so as to build" \
 		            "libqb [${_outfile_qb}]"
 		do_install "${_pkg_binutils_libqb}"
@@ -267,18 +286,22 @@ do_proceed () {
 			*) _outfile="${_outfile_qb}_?";;
 			esac
 
-			case "${_pkg_binutils_interlib}" in
-			none)	;;
-			*)
-				do_progress "installing ${_pkg_binutils_interlib}" \
-				            "so as to build interlib [${_outfile}]"
-				do_install "${_pkg_binutils_interlib}"
+			case "${_picktest}" in
+			""|"${_outfile}*")
+				case "${_pkg_binutils_interlib}" in
+				none)	;;
+				*)
+					do_progress "installing ${_pkg_binutils_interlib}" \
+					            "so as to build interlib [${_outfile}]"
+					do_install "${_pkg_binutils_interlib}"
 
-				do_progress "building interlib with ${_libqb_descriptor_archive}" \
-				            "+ ${_pkg_binutils_interlib} [${_outfile}]" \
-				            "{${_makevars}}"
-				do_compile_interlib "${_libqb_descriptor_archive}" "${_makevars}"
-				;;
+					do_progress "building interlib with ${_libqb_descriptor_archive}" \
+					            "+ ${_pkg_binutils_interlib} [${_outfile}]" \
+					            "{${_makevars}}"
+					do_compile_interlib "${_libqb_descriptor_archive}" "${_makevars}"
+					;;
+				esac;;
+			*) do_progress "skipping dealing with interlib (no match with '${_picktest}')";;
 			esac
 
 			for _pkg_binutils_client in "${pkg_binutils_228}" "${pkg_binutils_229}"; do
@@ -291,6 +314,9 @@ do_proceed () {
 				${pkg_binutils_229}) _outfile_client="${_outfile}_c-";;
 				*) _outfile_client="${_outfile}_?";;
 				esac
+
+				test -n "${_picktest}" && test "${_picktest}" != "${_outfile_client}" \
+				  && continue
 
 				do_progress "installing ${_pkg_binutils_client}" \
 				            "so as to build ${_client} [${_outfile_client}]"
@@ -307,9 +333,11 @@ do_proceed () {
 }
 
 { test $# -eq 0 || test "$1" = -h || test "$1" = --help; } \
-  && printf '%s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
-            "usage: $0 {[-n{sc,cl,il}]* <libqb.src.rpm> | shell}" \
-            "- use '-nsc' to suppress optional self-check (\"see whole story\")" \
+  && printf '%s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
+            "usage: $0 {[-n{{,c,i}sc,cl,il}]* <libqb.src.rpm> | shell}" \
+            "- use '-nsc' to suppress self-check (\"see whole story\") wholly" \
+            "- use '-ncsc' to suppress self-check client-side only" \
+            "- use '-nisc' to suppress self-check interlib-side only" \
             "- use '-ncl' to suppress client-side logging" \
             "- use '-nil' to suppress interlib-side logging" \
             "- 'make -C ../.. srpm' (or so) can generate the requested input" \

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -23,8 +23,15 @@
 #include "os_base.h"
 #include <qb/qblog.h>
 
-#ifndef NSELFCHECK
+#ifndef NLIBSELFCHECK
 QB_LOG_INIT_DATA(linker_contra_log_lib);
+#endif
+
+#ifndef NLIBLOG
+#define do_perror(msg)
+	qb_perror(LOG_ERR, msg)
+#else
+	perror(msg)
 #endif
 
 void foo(void);
@@ -54,14 +61,14 @@ foo(void)
 	   blackbox file. */
 	tmpfile_fd = mkstemp(tmpfile_buf);
 	if (tmpfile_fd == -1) {
-		qb_perror(LOG_ERR, "creating temporary file");
+		do_perror("creating temporary file");
 		exit(EXIT_FAILURE);
 	}
 	unlink(tmpfile_buf);
 	close(tmpfile_fd);
 #if 0
 	if (stat(tmpfile_buf, &tmpfile_stat) == -1) {
-		qb_perror(LOG_ERR, "stat'ing nonexistent temporary file");
+		do_perror("stat'ing nonexistent temporary file");
 		exit(EXIT_FAILURE);
 	}
 #endif
