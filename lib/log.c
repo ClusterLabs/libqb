@@ -18,6 +18,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
+#define QB_NOAPI_LOG_INT 1  /* preventing explicit protected visibility */
+
 #include "os_base.h"
 #include <ctype.h>
 #ifdef HAVE_LINK_H

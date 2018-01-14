@@ -16,8 +16,14 @@ Libs: -L${libdir} -lqb @client_dlopen_LIBS@
 #       possible future optimizations and extra features.  Consequently,
 #       logging issues (typically bound to QB_LOG_INIT_DATA macro) can be
 #       mitigated with QB_KILL_ATTRIBUTE_SECTION macro defined for a build.
-# NOTE: when concerned about a warning coming from the build process like
+# NOTE: Conversely, when QB_LOG_INIT_DATA macro is leveraged in the end
+#       executable relying on this library that is moreover linked with
+#       ld.bfd from binutils 2.29 (2.29.1 is not of concern, though), make
+#       sure the respective code is compiled with at least one of _GNU_SOURCE
+#       and QB_LD_2_29 macros defined so as to avoid run-time misbehaviour
+#       of the pertaining checks.
+# NOTE: When concerned about a warning coming from the build process like
 #       warning: [...]libqb.so contains output sections; did you forget -T?
-#       and the build finishes OK, take it merely as a harmless side-effect
+#       and the build finishes OK, take it merely as a harmless side-effect.
 Libs.private: @LIBS@
 Cflags: -I${includedir}
