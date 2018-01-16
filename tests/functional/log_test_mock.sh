@@ -150,8 +150,10 @@ do_compile_interlib () {
 # $5: extra (presumably) variable assignments for the make goal invocation
 do_compile_and_test_client () {
 	_result=$4
+	_checkfile=
 	case "$2" in
 	interclient)
+		_checkfile=log_interlib_client
 		_logfile=log_test_interlib_client
 		mock ${mock_args} --shell \
 			"find \"builddir/build/BUILD/$1/tests/functional\" \
@@ -160,6 +162,7 @@ do_compile_and_test_client () {
 			-exec rm -- {} \;"
 		;;
 	client|*)
+		_checkfile=log_client
 		_logfile=log_test_client
 		mock ${mock_args} --shell \
 			"find \"builddir/build/BUILD/$1/tests/functional\" \
@@ -168,6 +171,11 @@ do_compile_and_test_client () {
 			-exec rm -- {} \;"
 		;;
 	esac
+	if echo "$5" | grep -Fq POSIXONLY; then
+		mock ${mock_args} --shell \
+		  "grep -Fq POSIXONLY builddir/build/BUILD/$1/tests/functional/${_checkfile}.c" \
+		  || { echo "SRPM not -po switch compatible"; exit 1; }
+	fi
 	mock ${mock_args} --copyin "syslog-stdout.py" "builddir"
 	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; rm -f .ok; { \
 	  ./configure && touch .ok; } | grep -F 'section'; \
@@ -200,6 +208,7 @@ do_shell () {
 do_proceed () {
 
 	_makevars=
+	_posixonly=0
 	_resultsdir_tag=
 	_clientselfcheck=1
 	_interlibselfcheck=1
@@ -211,6 +220,7 @@ do_proceed () {
 		case "$1" in
 		shell) shift; do_shell "$@"; return;;
 		-v)    _makevars="${_makevars} V=1"; shift;;
+		-po)   _resultsdir_tag="${_resultsdir_tag}$1"; shift; _posixonly=1;;
 		-t=?*) _picktest=${1#-t=}; shift;;
 		-t=)   do_die "missing -t option value";;
 		-t?*)  _picktest=${1#-t}; shift;;
@@ -235,6 +245,7 @@ do_proceed () {
 
 	if test -n "${_resultsdir_tag}"; then
 		_makevars="${_makevars} CPPFLAGS=\" \
+		           $(test "${_posixonly}" -eq 0 || printf %s ' -DPOSIXONLY') \
 		           $(test "${_clientselfcheck}" -eq 1 || printf %s ' -DNSELFCHECK') \
 		           $(test "${_interlibselfcheck}" -eq 1 || printf %s ' -DNLIBSELFCHECK') \
 		           $(test "${_clientlogging}" -eq 1 || printf %s ' -DNLOG') \
@@ -361,9 +372,10 @@ do_proceed () {
 }
 
 { test $# -eq 0 || test "$1" = -h || test "$1" = --help; } \
-  && printf '%s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n' \
-            "usage: $0 {[-{v,t{, ,=}<ts>,n{{,c,i}sc,cl,il}}]* <libqb.src.rpm> | shell}" \
+  && printf '%s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n' \
+            "usage: $0 {[-{v,po,t{, ,=}<ts>,n{{,c,i}sc,cl,il}}]* <libqb.src.rpm> | shell}" \
             "- use '-v' to show the compilation steps verbosely" \
+            "- use '-po' limit some self-checks to POSIX-only simplification" \
             "- use '-t[=]<testspec>' to pick just one item of the test matrix" \
             "  (pass the identifier matching the result file, e.g. qb+c-)" \
             "- use '-nsc' to suppress self-check (\"see whole story\") wholly" \

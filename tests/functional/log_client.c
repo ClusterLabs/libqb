@@ -20,7 +20,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "os_base.h"
+#ifndef POSIXONLY
+#define _GNU_SOURCE
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
 #include <qb/qblog.h>
 
 #ifndef NSELFCHECK
@@ -28,10 +36,9 @@ QB_LOG_INIT_DATA(linker_contra_log);
 #endif
 
 #ifndef NLOG
-#define do_perror(msg)
-	qb_perror(LOG_ERR, msg)
+#define do_perror(msg)  qb_perror(LOG_ERR, msg)
 #else
-	perror(msg)
+#define do_perror(msg)  perror(msg)
 #endif
 
 static const char *

@@ -20,7 +20,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "os_base.h"
+#ifndef POSIXONLY
+#define _GNU_SOURCE
+#endif
+
+#include <stdio.h>
+
 #include <qb/qblog.h>
 
 #ifndef NSELFCHECK
