@@ -206,6 +206,7 @@ do_proceed () {
 	_clientlogging=1
 	_interliblogging=1
 	_picktest=
+	_args=$*
 	while :; do
 		case "$1" in
 		shell) shift; do_shell "$@"; return;;
@@ -253,6 +254,8 @@ do_proceed () {
 	_resultsdir="_results/$(date '+%y%m%d_%H%M%S')_${_libqb_descriptor}${_resultsdir_tag}"
 	mkdir -p "${_resultsdir}"
 	rm -f -- "${_resultsdir}/*"
+	printf "args: %s\nbinutils [+]: %s\nbinutils [-]: %s\n" \
+	  "${_args}" "${pkg_binutils_228}" "${pkg_binutils_229}" > "${_resultsdir}/_env"
 
 	_dist=
 	_outfile=
