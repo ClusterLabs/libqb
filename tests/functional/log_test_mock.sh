@@ -101,8 +101,8 @@ do_install () {
 
 # $1, ... $N: concrete packages to be installed
 do_install_inner () {
-	_remove_cmd="mock ${mock_args} -- shell \"rpm --nodeps --erase"
-	_install_cmd="mock ${mock_args}"
+	_remove_cmd="mock ${mock_args} -q -- shell \"rpm --nodeps --erase"
+	_install_cmd="mock ${mock_args} -q"
 	while test $# -gt 0; do
 		case "$1" in
 		*.src.rpm|*-debuginfo*|*-debugsource*) ;;
@@ -123,7 +123,7 @@ do_buildsrpm () {
 	_pkg_descriptor="$(basename "$1" | sed 's|\.src\.rpm$||')"
 	# need to prune due to possible duplicates caused by differing %{dist}
 	rm -f -- "_pkgs/${_pkg_descriptor}"/*
-	mock ${mock_args} -Nn --define "dist $2" --define '_without_check 1' \
+	mock ${mock_args} -q -Nn --define "dist $2" --define '_without_check 1' \
 	  --resultdir "_pkgs/${_pkg_descriptor}" --rebuild "$1"
 }
 
@@ -135,7 +135,9 @@ do_compile_interlib () {
 		\( -name log_internal -o -name '*.c' \) -prune \
 		-o -name '*liblog_inter*' \
 		-exec rm -- {} \;"
-	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; ./configure )"
+	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; rm -f .ok; { \
+	  ./configure && touch .ok; } | grep -F 'section'; \
+	  test -f .ok || { cat config.log; exit 1; } )"
 	mock ${mock_args} --shell \
 		"make -C \"builddir/build/BUILD/$1/tests/functional/log_external\" \
 		liblog_inter.la $2"
@@ -167,7 +169,9 @@ do_compile_and_test_client () {
 		;;
 	esac
 	mock ${mock_args} --copyin "syslog-stdout.py" "builddir"
-	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; ./configure )"
+	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; rm -f .ok; { \
+	  ./configure && touch .ok; } | grep -F 'section'; \
+	  test -f .ok || { cat config.log; exit 1; } )"
 	mock ${mock_args} --shell \
 		"python3 builddir/syslog-stdout.py \
 		  >\"builddir/build/BUILD/$1/tests/functional/log_external/.syslog\" & \
@@ -176,8 +180,10 @@ do_compile_and_test_client () {
 		&& ! test -s \"builddir/build/BUILD/$1/tests/functional/log_external/.syslog\"; \
 		ret_ec=\$?; \
 		( cd \"builddir/build/BUILD/$1/tests/functional/log_external\"; \
-		  cat .syslog >> test-suite.log; \
-		  echo SYSLOG-begin; cat .syslog; echo SYSLOG-end ); \
+		  echo TESTLOG-begin; sed -n '/^\.\.\ /{:j;n;p;bj}' test-suite.log; \
+		    echo TESTLOG-end; \
+		  echo SYSLOG-begin; cat .syslog; echo SYSLOG-end; \
+		  cat .syslog >> test-suite.log ); \
 		ret () { return \$1; }; ret \${ret_ec}" \
 	  && _result="${_result}_good" \
 	  || _result="${_result}_bad"
@@ -252,6 +258,7 @@ do_proceed () {
 	_outfile=
 	_outfile_client=
 	_outfile_qb=
+	_last_binutils=
 
 	do_download "${pkg_binutils_228}" "${pkg_binutils_229}"
 
@@ -272,6 +279,7 @@ do_proceed () {
 		do_progress "installing ${_pkg_binutils_libqb} so as to build" \
 		            "libqb [${_outfile_qb}]"
 		do_install "${_pkg_binutils_libqb}"
+		_last_binutils="${_pkg_binutils_libqb}"
 
 		do_progress "building ${_libqb_descriptor_path} with" \
 		            "${_pkg_binutils_libqb} [${_outfile_qb}]"
@@ -297,10 +305,14 @@ do_proceed () {
 			""|"${_outfile}*")
 				case "${_pkg_binutils_interlib}" in
 				none)	;;
+				${_last_binutils})
+					do_progress "skipping redundant ${_pkg_binutils_interlib}" \
+					            "install so as to build interlib [${_outfile}]";;
 				*)
 					do_progress "installing ${_pkg_binutils_interlib}" \
 					            "so as to build interlib [${_outfile}]"
 					do_install "${_pkg_binutils_interlib}"
+					_last_binutils="${_pkg_binutils_interlib}"
 
 					do_progress "building interlib with ${_libqb_descriptor_archive}" \
 					            "+ ${_pkg_binutils_interlib} [${_outfile}]" \
@@ -325,9 +337,15 @@ do_proceed () {
 				test -n "${_picktest}" && test "${_picktest}" != "${_outfile_client}" \
 				  && continue
 
-				do_progress "installing ${_pkg_binutils_client}" \
-				            "so as to build ${_client} [${_outfile_client}]"
-				do_install "${_pkg_binutils_client}"
+				if test "${_pkg_binutils_client}" = "${_last_binutils}"; then
+					do_progress "skipping redundant ${_pkg_binutils_client}" \
+					            "install so as to build ${_client} [${_outfile_client}]"
+				else
+					do_progress "installing ${_pkg_binutils_client}" \
+					            "so as to build ${_client} [${_outfile_client}]"
+					do_install "${_pkg_binutils_client}"
+					_last_binutils="${_pkg_binutils_client}"
+				fi
 				do_progress "building ${_client} with ${_libqb_descriptor_archive}" \
 				            "+ ${_pkg_binutils_client} [${_outfile_client}]" \
 				            "{${_makevars}}"
