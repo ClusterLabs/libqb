@@ -58,7 +58,7 @@ main(int32_t argc, char *argv[])
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	qb_log_tags_stringify_fn_set(my_tags_stringify);
-	qb_log_format_set(QB_LOG_STDERR, "[%5g|%p] %f:%l:%b");
+	qb_log_format_set(QB_LOG_STDERR, "[%5g|%p] %f:%b");
 
 #if 0
 	printf("\n==%s consists of: %d, %d, %d, %s==\n\n", qb_ver_str,
