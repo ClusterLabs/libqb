@@ -43,6 +43,14 @@ extern "C" {
 #undef QB_HAVE_ATTRIBUTE_SECTION
 #endif  /* defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S) */
 
+#if defined(QB_HAVE_ATTRIBUTE_SECTION) && !defined(__GNUC__)
+_Pragma(QB_PP_STRINGIFY(message (QB_PP_STRINGIFY(			\
+        without GNU-compatible compiler (defining "__GNUC__") callsite	\
+        section cannot be used despite being supported by the platform	\
+        and not disabled; also QB_LOG_INIT_DATA is no-op, therefore))));
+#undef QB_HAVE_ATTRIBUTE_SECTION
+#endif
+
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 #include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */
 #include <dlfcn.h>  /* dynamic linking: dlopen, dlsym, dladdr, ... */
@@ -288,10 +296,11 @@ struct qb_log_callsite {
 
 typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 
-/* will be assigned by linker magic (assuming linker supports that):
- * https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
- */
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
+
+/* with proper toolchain support, linker magic backs the invisible counterpart:
+   https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
+   + see also qb_logt below */
 
 #define QB_ATTR_SECTION			__verbose  /* conforms to C ident. */
 #define QB_ATTR_SECTION_STR		QB_PP_STRINGIFY(QB_ATTR_SECTION)
