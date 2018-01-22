@@ -100,10 +100,9 @@ else
 endif
 endif
 
+# nested sed expression is also escaping meta character for the outer one
 qblog_script.ld: %.ld: %.ld.in
-	$(AM_V_GEN)$(CPP) -C -D_GNU_SOURCE -P \
-	  -I$(top_srcdir)/include -I$(top_builddir)/include \
-	  -xc $< \
+	$(AM_V_GEN)$(CPP) -C -D_GNU_SOURCE -P $(AM_CPPFLAGS) -xc $< \
 	  | sed -n "/$$(sed -n '/^[^#]/{s/[*\/]/\\&/g;p;q;}' $<)/,$$ p" \
 	  > $@
 
