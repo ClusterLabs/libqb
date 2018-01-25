@@ -582,6 +582,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_FILE_SYNC,
 	QB_LOG_CONF_EXTENDED,
 	QB_LOG_CONF_IDENT,
+	QB_LOG_CONF_MAX_LINE_LEN,
 };
 
 enum qb_log_filter_type {

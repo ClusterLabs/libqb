@@ -25,12 +25,19 @@ static void
 _file_logger(int32_t t,
 	     struct qb_log_callsite *cs, time_t timestamp, const char *msg)
 {
-	char output_buffer[QB_LOG_MAX_LEN];
+	char buffer[QB_LOG_MAX_LEN];
+	char *output_buffer = buffer;
 	struct qb_log_target *target = qb_log_target_get(t);
 	FILE *f = qb_log_target_user_data_get(t);
 
 	if (f == NULL) {
 		return;
+	}
+	if (target->max_line_length > QB_LOG_MAX_LEN) {
+		output_buffer = malloc(target->max_line_length);
+		if (!output_buffer) {
+			return;
+		}
 	}
 	output_buffer[0] = '\0';
 
@@ -41,6 +48,9 @@ _file_logger(int32_t t,
 	fflush(f);
 	if (target->file_sync) {
 		QB_FILE_SYNC(fileno(f));
+	}
+	if (target->max_line_length > QB_LOG_MAX_LEN) {
+		free(output_buffer);
 	}
 }
 
