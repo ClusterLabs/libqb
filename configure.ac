@@ -857,6 +857,7 @@ AC_CONFIG_FILES([Makefile
 		 tests/functional/Makefile
 		 tests/functional/log_external/Makefile
 		 tests/functional/log_internal/Makefile
+		 tests/functional/log_blackbox_fork/Makefile
 		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
