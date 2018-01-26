@@ -213,7 +213,7 @@ AC_CHECK_FUNCS([alarm clock_gettime \
 		poll epoll_create epoll_create1 kqueue \
 		random rand getrlimit sysconf \
 		getpeerucred getpeereid \
-		openat unlinkat])
+		openat renameat unlinkat])
 
 AX_SAVE_FLAGS
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
@@ -855,9 +855,9 @@ AC_CONFIG_FILES([Makefile
 		 tools/Makefile
 		 tests/Makefile
 		 tests/functional/Makefile
+		 tests/functional/log_blackbox_fork/Makefile
 		 tests/functional/log_external/Makefile
 		 tests/functional/log_internal/Makefile
-		 tests/functional/log_blackbox_fork/Makefile
 		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile

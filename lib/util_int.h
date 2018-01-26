@@ -135,4 +135,20 @@ void qb_socket_nosigpipe(int32_t s);
 #define QB_SUN_LEN(a) sizeof(*(a))
 #endif
 
+/* For qb_rb_close_helper/qb_rb_rename, we need to open directory in
+   read-only mode and with as lightweight + strict flags as available
+   at given platform (O_PATH for the former, O_DIRECTORY for the
+   latter); end result is available as RB_DIR_RO_FLAGS.
+ */
+#ifndef O_DIRECTORY
+#  define RB_DIR_RO_FLAGS1 O_RDONLY
+#else
+#  define RB_DIR_RO_FLAGS1 O_RDONLY|O_DIRECTORY
+#endif
+#ifndef O_PATH
+#  define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1
+#else
+#  define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1|O_PATH
+#endif
+
 #endif /* QB_UTIL_INT_H_DEFINED */

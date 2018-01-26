@@ -29,16 +29,31 @@
 			   sizeof(uint8_t) +\
 			   2 * sizeof(char) + sizeof(time_t))
 
+static inline int
+_blackbox_figure_filename(struct qb_log_target *t)
+{
+	return snprintf(t->filename, PATH_MAX, "%s-%d-blackbox", t->name, getpid());
+}
 
 static void
 _blackbox_reload(int32_t target)
 {
+	int32_t res;
 	struct qb_log_target *t = qb_log_target_get(target);
 
 	if (t->instance == NULL) {
 		return;
 	}
-	qb_rb_close(t->instance);
+	if (t->filename[0] == '\0') {
+		/* request to rename */
+		_blackbox_figure_filename(t);
+		res = qb_rb_rename((struct qb_ringbuffer_s *) t->instance, t->filename);
+		if (res == 0) {
+			return;
+		}
+		/* if rename failed, resort to close+open combo */
+	}
+	qb_rb_close((struct qb_ringbuffer_s *) t->instance);
 	t->instance = qb_rb_open(t->filename, t->size,
 				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
 }
@@ -145,7 +160,7 @@ qb_log_blackbox_open(struct qb_log_target *t)
 	if (t->size < 1024) {
 		return -EINVAL;
 	}
-	snprintf(t->filename, PATH_MAX, "%s-%d-blackbox", t->name, getpid());
+	_blackbox_figure_filename(t);
 
 	t->instance = qb_rb_open(t->filename, t->size,
 				 QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);

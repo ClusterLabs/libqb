@@ -21,6 +21,7 @@
 #include "ringbuffer_int.h"
 #include <qb/qbdefs.h>
 #include "atomic_int.h"
+#include "util_int.h"
 
 #define QB_RB_FILE_HEADER_VERSION 1
 
@@ -931,5 +932,66 @@ qb_rb_chmod(qb_ringbuffer_t * rb, mode_t mode)
 	if (res < 0) {
 		return -errno;
 	}
+	return 0;
+}
+
+/* TODO promote from private API when tested/mature enough */
+int32_t
+qb_rb_rename(struct qb_ringbuffer_s * rb, const char *new_name)
+{
+	int cmp1, cmp2, dirfd = -1;
+	char new_data_path[PATH_MAX], new_hdr_path[PATH_MAX], *sep;
+	char *data_path = rb->shared_hdr->data_path;
+	char *hdr_path = rb->shared_hdr->hdr_path;
+
+	if (rb == NULL) {
+		return -EINVAL;
+	}
+
+	sep = strrchr(data_path, '/');
+
+	strncpy(new_data_path, data_path, sep - data_path);
+	strncpy(new_hdr_path, data_path, sep - data_path);
+
+	snprintf(new_data_path + (sep - data_path) + 1, PATH_MAX - (sep - data_path + 1), "qb-%s-data", new_name);
+	snprintf(new_hdr_path + (sep - data_path) + 1, PATH_MAX - (sep - data_path + 1), "qb-%s-header", new_name);
+
+	if (!(cmp1 = strcmp(data_path, new_data_path))
+	    && !(cmp2 = strcmp(hdr_path, new_hdr_path))) {
+		return 0;
+	} else if (!cmp1 || !cmp2) {
+		/* should not happen that only one matches */
+		return -EBADF;
+	}
+
+#ifdef HAVE_RENAMEAT
+	new_data_path[sep - data_path] = '\0';
+	if ((dirfd = open(new_data_path, RB_DIR_RO_FLAGS)) == -1
+	    || renameat(dirfd, sep + 1, dirfd, new_data_path + (sep - data_path) + 1) == -1) {
+		if (dirfd != -1) {
+			close(dirfd);
+		}
+		return -errno;
+	}
+#else
+	if (rename(data_path, new_data_path) == -1) {
+		return -errno;
+	}
+#endif
+	strncpy(rb->shared_hdr->data_path, new_data_path, PATH_MAX);
+
+#ifdef HAVE_RENAMEAT
+	if (renameat(dirfd, sep + 1, dirfd,
+	             new_hdr_path + (sep - data_path) + 1) == -1) {
+		close(dirfd);
+		return -errno;
+	}
+#else
+	if (rename(hdr_path, new_hdr_path) == -1) {
+		return -errno;
+	}
+#endif
+	strncpy(rb->shared_hdr->hdr_path, new_hdr_path, PATH_MAX);
+
 	return 0;
 }

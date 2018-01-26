@@ -19,6 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ringbuffer_int.h"
+#include "util_int.h"
 #include <qb/qbdefs.h>
 
 static int32_t
@@ -307,24 +308,6 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
 	return rc;
 }
 
-
-/* For qb_rb_close_helper, we need to open directory in read-only
-   mode and with as lightweight + strict flags as available at
-   given platform (O_PATH for the former, O_DIRECTORY for the
-   latter); end result is available as RB_DIR_RO_FLAGS.
- */
-#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
-#  ifndef O_DIRECTORY
-#    define RB_DIR_RO_FLAGS1 O_RDONLY
-#  else
-#    define RB_DIR_RO_FLAGS1 O_RDONLY|O_DIRECTORY
-#  endif
-#  ifndef O_PATH
-#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1
-#  else
-#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1|O_PATH
-#  endif
-
 int32_t
 qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
 		   int32_t truncate_fallback)
@@ -344,6 +327,7 @@ qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
 	}
 
 	if (unlink_it) {
+#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
 		char *data_path = rb->shared_hdr->data_path;
 		char *sep = strrchr(data_path, '/');
 		/* we could modify data_path in-situ, but that would segfault if

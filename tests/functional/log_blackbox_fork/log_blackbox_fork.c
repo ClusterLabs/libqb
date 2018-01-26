@@ -130,6 +130,9 @@ test_run_detaching(void)
 {
 	pid_t workpid;
 	sigset_t sig_blocked, sig_orig;
+#ifndef NFIX
+	int32_t qb_ret;
+#endif
 	TRACE_ENTER();
 
 	sequence_under_test_prep();
@@ -171,6 +174,23 @@ test_run_detaching(void)
 			return EXIT_SUCCESS;
 			break;
 	}
+
+#ifndef NFIX
+	TRACE1("looking if new API meaning acknowledged");
+	qb_ret = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, BLACKBOX_SIZE);
+	if (qb_ret == 1) {
+		/* we are done */
+		TRACE1("new API meaning works as expected");
+	} else if (qb_ret < 0
+	           || (qb_ret = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_FALSE)) < 0
+	           || (qb_ret = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE)) < 0) {
+		fprintf(stderr,
+		    "Unable to reinitialize log flight recorder. " \
+		    "The most common cause of this error is " \
+		    "not enough space on /dev/shm. This will continue work, " \
+		    "but blackbox will not be available\n");
+	}
+#endif
 
 	signal(SIGFPE, handle_original_crash);
 	signal(SIGBUS, handle_original_crash);

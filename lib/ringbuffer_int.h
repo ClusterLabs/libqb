@@ -127,4 +127,8 @@ qb_rb_lastref_and_ret(struct qb_ringbuffer_s ** rb)
 	return rb_res;
 }
 
+/* TODO promote from private API when tested/mature enough */
+int32_t
+qb_rb_rename(struct qb_ringbuffer_s * rb, const char *new_name);
+
 #endif /* _RINGBUFFER_H_ */

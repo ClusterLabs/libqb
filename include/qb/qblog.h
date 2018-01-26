@@ -667,6 +667,10 @@ void qb_log_callsites_dump(void);
  * @retval -errno on error
  * @retval 0 on success
  * @retval qb_log_target_state for QB_LOG_CONF_STATE_GET
+ * @retval 1 when QB_LOG_CONF_SIZE was requested (blackbox only) with
+ *           the same value as got set previously to denote that the
+ *           backing file was possibly renamed when induced by the
+ *           PID change (after fork, entering PID namespace, etc.)
  */
 int32_t qb_log_ctl(int32_t target, enum qb_log_conf conf_type, int32_t arg);
 
