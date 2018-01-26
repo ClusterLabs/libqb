@@ -306,7 +306,7 @@ START_TEST(test_line_length)
 	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FORMAT, "*", LOG_WARNING);
 	ck_assert_int_eq(rc, 0);
-	qb_log_format_set(t, "%b");
+	qb_log_format_set(t, "[%p] %b");
 	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
 	ck_assert_int_eq(rc, 0);
 	rc = qb_log_ctl(t, QB_LOG_CONF_MAX_LINE_LEN, 32);
@@ -317,7 +317,7 @@ START_TEST(test_line_length)
 	test_priority = 0;
 	num_msgs = 0;
 
-	qb_log(LOG_ERR, "This is a short message");
+	qb_log(LOG_ERR, "Short message");
 	qb_log(LOG_ERR, "This is a longer message 123456789012345678901234567890");
 	qb_log(LOG_ERR, "Long message with parameters %d %s", 1234, "Oh yes it is");
 

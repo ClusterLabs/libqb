@@ -202,12 +202,8 @@ cs_format(char *str, size_t maxlen, struct qb_log_callsite *cs, va_list ap)
 	len = vsnprintf(str, maxlen, cs->format, ap_copy);
 	va_end(ap_copy);
 
-	/* Indicate overflow */
 	if (len > maxlen) {
 		len = maxlen;
-		str[maxlen-4] = '.';
-		str[maxlen-3] = '.';
-		str[maxlen-2] = '.';
 	}
 	if (str[len - 1] == '\n') {
 		str[len - 1] = '\0';

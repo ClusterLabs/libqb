@@ -435,6 +435,13 @@ qb_log_target_format(int32_t target,
 	} else {
 		output_buffer[output_buffer_idx] = '\0';
 	}
+
+	/* Indicate truncation */
+	if (output_buffer_idx >= t->max_line_length-1) {
+		output_buffer[output_buffer_idx-3] = '.';
+		output_buffer[output_buffer_idx-2] = '.';
+		output_buffer[output_buffer_idx-1] = '.';
+	}
 }
 
 
