@@ -265,6 +265,7 @@ extern "C" {
 #define LOG_TRACE    (LOG_DEBUG + 1)
 
 #define QB_LOG_MAX_LEN 512
+#define QB_LOG_ABSOLUTE_MAX_LEN 4096
 #define QB_LOG_STRERROR_MAX_LEN 128
 
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);

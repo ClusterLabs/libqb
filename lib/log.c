@@ -1222,7 +1222,12 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 		conf[t].extended = arg_i32;
 		break;
 	case QB_LOG_CONF_MAX_LINE_LEN:
-		conf[t].max_line_length = arg_i32;
+		/* arbitrary limit, but you'd be insane to go further */
+		if (arg_i32 > QB_LOG_ABSOLUTE_MAX_LEN) {
+			rc = -EINVAL;
+		} else {
+			conf[t].max_line_length = arg_i32;
+		}
 		break;
 
 	default:
