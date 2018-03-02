@@ -103,16 +103,16 @@ bench_log_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 bench_log_LDADD = $(top_builddir)/lib/libqb.la
 
 if HAVE_CHECK
-EXTRA_DIST += resources.test
+EXTRA_DIST += start.test resources.test
 EXTRA_DIST += blackbox-segfault.sh
 
-TESTS = array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.test resources.test
+TESTS = start.test array.test map.test rb.test log.test blackbox-segfault.sh loop.test ipc.test resources.test
 
 resources.log: rb.log log.log ipc.log
 
 check_LTLIBRARIES =
 check_PROGRAMS = array.test map.test rb.test log.test loop.test ipc.test util.test crash_test_dummy file_change_bytes
-dist_check_SCRIPTS = resources.test blackbox-segfault.sh
+dist_check_SCRIPTS = start.test resources.test blackbox-segfault.sh
 
 if HAVE_SLOW_TESTS
 TESTS += util.test

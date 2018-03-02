@@ -122,26 +122,19 @@ exit_handler(int32_t rsignal, void *data)
 static void
 set_ipc_name(const char *prefix)
 {
-	/* We have to make the server name as unique as possible given
-	 * the build- (seconds part of preprocessor's timestamp) and
-	 * run-time (pid + lower 16 bits of the current timestamp)
-	 * circumstances, because some build systems attempt to generate
-	 * packages for libqb in parallel.  These unit tests are run
-	 * during the package build process.  2+ builds executing on
-	 * the same machine (whether containerized or not because of
-	 * abstract unix sockets namespace sharing) can stomp on each
-	 * other's unit tests if the ipc server names aren't unique... */
+	FILE *f;
+	char process_name[256];
 
-	/* single-shot grab of seconds part of preprocessor's timestamp */
-	static char t_sec[3] = "";
-	if (t_sec[0] == '\0') {
-		const char *const found = strrchr(__TIME__, ':');
-		strncpy(t_sec, found ? found + 1 : "-", sizeof(t_sec) - 1);
-		t_sec[sizeof(t_sec) - 1] = '\0';
+	/* The process-unique part of the IPC name has already been decided
+	 * and stored in the file ipc-test-name.
+	 */
+	f= fopen("ipc-test-name", "r");
+	if (f) {
+		fgets(process_name, sizeof(process_name), f);
+		fclose(f);
 	}
 
-	snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
-		 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
+	snprintf(ipc_name, sizeof(ipc_name), "%s%s", prefix, process_name);
 }
 
 static int32_t
@@ -1444,6 +1437,7 @@ START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
 	test_ipc_server_fail();
 	_fi_unlink_inject_failure = QB_FALSE;
 	qb_leave();
+	unlink(sock_file);
 }
 END_TEST
 #endif
