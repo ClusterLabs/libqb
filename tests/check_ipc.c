@@ -128,13 +128,25 @@ set_ipc_name(const char *prefix)
 	/* The process-unique part of the IPC name has already been decided
 	 * and stored in the file ipc-test-name.
 	 */
-	f= fopen("ipc-test-name", "r");
+	f = fopen("ipc-test-name", "r");
 	if (f) {
 		fgets(process_name, sizeof(process_name), f);
 		fclose(f);
-	}
+		fprintf(stderr, "CC: using stored SHM name %s\n", process_name);
+		snprintf(ipc_name, sizeof(ipc_name), "%s%s", prefix, process_name);
+	} else {
+		/* This is the old code, use only as a fallback */
+		static char t_sec[3] = "";
+		if (t_sec[0] == '\0') {
+			const char *const found = strrchr(__TIME__, ':');
+			strncpy(t_sec, found ? found + 1 : "-", sizeof(t_sec) - 1);
+			t_sec[sizeof(t_sec) - 1] = '\0';
+		}
 
-	snprintf(ipc_name, sizeof(ipc_name), "%s%s", prefix, process_name);
+		snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
+			 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
+		fprintf(stderr, "CC: using calculated SHM name %s\n", ipc_name);
+	}
 }
 
 static int32_t
