@@ -1551,21 +1551,28 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
-	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 30);
-	add_tcase(s, tc, test_ipc_server_fail_shm, 8);
-	add_tcase(s, tc, test_ipc_txrx_shm_block, 8);
-	add_tcase(s, tc, test_ipc_txrx_shm_tmo, 8);
-	add_tcase(s, tc, test_ipc_fc_shm, 8);
-	add_tcase(s, tc, test_ipc_dispatch_shm, 16);
-	add_tcase(s, tc, test_ipc_stress_test_shm, 16);
-	add_tcase(s, tc, test_ipc_bulk_events_shm, 16);
-	add_tcase(s, tc, test_ipc_exit_shm, 8);
-	add_tcase(s, tc, test_ipc_event_on_created_shm, 10);
-	add_tcase(s, tc, test_ipc_service_ref_count_shm, 10);
-	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600);
+#undef  add_cond_tcase
+#ifdef DISABLE_IPC_SHM
+#define add_cond_tcase(func, timeout) add_tcase_xfail(s, tc, func, timeout)
+#else
+#define add_cond_tcase(func, timeout) add_tcase(s, tc, func, timeout)
+#endif
+
+	add_cond_tcase(test_ipc_txrx_shm_timeout, 30);
+	add_cond_tcase(test_ipc_server_fail_shm, 8);
+	add_cond_tcase(test_ipc_txrx_shm_block, 8);
+	add_cond_tcase(test_ipc_txrx_shm_tmo, 8);
+	add_cond_tcase(test_ipc_fc_shm, 8);
+	add_cond_tcase(test_ipc_dispatch_shm, 16);
+	add_cond_tcase(test_ipc_stress_test_shm, 16);
+	add_cond_tcase(test_ipc_bulk_events_shm, 16);
+	add_cond_tcase(test_ipc_exit_shm, 8);
+	add_cond_tcase(test_ipc_event_on_created_shm, 10);
+	add_cond_tcase(test_ipc_service_ref_count_shm, 10);
+	add_cond_tcase(test_ipc_stress_connections_shm, 3600);
 
 #ifdef HAVE_FAILURE_INJECTION
-	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
+	add_cond_tcase(test_ipcc_truncate_when_unlink_fails_shm, 8);
 #endif
 
 	return s;
@@ -1605,19 +1612,12 @@ main(void)
 	int32_t number_failed;
 	SRunner *sr;
 	Suite *s;
-	int32_t do_shm_tests = QB_TRUE;
 
 	set_ipc_name("ipc_test");
-#ifdef DISABLE_IPC_SHM
-	do_shm_tests = QB_FALSE;
-#endif /* DISABLE_IPC_SHM */
 
 	s = make_soc_suite();
 	sr = srunner_create(s);
-
-	if (do_shm_tests) {
-		srunner_add_suite(sr, make_shm_suite());
-	}
+	srunner_add_suite(sr, make_shm_suite());
 
 	qb_log_init("check", LOG_USER, LOG_EMERG);
 	atexit(qb_log_fini);

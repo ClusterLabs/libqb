@@ -66,4 +66,13 @@
 /* add_tcase(<dest-suite>, <testcase-tmp-storage>, <function>[, <timeout>]) */
 #define add_tcase(...)	add_tcase_select(VA_ARGS_CNT(__VA_ARGS__))(__VA_ARGS__)
 
+/* expected failure (the timeout argument is mandatory here) */
+#define add_tcase_xfail(suite, tcase, func, timeout)	\
+	do { \
+		(tcase) = tcase_create(STRINGIFY(func) + sizeof("test")); \
+		tcase_add_exit_test((tcase), func, 1); \
+		tcase_set_timeout((tcase), (timeout)); \
+		suite_add_tcase((suite), (tcase)); \
+	} while (0)
+
 #endif
