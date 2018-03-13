@@ -1584,24 +1584,32 @@ make_soc_suite(void)
 	Suite *s = suite_create("socket");
 	TCase *tc;
 
-	add_tcase(s, tc, test_ipc_txrx_us_timeout, 30);
+#undef  add_cond_tcase
+#ifdef QB_GNU
+/* SO_SNDBUF isn't implemented in pflocal on Hurd */
+#define add_cond_tcase(func, timeout) add_tcase_xfail(s, tc, func, timeout)
+#else
+#define add_cond_tcase(func, timeout) add_tcase(s, tc, func, timeout)
+#endif
+
+	add_cond_tcase(test_ipc_txrx_us_timeout, 30);
 /* Commented out for the moment as space in /dev/shm on the CI machines
    causes random failures */
-/*	add_tcase(s, tc, test_ipc_max_dgram_size, 30); */
-	add_tcase(s, tc, test_ipc_server_fail_soc, 8);
-	add_tcase(s, tc, test_ipc_txrx_us_block, 8);
-	add_tcase(s, tc, test_ipc_txrx_us_tmo, 8);
-	add_tcase(s, tc, test_ipc_fc_us, 8);
-	add_tcase(s, tc, test_ipc_exit_us, 8);
-	add_tcase(s, tc, test_ipc_dispatch_us, 16);
+/*	add_cond_tcase(test_ipc_max_dgram_size, 30); */
+	add_cond_tcase(test_ipc_server_fail_soc, 8);
+	add_cond_tcase(test_ipc_txrx_us_block, 8);
+	add_cond_tcase(test_ipc_txrx_us_tmo, 8);
+	add_cond_tcase(test_ipc_fc_us, 8);
+	add_cond_tcase(test_ipc_exit_us, 8);
+	add_cond_tcase(test_ipc_dispatch_us, 16);
 #ifndef __clang__ /* see variable length array in structure' at the top */
-	add_tcase(s, tc, test_ipc_stress_test_us, 60);
+	add_cond_tcase(test_ipc_stress_test_us, 60);
 #endif
-	add_tcase(s, tc, test_ipc_bulk_events_us, 16);
-	add_tcase(s, tc, test_ipc_event_on_created_us, 10);
-	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 10);
-	add_tcase(s, tc, test_ipc_service_ref_count_us, 10);
-	add_tcase(s, tc, test_ipc_stress_connections_us, 3600);
+	add_cond_tcase(test_ipc_bulk_events_us, 16);
+	add_cond_tcase(test_ipc_event_on_created_us, 10);
+	add_cond_tcase(test_ipc_disconnect_after_created_us, 10);
+	add_cond_tcase(test_ipc_service_ref_count_us, 10);
+	add_cond_tcase(test_ipc_stress_connections_us, 3600);
 
 	return s;
 }
