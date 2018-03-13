@@ -30,4 +30,6 @@ if [ $? -eq 0 ]; then
 	RETURN=1
 fi
 
+rm -f ipc-test-name
+
 exit $RETURN
