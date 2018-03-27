@@ -80,8 +80,9 @@ check: check-headers
 .PHONY: check-headers
 check-headers: $(auto_c_files:.c=.o)
 
-distclean-compile:
+distclean-local:
 	rm -rf auto_*.c
+	rm -rf .deps
 
 if HAVE_DICT_WORDS
 if HAVE_SLOW_TESTS

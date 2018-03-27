@@ -2,7 +2,7 @@
 RETURN=0
 
 IPC_NAME=`cat ipc-test-name 2>/dev/null`
-for d in /dev/shm /var/run; do
+for d in /dev/shm /var/run $SOCKETDIR; do
 	leftovers=$(find $d -name qb-test*${IPC_NAME}* -size +0c 2>/dev/null | wc -l)
 	if [ "${leftovers}" -gt 0 ]; then
 		echo
@@ -30,4 +30,7 @@ if [ $? -eq 0 ]; then
 	RETURN=1
 fi
 
+# Keep it tidy - distcheck checks we have not left a mess
+rm -f ipc-test-name
+rm -f crash_test_dummy.core
 exit $RETURN

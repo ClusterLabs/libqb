@@ -10,7 +10,7 @@ distclean maintainer-clean:
 	# includes, which are swiped when processing one subdir and then
 	# missing, as a hard error, for the other)
 	@$(MAKE) -C log_external $@
-	@mkdir .deps
+	@mkdir -p .deps
 	@touch .deps/log_client.Po .deps/log_interlib.Plo .deps/log_interlib_client.Po
 	@$(MAKE) -C log_internal $@
 	@$(MAKE) -f Makefile $@ SUBDIRS=

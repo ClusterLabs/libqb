@@ -23,6 +23,7 @@
 
 #include "os_base.h"
 #include <sys/wait.h>
+#include <sys/un.h>
 #include <signal.h>
 
 #include "check_common.h"
@@ -132,7 +133,6 @@ set_ipc_name(const char *prefix)
 	if (f) {
 		fgets(process_name, sizeof(process_name), f);
 		fclose(f);
-		fprintf(stderr, "CC: using stored SHM name %s\n", process_name);
 		snprintf(ipc_name, sizeof(ipc_name), "%s%s", prefix, process_name);
 	} else {
 		/* This is the old code, use only as a fallback */
@@ -145,7 +145,6 @@ set_ipc_name(const char *prefix)
 
 		snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
 			 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
-		fprintf(stderr, "CC: using calculated SHM name %s\n", ipc_name);
 	}
 }
 
@@ -1436,11 +1435,15 @@ END_TEST
 START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
 {
 	char sock_file[PATH_MAX];
+	struct sockaddr_un socka;
+
 	qb_enter();
 	ipc_type = QB_IPC_SHM;
 	set_ipc_name(__func__);
 
 	sprintf(sock_file, "%s/%s", SOCKETDIR, ipc_name);
+	sock_file[sizeof(socka.sun_path)] = '\0';
+
 	/* If there's an old socket left from a previous run this test will fail
 	   unexpectedly, so try to remove it first */
 	unlink(sock_file);

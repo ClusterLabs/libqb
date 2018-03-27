@@ -137,6 +137,8 @@ install-exec-hook: qblog_script.ld
 	  sed -i -- "s/libqb.so.<digit>/$${so_ver}/" \
 	    "$(DESTDIR)$(libdir)/libqb.so-t" "$(DESTDIR)$(pkgconfigexecdir)/libqb.pc"
 	mv -f "$(DESTDIR)$(libdir)/libqb.so-t" "$(DESTDIR)$(libdir)/libqb.so"
+	rm -f "$(DESTDIR)$(pkgconfigexecdir)/libqb.pc--"
+	rm -f "$(DESTDIR)$(libdir)/libqb.so-t--"
 endif
 
 if HAVE_SPLINT
