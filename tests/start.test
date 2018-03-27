@@ -8,3 +8,4 @@
 #
 NAME="$$-`date +%N`"
 echo -n "$NAME" > ipc-test-name
+mkdir -p $SOCKETDIR
