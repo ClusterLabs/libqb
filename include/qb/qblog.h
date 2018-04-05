@@ -36,8 +36,9 @@ extern "C" {
 #include <errno.h>
 #include <syslog.h>
 #include <string.h>
-#include <qb/qbutil.h>
 #include <qb/qbconfig.h>
+#include <qb/qbdefs.h>  /* QB_PP_* */
+#include <qb/qbutil.h>
 
 #if defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S)
 #undef QB_HAVE_ATTRIBUTE_SECTION
@@ -476,19 +477,22 @@ void qb_log_from_external_source_va(const char *function,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
+
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
-#define qb_logt(priority, tags, fmt, args...) do {			\
+#define qb_logt(priority, tags, ...) do {				\
 	static struct qb_log_callsite descriptor			\
 	__attribute__((section(QB_ATTR_SECTION_STR), aligned(8))) =	\
-	{ __func__, __FILE__, fmt, priority, __LINE__, 0, tags };	\
-	qb_log_real_(&descriptor, ##args);				\
+	  { __func__, __FILE__, QB_PP_VA_HEAD(__VA_ARGS__), priority,	\
+	    __LINE__, 0, tags };					\
+	qb_log_real_(&descriptor, QB_PP_VA_TAIL(__VA_ARGS__));		\
     } while(0)
 #else
-#define qb_logt(priority, tags, fmt, args...) do {	\
-	struct qb_log_callsite* descriptor_pt =		\
-	qb_log_callsite_get(__func__, __FILE__, fmt,	\
-			    priority, __LINE__, tags);	\
-	qb_log_real_(descriptor_pt, ##args);		\
+#define qb_logt(priority, tags, ...) do {				\
+	struct qb_log_callsite* descriptor_pt =				\
+	  qb_log_callsite_get(__func__, __FILE__,			\
+	                      QB_PP_VA_HEAD(__VA_ARGS__), priority,	\
+	                      __LINE__, tags);				\
+	qb_log_real_(descriptor_pt, QB_PP_VA_TAIL(__VA_ARGS__));	\
     } while(0)
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
@@ -500,7 +504,7 @@ void qb_log_from_external_source_va(const char *function,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
-#define qb_log(priority, fmt, args...) qb_logt(priority, 0, fmt, ##args)
+#define qb_log(priority, ...) qb_logt(priority, 0, __VA_ARGS__)
 
 /* Define the character used to mark the beginning of "extended" information;
  * a string equivalent is also defined so clients can use it like:

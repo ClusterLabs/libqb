@@ -65,6 +65,13 @@ extern "C" {
 #define QB_PP_STRINGIFY_(arg)	#arg
 #define QB_PP_STRINGIFY(arg)	QB_PP_STRINGIFY_(arg)
 
+/*
+ * auxiliary treatment of variable arguments (variadic macros)
+ */
+
+#define QB_PP_VA_HEAD(_1, ...)  _1
+#define QB_PP_VA_TAIL(_1, ...)  __VA_ARGS__
+
 
 /*
  * handy time based converters.
