@@ -402,10 +402,20 @@ target's build is at fault, preventing reliable logging"		\
 #endif  /* QB_HAVE_ATTRIBUTE_SECTION */
 
 /**
- * Internal function: use qb_log() or qb_logt()
+ * Internal functions: use qb_log() or qb_logt()
  */
 void qb_log_real_(struct qb_log_callsite *cs, ...);
 void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
+static inline void
+qb_nonapi_log_real_wrapped(struct qb_log_callsite *cs, const char *fmt, ...)
+__attribute__ ((format (printf, 2, 3)));
+static inline void
+qb_nonapi_log_real_wrapped(struct qb_log_callsite *cs, const char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	qb_log_real_va_(cs, ap);
+	va_end(ap);
+};
 
 #define QB_LOG_TAG_LIBQB_MSG_BIT 31
 #define QB_LOG_TAG_LIBQB_MSG (1U << QB_LOG_TAG_LIBQB_MSG_BIT)
@@ -484,7 +494,7 @@ void qb_log_from_external_source_va(const char *function,
 	__attribute__((section(QB_ATTR_SECTION_STR), aligned(8))) =	\
 	  { __func__, __FILE__, QB_PP_VA_HEAD(__VA_ARGS__), priority,	\
 	    __LINE__, 0, tags };					\
-	qb_log_real_(&descriptor, QB_PP_VA_TAIL(__VA_ARGS__));		\
+	qb_nonapi_log_real_wrapped(&descriptor, __VA_ARGS__);		\
     } while(0)
 #else
 #define qb_logt(priority, tags, ...) do {				\
@@ -492,7 +502,7 @@ void qb_log_from_external_source_va(const char *function,
 	  qb_log_callsite_get(__func__, __FILE__,			\
 	                      QB_PP_VA_HEAD(__VA_ARGS__), priority,	\
 	                      __LINE__, tags);				\
-	qb_log_real_(descriptor_pt, QB_PP_VA_TAIL(__VA_ARGS__));	\
+	qb_nonapi_log_real_wrapped(descriptor_pt, __VA_ARGS__);		\
     } while(0)
 #endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
