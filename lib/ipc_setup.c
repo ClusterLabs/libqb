@@ -494,6 +494,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 
 	qb_ipc_auth_creds(data);
 	c->egid = data->ugp.gid;
+	c->server_pid = data->ugp.pid;
 
 	destroy_ipc_auth_data(data);
 	return r->hdr.error;

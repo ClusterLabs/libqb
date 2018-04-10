@@ -92,6 +92,7 @@ struct qb_ipcc_connection {
 	char name[NAME_MAX];
 	int32_t needs_sock_for_poll;
 	gid_t egid;
+	pid_t server_pid;
 	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;
 	struct qb_ipc_one_way response;

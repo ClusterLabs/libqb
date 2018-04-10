@@ -444,18 +444,30 @@ run_ipc_server(void)
 static pid_t
 run_function_in_new_process(void (*run_ipc_server_fn)(void))
 {
-	pid_t pid = fork ();
+	pid_t pid1 = fork ();
+	pid_t pid2;
 
-	if (pid == -1) {
+	if (pid1 == -1) {
 		fprintf (stderr, "Can't fork\n");
 		return -1;
 	}
 
-	if (pid == 0) {
-		run_ipc_server_fn();
-		exit(0);
+	/* Double-fork so the servers can be reaped in a timely manner */
+	if (pid1 == 0) {
+		pid2 = fork();
+		if (pid2 == -1) {
+			fprintf (stderr, "Can't fork twice\n");
+			exit(0);
+		}
+		if (pid2 == 0) {
+			run_ipc_server_fn();
+			exit(0);
+		} else {
+			waitpid(pid2, NULL, 0);
+			exit(0);
+		}
 	}
-	return pid;
+	return pid1;
 }
 
 static void
