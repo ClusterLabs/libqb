@@ -1229,6 +1229,9 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 			conf[t].max_line_length = arg_i32;
 		}
 		break;
+	case QB_LOG_CONF_ELIPSIS:
+		conf[t].elipsis = arg_i32;
+		break;
 
 	default:
 		rc = -EINVAL;
