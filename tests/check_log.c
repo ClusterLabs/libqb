@@ -311,7 +311,7 @@ START_TEST(test_line_length)
 	ck_assert_int_eq(rc, 0);
 	rc = qb_log_ctl(t, QB_LOG_CONF_MAX_LINE_LEN, 32);
 	ck_assert_int_eq(rc, 0);
-	rc = qb_log_ctl(t, QB_LOG_CONF_ELIPSIS, QB_TRUE);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ELLIPSIS, QB_TRUE);
 	ck_assert_int_eq(rc, 0);
 
 	/* captures last log */
@@ -328,7 +328,7 @@ START_TEST(test_line_length)
 
 	ck_assert_str_eq(test_buf+28, "...");
 
-	rc = qb_log_ctl(t, QB_LOG_CONF_ELIPSIS, QB_FALSE);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ELLIPSIS, QB_FALSE);
 	ck_assert_int_eq(rc, 0);
 
 	qb_log(LOG_ERR, "Long message with parameters %d %s", 1234, "Oh yes it is");

@@ -584,7 +584,7 @@ enum qb_log_conf {
 	QB_LOG_CONF_EXTENDED,
 	QB_LOG_CONF_IDENT,
 	QB_LOG_CONF_MAX_LINE_LEN,
-	QB_LOG_CONF_ELIPSIS,
+	QB_LOG_CONF_ELLIPSIS,
 };
 
 enum qb_log_filter_type {

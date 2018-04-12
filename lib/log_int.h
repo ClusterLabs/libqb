@@ -41,7 +41,7 @@ struct qb_log_target {
 	int32_t extended;
 	size_t size;
 	size_t max_line_length;
-	int32_t elipsis;
+	int32_t ellipsis;
 	char *format;
 	int32_t threaded;
 	void *instance;

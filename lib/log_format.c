@@ -437,7 +437,7 @@ qb_log_target_format(int32_t target,
 	}
 
 	/* Indicate truncation */
-	if (t->elipsis && output_buffer_idx >= t->max_line_length-1) {
+	if (t->ellipsis && output_buffer_idx >= t->max_line_length-1) {
 		output_buffer[output_buffer_idx-3] = '.';
 		output_buffer[output_buffer_idx-2] = '.';
 		output_buffer[output_buffer_idx-1] = '.';
