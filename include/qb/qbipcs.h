@@ -142,6 +142,10 @@ typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_t *c);
  * successfully created.
  * @note if you return anything but 0 this function will be
  * repeatedly called (until 0 is returned).
+ *
+ * With SHM connections libqb will briefly trap SIGBUS during the
+ * disconnect process to guard against server crashes if the mapped
+ * file is truncated. The signal will be restored afterwards.
  */
 typedef int32_t (*qb_ipcs_connection_closed_fn) (qb_ipcs_connection_t *c);
 

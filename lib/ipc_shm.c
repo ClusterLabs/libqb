@@ -20,6 +20,7 @@
  */
 #include "os_base.h"
 #include <poll.h>
+#include <signal.h>
 #include <setjmp.h>
 
 #include "ipc_int.h"
@@ -228,8 +229,16 @@ static void catch_sigbus(int signal)
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
+	struct sigaction sa;
+	struct sigaction old_sa;
+
 	/* Don't die if the client has truncated the SHM under us */
-	(void)signal(SIGBUS, catch_sigbus);
+	memset(&old_sa, 0, sizeof(old_sa));
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = catch_sigbus;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sigaction(SIGBUS, &sa, &old_sa);
 
 	if (setjmp(sigbus_jmpbuf) == 1) {
 		goto end_disconnect;
@@ -257,7 +266,7 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 		}
 	}
 end_disconnect:
-	(void)signal(SIGBUS, SIG_DFL);
+	sigaction(SIGBUS, &old_sa, NULL);
 }
 
 static int32_t
