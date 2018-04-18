@@ -23,6 +23,10 @@
 #include "os_base.h"
 #include <qb/qblog.h>
 
+#ifndef QB_UTIL_INT_INLINECOMPAT
+# define QB_UTIL_INT_INLINECOMPAT static inline
+#endif
+
 #if !defined (va_copy)
 #if defined (__va_copy)
 #define va_copy(_a, _b) __va_copy(_a, _b)
@@ -107,16 +111,22 @@ enum qb_sigpipe_ctl {
        QB_SIGPIPE_DEFAULT,
 };
 
+/* Following two are "weak" helpers, extracted common parts of what the
+   other internal functions use -- in a quite rapid cadence, hence we
+   mark them inline to prevent construction of sometimes even completely
+   empty frames, while retaining the idea of an interface through function
+   declaration (there's just a single implemention thereof: unix*.[ch]) */
+
 /**
  * Control sigpipe (ignore/default) during send/recv
  * Needed on some bsd's
  */
-void qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl);
+QB_UTIL_INT_INLINECOMPAT void qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl);
 
 /**
  * Control sigpipe on the socket.
  */
-void qb_socket_nosigpipe(int32_t s);
+QB_UTIL_INT_INLINECOMPAT void qb_socket_nosigpipe(int32_t s);
 
 #define SERVER_BACKLOG 128
 

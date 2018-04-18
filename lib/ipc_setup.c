@@ -40,8 +40,9 @@
 #include <qb/qbloop.h>
 #include <qb/qbdefs.h>
 
-#include "util_int.h"
 #include "ipc_int.h"
+#include "unix_inlines.h"
+#include "util_int.h"
 
 struct ipc_auth_ugp {
 	uid_t uid;
