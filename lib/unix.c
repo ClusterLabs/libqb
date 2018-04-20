@@ -27,7 +27,12 @@
 #include <sys/mman.h>
 #endif
 
+/* Preserve non-inline functions to retain (API-bypassing) ABI compatibility */
+#define QB_UTIL_INT_INLINECOMPAT
+#define QB_UNIX_INLINES_INLINE
+#include "unix_inlines.h"
 #include "util_int.h"
+
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
 #include <qb/qbatomic.h>
@@ -303,32 +308,6 @@ qb_sys_unlink_or_truncate_at(int32_t dirfd, const char *path,
 	return -res;
 }
 #endif
-
-void
-qb_sigpipe_ctl(enum qb_sigpipe_ctl ctl)
-{
-#if !defined(HAVE_MSG_NOSIGNAL) && !defined(HAVE_SO_NOSIGPIPE)
-	struct sigaction act;
-	struct sigaction oact;
-
-	act.sa_handler = SIG_IGN;
-
-	if (ctl == QB_SIGPIPE_IGNORE) {
-		sigaction(SIGPIPE, &act, &oact);
-	} else {
-		sigaction(SIGPIPE, &oact, NULL);
-	}
-#endif  /* !MSG_NOSIGNAL && !SO_NOSIGPIPE */
-}
-
-void
-qb_socket_nosigpipe(int32_t s)
-{
-#if !defined(HAVE_MSG_NOSIGNAL) && defined(HAVE_SO_NOSIGPIPE)
-	int32_t on = 1;
-	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (void *)&on, sizeof(on));
-#endif /* !MSG_NOSIGNAL && SO_NOSIGPIPE */
-}
 
 
 /*
