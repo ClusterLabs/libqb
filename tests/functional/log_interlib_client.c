@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -20,7 +20,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "os_base.h"
+#ifndef POSIXONLY
+#define _GNU_SOURCE
+#endif
+
+#include <stdio.h>
+
 #include <qb/qblog.h>
 
 #ifndef NSELFCHECK
@@ -49,7 +54,7 @@ main(int argc, char *argv[])
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	qb_log_tags_stringify_fn_set(my_tags_stringify);
-	qb_log_format_set(QB_LOG_STDERR, "[%5g|%p] %f:%l:%b");
+	qb_log_format_set(QB_LOG_STDERR, "[%5g|%p] %f:%b");
 
 #if 0
 	printf("--\n");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -43,6 +43,14 @@ extern "C" {
 #undef QB_HAVE_ATTRIBUTE_SECTION
 #endif  /* defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S) */
 
+#if defined(QB_HAVE_ATTRIBUTE_SECTION) && !defined(__GNUC__)
+_Pragma(QB_PP_STRINGIFY(message (QB_PP_STRINGIFY(			\
+        without GNU-compatible compiler (defining "__GNUC__") callsite	\
+        section cannot be used despite being supported by the platform	\
+        and not disabled; also QB_LOG_INIT_DATA is no-op, therefore))));
+#undef QB_HAVE_ATTRIBUTE_SECTION
+#endif
+
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
 #include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */
 #include <dlfcn.h>  /* dynamic linking: dlopen, dlsym, dladdr, ... */
@@ -83,6 +91,8 @@ extern "C" {
  * discern misuse of @c QB_LOG_INIT_DATA() macro in no-logging context from
  * broken callsite section handling assumptions owing to overboard fancy
  * linker -- situation that the self-check aims to detect in the first place.
+ * See also @ref qb_log_init_data_note_linker
+ * "important note on consideration when combined with binutils 2.29 linker".
  *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
@@ -286,10 +296,11 @@ struct qb_log_callsite {
 
 typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 
-/* will be assigned by linker magic (assuming linker supports that):
- * https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
- */
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
+
+/* with proper toolchain support, linker magic backs the invisible counterpart:
+   https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
+   + see also qb_logt below */
 
 #define QB_ATTR_SECTION			__verbose  /* conforms to C ident. */
 #define QB_ATTR_SECTION_STR		QB_PP_STRINGIFY(QB_ATTR_SECTION)
@@ -298,23 +309,70 @@ typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 #define QB_ATTR_SECTION_START_STR	QB_PP_STRINGIFY(QB_ATTR_SECTION_START)
 #define QB_ATTR_SECTION_STOP_STR	QB_PP_STRINGIFY(QB_ATTR_SECTION_STOP)
 
-extern struct qb_log_callsite QB_ATTR_SECTION_START[];
-extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
+extern struct qb_log_callsite QB_ATTR_SECTION_START[]
+#if !defined(QB_NOAPI_LOG_INT) && !defined(_GNU_SOURCE) && !defined(QB_LD_2_29)
+__attribute__((visibility("protected")))
+#endif
+;
+extern struct qb_log_callsite QB_ATTR_SECTION_STOP[]
+#if !defined(QB_NOAPI_LOG_INT) && !defined(_GNU_SOURCE) && !defined(QB_LD_2_29)
+__attribute__((visibility("protected")))
+#endif
+;
 
 /* Related to the next macro that is -- unlike this one -- a public API */
-#ifndef _GNU_SOURCE
+#if !defined(_GNU_SOURCE) && !defined(QB_LD_2_29)
 #define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
-	_Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
-	        without "_GNU_SOURCE" defined (directly or not) 	\
-		QB_LOG_INIT_DATA cannot check sanity of libqb proper	\
-		nor of the target site originating this check alone)))
+        { _Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
+                  without "_GNU_SOURCE" defined (directly or not)	\
+                  QB_LOG_INIT_DATA cannot check sanity of libqb proper	\
+                  and only superficially of the target site originating	\
+                  this check alone.					\
+                  NOT COMPATIBLE WITH BINUTILS 2.29 (2.29.1 OK))));	\
+          /*  original, straightforward check */			\
+          assert("target's own callsite section is populated, otherwise \
+target's build is at fault, preventing reliable logging"		\
+           && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }
+#elif !defined(_GNU_SOURCE)
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
+        _Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
+                without "_GNU_SOURCE" defined (directly or not) 	\
+                QB_LOG_INIT_DATA cannot check sanity of libqb proper	\
+                nor of the target site originating this check alone)))
 #else
 #define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
-    { Dl_info work_dli;							\
+    { Dl_info work_dli; dlerror();					\
+    /* sanity of the target site originating this check alone */	\
+    if (dladdr(&(name), &work_dli) && (work_handle =			\
+        dlopen(work_dli.dli_fname, RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("target's own callsite section is observable, otherwise \
+target's own linkage at fault and logging would not work reliably \
+(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
+               && work_s1 != NULL && work_s2 != NULL);			\
+        assert("target's own callsite section is populated, otherwise \
+target's own linkage at fault and logging would not work reliably \
+(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
+               && work_s1 != work_s2);					\
+        dlclose(work_handle);						\
+    } else if (work_s1 != QB_ATTR_SECTION_START				\
+               && work_s2 != QB_ATTR_SECTION_STOP) {			\
+        /* skip "cannot dynamically load executable"			\
+           https://sourceware.org/bugzilla/show_bug.cgi?id=11754 */	\
+        assert((fprintf(stderr, "%s\n", dlerror()),			\
+                !"can detect/dlopen/dlsym target"));			\
+    } else {								\
+        assert("executable's own callsite section is populated, \
+otherwise target's build is at fault, preventing reliable logging"	\
+           && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }		\
     /* libqb sanity (locating libqb by it's relatively unique		\
        non-functional symbols -- the two are mutually exclusive, the	\
        ordinarily latter was introduced by accident, the former is	\
        intentional -- due to possible confusion otherwise) */		\
+    dlerror();								\
     if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)		\
          || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))	\
         && (work_handle = dlopen(work_dli.dli_fname,			\
@@ -329,24 +387,9 @@ libqb's build is at fault, preventing reliable logging"			\
         assert("libqb's callsite section is populated, otherwise \
 libqb's build is at fault, preventing reliable logging"			\
                && work_s1 != work_s2);					\
-        dlclose(work_handle); }						\
-    /* sanity of the target site originating this check alone */	\
-    if (dladdr(dlsym(RTLD_DEFAULT, QB_PP_STRINGIFY(name)), &work_dli)	\
-        && (work_handle = dlopen(work_dli.dli_fname,			\
-                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
-        work_s1 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
-        work_s2 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
-        assert("target's own callsite section observable, otherwise \
-target's own linkage at fault and logging would not work reliably \
-(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
-               && work_s1 != NULL && work_s2 != NULL);			\
-        assert("target's own callsite section non-empty, otherwise \
-target's own linkage at fault and logging would not work reliably \
-(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
-               && work_s1 != work_s2);					\
-        dlclose(work_handle); } }
+        dlclose(work_handle);						\
+    } else { assert((fprintf(stderr, "%s\n", dlerror()),		\
+                     !"can detect/dlopen/dlsym libqb")); } }
 #endif  /* _GNU_SOURCE */
 
 /**
@@ -373,6 +416,13 @@ target's own linkage at fault and logging would not work reliably \
  * @c _GNU_SOURCE macro definition is present at compile-time means only half
  * of the available sanity checking will be performed, possibly resulting
  * in libqb's own internally logged messages being lost without warning.
+ *
+ * @anchor qb_log_init_data_note_linker
+ * @note When this macro is leveraged in the end executable that is moreover
+ *       linked with ld.bfd from binutils 2.29 (2.29.1 is not of concern,
+ *       though), make sure the respective code is compiled with at least one
+ *       of @c _GNU_SOURCE and @c QB_LD_2_29 macros defined so as to avoid
+ *       run-time misbehaviour of the pertaining checks.
  */
 #define QB_LOG_INIT_DATA(name)						\
     void name(void);							\
@@ -381,21 +431,20 @@ target's own linkage at fault and logging would not work reliably \
     /* our own (target's) sanity, or possibly that of higher priority	\
        symbol resolution site (unless target equals end executable)	\
        or even the lower one if no such predecessor defines these */	\
+    dlerror();								\
     if ((work_handle = dlopen(NULL, RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
         work_s1 = (struct qb_log_callsite *)				\
                   dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
         work_s2 = (struct qb_log_callsite *)				\
                   dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
         assert("implicit callsite section is observable, otherwise \
-target's and/or libqb's build is at fault, preventing reliable logging" \
+target's and/or libqb's build is at fault, preventing reliable logging"	\
                && work_s1 != NULL && work_s2 != NULL);			\
-        dlclose(work_handle);  /* perhaps overly eager thing to do */ }	\
-    QB_NONAPI_LOG_INIT_DATA_EXTRA_(name);				\
-    /* finally, original, straightforward check */			\
-    assert("implicit callsite section is populated, otherwise \
-target's build is at fault, preventing reliable logging"		\
-           && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }		\
-    void __attribute__ ((constructor)) name(void);
+        dlclose(work_handle);  /* perhaps overly eager thing to do */	\
+    } else { assert((fprintf(stderr, "%s\n", dlerror()),		\
+                     !"can dlopen/dlsym main program")); }		\
+    QB_NONAPI_LOG_INIT_DATA_EXTRA_(name); }				\
+    void __attribute__((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
 #endif  /* QB_HAVE_ATTRIBUTE_SECTION */

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2018 Red Hat, Inc.
 #
 # Author: Jan Pokorny <jpokorny@redhat.com>
 #
@@ -101,8 +101,8 @@ do_install () {
 
 # $1, ... $N: concrete packages to be installed
 do_install_inner () {
-	_remove_cmd="mock ${mock_args} -- shell \"rpm --nodeps --erase"
-	_install_cmd="mock ${mock_args}"
+	_remove_cmd="mock ${mock_args} -q -- shell \"rpm --nodeps --erase"
+	_install_cmd="mock ${mock_args} -q"
 	while test $# -gt 0; do
 		case "$1" in
 		*.src.rpm|*-debuginfo*|*-debugsource*) ;;
@@ -123,7 +123,7 @@ do_buildsrpm () {
 	_pkg_descriptor="$(basename "$1" | sed 's|\.src\.rpm$||')"
 	# need to prune due to possible duplicates caused by differing %{dist}
 	rm -f -- "_pkgs/${_pkg_descriptor}"/*
-	mock ${mock_args} -Nn --define "dist $2" --define '_without_check 1' \
+	mock ${mock_args} -q -Nn --define "dist $2" --define '_without_check 1' \
 	  --resultdir "_pkgs/${_pkg_descriptor}" --rebuild "$1"
 }
 
@@ -135,7 +135,9 @@ do_compile_interlib () {
 		\( -name log_internal -o -name '*.c' \) -prune \
 		-o -name '*liblog_inter*' \
 		-exec rm -- {} \;"
-	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; ./configure )"
+	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; rm -f .ok; { \
+	  ./configure && touch .ok; } | grep -F 'section'; \
+	  test -f .ok || { cat config.log; exit 1; } )"
 	mock ${mock_args} --shell \
 		"make -C \"builddir/build/BUILD/$1/tests/functional/log_external\" \
 		liblog_inter.la $2"
@@ -148,8 +150,10 @@ do_compile_interlib () {
 # $5: extra (presumably) variable assignments for the make goal invocation
 do_compile_and_test_client () {
 	_result=$4
+	_checkfile=
 	case "$2" in
 	interclient)
+		_checkfile=log_interlib_client
 		_logfile=log_test_interlib_client
 		mock ${mock_args} --shell \
 			"find \"builddir/build/BUILD/$1/tests/functional\" \
@@ -158,6 +162,7 @@ do_compile_and_test_client () {
 			-exec rm -- {} \;"
 		;;
 	client|*)
+		_checkfile=log_client
 		_logfile=log_test_client
 		mock ${mock_args} --shell \
 			"find \"builddir/build/BUILD/$1/tests/functional\" \
@@ -166,8 +171,15 @@ do_compile_and_test_client () {
 			-exec rm -- {} \;"
 		;;
 	esac
+	if echo "$5" | grep -Fq POSIXONLY; then
+		mock ${mock_args} --shell \
+		  "grep -Fq POSIXONLY builddir/build/BUILD/$1/tests/functional/${_checkfile}.c" \
+		  || { echo "SRPM not -po switch compatible"; exit 1; }
+	fi
 	mock ${mock_args} --copyin "syslog-stdout.py" "builddir"
-	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; ./configure )"
+	mock ${mock_args} --shell "( cd \"builddir/build/BUILD/$1\"; rm -f .ok; { \
+	  ./configure && touch .ok; } | grep -F 'section'; \
+	  test -f .ok || { cat config.log; exit 1; } )"
 	mock ${mock_args} --shell \
 		"python3 builddir/syslog-stdout.py \
 		  >\"builddir/build/BUILD/$1/tests/functional/log_external/.syslog\" & \
@@ -176,8 +188,10 @@ do_compile_and_test_client () {
 		&& ! test -s \"builddir/build/BUILD/$1/tests/functional/log_external/.syslog\"; \
 		ret_ec=\$?; \
 		( cd \"builddir/build/BUILD/$1/tests/functional/log_external\"; \
-		  cat .syslog >> test-suite.log; \
-		  echo SYSLOG-begin; cat .syslog; echo SYSLOG-end ); \
+		  echo TESTLOG-begin; sed -n '/^\.\.\ /{:j;n;p;bj}' test-suite.log; \
+		    echo TESTLOG-end; \
+		  echo SYSLOG-begin; cat .syslog; echo SYSLOG-end; \
+		  cat .syslog >> test-suite.log ); \
 		ret () { return \$1; }; ret \${ret_ec}" \
 	  && _result="${_result}_good" \
 	  || _result="${_result}_bad"
@@ -194,25 +208,49 @@ do_shell () {
 do_proceed () {
 
 	_makevars=
+	_posixonly=0
 	_resultsdir_tag=
-	_selfcheck=1
+	_clientselfcheck=1
+	_interlibselfcheck=1
 	_clientlogging=1
 	_interliblogging=1
+	_picktest=
+	_args=$*
 	while :; do
 		case "$1" in
 		shell) shift; do_shell "$@"; return;;
-		-nsc) _resultsdir_tag="${_resultsdir_tag}$1"; shift; _selfcheck=0;;
-		-ncl) _resultsdir_tag="${_resultsdir_tag}$1"; shift; _clientlogging=0;;
-		-nil) _resultsdir_tag="${_resultsdir_tag}$1"; shift; _interliblogging=0;;
-		-*) do_die "Uknown option: $1";;
-		*) break;;
+		-v)    _makevars="${_makevars} V=1"; shift;;
+		-po)   _resultsdir_tag="${_resultsdir_tag}$1"; shift; _posixonly=1;;
+		-t=?*) _picktest=${1#-t=}; shift;;
+		-t=)   do_die "missing -t option value";;
+		-t?*)  _picktest=${1#-t}; shift;;
+		-t)    test $# -gt 1 && { shift; _picktest=$1; } \
+		       || do_die "missing -t option value"; shift;;
+		-nsc)  case "${_resultsdir_tag}" in
+		       *sc*) do_die "do not combine \"sc\" flags";; esac
+		       _resultsdir_tag="${_resultsdir_tag}$1"; shift;
+		       _clientselfcheck=0; _interlibselfcheck=0;;
+		-ncsc) case "${_resultsdir_tag}" in
+		       *sc*) do_die "do not combine \"sc\" flags";; esac
+		       _resultsdir_tag="${_resultsdir_tag}$1"; shift; _clientselfcheck=0;;
+		-nisc) case "${_resultsdir_tag}" in
+		       *sc*) do_die "do not combine \"sc\" flags";; esac
+		       _resultsdir_tag="${_resultsdir_tag}$1"; shift; _interlibselfcheck=0;;
+		-ncl)  _resultsdir_tag="${_resultsdir_tag}$1"; shift; _clientlogging=0;;
+		-nil)  _resultsdir_tag="${_resultsdir_tag}$1"; shift; _interliblogging=0;;
+		-*)    do_die "Uknown option: $1";;
+		*)     break;;
 		esac
 	done
 
 	if test -n "${_resultsdir_tag}"; then
-		_makevars="CPPFLAGS=\"$(test "${_selfcheck}" -eq 1 || printf %s ' -DNSELFCHECK') \
+		_makevars="${_makevars} CPPFLAGS=\" \
+		           $(test "${_posixonly}" -eq 0 || printf %s ' -DPOSIXONLY') \
+		           $(test "${_clientselfcheck}" -eq 1 || printf %s ' -DNSELFCHECK') \
+		           $(test "${_interlibselfcheck}" -eq 1 || printf %s ' -DNLIBSELFCHECK') \
 		           $(test "${_clientlogging}" -eq 1 || printf %s ' -DNLOG') \
-		           $(test "${_interliblogging}" -eq 1 || printf %s ' -DNLIBLOG')\""
+		           $(test "${_interliblogging}" -eq 1 || printf %s ' -DNLIBLOG') \
+		           \""
 		_makevars=$(echo ${_makevars})
 	fi
 
@@ -227,11 +265,14 @@ do_proceed () {
 	_resultsdir="_results/$(date '+%y%m%d_%H%M%S')_${_libqb_descriptor}${_resultsdir_tag}"
 	mkdir -p "${_resultsdir}"
 	rm -f -- "${_resultsdir}/*"
+	printf "args: %s\nbinutils [+]: %s\nbinutils [-]: %s\n" \
+	  "${_args}" "${pkg_binutils_228}" "${pkg_binutils_229}" > "${_resultsdir}/_env"
 
 	_dist=
 	_outfile=
 	_outfile_client=
 	_outfile_qb=
+	_last_binutils=
 
 	do_download "${pkg_binutils_228}" "${pkg_binutils_229}"
 
@@ -243,9 +284,16 @@ do_proceed () {
 		*) _outfile_qb="?";;
 		esac
 
+		case "${_picktest}" in
+		""|${_outfile_qb}*) ;;
+		*) do_progress "skipping '${_outfile_qb}' branch (no match with '${_picktest}')"
+		   continue;;
+		esac
+
 		do_progress "installing ${_pkg_binutils_libqb} so as to build" \
 		            "libqb [${_outfile_qb}]"
 		do_install "${_pkg_binutils_libqb}"
+		_last_binutils="${_pkg_binutils_libqb}"
 
 		do_progress "building ${_libqb_descriptor_path} with" \
 		            "${_pkg_binutils_libqb} [${_outfile_qb}]"
@@ -267,18 +315,26 @@ do_proceed () {
 			*) _outfile="${_outfile_qb}_?";;
 			esac
 
-			case "${_pkg_binutils_interlib}" in
-			none)	;;
-			*)
-				do_progress "installing ${_pkg_binutils_interlib}" \
-				            "so as to build interlib [${_outfile}]"
-				do_install "${_pkg_binutils_interlib}"
+			case "${_picktest}" in
+			""|"${_outfile}*")
+				case "${_pkg_binutils_interlib}" in
+				none)	;;
+				${_last_binutils})
+					do_progress "skipping redundant ${_pkg_binutils_interlib}" \
+					            "install so as to build interlib [${_outfile}]";;
+				*)
+					do_progress "installing ${_pkg_binutils_interlib}" \
+					            "so as to build interlib [${_outfile}]"
+					do_install "${_pkg_binutils_interlib}"
+					_last_binutils="${_pkg_binutils_interlib}"
 
-				do_progress "building interlib with ${_libqb_descriptor_archive}" \
-				            "+ ${_pkg_binutils_interlib} [${_outfile}]" \
-				            "{${_makevars}}"
-				do_compile_interlib "${_libqb_descriptor_archive}" "${_makevars}"
-				;;
+					do_progress "building interlib with ${_libqb_descriptor_archive}" \
+					            "+ ${_pkg_binutils_interlib} [${_outfile}]" \
+					            "{${_makevars}}"
+					do_compile_interlib "${_libqb_descriptor_archive}" "${_makevars}"
+					;;
+				esac;;
+			*) do_progress "skipping dealing with interlib (no match with '${_picktest}')";;
 			esac
 
 			for _pkg_binutils_client in "${pkg_binutils_228}" "${pkg_binutils_229}"; do
@@ -292,9 +348,18 @@ do_proceed () {
 				*) _outfile_client="${_outfile}_?";;
 				esac
 
-				do_progress "installing ${_pkg_binutils_client}" \
-				            "so as to build ${_client} [${_outfile_client}]"
-				do_install "${_pkg_binutils_client}"
+				test -n "${_picktest}" && test "${_picktest}" != "${_outfile_client}" \
+				  && continue
+
+				if test "${_pkg_binutils_client}" = "${_last_binutils}"; then
+					do_progress "skipping redundant ${_pkg_binutils_client}" \
+					            "install so as to build ${_client} [${_outfile_client}]"
+				else
+					do_progress "installing ${_pkg_binutils_client}" \
+					            "so as to build ${_client} [${_outfile_client}]"
+					do_install "${_pkg_binutils_client}"
+					_last_binutils="${_pkg_binutils_client}"
+				fi
 				do_progress "building ${_client} with ${_libqb_descriptor_archive}" \
 				            "+ ${_pkg_binutils_client} [${_outfile_client}]" \
 				            "{${_makevars}}"
@@ -307,9 +372,15 @@ do_proceed () {
 }
 
 { test $# -eq 0 || test "$1" = -h || test "$1" = --help; } \
-  && printf '%s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
-            "usage: $0 {[-n{sc,cl,il}]* <libqb.src.rpm> | shell}" \
-            "- use '-nsc' to suppress optional self-check (\"see whole story\")" \
+  && printf '%s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n %s\n' \
+            "usage: $0 {[-{v,po,t{, ,=}<ts>,n{{,c,i}sc,cl,il}}]* <libqb.src.rpm> | shell}" \
+            "- use '-v' to show the compilation steps verbosely" \
+            "- use '-po' limit some self-checks to POSIX-only simplification" \
+            "- use '-t[=]<testspec>' to pick just one item of the test matrix" \
+            "  (pass the identifier matching the result file, e.g. qb+c-)" \
+            "- use '-nsc' to suppress self-check (\"see whole story\") wholly" \
+            "- use '-ncsc' to suppress self-check client-side only" \
+            "- use '-nisc' to suppress self-check interlib-side only" \
             "- use '-ncl' to suppress client-side logging" \
             "- use '-nil' to suppress interlib-side logging" \
             "- 'make -C ../.. srpm' (or so) can generate the requested input" \
