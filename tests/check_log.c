@@ -187,9 +187,10 @@ START_TEST(test_log_stupid_inputs)
 }
 END_TEST
 
-static char test_buf[QB_LOG_MAX_LEN];
+static char test_buf[4097];
 static uint8_t test_priority;
 static int32_t num_msgs;
+static size_t last_length;
 
 /*
  * to test that we get what we expect.
@@ -204,6 +205,19 @@ _test_logger(int32_t t,
 	test_priority = cs->priority;
 
 	num_msgs++;
+}
+
+static void
+_test_length_logger(int32_t t,
+	     struct qb_log_callsite *cs,
+	     time_t timestamp, const char *msg)
+{
+	strcpy(test_buf, msg);
+	qb_log_target_format(t, cs, timestamp, msg, test_buf);
+	test_priority = cs->priority;
+
+	num_msgs++;
+	last_length = strlen(msg);
 }
 
 static void log_also(void)
@@ -275,6 +289,63 @@ START_TEST(test_log_filter_fn)
 				    __LINE__, 0, "qb_log_filter_fn_set bad");
 
 	ck_assert_int_eq(num_msgs, 3);
+}
+END_TEST
+
+START_TEST(test_line_length)
+{
+	int32_t t;
+	int32_t rc;
+	int i;
+	char bigbuf[4097];
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_length_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FORMAT, "*", LOG_WARNING);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(t, "[%p] %b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_MAX_LINE_LEN, 32);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ELLIPSIS, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	/* captures last log */
+	memset(test_buf, 0, sizeof(test_buf));
+	test_priority = 0;
+	num_msgs = 0;
+
+	qb_log(LOG_ERR, "Short message");
+	qb_log(LOG_ERR, "This is a longer message 123456789012345678901234567890");
+	qb_log(LOG_ERR, "Long message with parameters %d %s", 1234, "Oh yes it is");
+
+	ck_assert_int_eq(num_msgs, 3);
+	ck_assert_int_eq(last_length, 31);
+
+	ck_assert_str_eq(test_buf+28, "...");
+
+	rc = qb_log_ctl(t, QB_LOG_CONF_ELLIPSIS, QB_FALSE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_ERR, "Long message with parameters %d %s", 1234, "Oh yes it is");
+	ck_assert_str_ne(test_buf+28, "...");
+
+	/* Long lines */
+	num_msgs = 0;
+	rc = qb_log_ctl(t, QB_LOG_CONF_MAX_LINE_LEN, 4096);
+	ck_assert_int_eq(rc, 0);
+
+	for (i=0; i<4096; i++) {
+		bigbuf[i] = '0'+(i%10);
+	}
+	bigbuf[4096] = '\0';
+	qb_log(LOG_ERR, "%s", bigbuf);
+	ck_assert_int_eq(num_msgs, 1);
+	ck_assert_int_eq(last_length, 4095);
 }
 END_TEST
 
@@ -889,6 +960,7 @@ log_suite(void)
 	add_tcase(s, tc, test_log_long_msg);
 	add_tcase(s, tc, test_log_filter_fn);
 	add_tcase(s, tc, test_threaded_logging);
+	add_tcase(s, tc, test_line_length);
 #ifdef HAVE_PTHREAD_SETSCHEDPARAM
 	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
 #endif

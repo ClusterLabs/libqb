@@ -265,6 +265,7 @@ extern "C" {
 #define LOG_TRACE    (LOG_DEBUG + 1)
 
 #define QB_LOG_MAX_LEN 512
+#define QB_LOG_ABSOLUTE_MAX_LEN 4096
 #define QB_LOG_STRERROR_MAX_LEN 128
 
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
@@ -582,6 +583,8 @@ enum qb_log_conf {
 	QB_LOG_CONF_FILE_SYNC,
 	QB_LOG_CONF_EXTENDED,
 	QB_LOG_CONF_IDENT,
+	QB_LOG_CONF_MAX_LINE_LEN,
+	QB_LOG_CONF_ELLIPSIS,
 };
 
 enum qb_log_filter_type {

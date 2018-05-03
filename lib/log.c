@@ -193,16 +193,17 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 #endif
 #endif
 static inline void
-cs_format(char *str, struct qb_log_callsite *cs, va_list ap)
+cs_format(char *str, size_t maxlen, struct qb_log_callsite *cs, va_list ap)
 {
 	va_list ap_copy;
 	int len;
 
 	va_copy(ap_copy, ap);
-	len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+	len = vsnprintf(str, maxlen, cs->format, ap_copy);
 	va_end(ap_copy);
-	if (len > QB_LOG_MAX_LEN) {
-		len = QB_LOG_MAX_LEN;
+
+	if (len > maxlen) {
+		len = maxlen;
 	}
 	if (str[len - 1] == '\n') {
 		str[len - 1] = '\0';
@@ -219,6 +220,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	struct qb_log_target *t;
 	struct timespec tv;
 	enum qb_log_target_slot pos;
+	size_t max_line_length = 0;
 	int32_t formatted = QB_FALSE;
 	char buf[QB_LOG_MAX_LEN];
 	char *str = buf;
@@ -229,10 +231,28 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	}
 	in_logger = QB_TRUE;
 
+	/* 0 Work out the longest line length available */
+	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
+		t = &conf[pos];
+		if ((t->state == QB_LOG_STATE_ENABLED)
+		       && qb_bit_is_set(cs->targets, pos)) {
+			if (t->max_line_length > max_line_length) {
+				max_line_length = t->max_line_length;
+			}
+		}
+	}
+
+	if (max_line_length > QB_LOG_MAX_LEN) {
+		str = malloc(max_line_length);
+		if (!str) {
+			return;
+		}
+	}
+
 	if (old_internal_log_fn &&
 	    qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
 		if (formatted == QB_FALSE) {
-			cs_format(str, cs, ap);
+			cs_format(str, max_line_length, cs, ap);
 			formatted = QB_TRUE;
 		}
 		qb_do_extended(str, QB_TRUE,
@@ -254,7 +274,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 				if (!found_threaded) {
 					found_threaded = QB_TRUE;
 					if (formatted == QB_FALSE) {
-						cs_format(str, cs, ap);
+						cs_format(str, max_line_length, cs, ap);
 						formatted = QB_TRUE;
 					}
 				}
@@ -266,7 +286,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 
 			} else if (t->logger) {
 				if (formatted == QB_FALSE) {
-					cs_format(str, cs, ap);
+					cs_format(str, max_line_length, cs, ap);
 					formatted = QB_TRUE;
 				}
 				qb_do_extended(str, t->extended,
@@ -279,6 +299,10 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 		qb_log_thread_log_post(cs, tv.tv_sec, str);
 	}
 	in_logger = QB_FALSE;
+
+	if (max_line_length > QB_LOG_MAX_LEN) {
+		free(str);
+	}
 }
 
 void
@@ -889,6 +913,7 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		conf[i].state = QB_LOG_STATE_UNUSED;
 		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
+		conf[i].max_line_length = QB_LOG_MAX_LEN;
 		qb_list_init(&conf[i].filter_head);
 	}
 
@@ -1195,6 +1220,17 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 		break;
 	case QB_LOG_CONF_EXTENDED:
 		conf[t].extended = arg_i32;
+		break;
+	case QB_LOG_CONF_MAX_LINE_LEN:
+		/* arbitrary limit, but you'd be insane to go further */
+		if (arg_i32 > QB_LOG_ABSOLUTE_MAX_LEN) {
+			rc = -EINVAL;
+		} else {
+			conf[t].max_line_length = arg_i32;
+		}
+		break;
+	case QB_LOG_CONF_ELLIPSIS:
+		conf[t].ellipsis = arg_i32;
 		break;
 
 	default:

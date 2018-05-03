@@ -290,12 +290,12 @@ qb_log_target_format_static(int32_t target, const char * format,
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
 					     p, cutoff, ralign,
-					     (QB_LOG_MAX_LEN -
+					     (t->max_line_length -
 					      output_buffer_idx));
 			output_buffer_idx += len;
 			format_buffer_idx += 1;
 		}
-		if (output_buffer_idx >= QB_LOG_MAX_LEN - 1) {
+		if (output_buffer_idx >= t->max_line_length - 1) {
 			break;
 		}
 	}
@@ -419,12 +419,12 @@ qb_log_target_format(int32_t target,
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
 					     p, cutoff, ralign,
-					     (QB_LOG_MAX_LEN -
+					     (t->max_line_length -
 					      output_buffer_idx));
 			output_buffer_idx += len;
 			format_buffer_idx += 1;
 		}
-		if (output_buffer_idx >= QB_LOG_MAX_LEN - 1) {
+		if (output_buffer_idx >= t->max_line_length - 1) {
 			break;
 		}
 	}
@@ -434,6 +434,13 @@ qb_log_target_format(int32_t target,
 		output_buffer[output_buffer_idx - 1] = '\0';
 	} else {
 		output_buffer[output_buffer_idx] = '\0';
+	}
+
+	/* Indicate truncation */
+	if (t->ellipsis && output_buffer_idx >= t->max_line_length-1) {
+		output_buffer[output_buffer_idx-3] = '.';
+		output_buffer[output_buffer_idx-2] = '.';
+		output_buffer[output_buffer_idx-1] = '.';
 	}
 }
 

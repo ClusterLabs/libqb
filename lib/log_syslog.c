@@ -29,7 +29,8 @@ static void
 _syslog_logger(int32_t target,
 	       struct qb_log_callsite *cs, time_t timestamp, const char *msg)
 {
-	char output_buffer[QB_LOG_MAX_LEN];
+	char buffer[QB_LOG_MAX_LEN];
+	char *output_buffer = buffer;
 	struct qb_log_target *t = qb_log_target_get(target);
 	int32_t final_priority = cs->priority;
 
@@ -43,6 +44,13 @@ _syslog_logger(int32_t target,
 		return;
 	}
 
+	if (t->max_line_length > QB_LOG_MAX_LEN) {
+		output_buffer = malloc(t->max_line_length);
+		if (!output_buffer) {
+			return;
+		}
+	}
+
 	output_buffer[0] = '\0';
 	qb_log_target_format(target, cs, timestamp, msg, output_buffer);
 
@@ -50,6 +58,9 @@ _syslog_logger(int32_t target,
 		final_priority = LOG_EMERG;
 	}
 	syslog(final_priority, "%s", output_buffer);
+	if (t->max_line_length > QB_LOG_MAX_LEN) {
+		free(output_buffer);
+	}
 }
 
 static void
