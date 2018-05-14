@@ -831,7 +831,7 @@ _log_so_walk_dlnames(void)
 	qb_list_for_each_safe(iter, next, &dlnames) {
 		dlname = qb_list_entry(iter, struct dlname, list);
 
-		handle = dlopen(dlname->dln_name, RTLD_LAZY);
+		handle = dlopen(dlname->dln_name, RTLD_LAZY|RTLD_NOLOAD);
 		error = dlerror();
 		if (!handle || error) {
 			qb_log(LOG_ERR, "%s", error);
