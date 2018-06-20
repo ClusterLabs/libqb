@@ -78,7 +78,7 @@ EXTRA_DIST		= qblog_script.ld.in qblog_script.la.in qblog_script_noop.ld
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
-libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
+libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS) $(rt_LIBS)
 if NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND
 libqb_la_LIBADD 	+= qblog_script.la
 endif
@@ -150,6 +150,7 @@ DEB_INCLUDES = -I/usr/include/x86_64-linux-gnu -I/usr/include/i386-linux-gnu
 
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
+		 -Dclockid_t=int \
 		 $(LINT_FLAGS)
 # expected for the time being (but SHOULD be fixed eventually):
 # ipc_setup.c: (in function qb_ipcc_us_setup_connect)

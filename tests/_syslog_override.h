@@ -24,7 +24,7 @@
 #ifndef QB_SYSLOG_OVERRIDE_H_DEFINED
 #define QB_SYSLOG_OVERRIDE_H_DEFINED
 
-#include <limits.h>
+#include "os_base.h"
 
 extern int _syslog_opened;
 extern int _syslog_option;

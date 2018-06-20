@@ -62,6 +62,12 @@ int use_filesystem_sockets(void)
 	return filesystem_sockets;
 }
 
+const char *qb_socketdir(void)
+{
+	const char *socketdir = getenv("QB_SOCKET_DIR");
+	return socketdir ? socketdir : SOCKETDIR;
+}
+
 static void
 set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 {
@@ -74,7 +80,7 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 	if (!use_filesystem_sockets()) {
 		snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 	} else {
-		snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
+		snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", qb_socketdir(),
 			 socket_name);
 	}
 }

@@ -122,6 +122,11 @@ esac
 # Checks for libraries.
 AX_PTHREAD(,[AC_MSG_ERROR([POSIX threads support is required])])
 AX_SAVE_FLAGS
+AC_SEARCH_LIBS([clock_gettime],[rt])
+AC_CHECK_FUNCS([clock_gettime])
+AC_SUBST([rt_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
+AX_SAVE_FLAGS
 AC_SEARCH_LIBS([dlopen],[dl],,[AC_MSG_ERROR([cannot find dlopen() function])])
 AC_SUBST([dlopen_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
@@ -153,7 +158,7 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h \
 		  stdint.h stddef.h stdlib.h string.h strings.h \
-		  dlfcn.h time.h sys/time.h sys/types.h sys/stat.h \
+		  dlfcn.h time.h sys/types.h sys/stat.h \
 		  sys/param.h sys/socket.h sys/time.h sys/poll.h sys/epoll.h \
 		  sys/uio.h sys/event.h sys/sockio.h sys/un.h sys/resource.h \
 		  syslog.h errno.h unistd.h sys/mman.h \
@@ -196,26 +201,12 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
-AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-[[#include <time.h>]],
-[[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
-                    [
-                      AC_MSG_RESULT([yes])
-                      AC_DEFINE_UNQUOTED([HAVE_CLOCK_GETRES_MONOTONIC], 1, [Define to 1 if clock_getres(CLOCK_MONOTONIC, &ts) works])
-                    ],
-                    [
-                      AC_MSG_RESULT([no])
-                    ]
-                 )
-
-
 # Checks for library functions
 AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime \
+AC_CHECK_FUNCS([alarm \
 		fsync fdatasync ftruncate \
 		gettimeofday localtime localtime_r \
 		memset munmap socket \

@@ -76,14 +76,15 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	ssize_t written;
 	char *buffer = NULL;
 	char *is_absolute = strchr(file, '/');
+	const char *socketdir = qb_socketdir();
 
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
 	} else {
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
+#if defined(QB_LINUX) || defined(QB_CYGWIN) || defined(QB_GNU)
 		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
 #else
-		snprintf(path, PATH_MAX, "%s/%s", SOCKETDIR, file);
+		snprintf(path, PATH_MAX, "%s/%s", socketdir, file);
 		is_absolute = path;
 #endif
 	}
@@ -91,7 +92,7 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	if (fd < 0 && !is_absolute) {
 		qb_util_perror(LOG_ERR, "couldn't open file %s", path);
 
-		snprintf(path, PATH_MAX, "%s/%s", SOCKETDIR, file);
+		snprintf(path, PATH_MAX, "%s/%s", socketdir, file);
 		fd = open_mmap_file(path, file_flags);
 		if (fd < 0) {
 			res = -errno;

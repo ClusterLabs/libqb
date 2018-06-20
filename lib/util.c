@@ -136,29 +136,40 @@ qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 #endif /* S_SPLINT_S */
 }
 
-#ifdef HAVE_MONOTONIC_CLOCK
+#ifdef HAVE_CLOCK_GETTIME
+
+static void
+qb_util_clock_gettime_fallback (clockid_t clock, struct timespec *tsp)
+{
+	memset(tsp, 0, sizeof *tsp);
+	if (clock_gettime(clock, tsp) != 0 &&
+	    clock_gettime(CLOCK_REALTIME, tsp) != 0) {
+		qb_util_perror(LOG_ERR, "clock_gettime(CLOCK_REALTIME)");
+	}
+}
+
 uint64_t
 qb_util_nano_current_get(void)
 {
 	uint64_t nano_monotonic;
 	struct timespec ts;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	qb_util_clock_gettime_fallback(CLOCK_MONOTONIC, &ts);
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
 }
+
+#ifndef CLOCK_REALTIME_COARSE
+#define CLOCK_REALTIME_COARSE CLOCK_REALTIME
+#endif
 
 uint64_t
 qb_util_nano_from_epoch_get(void)
 {
 	uint64_t nano_monotonic;
 	struct timespec ts;
-#ifdef CLOCK_REALTIME_COARSE
-	clock_gettime(CLOCK_REALTIME_COARSE, &ts);
-#else
-	clock_gettime(CLOCK_REALTIME, &ts);
-#endif
+	qb_util_clock_gettime_fallback(CLOCK_REALTIME_COARSE, &ts);
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
@@ -170,12 +181,11 @@ qb_util_nano_monotonic_hz(void)
 	uint64_t nano_monotonic_hz;
 	struct timespec ts;
 
-#if HAVE_CLOCK_GETRES_MONOTONIC
-	clock_getres(CLOCK_MONOTONIC, &ts);
-#else
-	if (clock_getres(CLOCK_REALTIME, &ts) != 0)
-	    qb_util_perror(LOG_ERR,"CLOCK_REALTIME");
-#endif
+	memset(&ts, 0, sizeof ts);
+	if (clock_getres(CLOCK_MONOTONIC, &ts) != 0 &&
+	    clock_getres(CLOCK_REALTIME, &ts) != 0) {
+	    qb_util_perror(LOG_ERR, "clock_getres(CLOCK_REALTIME)");
+	}
 
 	nano_monotonic_hz =
 	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) + ts.tv_nsec);
@@ -186,11 +196,7 @@ qb_util_nano_monotonic_hz(void)
 void
 qb_util_timespec_from_epoch_get(struct timespec *ts)
 {
-#ifdef CLOCK_REALTIME_COARSE
-	clock_gettime(CLOCK_REALTIME_COARSE, ts);
-#else
-	clock_gettime(CLOCK_REALTIME, ts);
-#endif
+	qb_util_clock_gettime_fallback(CLOCK_REALTIME_COARSE, ts);
 }
 
 #else
@@ -230,7 +236,7 @@ qb_util_nano_from_epoch_get(void)
 
 	return (nano_from_epoch);
 }
-#endif /* HAVE_MONOTONIC_CLOCK */
+#endif /* HAVE_CLOCK_GETTIME */
 
 struct qb_util_stopwatch {
 	uint64_t started;
