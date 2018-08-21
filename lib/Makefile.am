@@ -144,9 +144,13 @@ endif
 if HAVE_SPLINT
 check_SCRIPTS = run_splint.sh
 TESTS = $(check_SCRIPTS)
-# this is a hack because debian/ubuntu don't set the arch path
-# in splint.
-DEB_INCLUDES = -I/usr/include/x86_64-linux-gnu -I/usr/include/i386-linux-gnu
+# This is a hack because Ubuntu (Debian fixed in #675025) doesn't set the arch path
+# in splint (https://bugs.launchpad.net/ubuntu/+source/splint/+bug/1786658)
+if HAVE_DPKG_ARCHITECTURE
+DEB_INCLUDES = -I/usr/include/$$($(DPKG_ARCHITECTURE) -q DEB_HOST_GNU_TYPE)
+else
+DEB_INCLUDES =
+endif
 
 ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
