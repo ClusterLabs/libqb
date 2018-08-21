@@ -3,6 +3,7 @@
 # create a normal blackbox
 rm -f crash-test-dummy.fdata
 ./crash_test_dummy
+rm -f core*
 
 . ./test.conf
 
