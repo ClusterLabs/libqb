@@ -729,9 +729,10 @@ if test "x${GCC}" = xyes; then
 			                               '/__start___verbose/{s/^[[[[:space:]]]]*//p;q;}' \
 			                             | tr -s ' ' \
 			                             | cut -d" " -f6)
-			        test "${verbose_start_type}" = DEFAULT \
-			          && gcc_has_attribute_section_visible=yes \
-			          || gcc_has_attribute_section_visible=no; }],
+			        case "${verbose_start_type}" in
+			        DEFAULT|PROTECTED) gcc_has_attribute_section_visible=yes;;
+			        *) gcc_has_attribute_section_visible=no;;
+			        esac; }],
 			[gcc_has_attribute_section_visible=no]
 		)
 		AX_RESTORE_FLAGS
