@@ -717,7 +717,7 @@ if test "x${GCC}" = xyes; then
 			)],
 			[# alternatively something like (but requires number parsing):
 			 #   readelf -SW "conftest${ac_exeext}" \
-			 #   | sed -n '/__verbose/s/^\s*//p' | tr -s ' ' | cut -d" " -f6
+			 #   | sed -n '/__verbose/s/^[[:space:]]*//p' | tr -s ' ' | cut -d" " -f6
 			 verbose_start_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
 			                      | grep __start___verbose | cut -d" " -f 3)
 			 verbose_stop_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
@@ -725,7 +725,8 @@ if test "x${GCC}" = xyes; then
 			 test "${verbose_start_addr}" = "${verbose_stop_addr}" \
 			   && gcc_has_attribute_section_visible=no \
 			   || { verbose_start_type=$(${READELF} -s "conftest${shrext_cmds}" \
-			                             | sed -n '/__start___verbose/{s/^\s*//p;q}' \
+			                             | sed -n \
+			                               '/__start___verbose/{s/^[[[[:space:]]]]*//p;q;}' \
 			                             | tr -s ' ' \
 			                             | cut -d" " -f6)
 			        test "${verbose_start_type}" = DEFAULT \
