@@ -147,7 +147,7 @@ TESTS = $(check_SCRIPTS)
 # This is a hack because Ubuntu (Debian fixed in #675025) doesn't set the arch path
 # in splint (https://bugs.launchpad.net/ubuntu/+source/splint/+bug/1786658)
 if HAVE_DPKG_ARCHITECTURE
-DEB_INCLUDES = -I/usr/include/$$($(DPKG_ARCHITECTURE) -q DEB_HOST_GNU_TYPE)
+DEB_INCLUDES = -I/usr/include/$$($(DPKG_ARCHITECTURE) -qDEB_HOST_GNU_TYPE)
 else
 DEB_INCLUDES =
 endif
