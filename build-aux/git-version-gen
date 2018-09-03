@@ -223,6 +223,14 @@ else
     v=$fallback
 fi
 
+if test "x$fallback" = x -a "$v" = "UNKNOWN"
+then
+  echo "$0: ERROR: Can't find valid version. Please use valid git repository," \
+    "released tarball or version tagged archive" 1>&2
+
+  exit 1
+fi
+
 v=`echo "$v" |sed "s/^$prefix//"`
 
 # Test whether to append the "-dirty" suffix only if the version
