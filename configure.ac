@@ -3,10 +3,16 @@
 
 AC_PREREQ([2.61])
 
-dnl inject zero as a "patch" component of the version if missing in tag
+dnl inject zero as a "patch" component of the version if missing in tag;
+dnl care to bump "X.Y.Z-yank" template below upon each release very desirable
 AC_INIT([libqb],
-	m4_esyscmd([build-aux/git-version-gen .tarball-version \
-		    's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$|\1.0\2|']),
+	m4_esyscmd([build-aux/git-version-gen $(echo '$Format:%h??%D$'\
+	            | sed -ne 's/^[$]Format:[^$]*[$]$/.tarball-version/p;tend'\
+	                  -e 's/.*tag: v\([^, ][^, ]*\).*/\1-yank/;tv'\
+	                  -e 's/^\([[:xdigit:]][[:xdigit:]]*\).*/1.0.3-yank\1/'\
+	                  -e ':v;w .snapshot-version' -e 'i .snapshot-version'\
+	                  -e ':end;q')\
+	              's/^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$/\1.0\2/']),
 	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])

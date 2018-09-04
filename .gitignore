@@ -16,24 +16,32 @@ autom4te.cache/
 config.status
 configure
 conftest.*
-.libs
 
-# since we use subdir-objects as automake option
-.dirstamp
+
+# dotfiles
+
+.*
+# - subsumed:
+#   .dirstamp (since we use subdir-objects as automake option)
+#   .libs
+#   .{,snapshot-,tarball-}version
+# - sans:
+!.git*
+!/.tito
+!/.travis.yml
+
 
 # ignore "libtoolized" m4 files, but keep our (custom-prefixed) ones
 /m4/*
 !/m4/ax_*.m4
 
 # build-aux/release.mk related litter
-/.tarball-version
 /tag-*
 
 /lib/qblog_script.ld
 # already captured with wildcard: /lib/qblog_script.la
 
 libtool
-.version
 libqb.spec
 libqb-*
 cov
