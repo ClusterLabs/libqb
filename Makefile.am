@@ -71,7 +71,7 @@ $(SPEC): $(SPEC).in
 		alphatag="" && \
 		dirty="" && \
 		numcomm="0"; \
-	else \
+	elif [ "`git log -1 --pretty=format:x . 2>&1`" = "x" ]; then \
 		ver="$(shell git describe --abbrev=4 --match='v*' --tags HEAD 2>/dev/null)" && \
 		gitver=`echo $$ver | sed \
 			-e 's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$$|\1.0\2|'` && \
@@ -81,6 +81,13 @@ $(SPEC): $(SPEC).in
 		numcomm=`git rev-list $$vtag..HEAD | wc -l` && \
 		git update-index --refresh > /dev/null 2>&1 || true && \
 		dirty=`git diff-index --name-only HEAD 2>/dev/null`; \
+	else \
+		gitver="$(shell build-aux/git-version-gen .tarball-version .gitarchivever \
+		    's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$$|\1.0\2|')" && \
+		rpmver=$$gitver && \
+		alphatag="" && \
+		dirty="" && \
+		numcomm="0"; \
 	fi && \
 	if [ -n "$$dirty" ]; then dirty="dirty"; else dirty=""; fi && \
 	if [ "$$numcomm" = "0" ]; then \
