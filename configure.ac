@@ -314,7 +314,6 @@ case $host_cpu in
 	powerpc*)
 		AC_MSG_RESULT([powerpc])
 		AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
-		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		arch_force_shmlba=yes
 		;;
@@ -360,7 +359,6 @@ case "$host_os" in
 	*cygwin*)
 		AC_DEFINE_UNQUOTED([QB_CYGWIN], [1],
 				   [Compiling for Cygwin platform])
-		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		gcc_has_builtin_sync_operations=no
 		AC_MSG_RESULT([Cygwin])
@@ -369,7 +367,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
-		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902'
 		dnl has an invalid section specifier '__verbose': mach-o
@@ -384,9 +381,6 @@ case "$host_os" in
 				   [Compiling for BSD platform])
 		case "$host_os" in
 			*netbsd*)
-				# this is because dlopen within a dl_iterate_phdr
-				# callback locks up.
-				ac_cv_link_attribute_section=no
 				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
 					   [Unix path length])
 			;;
@@ -398,7 +392,6 @@ case "$host_os" in
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
-		ac_cv_link_attribute_section=no
 		AC_DEFINE_UNQUOTED(DISABLE_IPC_SHM, 1,
 				   [Disable shared mem ipc])
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
@@ -529,10 +522,6 @@ AC_ARG_ENABLE([coverage],
 AC_ARG_ENABLE([interlib-deps],
   [AS_HELP_STRING([--disable-interlib-deps],
                   [disable inter-library dependencies (might break builds)])])
-
-AC_ARG_ENABLE([nosection-fallback],
-  [AS_HELP_STRING([--enable-nosection-fallback],
-                  [allow (logging compat-breaking?) fallback when orphan section dead-ended])])
 
 AC_ARG_ENABLE([slow-tests],
   [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
