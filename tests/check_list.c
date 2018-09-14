@@ -57,21 +57,21 @@ START_TEST(test_list_iter)
 	/* ... increasing when iterating forward */
 	iter_i = 0;
 	qb_list_for_each_entry(iter, &mylist, list) {
-		ck_assert_uint_eq(iter->i, iter_i);
+		ck_assert_int_eq(iter->i, iter_i);
 		iter_i++;
 	}
 
 	/* ... and decreasing when iterating backward */
 	qb_list_for_each_entry_reverse(iter, &mylist, list) {
-		ck_assert_uint_gt(iter_i, 0);
-		ck_assert_uint_eq(iter->i, iter_i-1);
+		ck_assert_int_gt(iter_i, 0);
+		ck_assert_int_eq(iter->i, iter_i-1);
 		iter_i--;
 	}
-	ck_assert_uint_eq(iter_i, 0);
+	ck_assert_int_eq(iter_i, 0);
 
 	/* also check qb_list_replace and qb_list_first_entry */
 	qb_list_replace(mylist.next, &replacement.list);
-	ck_assert_uint_eq(qb_list_first_entry(&mylist, enlistable_num_t, list)->i,
+	ck_assert_int_eq(qb_list_first_entry(&mylist, enlistable_num_t, list)->i,
 	                  replacement.i);
 }
 END_TEST
