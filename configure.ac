@@ -676,7 +676,7 @@ if test "x${GCC}" = xyes; then
 			               && my_var == 3  /* for 2.29.1+ */);
 			        return *((int *) __start___verbose); }]]
 			)],
-			[gcc_has_attribute_section=yes; cp "conftest${ac_exeext}" "conftest.so"],
+			[gcc_has_attribute_section=yes; cp "conftest${ac_exeext}" "conftest${shrext_cmds}"],
 			[gcc_has_attribute_section=no]
 		)
 		AX_RESTORE_FLAGS

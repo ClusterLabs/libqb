@@ -6,7 +6,10 @@
 <headers>
 	@PREFIX@/usr/include/qb
 </headers>
+@SKIPLIB_CMT@<skip_libs>
+@SKIPLIB_CMT@	@PREFIX@/usr/lib64/libqb.so
+@SKIPLIB_CMT@</skip_libs>
 <libs>
-	@PREFIX@/usr/lib64/libqb.so
+	@PREFIX@/usr/lib64/libqb.so@LIB_SUFFIX@
 </libs>
 </descriptor>
