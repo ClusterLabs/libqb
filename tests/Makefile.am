@@ -80,9 +80,14 @@ check: check-headers
 .PHONY: check-headers
 check-headers: $(auto_c_files:.c=.o) $(auto_c_files:.c=.opp)
 
-# this is to attest basic sanity for using libqb from C++ code when possible
+# this is to check basic sanity of using libqb from C++ code, if possible
 %.opp: %.c
-	@which $(CXX) >/dev/null && $(CXX) $(AM_CPPFLAGS) -c $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+if HAVE_GXX
+	$(AM_V_GEN)$(CXX) $(AM_CPPFLAGS) -c $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+else
+	@echo "C++ compatibility tests not run"
+endif
+
 CLEANFILES += ${auto_c_files:.c=.opp}
 
 distclean-local:

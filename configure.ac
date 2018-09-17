@@ -71,6 +71,7 @@ if ! ${MAKE-make} --version /cannot/make/this >/dev/null 2>&1; then
 fi
 
 AC_PROG_CXX
+AM_CONDITIONAL(HAVE_GXX, [test "x$GXX" = xyes]) 
 AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
