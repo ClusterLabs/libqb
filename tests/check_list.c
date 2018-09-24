@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Red Hat, Inc.
+ * Copyright (c) 2018 Red Hat, Inc.
  *
  * All rights reserved.
  *
