@@ -109,16 +109,16 @@ static inline void qb_list_del(struct qb_list_head *_remove)
 
 /**
  * Replace old entry by new one
- * @param old: the element to be replaced
- * @param new: the new element to insert
+ * @param old_one: the element to be replaced
+ * @param new_one: the new element to insert
  */
-static inline void qb_list_replace(struct qb_list_head *old,
-		struct qb_list_head *new)
+static inline void qb_list_replace(struct qb_list_head *old_one,
+		struct qb_list_head *new_one)
 {
-	new->next = old->next;
-	new->next->prev = new;
-	new->prev = old->prev;
-	new->prev->next = new;
+	new_one->next = old_one->next;
+	new_one->next->prev = new_one;
+	new_one->prev = old_one->prev;
+	new_one->prev->next = new_one;
 }
 
 /**

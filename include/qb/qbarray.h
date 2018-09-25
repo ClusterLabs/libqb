@@ -52,8 +52,8 @@ extern "C" {
  * indexing, this gives a valid index range [0, @c QB_ARRAY_MAX_ELEMENTS),
  * where the notation denotes the beginning of the interval is included and
  * the end is excluded.  In other words, client space shall avoid a pitfall
- * of relying solely on the type of @max_elements parameter to
- * @ref qb_array_create and/or of @idx parameter to @ref qb_array_index
+ * of relying solely on the type of @c max_elements parameter to
+ * @ref qb_array_create and/or of @c idx parameter to @ref qb_array_index
  * (these types conflict, anyway).
  */
 

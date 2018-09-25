@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Red Hat, Inc.
+ * Copyright (c) 2016-2018 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -38,5 +38,5 @@ main(void)
    semicolon intentionally omitted so as to avoid unnecessary message
    source diagnostics (bug or feature?) with some GCC versions (5.3.1) */
 #define MSG QB_PP_STRINGIFY( \
-	GCC warning QB_PP_STRINGIFY(VERSION parsed as: QB_VER_STR))
-_Pragma(MSG)
+	message (QB_PP_STRINGIFY(VERSION parsed as: QB_VER_STR)))
+_Pragma(MSG);
