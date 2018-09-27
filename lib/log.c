@@ -40,13 +40,6 @@
 #include "util_int.h"
 #include <regex.h>
 
-#if defined(QB_NEED_ATTRIBUTE_SECTION_WORKAROUND) && !defined(S_SPLINT_S)
-/* following only needed to force these symbols be global
-   with ld 2.29: https://bugzilla.redhat.com/1477354 */
-struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_START[] = { {0} };
-struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_STOP[] = { {0} };
-#endif
-
 static struct qb_log_target conf[QB_LOG_TARGET_MAX];
 static uint32_t conf_active_max = 0;
 static int32_t in_logger = QB_FALSE;
@@ -796,73 +789,6 @@ qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	return qb_log_filter_ctl2(t, c, type, text, LOG_EMERG, priority);
 }
 
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-/* Some platforms (eg. FreeBSD 10+) don't support calling dlopen() from
- * within a dl_iterate_phdr() callback; so save all of the dlpi_names to
- * a list and iterate over them afterwards. */
-static int32_t
-_log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
-{
-	struct dlname *dlname;
-
-	if (strlen(info->dlpi_name) > 0) {
-		dlname = calloc(1, sizeof(struct dlname));
-		if (!dlname)
-			return 0;
-		dlname->dln_name = strdup(info->dlpi_name);
-		qb_list_add_tail(&dlname->list, &dlnames);
-	}
-
-	return 0;
-}
-
-static void
-_log_so_walk_dlnames(void)
-{
-	struct dlname *dlname;
-	struct qb_list_head *iter;
-	struct qb_list_head *next;
-
-	void *handle;
-	void *start;
-	void *stop;
-	const char *error;
-
-	qb_list_for_each_safe(iter, next, &dlnames) {
-		dlname = qb_list_entry(iter, struct dlname, list);
-
-		handle = dlopen(dlname->dln_name, RTLD_LAZY|RTLD_NOLOAD);
-		error = dlerror();
-		if (!handle || error) {
-			qb_log(LOG_ERR, "%s", error);
-			goto done;
-		}
-
-		start = dlsym(handle, QB_ATTR_SECTION_START_STR);
-		error = dlerror();
-		if (error) {
-			goto done;
-		}
-
-		stop = dlsym(handle, QB_ATTR_SECTION_STOP_STR);
-		error = dlerror();
-		if (error) {
-			goto done;
-
-		} else {
-			qb_log_callsites_register(start, stop);
-		}
-done:
-		if (handle)
-			dlclose(handle);
-		qb_list_del(iter);
-		if (dlname->dln_name)
-			free(dlname->dln_name);
-		free(dlname);
-	}
-}
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
-
 static void
 _log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
 {
@@ -888,10 +814,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t l;
 	enum qb_log_target_slot i;
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-	void *work_handle; struct qb_log_callsite *work_s1, *work_s2;
-	Dl_info work_dli;
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
 	/* cannot reuse single qb_log invocation in various contexts
 	   through the variables (when section attribute in use),
 	   hence this indirection */
@@ -918,33 +840,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	}
 
 	qb_log_dcs_init();
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-	/* sanity check that target chain supplied QB_ATTR_SECTION_ST{ART,OP}
-	   symbols and hence the local references to them are not referencing
-	   the proper libqb's ones (locating libqb by it's relatively unique
-	   non-functional symbols -- the two are mutually exclusive, the
-	   ordinarily latter was introduced by accident, the former is
-	   intentional -- due to possible confusion otherwise) */
-	if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)
-	     || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))
-	    && (work_handle = dlopen(work_dli.dli_fname,
-	                             RTLD_LOCAL|RTLD_LAZY)) != NULL) {
-		work_s1 = (struct qb_log_callsite *)
-		          dlsym(work_handle, QB_ATTR_SECTION_START_STR);
-		work_s2 = (struct qb_log_callsite *)
-		          dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);
-		if (work_s1 == QB_ATTR_SECTION_START
-		    || work_s2 == QB_ATTR_SECTION_STOP) {
-			preinit_err = preinit_err_target_sec;
-		} else if (work_s1 == work_s2) {
-			preinit_err = preinit_err_target_empty;
-		}
-		dlclose(work_handle);  /* perhaps overly eager thing to do */
-	}
-	qb_log_callsites_register(QB_ATTR_SECTION_START, QB_ATTR_SECTION_STOP);
-	dl_iterate_phdr(_log_so_walk_callback, NULL);
-	_log_so_walk_dlnames();
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
 	for (i = QB_LOG_TARGET_STATIC_START; i < QB_LOG_TARGET_STATIC_MAX; i++)
 		conf[i].state = QB_LOG_STATE_DISABLED;

@@ -7,17 +7,6 @@ Name: libqb
 Version: @PACKAGE_VERSION@
 Description: libqb
 Requires:
-Libs: -L${libdir} -lqb @client_dlopen_LIBS@
-# NOTE: If -lqb not usable for linking (e.g. linker not compatible with
-#       linker scripts ad-hoc modifying output sections), try recent
-#       ld.bfd/binutils linker first when available, otherwise you can
-#       try "-l:libqb.so.<digit>" link switch that bypasses said linker
-#       script -- but beware, logging may be less efficient and may lack
-#       possible future optimizations and extra features.  Consequently,
-#       logging issues (typically bound to QB_LOG_INIT_DATA macro) can be
-#       mitigated with QB_KILL_ATTRIBUTE_SECTION macro defined for a build.
-# NOTE: when concerned about a warning coming from the build process like
-#       warning: [...]libqb.so contains output sections; did you forget -T?
-#       and the build finishes OK, take it merely as a harmless side-effect
+Libs: -L${libdir} -lqb
 Libs.private: @LIBS@
 Cflags: -I${includedir}

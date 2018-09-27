@@ -314,7 +314,6 @@ case $host_cpu in
 	powerpc*)
 		AC_MSG_RESULT([powerpc])
 		AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
-		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		arch_force_shmlba=yes
 		;;
@@ -360,7 +359,6 @@ case "$host_os" in
 	*cygwin*)
 		AC_DEFINE_UNQUOTED([QB_CYGWIN], [1],
 				   [Compiling for Cygwin platform])
-		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		gcc_has_builtin_sync_operations=no
 		AC_MSG_RESULT([Cygwin])
@@ -369,7 +367,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
-		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902'
 		dnl has an invalid section specifier '__verbose': mach-o
@@ -384,9 +381,6 @@ case "$host_os" in
 				   [Compiling for BSD platform])
 		case "$host_os" in
 			*netbsd*)
-				# this is because dlopen within a dl_iterate_phdr
-				# callback locks up.
-				ac_cv_link_attribute_section=no
 				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
 					   [Unix path length])
 			;;
@@ -398,7 +392,6 @@ case "$host_os" in
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
-		ac_cv_link_attribute_section=no
 		AC_DEFINE_UNQUOTED(DISABLE_IPC_SHM, 1,
 				   [Disable shared mem ipc])
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
@@ -530,10 +523,6 @@ AC_ARG_ENABLE([interlib-deps],
   [AS_HELP_STRING([--disable-interlib-deps],
                   [disable inter-library dependencies (might break builds)])])
 
-AC_ARG_ENABLE([nosection-fallback],
-  [AS_HELP_STRING([--enable-nosection-fallback],
-                  [allow (logging compat-breaking?) fallback when orphan section dead-ended])])
-
 AC_ARG_ENABLE([slow-tests],
   [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
 
@@ -664,145 +653,6 @@ if test "x${enable_slow_tests}" = xyes ; then
 fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
 AC_SUBST(HAVE_SLOW_TESTS)
-
-# --- callsite sections ---
-if test "x${GCC}" = xyes; then
-	AX_SAVE_FLAGS
-	AC_MSG_CHECKING([whether GCC supports __attribute__((section()) + ld supports orphan sections])
-	if test "x${ac_cv_link_attribute_section}" = x ; then
-		LDFLAGS="${LDFLAGS_save} -shared -fPIC"  # we are compiling shared lib
-		AC_LINK_IFELSE(
-			[AC_LANG_SOURCE(
-			    [[#include <assert.h>
-			      extern int __start___verbose[], __stop___verbose[];
-			      int test(void) {
-			        static int my_var __attribute__((section("__verbose"))) = 3;
-			        assert("L:non-empty data section"
-			               && __start___verbose != __stop___verbose);
-			        assert("L:no data section value loss"
-			               && my_var == 3  /* for 2.29.1+ */);
-			        return *((int *) __start___verbose); }]]
-			)],
-			[gcc_has_attribute_section=yes; cp "conftest${ac_exeext}" "conftest${shrext_cmds}"],
-			[gcc_has_attribute_section=no]
-		)
-		AX_RESTORE_FLAGS
-	else
-		gcc_has_attribute_section=${ac_cv_link_attribute_section}
-	fi
-	AC_MSG_RESULT($gcc_has_attribute_section)
-
-	# in the failing case (e.g. with ld from binutils 2.29), it's likely the
-	# following will fail readily in linkage (hidden symbol `__stop___verbose'
-	# in conftest is referenced by DSO), but keep the sensible test
-	# (in-executable symbol is expected to be propagated into the library,
-	# and to draw the full circle back to the executable through standard
-	# return value passing (respectively no-exec probing to spot the issue);
-	# -rpath passed because LD_LIBRARY_PATH exporting is unwieldy here);
-	# moreover, "my_var" == 3 assertion above (respectively checking if the
-	# boundary symbol visibility differs from DEFAULT in readelf output) is
-	# necessary so that binutils 2.29.1+ will not slip other parts of the
-	# overall is-workaround-needed harness, as it restored some (but not
-	# all) of the original behaviour, but the workaround is still provably
-	# needed
-	if test "x${gcc_has_attribute_section}" = xyes; then
-		AC_MSG_CHECKING([whether linker emits global boundary symbols for orphan sections])
-		LIBS="${LIBS} -L. -l:conftest${shrext_cmds} -Wl,-rpath=$(pwd)"
-		dnl could be turned to AC_TRY_RUN (first assertion is equivalent to
-		dnl the further check in action-if-true), but that would prevent
-		dnl cross-building
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM(
-			    [[#include <assert.h>
-			      extern int __start___verbose[], __stop___verbose[];
-			      int test(void);]],
-			    [[static int my_var __attribute__((section("__verbose"))) = 5;
-			      assert("E:non-empty data section"
-			             && __start___verbose != __stop___verbose);
-			      assert("E:no data section value loss"
-			             && my_var == test() /*5?*/);]]
-			)],
-			[# alternatively something like (but requires number parsing):
-			 #   readelf -SW "conftest${ac_exeext}" \
-			 #   | sed -n '/__verbose/s/^[[:space:]]*//p' | tr -s ' ' | cut -d" " -f6
-			 verbose_start_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
-			                      | grep __start___verbose | cut -d" " -f 3)
-			 verbose_stop_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
-			                      | grep __stop___verbose | cut -d" " -f 3)
-			 test "${verbose_start_addr}" = "${verbose_stop_addr}" \
-			   && gcc_has_attribute_section_visible=no \
-			   || { verbose_start_type=$(${READELF} -s "conftest${shrext_cmds}" \
-			                             | sed -n \
-			                               '/__start___verbose/{s/^[[[[:space:]]]]*//p;q;}' \
-			                             | tr -s ' ' \
-			                             | cut -d" " -f6)
-			        test "${verbose_start_type}" = DEFAULT \
-			          && gcc_has_attribute_section_visible=yes \
-			          || gcc_has_attribute_section_visible=no; }],
-			[gcc_has_attribute_section_visible=no]
-		)
-		AX_RESTORE_FLAGS
-		AC_MSG_RESULT($gcc_has_attribute_section_visible)
-		rm -f "conftest${shrext_cmds}"
-
-		if test "x${gcc_has_attribute_section_visible}" = xno; then
-			# check if the linker script based workaround is
-			# feasible at all, otherwise fallback to using no
-			# section attribute while making some noise about it
-			# as combining with-without accustomed logging
-			# participants is currently uncharted waters
-			AC_MSG_CHECKING([whether linker workaround for orphan sections usable])
-			>conftest.ld cat <<-EOF
-			SECTIONS {
-			  __verbose : {
-			    __start___verbose = .;
-			    *(__verbose);
-			    __stop___verbose = .;
-			  }
-			}
-			EOF
-			LDFLAGS="${LDFLAGS} -Wl,conftest.ld"
-			AC_LINK_IFELSE(
-				[AC_LANG_PROGRAM(
-				    [[#include <assert.h>
-				      extern int __start___verbose[], __stop___verbose[];
-				      int test(void);]],
-				    [[static int my_var __attribute__((section("__verbose"))) = 5;
-				      assert("E:non-empty data section"
-				             && __start___verbose != __stop___verbose);
-				      assert("E:no data section value loss"
-				             && my_var == 5);]]
-				)],
-				[],
-				[gcc_has_attribute_section=no]
-			)
-			AX_RESTORE_FLAGS
-			AC_MSG_RESULT([$gcc_has_attribute_section])
-			rm -f "conftest.ld"
-		fi
-
-		if test "x${gcc_has_attribute_section}" = xyes; then
-			AC_DEFINE([QB_HAVE_ATTRIBUTE_SECTION], 1,
-				  [Enabling code using __attribute__((section))])
-			AC_SUBST([client_dlopen_LIBS],[$dlopen_LIBS])
-			if test "x${gcc_has_attribute_section_visible}" = xyes; then
-				PACKAGE_FEATURES="$PACKAGE_FEATURES attribute-section"
-			else
-				AC_DEFINE([QB_NEED_ATTRIBUTE_SECTION_WORKAROUND], 1,
-					  [Enabling code using __attribute__((section))])
-				PACKAGE_FEATURES="$PACKAGE_FEATURES attribute-section-workaround"
-			fi
-		elif test "x${enable_nosection_fallback}" = xyes; then
-			AC_MSG_NOTICE([Falling back to not using orphan section])
-		else
-			AC_MSG_ERROR([Would use section attribute, cannot; see --enable-nosection-fallback])
-		fi
-	fi
-fi
-AM_CONDITIONAL(HAVE_GCC_ATTRIBUTE_SECTION, [test "x${gcc_has_attribute_section}" = xyes])
-AM_CONDITIONAL(NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND,
-	       [test "x${gcc_has_attribute_section}" = xyes \
-		&& test "x${gcc_has_attribute_section_visible}" != xyes])
 
 # --- ansi ---
 if test "x${enable_ansi}" = xyes && \

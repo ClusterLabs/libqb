@@ -30,7 +30,7 @@ AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-libqb_la_LDFLAGS	= -version-info 19:0:19
+libqb_la_LDFLAGS	= -version-info 20:0:0
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
@@ -79,9 +79,6 @@ EXTRA_DIST		= qblog_script.ld.in qblog_script.la.in qblog_script_noop.ld
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
 libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
-if NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND
-libqb_la_LIBADD 	+= qblog_script.la
-endif
 
 AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 
@@ -110,35 +107,6 @@ qblog_script.ld: %.ld: %.ld.in
 # to decouple install-exec-hook below (.pc file is platform-dependent, anyway)
 pkgconfigexecdir = $(libdir)/pkgconfig
 pkgconfigexec_DATA = libqb.pc
-
-# find the libqb.so symlink's target, if so, try to find out, iteratively,
-# its gradually shorter forms that likewise symlinks the same target as the
-# original libqb.so path, point to that file from the linker script using
-# qblog_script.ld as a template, storing result in place of original libqb.so
-# (e.g., libqb.so := "INPUT(libqb.so.0) " [...] "SECTIONS { " [...] "}")
-# NOTE: readlink nor realpath are POSIX; not chained links ready
-# NOTE: conservative check, i.e., not per NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND
-if HAVE_GCC_ATTRIBUTE_SECTION
-install-exec-hook: qblog_script.ld
-	target=$$(ls -l "$(DESTDIR)$(libdir)/libqb.so" || :); \
-	  target=$${target#* -> }; t1_bn=$$(basename "$${target}" || :); \
-	  while test -n "$${t1_bn}"; do t2_bn=$${t1_bn%.*[0-9]*}; \
-	  test "$${t2_bn}" != libqb.so || break; \
-	  test -L "$${t2_bn}" || { t1_bn=$${t2_bn}; continue; }; \
-	  t2_target=$$(ls -l "$${t2_bn}" || break); t2_target=$${t2_target#* -> }; \
-	  test "$${t2_target}" = "$${target}" || break; \
-	  t1_bn=$${t2_bn}; done; test -n "$${t1_bn}" || \
-	  { echo "only applicable to SO symlink scheme"; exit 1; }; \
-	  echo "$${t1_bn}" > "$(DESTDIR)$(libdir)/libqb.so-t"
-	so_ver=$$(cat "$(DESTDIR)$(libdir)/libqb.so-t"); \
-	  echo "INPUT($${so_ver})" > "$(DESTDIR)$(libdir)/libqb.so-t"; \
-	  cat $< >> "$(DESTDIR)$(libdir)/libqb.so-t"; \
-	  sed -i -- "s/libqb.so.<digit>/$${so_ver}/" \
-	    "$(DESTDIR)$(libdir)/libqb.so-t" "$(DESTDIR)$(pkgconfigexecdir)/libqb.pc"
-	mv -f "$(DESTDIR)$(libdir)/libqb.so-t" "$(DESTDIR)$(libdir)/libqb.so"
-	rm -f "$(DESTDIR)$(pkgconfigexecdir)/libqb.pc--"
-	rm -f "$(DESTDIR)$(libdir)/libqb.so-t--"
-endif
 
 if HAVE_SPLINT
 check_SCRIPTS = run_splint.sh
