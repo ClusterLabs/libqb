@@ -274,7 +274,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 
 			} else if (t->vlogger) {
 				va_copy(ap_copy, ap);
-				t->vlogger(t->pos, cs, tv.tv_sec, ap_copy);
+				t->vlogger(t->pos, cs, &tv, ap_copy);
 				va_end(ap_copy);
 
 			} else if (t->logger) {
@@ -283,13 +283,13 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 					formatted = QB_TRUE;
 				}
 				qb_do_extended(str, t->extended,
-					       t->logger(t->pos, cs, tv.tv_sec, str));
+					       t->logger(t->pos, cs, &tv, str));
 			}
 		}
 	}
 
 	if (found_threaded) {
-		qb_log_thread_log_post(cs, tv.tv_sec, str);
+		qb_log_thread_log_post(cs, &tv, str);
 	}
 	qb_atomic_int_set(&in_logger, QB_FALSE);
 
@@ -310,7 +310,7 @@ qb_log_real_(struct qb_log_callsite *cs, ...)
 
 void
 qb_log_thread_log_write(struct qb_log_callsite *cs,
-			time_t timestamp, const char *buffer)
+			struct timespec *timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
 	enum qb_log_target_slot pos;

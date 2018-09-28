@@ -97,7 +97,7 @@ retry_sem_wait:
 			printf("%d messages lost\n", dropped);
 		}
 
-		qb_log_thread_log_write(rec->cs, rec->timestamp, rec->buffer);
+		qb_log_thread_log_write(rec->cs, &rec->timestamp, rec->buffer);
 
 		(void)qb_thread_unlock(logt_wthread_lock);
 		free(rec->buffer);
@@ -216,7 +216,7 @@ qb_log_thread_resume(struct qb_log_target *t)
 
 void
 qb_log_thread_log_post(struct qb_log_callsite *cs,
-		       time_t timestamp, const char *buffer)
+		       struct timespec *timestamp, const char *buffer)
 {
 	struct qb_log_record *rec;
 	size_t buf_size;
@@ -237,7 +237,7 @@ qb_log_thread_log_post(struct qb_log_callsite *cs,
 	}
 	memcpy(rec->buffer, buffer, buf_size);
 
-	rec->timestamp = timestamp;
+	memcpy(&rec->timestamp, &timestamp, sizeof(struct timespec));
 
 	qb_list_init(&rec->list);
 	(void)qb_thread_lock(logt_wthread_lock);
@@ -289,7 +289,7 @@ qb_log_thread_stop(void)
 					   strlen(rec->buffer) -
 					   sizeof(struct qb_log_record) - 1;
 
-			qb_log_thread_log_write(rec->cs, rec->timestamp,
+			qb_log_thread_log_write(rec->cs, &rec->timestamp,
 						rec->buffer);
 			(void)qb_thread_unlock(logt_wthread_lock);
 			free(rec->buffer);

@@ -309,19 +309,22 @@ qb_log_target_format_static(int32_t target, const char * format,
  * %l FILELINE
  * %p PRIORITY
  * %t TIMESTAMP
+ * %T TIMESTAMP with milliseconds
  * %b BUFFER
  * %g SUBSYSTEM
  *
  * any number between % and character specify field length to pad or chop
  */
+
 void
 qb_log_target_format(int32_t target,
 		     struct qb_log_callsite *cs,
-		     time_t current_time,
+		     struct timespec *the_ts,
 		     const char *formatted_message, char *output_buffer)
 {
 	char tmp_buf[128];
 	struct tm tm_res;
+	time_t time_sec;
 	unsigned int format_buffer_idx = 0;
 	unsigned int output_buffer_idx = 0;
 	size_t cutoff;
@@ -392,12 +395,25 @@ qb_log_target_format(int32_t target,
 				break;
 
 			case 't':
-				(void)localtime_r(&current_time, &tm_res);
+				time_sec = the_ts->tv_sec;
+				(void)localtime_r(&time_sec, &tm_res);
 				snprintf(tmp_buf, TIME_STRING_SIZE,
 					 "%s %02d %02d:%02d:%02d",
 					 log_month_name[tm_res.tm_mon],
 					 tm_res.tm_mday, tm_res.tm_hour,
 					 tm_res.tm_min, tm_res.tm_sec);
+				p = tmp_buf;
+				break;
+
+			case 'T':
+				time_sec = the_ts->tv_sec;
+				(void)localtime_r(&time_sec, &tm_res);
+				snprintf(tmp_buf, TIME_STRING_SIZE,
+					 "%s %02d %02d:%02d:%02d.%03lld",
+					 log_month_name[tm_res.tm_mon],
+					 tm_res.tm_mday, tm_res.tm_hour,
+					 tm_res.tm_min, tm_res.tm_sec,
+					 the_ts->tv_nsec/QB_TIME_NS_IN_MSEC);
 				p = tmp_buf;
 				break;
 
