@@ -344,6 +344,38 @@ START_TEST(test_file_logging)
 }
 END_TEST
 
+START_TEST(test_timestamps)
+{
+	int32_t t;
+	int32_t rc;
+	int a,b,c,d;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+
+	/* normal timestamp */
+	qb_log_format_set(t, "%t %b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_INFO, "The time now is (see left)");
+	rc = sscanf(test_buf+7, "%d:%d:%d.%d", &a, &b, &c, &d);
+	ck_assert_int_eq(rc, 3);
+
+	/* millisecond timestamp */
+	qb_log_format_set(t, "%T %b");
+	qb_log(LOG_INFO, "The time now is precisely (see left)");
+	rc = sscanf(test_buf+7, "%d:%d:%d.%d", &a, &b, &c, &d);
+	ck_assert_int_eq(rc, 4);
+}
+END_TEST
+
+
 START_TEST(test_line_length)
 {
 	int32_t t;
@@ -1069,6 +1101,7 @@ log_suite(void)
 #ifdef HAVE_PTHREAD_SETSCHEDPARAM
 	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
 #endif
+	add_tcase(s, tc, test_timestamps);
 	add_tcase(s, tc, test_extended_information);
 	add_tcase(s, tc, test_zero_tags);
 /*
@@ -1097,3 +1130,4 @@ main(void)
 	srunner_free(sr);
 	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
