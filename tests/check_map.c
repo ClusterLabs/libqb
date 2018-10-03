@@ -531,6 +531,7 @@ test_map_iter_safety(qb_map_t *m, int32_t ordered)
 		if (strcmp(p, "bbbb") == 0) {
 			qb_map_rm(m, "bbbb");
 			qb_map_rm(m, "cccc");
+			qb_map_rm(m, "aaaa");
 			qb_map_put(m, "fffff", "yum");
 			while ((p2 = qb_map_iter_next(it2, &data2)) != NULL) {
 				printf("2: %s == %s\n", p2, (char*)data2);
