@@ -93,12 +93,13 @@ retry_sem_wait:
 		    sizeof(struct qb_log_record) - 1;
 		dropped = logt_dropped_messages;
 		logt_dropped_messages = 0;
-		(void)qb_thread_unlock(logt_wthread_lock);
 		if (dropped) {
 			printf("%d messages lost\n", dropped);
 		}
 
 		qb_log_thread_log_write(rec->cs, rec->timestamp, rec->buffer);
+
+		(void)qb_thread_unlock(logt_wthread_lock);
 		free(rec->buffer);
 		free(rec);
 	}
@@ -194,6 +195,23 @@ cleanup_pthread:
 	sem_destroy(&logt_thread_start);
 
 	return res;
+}
+
+
+void
+qb_log_thread_pause(struct qb_log_target *t)
+{
+	if (t->threaded) {
+		(void)qb_thread_lock(logt_wthread_lock);
+	}
+}
+
+void
+qb_log_thread_resume(struct qb_log_target *t)
+{
+	if (t->threaded) {
+		(void)qb_thread_unlock(logt_wthread_lock);
+	}
 }
 
 void

@@ -292,6 +292,54 @@ START_TEST(test_log_filter_fn)
 }
 END_TEST
 
+START_TEST(test_file_logging)
+{
+	struct stat st;
+	int rc, lf;
+
+	unlink("test1.log");
+	unlink("test2.log");
+
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	lf = qb_log_file_open("test1.log");
+	rc = qb_log_filter_ctl(lf, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FILE,
+			       __FILE__, LOG_DEBUG);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(lf, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_INFO, "write to file 1");
+	qb_log(LOG_INFO, "write to file 1 again");
+
+	rc = stat("test1.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_ge(st.st_size, 32);
+
+	/* Test reopen with NULL arg */
+	rc = qb_log_file_reopen(lf, NULL);
+	ck_assert_int_eq(rc, 0);
+	qb_log(LOG_INFO, "write to file 1 and again");
+	qb_log(LOG_INFO, "write to file 1 yet again");
+	rc = stat("test1.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_ge(st.st_size, 64);
+
+	/* Test reopen with new file */
+	rc = qb_log_file_reopen(lf, "test2.log");
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_INFO, "write to file 2");
+	qb_log(LOG_INFO, "write to file 2 again");
+
+	rc = stat("test2.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_ge(st.st_size, 32);
+
+	unlink("test1.log");
+	unlink("test2.log");
+}
+END_TEST
+
 START_TEST(test_line_length)
 {
 	int32_t t;
@@ -383,7 +431,7 @@ START_TEST(test_log_basic)
 	ck_assert_str_eq(test_buf, "Hello Angus, how are you?");
 
 
-	/* 
+	/*
 	 * test filtering by file regex
  	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
@@ -398,7 +446,7 @@ START_TEST(test_log_basic)
 				    56, 0, "filename/lineno");
 	ck_assert_int_eq(num_msgs, 1);
 
-	/* 
+	/*
 	 * test filtering by format regex
  	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
@@ -961,6 +1009,7 @@ log_suite(void)
 	add_tcase(s, tc, test_log_filter_fn);
 	add_tcase(s, tc, test_threaded_logging);
 	add_tcase(s, tc, test_line_length);
+	add_tcase(s, tc, test_file_logging);
 #ifdef HAVE_PTHREAD_SETSCHEDPARAM
 	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
 #endif

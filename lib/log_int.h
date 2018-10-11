@@ -118,6 +118,8 @@ void qb_log_thread_log_post(struct qb_log_callsite *cs,
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
 			    time_t current_time,
 			    const char *buffer);
+void qb_log_thread_pause(struct qb_log_target *t);
+void qb_log_thread_resume(struct qb_log_target *t);
 
 void qb_log_dcs_init(void);
 void qb_log_dcs_fini(void);

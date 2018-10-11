@@ -1070,6 +1070,12 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
 	}
+
+	/* Starting/stopping the thread has its own locking that can interfere with this */
+	if (c != QB_LOG_CONF_THREADED) {
+		qb_log_thread_pause(&conf[t]);
+	}
+
 	switch (c) {
 	case QB_LOG_CONF_ENABLED:
 		if (arg_i32) {
@@ -1102,12 +1108,13 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 	case QB_LOG_CONF_SIZE:
 		if (t == QB_LOG_BLACKBOX) {
 			if (arg_i32 <= 0) {
-				return -EINVAL;
+				rc = -EINVAL;
+				goto unlock_fini;
 			}
 			conf[t].size = arg_i32;
 			need_reload = QB_TRUE;
 		} else {
-			return -ENOSYS;
+			rc = -ENOSYS;
 		}
 		break;
 	case QB_LOG_CONF_THREADED:
@@ -1135,6 +1142,11 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 		in_logger = QB_TRUE;
 		conf[t].reload(t);
 		in_logger = QB_FALSE;
+	}
+
+unlock_fini:
+	if (c != QB_LOG_CONF_THREADED) {
+		qb_log_thread_resume(&conf[t]);
 	}
 	return rc;
 }
