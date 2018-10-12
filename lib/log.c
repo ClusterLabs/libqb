@@ -36,6 +36,7 @@
 #include <qb/qblog.h>
 #include <qb/qbutil.h>
 #include <qb/qbarray.h>
+#include <qb/qbatomic.h>
 #include "log_int.h"
 #include "util_int.h"
 #include <regex.h>
@@ -219,10 +220,9 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	char *str = buf;
 	va_list ap_copy;
 
-	if (in_logger || cs == NULL) {
+	if (qb_atomic_int_compare_and_exchange(&in_logger, QB_FALSE, QB_TRUE) == QB_FALSE || cs == NULL) {
 		return;
 	}
-	in_logger = QB_TRUE;
 
 	/* 0 Work out the longest line length available */
 	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
@@ -291,7 +291,7 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	if (found_threaded) {
 		qb_log_thread_log_post(cs, tv.tv_sec, str);
 	}
-	in_logger = QB_FALSE;
+	qb_atomic_int_set(&in_logger, QB_FALSE);
 
 	if (max_line_length > QB_LOG_MAX_LEN) {
 		free(str);
@@ -1010,9 +1010,9 @@ qb_log_custom_close(int32_t t)
 	target = qb_log_target_get(t);
 
 	if (target->close) {
-		in_logger = QB_TRUE;
+		qb_atomic_int_set(&in_logger, QB_TRUE);
 		target->close(t);
-		in_logger = QB_FALSE;
+		qb_atomic_int_set(&in_logger, QB_FALSE);
 	}
 	qb_log_target_free(target);
 }
@@ -1047,9 +1047,9 @@ _log_target_disable(struct qb_log_target *t)
 	}
 	_log_target_state_set(t, QB_LOG_STATE_DISABLED);
 	if (t->close) {
-		in_logger = QB_TRUE;
+		qb_atomic_int_set(&in_logger, QB_TRUE);
 		t->close(t->pos);
-		in_logger = QB_FALSE;
+		qb_atomic_int_set(&in_logger, QB_FALSE);
 	}
 }
 
@@ -1139,9 +1139,9 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 		rc = -EINVAL;
 	}
 	if (rc == 0 && need_reload && conf[t].reload) {
-		in_logger = QB_TRUE;
+		qb_atomic_int_set(&in_logger, QB_TRUE);
 		conf[t].reload(t);
-		in_logger = QB_FALSE;
+		qb_atomic_int_set(&in_logger, QB_FALSE);
 	}
 
 unlock_fini:

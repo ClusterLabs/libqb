@@ -288,10 +288,10 @@ qb_log_thread_stop(void)
 			logt_memory_used = logt_memory_used -
 					   strlen(rec->buffer) -
 					   sizeof(struct qb_log_record) - 1;
-			(void)qb_thread_unlock(logt_wthread_lock);
 
 			qb_log_thread_log_write(rec->cs, rec->timestamp,
 						rec->buffer);
+			(void)qb_thread_unlock(logt_wthread_lock);
 			free(rec->buffer);
 			free(rec);
 		}
