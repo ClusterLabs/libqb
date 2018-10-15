@@ -38,6 +38,10 @@ struct skiplist_iter {
 struct skiplist_node {
 	const char *key;
 	void *value;
+	/* special meaning when lower than SKIPLIST_LEVEL_MIN:
+	   indication that @skiplist_node_destroy() needs to skip
+	   disposing node->forward (unless it is the termination
+	   of the whole list) */
 	int8_t level;
 	uint32_t refcount;
 	struct qb_list_head notifier_head;
@@ -50,6 +54,10 @@ struct skiplist {
 	struct qb_map map;
 
 	size_t length;
+	/* special meaning when lower than SKIPLIST_LEVEL_MIN:
+	   indication that @skiplist_node_destroy() is the terminating
+	   one (triggered with @skiplist_destroy()), therefore node->forward
+	   needs to be free'd unconditionally */
 	int8_t level;
 	struct skiplist_node *header;
 };
@@ -113,9 +121,12 @@ skiplist_node_new(const int8_t level, const char *key, const void *value)
 	new_node->refcount = 1;
 	qb_list_init(&new_node->notifier_head);
 
-	/* A level 0 node still needs to hold 1 forward pointer, etc. */
+	/* A level 0 node still needs to hold 1 forward pointer, etc.;
+	   instead of "level + 1", we need to capture whole possible
+	   width because of forward-member-resilience-upon-entry-removal
+	   arrangment based on takeover-and-repoint. */
 	new_node->forward = (struct skiplist_node **)
-	    (calloc(level + 1, sizeof(struct skiplist_node *)));
+	    (calloc(SKIPLIST_LEVEL_MAX + 1, sizeof(struct skiplist_node *)));
 
 	if (new_node->forward == NULL) {
 		free(new_node);
@@ -235,7 +246,10 @@ skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 		free(tn);
 	}
 
-	free(node->forward);
+	if (node->level >= SKIPLIST_LEVEL_MIN
+	    || list->level < SKIPLIST_LEVEL_MIN) {
+		free(node->forward);
+	}
 	free(node);
 }
 
@@ -353,6 +367,7 @@ skiplist_destroy(struct qb_map *map)
 	struct skiplist_node *cur_node;
 	struct skiplist_node *fwd_node;
 
+	list->level = SKIPLIST_LEVEL_MIN - 1;  /* indicate teardown */
 	for (cur_node = skiplist_node_next(list->header);
 	     cur_node; cur_node = fwd_node) {
 		fwd_node = skiplist_node_next(cur_node);
@@ -459,11 +474,44 @@ skiplist_rm(struct qb_map *map, const char *key)
 	}
 
 	/* Splice found_node out of list. */
-	for (level = SKIPLIST_LEVEL_MIN; level <= list->level; level++)
-		if (update[level]->forward[level] == found_node)
+	for (level = SKIPLIST_LEVEL_MIN; level <= list->level; level++) {
+		if (update[level]->forward[level] == found_node) {
 			update[level]->forward[level] =
 			    found_node->forward[level];
+		}
+	}
 
+	/* If @found_node is referenced more than once, it means that it is
+	   currently positioned with one or more iterators, therefore it's
+	   likely that @qb_map_iter_next() will be called at least once so
+	   as to progress pass this @found_node.  The problem is, original
+	   @found_node->forward may have become referencing successfully
+	   destroyed original successor by the time the progress of such
+	   iterator(s) resumes, possibly causing use-after-free in
+	   @skiplist_node_next().
+
+	   To solve this, we will grab @cur_node->forward, which has just
+	   been updated accordingly in the above statement, copying it
+	   to @found_node->forward, and repointing @cur_node->forward to
+	   point to @found_node's copy (freeing its original list first).
+	   To prevent freeing the pointed memory behind @cur_node's
+	   back from the @found_node's context, we use the fact that the
+	   iterator can only advance to the next node, without re-examination
+	   of the current one, hence we can afford to abuse @found_node->value
+	   as a flag field when set to our private "special" value that under
+	   no normal circumstance can appear (for being link-time singleton).
+
+	   In addition, we have to special-case the beginning of the list
+	   (header) preceding @found_node, which can be distinguished with
+	   NULL being used as a key (second allowing condition below). */
+	if (found_node->refcount > 1 || cur_node->key == NULL) {
+		found_node->level = SKIPLIST_LEVEL_MIN - 1;  /* no "forward" drop */
+		for (level = SKIPLIST_LEVEL_MIN; level <= found_node->level; level++) {
+			found_node->forward[level] = cur_node->forward[level];
+		}
+		free(cur_node->forward);
+		cur_node->forward = found_node->forward;
+	}
 	skiplist_node_deref(found_node, list);
 
 	/* Remove unused levels from @list -- stop removing levels as soon as a
