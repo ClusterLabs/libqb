@@ -71,12 +71,14 @@ _do_file_reload(const char *filename, int32_t target)
 	struct qb_log_target *t = qb_log_target_get(target);
 	FILE *oldfile = qb_log_target_user_data_get(target);
 	FILE *newfile;
-	int rc = 0;
+	int saved_errno;
+	int rc;
 
 	if (filename == NULL) {
 		filename = t->filename;
 	}
 	newfile = fopen(filename, "a+");
+	saved_errno = errno;
 
 	qb_log_thread_pause(t);
 
@@ -90,9 +92,10 @@ _do_file_reload(const char *filename, int32_t target)
 			(void)strlcpy(t->filename, filename, PATH_MAX);
 		}
 		(void)qb_log_target_user_data_set(target, newfile);
+		rc = 0;
 	}
 	else {
-		rc = -1;
+		rc = -saved_errno;
 	}
 	qb_log_thread_resume(t);
 
@@ -158,13 +161,5 @@ qb_log_file_close(int32_t t)
 int32_t
 qb_log_file_reopen(int32_t t, const char *filename)
 {
-	int rc;
-
-	rc = _do_file_reload(filename, t);
-
-	if (rc) {
-		return -errno;
-	} else {
-		return 0;
-	}
+	return _do_file_reload(filename, t);
 }
