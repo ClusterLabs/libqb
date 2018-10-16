@@ -1134,6 +1134,13 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 	case QB_LOG_CONF_ELLIPSIS:
 		conf[t].ellipsis = arg_i32;
 		break;
+	case QB_LOG_CONF_USE_JOURNAL:
+		if (t == QB_LOG_SYSLOG) {
+			conf[t].use_journal = arg_i32;
+		} else {
+			rc = -EINVAL;
+		}
+		break;
 
 	default:
 		rc = -EINVAL;

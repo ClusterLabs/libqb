@@ -39,6 +39,7 @@ struct qb_log_target {
 	int32_t file_sync;
 	int32_t debug;
 	int32_t extended;
+	int32_t use_journal;
 	size_t size;
 	size_t max_line_length;
 	int32_t ellipsis;

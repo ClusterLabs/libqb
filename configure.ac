@@ -149,6 +149,17 @@ AC_SEARCH_LIBS([clock_gettime], [rt],,[AC_MSG_ERROR([cannot find clock_gettime()
 AC_SUBST([rt_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
 
+USE_JOURNAL="no"
+PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [have_systemd=yes],[have_systemd=no])
+if test "x$enable_systemd_journal" = "xyes" ; then
+  if test "x$have_systemd" = "xyes" ; then
+     AC_DEFINE_UNQUOTED(USE_JOURNAL, 1, [Use systemd journal logging])
+     USE_JOURNAL="yes"
+  else
+     echo "systemd libraries not found, will just use syslog"
+  fi
+fi
+
 # look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
 AM_CONDITIONAL(HAVE_CHECK, test "${with_check}" = "yes")
@@ -538,6 +549,9 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$withval" ],
 	[ SOCKETDIR="$localstatedir/run" ])
 
+AC_ARG_ENABLE([systemd-journal],
+  [AS_HELP_STRING([--enable-systemd-journal],[Allow use of systemd journal instead of syslog])])
+
 AC_ARG_WITH([force-sockets-config-file],
   [AS_HELP_STRING([--with-force-sockets-config-file=FILE],[config file to force IPC to use filesystem sockets (Linux & Cygwin only) @<:@SYSCONFDIR/libqb/force-filesystem-sockets@:>@])],
 	[ FORCESOCKETSFILE="$withval" ],
@@ -701,7 +715,6 @@ AC_SUBST([FORCESOCKETSFILE])
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
-
 AC_DEFINE_UNQUOTED([FORCESOCKETSFILE], "$(eval echo ${FORCESOCKETSFILE})", [for sockets config file])
 
 # version parsing (for qbconfig.h)
@@ -763,6 +776,7 @@ AC_MSG_RESULT([  State information        = ${localstatedir}])
 AC_MSG_RESULT([  System configuration     = ${sysconfdir}])
 AC_MSG_RESULT([  SOCKETDIR                = ${SOCKETDIR}])
 AC_MSG_RESULT([  Features                 = ${PACKAGE_FEATURES}])
+AC_MSG_RESULT([  Use systemd journal      = ${USE_JOURNAL}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([$PACKAGE build info:])
 AC_MSG_RESULT([  Optimization             = ${OPT_CFLAGS}])
