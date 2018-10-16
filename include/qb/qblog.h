@@ -658,9 +658,19 @@ void qb_log_format_set(int32_t t, const char* format);
 int32_t qb_log_file_open(const char *filename);
 
 /**
- * Close a log file and release is resources.
+ * Close a log file and release its resources.
  */
 void qb_log_file_close(int32_t t);
+
+/**
+ * Open a new log file for an existing target
+ * @param t target
+ * @param filename may be NULL to use existing file name
+ *
+ * @retval -errno on error
+ *
+ */
+int32_t qb_log_file_reopen(int32_t t, const char *filename);
 
 /**
  * When using threaded logging set the pthread policy and priority.
@@ -699,7 +709,7 @@ int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
 			   void *user_data);
 
 /**
- * Close a custom log target and release is resources.
+ * Close a custom log target and release its resources.
  */
 void qb_log_custom_close(int32_t t);
 
