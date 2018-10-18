@@ -315,7 +315,6 @@ qb_log_target_format_static(int32_t target, const char * format,
  *
  * any number between % and character specify field length to pad or chop
  */
-
 void
 qb_log_target_format(int32_t target,
 		     struct qb_log_callsite *cs,
