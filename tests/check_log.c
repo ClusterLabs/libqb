@@ -1027,6 +1027,8 @@ END_TEST
 #else
 START_TEST(test_syslog)
 {
+	int rc;
+
 	qb_log_init("flip", LOG_USER, LOG_INFO);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
 
@@ -1037,6 +1039,10 @@ START_TEST(test_syslog)
 	qb_log_ctl2(QB_LOG_SYSLOG, QB_LOG_CONF_IDENT, QB_LOG_CTL2_S("flop"));
 	qb_log(LOG_ERR, "second as flop");
 	ck_assert_str_eq(_syslog_ident, "flop");
+
+	/* This test only runs if USE_JOURNAL is undefined, so should always fail */
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, -EOPNOTSUPP);
 
 	qb_log_fini();
 }
