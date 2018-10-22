@@ -144,6 +144,10 @@ AX_SAVE_FLAGS
 AC_SEARCH_LIBS([gethostbyname], [nsl],,[AC_MSG_ERROR([cannot find gethostbyname() function])])
 AC_SUBST([nsl_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([clock_gettime], [rt],,[AC_MSG_ERROR([cannot find clock_gettime() function])])
+AC_SUBST([rt_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
 
 # look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
@@ -207,6 +211,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
+AX_SAVE_FLAGS
+LIBS="$LIBS $rt_LIBS"
 AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 [[#include <time.h>]],
@@ -219,6 +225,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                       AC_MSG_RESULT([no])
                     ]
                  )
+AC_CHECK_FUNCS([clock_gettime])
+AX_RESTORE_FLAGS
 
 
 # Checks for library functions
@@ -226,8 +234,7 @@ AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime \
-		fsync fdatasync ftruncate \
+AC_CHECK_FUNCS([alarm fsync fdatasync ftruncate \
 		gettimeofday localtime localtime_r \
 		memset munmap socket \
 		strchr strrchr strdup strstr strcasecmp \
