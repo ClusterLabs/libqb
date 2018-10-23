@@ -78,7 +78,7 @@ EXTRA_DIST		= qblog_script.ld.in qblog_script.la.in qblog_script_noop.ld
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
 libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
-libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
+libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS) $(rt_LIBS)
 
 AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 
