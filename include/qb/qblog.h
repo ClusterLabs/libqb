@@ -622,6 +622,13 @@ int32_t qb_log_filter_fn_set(qb_log_filter_fn fn);
  */
 void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
 
+
+/* This is a Feature Test macro so that calling applications know that
+ * millisdecond timestamps are implemented. Because %T a string in
+ * function call withn an indirect effect, there is no easy test for it
+ * beyond the library version (which is a ver blunt instrument)
+ */
+#define QB_FEATURE_LOG_HIRES_TIMESTAMPS 1
 /**
  * Set the format specifiers.
  *
