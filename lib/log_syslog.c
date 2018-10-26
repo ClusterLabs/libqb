@@ -23,6 +23,11 @@
 #ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #endif /* HAVE_SYSLOG_H */
+#ifdef USE_JOURNAL
+#define SD_JOURNAL_SUPPRESS_LOCATION
+#include <systemd/sd-journal.h>
+#endif
+
 #include "log_int.h"
 
 static void
@@ -57,7 +62,21 @@ _syslog_logger(int32_t target,
 	if (final_priority < LOG_EMERG) {
 		final_priority = LOG_EMERG;
 	}
-	syslog(final_priority, "%s", output_buffer);
+#ifdef USE_JOURNAL
+	if (t->use_journal) {
+		sd_journal_send("PRIORITY=%d", final_priority,
+				"CODE_LINE=%d", cs->lineno,
+				"CODE_FILE=%s", cs->filename,
+				"CODE_FUNC=%s", cs->function,
+				"SYSLOG_IDENTIFIER=%s", t->name,
+				"MESSAGE=%s", output_buffer,
+				NULL);
+	} else {
+#endif
+		syslog(final_priority, "%s", output_buffer);
+#ifdef USE_JOURNAL
+	}
+#endif
 	if (t->max_line_length > QB_LOG_MAX_LEN) {
 		free(output_buffer);
 	}
@@ -66,15 +85,22 @@ _syslog_logger(int32_t target,
 static void
 _syslog_close(int32_t target)
 {
-	closelog();
+	struct qb_log_target *t = qb_log_target_get(target);
+
+	if (!t->use_journal) {
+		closelog();
+	}
 }
 
 static void
 _syslog_reload(int32_t target)
 {
 	struct qb_log_target *t = qb_log_target_get(target);
-	closelog();
-	openlog(t->name, LOG_PID, t->facility);
+
+	if (!t->use_journal) {
+		closelog();
+		openlog(t->name, LOG_PID, t->facility);
+	}
 }
 
 int32_t
@@ -84,6 +110,8 @@ qb_log_syslog_open(struct qb_log_target *t)
 	t->reload = _syslog_reload;
 	t->close = _syslog_close;
 
-	openlog(t->name, LOG_PID, t->facility);
+	if (!t->use_journal) {
+		openlog(t->name, LOG_PID, t->facility);
+	}
 	return 0;
 }

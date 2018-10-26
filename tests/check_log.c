@@ -30,6 +30,10 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
+#ifdef USE_JOURNAL
+#include <systemd/sd-journal.h>
+#endif
+
 #include "_syslog_override.h"
 
 extern size_t qb_vsnprintf_serialize(char *serialize, size_t max_len, const char *fmt, va_list ap);
@@ -976,8 +980,55 @@ START_TEST(test_zero_tags)
 }
 END_TEST
 
+#ifdef USE_JOURNAL
+START_TEST(test_journal)
+{
+	int rc;
+	const char *msg;
+	size_t len;
+	pid_t log_pid;
+	sd_journal *jnl;
+	int count = 0;
+
+	qb_log_init("check_log", LOG_USER, LOG_DEBUG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, 0);
+	qb_log(LOG_ERR, "Test message 1 from libqb");
+
+	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
+	rc = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, -EINVAL);
+	sleep(1);
+
+	/* Check it reached the journal */
+	rc = sd_journal_open(&jnl, 0);
+	ck_assert_int_eq(rc, 0);
+	rc = sd_journal_seek_tail(jnl);
+	ck_assert_int_eq(rc, 0);
+	SD_JOURNAL_FOREACH_BACKWARDS(jnl) {
+	    rc = sd_journal_get_data(jnl, "_PID", (const void **)&msg, &len);
+	    ck_assert_int_eq(rc, 0);
+	    sscanf(msg, "_PID=%d", &log_pid);
+	    fprintf(stderr, "PID message = '%s' - pid = %d (pid=%d, parent=%d)\n", msg, log_pid, getpid(), getppid());
+	    if (log_pid == getpid()) {
+	        rc = sd_journal_get_data(jnl, "MESSAGE", (const void **)&msg, &len);
+		ck_assert_int_eq(rc, 0);
+		break;
+	    }
+	    if (++count > 20) {
+		    break;
+            }
+        }
+	sd_journal_close(jnl);
+	ck_assert_int_lt(count, 20);
+}
+END_TEST
+#else
 START_TEST(test_syslog)
 {
+	int rc;
+
 	qb_log_init("flip", LOG_USER, LOG_INFO);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
 
@@ -989,9 +1040,14 @@ START_TEST(test_syslog)
 	qb_log(LOG_ERR, "second as flop");
 	ck_assert_str_eq(_syslog_ident, "flop");
 
+	/* This test only runs if USE_JOURNAL is undefined, so should always fail */
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, -EOPNOTSUPP);
+
 	qb_log_fini();
 }
 END_TEST
+#endif
 
 static Suite *
 log_suite(void)
@@ -1015,7 +1071,15 @@ log_suite(void)
 #endif
 	add_tcase(s, tc, test_extended_information);
 	add_tcase(s, tc, test_zero_tags);
+/*
+ * You can still use syslog and journal in a normal application,
+ * but the syslog_override code doesn't work when -lsystemd is present
+ */
+#ifdef USE_JOURNAL
+        add_tcase(s, tc, test_journal);
+#else
 	add_tcase(s, tc, test_syslog);
+#endif
 
 	return s;
 }
