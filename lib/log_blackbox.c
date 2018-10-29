@@ -69,7 +69,7 @@ _blackbox_vlogger(int32_t target,
 
 	fn_size = strlen(cs->function) + 1;
 
-	actual_size = 4 * sizeof(uint32_t) + sizeof(uint8_t) + fn_size + sizeof(time_t);
+	actual_size = 4 * sizeof(uint32_t) + sizeof(uint8_t) + fn_size + sizeof(struct timespec);
 	max_size = actual_size + t->max_line_length;
 
 	chunk = qb_rb_chunk_alloc(t->instance, max_size);
@@ -102,8 +102,8 @@ _blackbox_vlogger(int32_t target,
 	chunk += fn_size;
 
 	/* timestamp */
-	memcpy(chunk, timestamp, sizeof(time_t));
-	chunk += sizeof(time_t);
+	memcpy(chunk, timestamp, sizeof(struct timespec));
+	chunk += sizeof(struct timespec);
 
 	/* log message length */
 	msg_len_pt = chunk;
@@ -182,7 +182,7 @@ qb_log_blackbox_write_to_file(const char *filename)
 	return written_size;
 }
 
-void
+int
 qb_log_blackbox_print_from_file(const char *bb_filename)
 {
 	qb_ringbuffer_t *instance;
@@ -190,17 +190,18 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 	int max_size = 2 * QB_LOG_MAX_LEN;
 	char *chunk;
 	int fd;
+	int err = 0;
 	char time_buf[64];
 
 	fd = open(bb_filename, 0);
 	if (fd < 0) {
 		qb_util_perror(LOG_ERR, "qb_log_blackbox_print_from_file");
-		return;
+		return -1;
 	}
 	instance = qb_rb_create_from_file(fd, 0);
 	close(fd);
 	if (instance == NULL) {
-		return;
+		return -1;
 	}
 	chunk = malloc(max_size);
 
@@ -212,7 +213,8 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		uint32_t fn_size;
 		char *function;
 		uint32_t len;
-		time_t timestamp;
+		struct timespec timestamp;
+		time_t time_sec;
 		uint32_t msg_len;
 		struct tm *tm;
 		char message[QB_LOG_MAX_LEN];
@@ -221,10 +223,12 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 
 		if (bytes_read >= 0 && bytes_read < BB_MIN_ENTRY_SIZE) {
 			printf("ERROR Corrupt file: blackbox header too small.\n");
+			err = -1;
 			goto cleanup;
 		} else if (bytes_read < 0) {
 			errno = -bytes_read;
 			perror("ERROR: qb_rb_chunk_read failed");
+			err = -1;
 			goto cleanup;
 		}
 		ptr = chunk;
@@ -246,12 +250,14 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		if ((fn_size + BB_MIN_ENTRY_SIZE) > bytes_read) {
 #ifndef S_SPLINT_S
 			printf("ERROR Corrupt file: fn_size way too big %" PRIu32 "\n", fn_size);
+			err = -1;
 #endif /* S_SPLINT_S */
 			goto cleanup;
 		}
 		if (fn_size <= 0) {
 #ifndef S_SPLINT_S
 			printf("ERROR Corrupt file: fn_size negative %" PRIu32 "\n", fn_size);
+			err = -1;
 #endif /* S_SPLINT_S */
 			goto cleanup;
 		}
@@ -261,22 +267,26 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		ptr += fn_size;
 
 		/* timestamp size & content */
-		memcpy(&timestamp, ptr, sizeof(time_t));
-		ptr += sizeof(time_t);
-		tm = localtime(&timestamp);
+		memcpy(&timestamp, ptr, sizeof(struct timespec));
+		ptr += sizeof(struct timespec);
+		time_sec = timestamp.tv_sec;
+
+		tm = localtime(&time_sec);
 		if (tm) {
-			(void)strftime(time_buf,
-				       sizeof(time_buf), "%b %d %T",
-				       tm);
+			int slen = strftime(time_buf,
+					    sizeof(time_buf), "%b %d %T",
+					    tm);
+			snprintf(time_buf+slen, sizeof(time_buf - slen), ".%03lld", (timestamp.tv_nsec/QB_TIME_NS_IN_MSEC));
 		} else {
 			snprintf(time_buf, sizeof(time_buf), "%ld",
-				 (long int)timestamp);
+				 (long int)time_sec);
 		}
 		/* message length */
 		memcpy(&msg_len, ptr, sizeof(uint32_t));
 		if (msg_len > QB_LOG_MAX_LEN || msg_len <= 0) {
 #ifndef S_SPLINT_S
 			printf("ERROR Corrupt file: msg_len out of bounds %" PRIu32 "\n", msg_len);
+			err = -1;
 #endif /* S_SPLINT_S */
 			goto cleanup;
 		}
@@ -302,4 +312,5 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 cleanup:
 	qb_rb_close(instance);
 	free(chunk);
+	return err;
 }

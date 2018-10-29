@@ -702,7 +702,7 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename);
 /**
  * Read the blackbox for file and print it out.
  */
-void qb_log_blackbox_print_from_file(const char* filename);
+int qb_log_blackbox_print_from_file(const char* filename);
 
 /**
  * Open a custom log target.
