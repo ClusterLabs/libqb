@@ -161,19 +161,54 @@ qb_log_blackbox_open(struct qb_log_target *t)
 	return 0;
 }
 
+/*
+ * This is designed to look as much like the ringbuffer header
+ * as possible so that we can distinguish an old RB dump
+ * from a new one with this header.
+ */
+
+struct _blackbox_file_header {
+	uint32_t word_size;
+	uint32_t read_pt;
+	uint32_t write_pt;
+	uint32_t version;
+	uint32_t hash;
+} __attribute__((packed));
+
+/* Values we expect for a 'new' header */
+#define QB_BLACKBOX_HEADER_WORDSIZE 0
+#define QB_BLACKBOX_HEADER_READPT   0xCCBBCCBB
+#define QB_BLACKBOX_HEADER_WRITEPT  0xBBCCBBCC
+#define QB_BLACKBOX_HEADER_VERSION  2
+#define QB_BLACKBOX_HEADER_HASH     0
+
 ssize_t
 qb_log_blackbox_write_to_file(const char *filename)
 {
 	ssize_t written_size = 0;
 	struct qb_log_target *t;
+	struct _blackbox_file_header header;
 	int fd = open(filename, O_CREAT | O_RDWR, 0700);
 
 	if (fd < 0) {
 		return -errno;
 	}
+
+	/* Write header, so we know this is a 'new' format blackbox */
+	header.word_size = QB_BLACKBOX_HEADER_WORDSIZE;
+	header.read_pt   = QB_BLACKBOX_HEADER_READPT;
+	header.write_pt  = QB_BLACKBOX_HEADER_WRITEPT;
+	header.version   = QB_BLACKBOX_HEADER_VERSION;
+	header.hash      = QB_BLACKBOX_HEADER_HASH;
+	written_size = write(fd, &header, sizeof(header));
+	if (written_size < sizeof(header)) {
+		close(fd);
+		return written_size;
+	}
+
 	t = qb_log_target_get(QB_LOG_BLACKBOX);
 	if (t->instance) {
-		written_size = qb_rb_write_to_file(t->instance, fd);
+		written_size += qb_rb_write_to_file(t->instance, fd);
 	} else {
 		written_size = -ENOENT;
 	}
@@ -191,17 +226,42 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 	char *chunk;
 	int fd;
 	int err = 0;
+	int saved_errno;
+	struct _blackbox_file_header header;
+	int have_timespecs = 0;
 	char time_buf[64];
 
 	fd = open(bb_filename, 0);
 	if (fd < 0) {
+		saved_errno = errno;
 		qb_util_perror(LOG_ERR, "qb_log_blackbox_print_from_file");
-		return -1;
+		return -saved_errno;
 	}
+
+	/* Read the header. If it looks like one of ours then
+	   we know we have hi-res timestamps */
+	err = read(fd, &header, sizeof(header));
+	if (err < sizeof(header)) {
+		saved_errno = errno;
+		close(fd);
+		return -saved_errno;
+	}
+
+	if (header.word_size == QB_BLACKBOX_HEADER_WORDSIZE &&
+	    header.read_pt == QB_BLACKBOX_HEADER_READPT &&
+	    header.write_pt == QB_BLACKBOX_HEADER_WRITEPT &&
+	    header.version == QB_BLACKBOX_HEADER_VERSION &&
+	    header.hash == QB_BLACKBOX_HEADER_HASH) {
+		have_timespecs = 1;
+	} else {
+		lseek(fd, 0, SEEK_SET);
+	}
+
+
 	instance = qb_rb_create_from_file(fd, 0);
 	close(fd);
 	if (instance == NULL) {
-		return -1;
+		return -EIO;
 	}
 	chunk = malloc(max_size);
 
@@ -228,7 +288,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		} else if (bytes_read < 0) {
 			errno = -bytes_read;
 			perror("ERROR: qb_rb_chunk_read failed");
-			err = -1;
+			err = -EIO;
 			goto cleanup;
 		}
 		ptr = chunk;
@@ -250,14 +310,14 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		if ((fn_size + BB_MIN_ENTRY_SIZE) > bytes_read) {
 #ifndef S_SPLINT_S
 			printf("ERROR Corrupt file: fn_size way too big %" PRIu32 "\n", fn_size);
-			err = -1;
+			err = -EIO;
 #endif /* S_SPLINT_S */
 			goto cleanup;
 		}
 		if (fn_size <= 0) {
 #ifndef S_SPLINT_S
 			printf("ERROR Corrupt file: fn_size negative %" PRIu32 "\n", fn_size);
-			err = -1;
+			err = -EIO;
 #endif /* S_SPLINT_S */
 			goto cleanup;
 		}
@@ -267,16 +327,22 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		ptr += fn_size;
 
 		/* timestamp size & content */
-		memcpy(&timestamp, ptr, sizeof(struct timespec));
-		ptr += sizeof(struct timespec);
-		time_sec = timestamp.tv_sec;
+		if (have_timespecs) {
+			memcpy(&timestamp, ptr, sizeof(struct timespec));
+			ptr += sizeof(struct timespec);
+			time_sec = timestamp.tv_sec;
+		} else {
+			memcpy(&time_sec, ptr, sizeof(time_t));
+			ptr += sizeof(time_t);
+			timestamp.tv_nsec = 0LL;
+		}
 
 		tm = localtime(&time_sec);
 		if (tm) {
 			int slen = strftime(time_buf,
 					    sizeof(time_buf), "%b %d %T",
 					    tm);
-			snprintf(time_buf+slen, sizeof(time_buf - slen), ".%03lld", (timestamp.tv_nsec/QB_TIME_NS_IN_MSEC));
+			snprintf(time_buf+slen, sizeof(time_buf - slen), ".%03lld", timestamp.tv_nsec/QB_TIME_NS_IN_MSEC);
 		} else {
 			snprintf(time_buf, sizeof(time_buf), "%ld",
 				 (long int)time_sec);
@@ -286,7 +352,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 		if (msg_len > QB_LOG_MAX_LEN || msg_len <= 0) {
 #ifndef S_SPLINT_S
 			printf("ERROR Corrupt file: msg_len out of bounds %" PRIu32 "\n", msg_len);
-			err = -1;
+			err = -EIO;
 #endif /* S_SPLINT_S */
 			goto cleanup;
 		}
