@@ -237,7 +237,7 @@ qb_log_thread_log_post(struct qb_log_callsite *cs,
 	}
 	memcpy(rec->buffer, buffer, buf_size);
 
-	memcpy(&rec->timestamp, &timestamp, sizeof(struct timespec));
+	memcpy(&rec->timestamp, timestamp, sizeof(struct timespec));
 
 	qb_list_init(&rec->list);
 	(void)qb_thread_lock(logt_wthread_lock);

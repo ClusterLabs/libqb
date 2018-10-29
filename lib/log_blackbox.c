@@ -102,7 +102,7 @@ _blackbox_vlogger(int32_t target,
 	chunk += fn_size;
 
 	/* timestamp */
-	memcpy(chunk, &timestamp, sizeof(time_t));
+	memcpy(chunk, timestamp, sizeof(time_t));
 	chunk += sizeof(time_t);
 
 	/* log message length */
