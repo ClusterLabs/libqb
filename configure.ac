@@ -111,7 +111,7 @@ cc_supports_flag() {
 	BACKUP="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $@ -Werror"
 	AC_MSG_CHECKING([whether $CC supports "$@"])
-	AC_PREPROC_IFELSE([AC_LANG_PROGRAM([])],
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
 			  [RC=0; AC_MSG_RESULT([yes])],
 			  [RC=1; AC_MSG_RESULT([no])])
 	CPPFLAGS="$BACKUP"
@@ -588,6 +588,7 @@ WARNLIST="
 	missing-declarations
 	suggest-attribute=noreturn
 	suggest-attribute=format
+	property-attribute-mismatch
 	strict-prototypes
 	pointer-arith
 	write-strings
@@ -597,6 +598,7 @@ WARNLIST="
 	float-equal
 	format=2
 	format-signedness
+	shift-overflow
 	shift-overflow=2
 	overlength-strings
 	redundent-decls
@@ -604,6 +606,7 @@ WARNLIST="
 	uninitialized
 	unknown-pragmas
 	no-unused-parameter
+	unused-const-variable
 	no-format-nonliteral
 	no-format-truncation
 	no-sign-compare
