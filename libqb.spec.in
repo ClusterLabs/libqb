@@ -31,8 +31,7 @@ make %{?_smp_mflags}
 
 %if 0%{?with_check}
 %check
-make V=1 check \
-  && make -C tests/functional/log_internal V=1 check
+make V=1 check
 %endif
 
 %install

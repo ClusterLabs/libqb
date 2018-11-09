@@ -1,4 +1,0 @@
-[MAIN |info] ../log_interlib_client.c:61:BEFORE
-[MAIN |info] ../log_interlib.c:47:aloha
-[libqb|error] log_blackbox.c:197:qb_log_blackbox_print_from_file:
-[MAIN |info] ../log_interlib_client.c:65:AFTER

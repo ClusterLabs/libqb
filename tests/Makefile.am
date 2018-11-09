@@ -21,8 +21,6 @@ MAINTAINERCLEANFILES = Makefile.in
 EXTRA_DIST =
 CLEANFILES =
 
-SUBDIRS = functional
-
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 noinst_PROGRAMS = bmc bmcpt bms rbreader rbwriter \

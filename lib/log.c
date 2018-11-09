@@ -25,9 +25,6 @@
 #endif /* HAVE_LINK_H */
 #include <stdarg.h>
 #include <pthread.h>
-#ifdef HAVE_DLFCN_H
-#include <dlfcn.h>
-#endif /* HAVE_DLFCN_H */
 #include <stdarg.h>
 #include <string.h>
 
@@ -48,14 +45,8 @@ static int32_t logger_inited = QB_FALSE;
 static pthread_rwlock_t _listlock;
 static qb_log_filter_fn _custom_filter_fn = NULL;
 
-static QB_LIST_DECLARE(dlnames);
 static QB_LIST_DECLARE(tags_head);
 static QB_LIST_DECLARE(callsite_sections);
-
-struct dlname {
-	char *dln_name;
-	struct qb_list_head list;
-};
 
 struct callsite_section {
 	struct qb_log_callsite *start;
@@ -814,14 +805,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t l;
 	enum qb_log_target_slot i;
-	/* cannot reuse single qb_log invocation in various contexts
-	   through the variables (when section attribute in use),
-	   hence this indirection */
-	enum {
-		preinit_err_none,
-		preinit_err_target_sec,
-		preinit_err_target_empty,
-	} preinit_err = preinit_err_none;
 
 	l = pthread_rwlock_init(&_listlock, NULL);
 	assert(l == 0);
@@ -849,25 +832,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	_log_target_state_set(&conf[QB_LOG_SYSLOG], QB_LOG_STATE_ENABLED);
 	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 				QB_LOG_FILTER_FILE, "*", priority);
-
-	if (preinit_err == preinit_err_target_sec)
-		qb_util_log(LOG_NOTICE, "(libqb) log module hasn't observed"
-		                        " target chain supplied callsite"
-		                        " section, target's and/or libqb's"
-		                        " build is at fault, preventing"
-		                        " reliable logging (unless qb_log_init"
-		                        " invoked in no-custom-logging context"
-		                        " unexpectedly, or target chain built"
-		                        " purposefully without these sections)");
-	else if (preinit_err == preinit_err_target_empty) {
-		qb_util_log(LOG_WARNING, "(libqb) log module has observed"
-		                         " target chain supplied section"
-		                         " unpopulated, target's and/or libqb's"
-		                         " build is at fault, preventing"
-		                         " reliable logging (unless qb_log_init"
-		                         " invoked in no-custom-logging context"
-		                         " unexpectedly)");
-	}
 }
 
 void

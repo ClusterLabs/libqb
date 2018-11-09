@@ -61,25 +61,11 @@ extern "C" {
  * }
  * @endcode
  *
- * @note
- * In practice, such a minimalistic approach hardly caters real use cases.
- * Following section discusses the customization.  Moreover when employing
- * the log module is bound to its active use (some log messages are assuredly
- * emitted within the target compilation unit), it's quite vital to instrument
- * the target side with @c QB_LOG_INIT_DATA() macro placed in the top file
- * scope in exactly one source file (preferably the main one) to be mixed into
- * the resulting compilation unit.  This is a self-defensive measure for when
- * the linker-assisted collection of callsite data silently fails, which could
- * otherwise go unnoticed, causing troubles down the road, but alas it cannot
- * discern misuse of @c QB_LOG_INIT_DATA() macro in no-logging context from
- * broken callsite section handling assumptions owing to overboard fancy
- * linker -- situation that the self-check aims to detect in the first place.
- *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
- * By default, only syslog is enabled.  While this is customary for daemons,
- * it is rarely appropriate for ordinary programs, which should promptly
- * disable that when other targets (read on) are to be utilized:
+ * By default, only syslog is enabled.  While this is usual for daemons,
+ * it is rarely appropriate for ordinary programs, which should
+ * disable it when other targets (see below) are to be used:
  * @code
  *	qb_log_ctl(B_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
  * @endcode
@@ -262,9 +248,7 @@ extern "C" {
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
 
 /**
- * An instance of this structure is created in a special
- * ELF section at every dynamic debug callsite.  At runtime,
- * the special section is treated as an array of these.
+ * An instance of this structure is created for each log message
  */
 struct qb_log_callsite {
 	const char *function;
@@ -410,8 +394,8 @@ void qb_log_from_external_source_va(const char *function,
  * as non-inclusive higher bounds of the respective categories
  * (static and all the log targets) and also denote the number
  * of (reserved) items in the category.  Both are possibly subject
- * of change, hence it is only adequate to always refer to them
- * via these defined values.
+ * to change, so you should always refer to them using
+ * these defined values.
  * Similarly, there are QB_LOG_TARGET_{STATIC_,DYNAMIC_,}START
  * and QB_LOG_TARGET_{STATIC_,DYNAMIC_,}END values, but these
  * are inclusive lower and higher bounds, respectively.
@@ -649,11 +633,10 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * Any number between % and character specify field length to pad or chop.
  *
  * @note Some of the fields are immediately evaluated and remembered
- *       for performance reasons, so when there's an objective for log
- *       messages to carry PIDs (not in the default setup) and, moreover,
- *       precisely, this function needs to be reinvoked upon @c fork
+ *       for performance reasons, so whenlog messages carry PIDs (not the default)
+ *       this function needs to be reinvoked following @c fork
  *       (@c clone) in the respective children.  When already linking
- *       to @c libpthread, @c pthread_atfork callback registration
+ *       with @c libpthread, @c pthread_atfork callback registration
  *       could be useful.
  */
 void qb_log_format_set(int32_t t, const char* format);
