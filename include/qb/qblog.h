@@ -478,11 +478,11 @@ enum qb_log_filter_conf {
 
 typedef void (*qb_log_logger_fn)(int32_t t,
 				 struct qb_log_callsite *cs,
-				 time_t timestamp,
+				 struct timespec *timestamp,
 				 const char *msg);
 typedef void (*qb_log_vlogger_fn)(int32_t t,
 				 struct qb_log_callsite *cs,
-				 time_t timestamp,
+				 struct timespec *timestamp,
 				 va_list ap);
 
 typedef void (*qb_log_close_fn)(int32_t t);
@@ -622,6 +622,15 @@ int32_t qb_log_filter_fn_set(qb_log_filter_fn fn);
  */
 void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
 
+
+/**
+ *This is a Feature Test macro so that calling applications know that
+ * millisecond timestamps are implemented. Because %T a string in
+ * function call with an indirect effect, there is no easy test for it
+ * beyond the library version (which is a very blunt instrument)
+ */
+#define QB_FEATURE_LOG_HIRES_TIMESTAMPS 1
+
 /**
  * Set the format specifiers.
  *
@@ -630,6 +639,7 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * %l FILELINE
  * %p PRIORITY
  * %t TIMESTAMP
+ * %T TIMESTAMP with milliseconds
  * %b BUFFER
  * %g TAGS
  * %N name (passed into qb_log_init)
@@ -694,7 +704,7 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename);
 /**
  * Read the blackbox for file and print it out.
  */
-void qb_log_blackbox_print_from_file(const char* filename);
+int qb_log_blackbox_print_from_file(const char* filename);
 
 /**
  * Open a custom log target.
@@ -733,7 +743,7 @@ int32_t qb_log_target_user_data_set(int32_t t, void *user_data);
  */
 void qb_log_target_format(int32_t target,
 			  struct qb_log_callsite *cs,
-			  time_t timestamp,
+			  struct timespec *timestamp,
 			  const char* formatted_message,
 			  char *output_buffer);
 

@@ -66,7 +66,7 @@ struct qb_log_filter {
 
 struct qb_log_record {
 	struct qb_log_callsite *cs;
-	time_t timestamp;
+	struct timespec timestamp;
 	char *buffer;
 	struct qb_list_head list;
 };
@@ -114,10 +114,10 @@ int32_t qb_log_blackbox_open(struct qb_log_target *t);
 
 void qb_log_thread_stop(void);
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-			    time_t current_time,
+			    struct timespec *current_time,
 			    const char *buffer);
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
-			    time_t current_time,
+			    struct timespec *current_time,
 			    const char *buffer);
 void qb_log_thread_pause(struct qb_log_target *t);
 void qb_log_thread_resume(struct qb_log_target *t);

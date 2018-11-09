@@ -123,10 +123,15 @@ ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
 		 $(LINT_FLAGS)
 # expected for the time being (but SHOULD be fixed eventually):
-# ipc_setup.c: (in function qb_ipcc_us_setup_connect)
-# ipc_setup.c:479:2: Return value (type int32_t) ignored: qb_ipc_us_ready(...
-# ipc_setup.c:494:2: Return value (type int32_t) ignored: qb_ipc_auth_cred...
-SPLINT_SUMMARY_EXP = " 2 code warnings"
+#  ipc_setup.c: (in function qb_ipcc_us_setup_connect)
+#  ipc_setup.c:479:2: Return value (type int32_t) ignored: qb_ipc_us_ready(...
+#  ipc_setup.c:494:2: Return value (type int32_t) ignored: qb_ipc_auth_cred...
+# splint is stupid:
+#  log_format.c:397:22: Arrow access field of non-struct or union pointer (struct
+#  log_format.c:408:22: Arrow access field of non-struct or union pointer (struct
+#  log_format.c:415:13: Arrow access field of non-struct or union pointer (struct
+
+SPLINT_SUMMARY_EXP = " 5 code warnings"
 
 run_splint.sh: $(top_srcdir)/configure.ac
 	@echo '$(SPLINT) $(ALL_LINT_FLAGS) \' > $@-t

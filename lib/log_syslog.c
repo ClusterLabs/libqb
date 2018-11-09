@@ -32,7 +32,7 @@
 
 static void
 _syslog_logger(int32_t target,
-	       struct qb_log_callsite *cs, time_t timestamp, const char *msg)
+	       struct qb_log_callsite *cs, struct timespec *timestamp, const char *msg)
 {
 	char buffer[QB_LOG_MAX_LEN];
 	char *output_buffer = buffer;

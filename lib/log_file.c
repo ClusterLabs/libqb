@@ -23,7 +23,7 @@
 
 static void
 _file_logger(int32_t t,
-	     struct qb_log_callsite *cs, time_t timestamp, const char *msg)
+	     struct qb_log_callsite *cs, struct timespec *timestamp, const char *msg)
 {
 	char buffer[QB_LOG_MAX_LEN];
 	char *output_buffer = buffer;
