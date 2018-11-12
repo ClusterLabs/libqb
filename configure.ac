@@ -749,9 +749,6 @@ AC_CONFIG_FILES([Makefile
 		 lib/libqb.pc
 		 tools/Makefile
 		 tests/Makefile
-		 tests/functional/Makefile
-		 tests/functional/log_external/Makefile
-		 tests/functional/log_internal/Makefile
 		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
@@ -759,9 +756,6 @@ AC_CONFIG_FILES([Makefile
 		 docs/html.dox
 		 docs/man.dox
 		 lib/qblog_script.la:lib/qblog_script.la.in])
-
-AC_CONFIG_LINKS([lib/qblog_script_noop.ld:lib/qblog_script_noop.ld
-		 tests/functional/GNUmakefile:tests/functional/GNUmakefile])
 
 AC_OUTPUT
 
