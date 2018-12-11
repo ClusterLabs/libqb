@@ -505,10 +505,10 @@ skiplist_rm(struct qb_map *map, const char *key)
 	   (header) preceding @found_node, which can be distinguished with
 	   NULL being used as a key (second allowing condition below). */
 	if (found_node->refcount > 1 || cur_node->key == NULL) {
-		found_node->level = SKIPLIST_LEVEL_MIN - 1;  /* no "forward" drop */
 		for (level = SKIPLIST_LEVEL_MIN; level <= found_node->level; level++) {
 			found_node->forward[level] = cur_node->forward[level];
 		}
+		found_node->level = SKIPLIST_LEVEL_MIN - 1;  /* no "forward" drop */
 		free(cur_node->forward);
 		cur_node->forward = found_node->forward;
 	}
