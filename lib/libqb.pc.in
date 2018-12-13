@@ -8,5 +8,5 @@ Version: @PACKAGE_VERSION@
 Description: libqb
 Requires:
 Libs: -L${libdir} -lqb
-Libs.private: @LIBS@ @SYSTEMD_LIBS@
-Cflags: -I${includedir}
+Libs.private: @LIBS@ @dlopen_LIBS@ @PTHREAD_LIBS@ @socket_LIBS@ @rt_LIBS@ @SYSTEMD_LIBS@
+Cflags: -I${includedir} @PTHREAD_CFLAGS@
