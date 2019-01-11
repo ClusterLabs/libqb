@@ -10,8 +10,8 @@ AC_INIT([libqb],
 	            | sed -ne 's/^[$]Format:[^$]*[$]$/.tarball-version/p;tend'\
 	                  -e 's/.*tag: v\([^, ][^, ]*\).*/\1-yank/;tv'\
 	                  -e 's/^\([[:xdigit:]][[:xdigit:]]*\).*/1.0.3-yank\1/'\
-	                  -e ':v;w .snapshot-version' -e 'i .snapshot-version'\
-	                  -e ':end;q')\
+	                  -e ':v' -e 'w .snapshot-version' -e 'i\
+	                  .snapshot-version' -e ':end' -e 'q')\
 	              's/^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$/\1.0\2/']),
 	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
