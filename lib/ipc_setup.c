@@ -43,6 +43,9 @@
 #include "util_int.h"
 #include "ipc_int.h"
 
+/* Maximum number of times we generate a random socket name before giving up */
+#define MAX_NAME_RETRY_COUNT 20
+
 struct ipc_auth_ugp {
 	uid_t uid;
 	gid_t gid;
@@ -619,6 +622,7 @@ handle_new_connection(struct qb_ipcs_service *s,
 	struct qb_ipc_connection_request *req = msg;
 	int32_t res = auth_result;
 	int32_t res2 = 0;
+	uint32_t retry_count = 0;
 	uint32_t max_buffer_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
 	struct qb_ipc_connection_response response;
 
@@ -643,8 +647,6 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->auth.gid = c->egid = ugp->gid;
 	c->auth.mode = 0600;
 	c->stats.client_pid = ugp->pid;
-	snprintf(c->description, CONNECTION_DESCRIPTION,
-		 "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
 
 	if (auth_result == 0 && c->service->serv_fns.connection_accept) {
 		res = c->service->serv_fns.connection_accept(c,
@@ -657,9 +659,17 @@ handle_new_connection(struct qb_ipcs_service *s,
 	qb_util_log(LOG_DEBUG, "IPC credentials authenticated (%s)",
 		    c->description);
 
+retry_description:
+	snprintf(c->description, CONNECTION_DESCRIPTION,
+		 "%d-%d-%lu", s->pid, ugp->pid, (unsigned long)(random()%65536));
+
 	memset(&response, 0, sizeof(response));
 	if (s->funcs.connect) {
 		res = s->funcs.connect(s, c, &response);
+		if (res == -EEXIST && ++retry_count < MAX_NAME_RETRY_COUNT) {
+			qb_util_log(LOG_DEBUG, "Retrying socket name %s (count=%ld)\n", c->description, retry_count);
+			goto retry_description;
+		}
 		if (res != 0) {
 			goto send_response;
 		}

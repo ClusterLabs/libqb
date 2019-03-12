@@ -40,6 +40,8 @@ qb_ipcs_create(const char *name,
 	       enum qb_ipc_type type, struct qb_ipcs_service_handlers *handlers)
 {
 	struct qb_ipcs_service *s;
+	int fd;
+	unsigned int seed;
 
 	s = calloc(1, sizeof(struct qb_ipcs_service));
 	if (s == NULL) {
@@ -74,6 +76,18 @@ qb_ipcs_create(const char *name,
 	qb_list_init(&s->connections);
 	qb_list_init(&s->list);
 	qb_list_add(&s->list, &qb_ipc_services);
+
+	/* Randomise socket names */
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd == -1) {
+		seed = (time_t)time(NULL);
+	} else {
+		if (read(fd, &seed, sizeof(seed)) != 4) {
+			seed = (time_t)time(NULL);
+		}
+		close(fd);
+	}
+	srand(seed);
 
 	return s;
 }

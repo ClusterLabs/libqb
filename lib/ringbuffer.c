@@ -155,7 +155,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	    sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
 
 	if (flags & QB_RB_FLAG_CREATE) {
-		file_flags |= O_CREAT | O_TRUNC;
+		file_flags |= O_CREAT | O_TRUNC | O_EXCL;
 	}
 
 	rb = calloc(1, sizeof(struct qb_ringbuffer_s));

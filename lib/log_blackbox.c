@@ -188,7 +188,7 @@ qb_log_blackbox_write_to_file(const char *filename)
 	ssize_t written_size = 0;
 	struct qb_log_target *t;
 	struct _blackbox_file_header header;
-	int fd = open(filename, O_CREAT | O_RDWR, 0700);
+	int fd = open(filename, O_CREAT | O_RDWR | O_EXCL, 0700);
 
 	if (fd < 0) {
 		return -errno;
