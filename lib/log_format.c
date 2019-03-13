@@ -122,12 +122,20 @@ qb_log_format_set(int32_t target, const char *format)
 
 	pthread_rwlock_wrlock(&_formatlock);
 
-	free(t->format);
-
-	if (format) {
+	if (format != NULL && *format != '\0') {
+		free(t->format);
 		qb_log_target_format_static(target, format, modified_format);
 		t->format = strdup(modified_format);
-	} else {
+	} else if (format != NULL || target != QB_LOG_SYSLOG) {
+		/* ^ empty messages make little sense */
+		free(t->format);
+		t->format = strdup("[%p] %b");
+	/* these are specially for  QB_LOG_CONF_USE_JOURNAL flipping cases */
+	} else if (t->use_journal && !strcmp(t->format, "[%p] %b")) {
+		free(t->format);
+		t->format = strdup("%b");  /* priority carried in metadata */
+	} else if (!t->use_journal && !strcmp(t->format, "%b")) {
+		free(t->format);
 		t->format = strdup("[%p] %b");
 	}
 	assert(t->format != NULL);

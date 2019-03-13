@@ -1102,6 +1102,7 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 #ifdef USE_JOURNAL
 		if (t == QB_LOG_SYSLOG) {
 			conf[t].use_journal = arg_i32;
+			qb_log_format_set(t, NULL);
 			need_reload = QB_TRUE;
 		} else {
 			rc = -EINVAL;

@@ -618,6 +618,15 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
 /**
  * Set the format specifiers.
  *
+ * @param t target
+ * @param format Format specifier per specification below,
+ *               @c NULL and empty string have their own,
+ *               distinct default-resetting semantics, you
+ *               shall only use the former (the latter is
+ *               a "hard" default override with @c QB_LOG_SYSLOG
+ *               in @cQB_LOG_CONF_USE_JOURNAL context and as
+ *               such backward-incompatible).
+ *
  * %n FUNCTION NAME
  * %f FILENAME
  * %l FILELINE
@@ -633,11 +642,11 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * Any number between % and character specify field length to pad or chop.
  *
  * @note Some of the fields are immediately evaluated and remembered
- *       for performance reasons, so whenlog messages carry PIDs (not the default)
- *       this function needs to be reinvoked following @c fork
- *       (@c clone) in the respective children.  When already linking
- *       with @c libpthread, @c pthread_atfork callback registration
- *       could be useful.
+ *       for performance reasons, so when log messages carry PIDs
+ *       (not the default) this function needs to be reinvoked following
+ *       @c fork (@c clone) in the respective children.  When already
+ *       linking with @c libpthread, @c pthread_atfork callback
+ *       registration could be useful.
  */
 void qb_log_format_set(int32_t t, const char* format);
 
