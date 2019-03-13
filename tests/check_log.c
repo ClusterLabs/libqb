@@ -1018,20 +1018,29 @@ START_TEST(test_journal)
 	int rc;
 	const char *msg;
 	size_t len;
-	pid_t log_pid;
 	sd_journal *jnl;
 	int count = 0;
+	char buf[1 + (sizeof(pid_t) * 3)];  /* rough, safe approximation */
+	static const char testmsg[] = "MESSAGE=Test message 1 from libqb";
 
 	qb_log_init("check_log", LOG_USER, LOG_DEBUG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
 	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
 	ck_assert_int_eq(rc, 0);
-	qb_log(LOG_ERR, "Test message 1 from libqb");
+#if 0
+	qb_log_format_set(QB_LOG_SYSLOG, "%b");  /* shall be implicit */
+#endif
+	qb_log(LOG_ERR, testmsg + sizeof("MESSAGE=") - 1);
 
 	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
 	rc = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_USE_JOURNAL, 1);
 	ck_assert_int_eq(rc, -EINVAL);
-	sleep(1);
+
+	snprintf(buf, sizeof(buf), "%llu", (unsigned long long) getpid());
+#if 0
+#include <poll.h>
+	poll(NULL, 0, 250);  /* shall it be necessary, but likely not */
+#endif
 
 	/* Check it reached the journal */
 	rc = sd_journal_open(&jnl, 0);
@@ -1039,21 +1048,32 @@ START_TEST(test_journal)
 	rc = sd_journal_seek_tail(jnl);
 	ck_assert_int_eq(rc, 0);
 	SD_JOURNAL_FOREACH_BACKWARDS(jnl) {
-	    rc = sd_journal_get_data(jnl, "_PID", (const void **)&msg, &len);
-	    ck_assert_int_eq(rc, 0);
-	    sscanf(msg, "_PID=%d", &log_pid);
-	    fprintf(stderr, "PID message = '%s' - pid = %d (pid=%d, parent=%d)\n", msg, log_pid, getpid(), getppid());
-	    if (log_pid == getpid()) {
-	        rc = sd_journal_get_data(jnl, "MESSAGE", (const void **)&msg, &len);
-		ck_assert_int_eq(rc, 0);
-		break;
-	    }
-	    if (++count > 20) {
-		    break;
-            }
+		if (count++ >= 20) {
+		        break;
+		}
+		rc = sd_journal_get_data(jnl, "_PID", (const void **) &msg, &len);
+		if (rc == 0 && len >= sizeof("_PID=")
+			    && len - sizeof("_PID=") < sizeof(buf)
+			    && (memcmp(msg + sizeof("_PID=") - 1, buf,
+			               len - (sizeof("_PID=") - 1)))) {
+			rc = sd_journal_get_data(jnl, "MESSAGE",
+			                         (const void **) &msg, &len);
+			if (rc != 0) {
+				continue;
+			}
+			rc = memcmp(msg, testmsg, QB_MIN(len, sizeof(testmsg) - 1));
+			if (rc == 0) {
+				break;
+			}
+		}
         }
 	sd_journal_close(jnl);
-	ck_assert_int_lt(count, 20);
+	ck_assert_int_le(count, 20);
+
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 0);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log_fini();
 }
 END_TEST
 #else
