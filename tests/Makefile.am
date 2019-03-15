@@ -132,6 +132,12 @@ TESTS += util.test
 check_PROGRAMS += util.test
 endif
 
+if INSTALL_TESTS
+testsuitedir	= $(TESTDIR)
+testsuite_PROGRAMS = $(check_PROGRAMS)
+testsuite_SCRIPTS = $(dist_check_SCRIPTS) test.conf
+endif
+
 file_change_bytes_SOURCES = file_change_bytes.c
 
 crash_test_dummy_SOURCES = crash_test_dummy.c

@@ -557,6 +557,17 @@ AC_ARG_WITH([force-sockets-config-file],
 	[ FORCESOCKETSFILE="$withval" ],
 	[ FORCESOCKETSFILE="$sysconfdir/libqb/force-filesystem-sockets" ])
 
+AC_ARG_ENABLE([install-tests],
+  [AS_HELP_STRING([--enable-install-tests],[install tests])],,
+  [ enable_install_tests="no" ])
+AM_CONDITIONAL([INSTALL_TESTS], [test x$enable_install_tests = xyes])
+
+AC_ARG_WITH([testdir],
+  [AS_HELP_STRING([--with-testdir=DIR],[path to /usr/lib../libqb/tests/ dir where to install the test suite])],
+        [ TESTDIR="$withval" ],
+        [ TESTDIR="$libdir/libqb/tests" ])
+AC_SUBST([TESTDIR])
+
 AC_SUBST(CP)
 # *FLAGS handling goes here
 
