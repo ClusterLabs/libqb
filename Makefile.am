@@ -37,9 +37,6 @@ MAINTAINERCLEANFILES	= Makefile.in aclocal.m4 configure depcomp \
 
 ACLOCAL_AMFLAGS		= -I m4
 
-# For test suite
-export SOCKETDIR
-
 dist_doc_DATA		= COPYING INSTALL README.markdown
 
 SUBDIRS			= include lib docs tools tests examples
