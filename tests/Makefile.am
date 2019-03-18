@@ -118,6 +118,7 @@ EXTRA_DIST += start.test resources.test
 EXTRA_DIST += blackbox-segfault.sh
 
 TESTS = start.test array.test map.test rb.test list.test log.test blackbox-segfault.sh loop.test ipc.test resources.test
+TESTS_ENVIRONMENT = export PATH=.:../tools:$$PATH;
 
 resources.log: rb.log log.log ipc.log
 
