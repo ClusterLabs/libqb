@@ -26,6 +26,7 @@
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
 #endif
+#include <libgen.h>
 
 #include "util_int.h"
 #include <qb/qbdefs.h>
@@ -53,24 +54,84 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 #endif /* STRERROR_R_CHAR_P */
 }
 
+#define RND_TAIL "-XXXXXX"  /* mkdtemp-compatible tail */
+
 static int32_t
-open_mmap_file(char *path, uint32_t file_flags)
+open_mmap_file(char *path, uint32_t file_flags, int32_t *parent_dir_fd)
 {
 	const char *last_X;
-	if ((last_X = strrchr(path, 'X')) != NULL && last_X + 1 == '\0'
-			&& last_X - path >= 5 && strspn(last_X - 5, 'X') >= 6) {
+	char *where_path_affixed = strchr(path, ':');
+	int forget_me = -1;
+#if defined(O_SEARCH) || defined(O_PATH)
+	parent_dir_fd = (parent_dir_fd != NULL) ? parent_dir_fd : &forget_me;
+#else
+	parent_dir_fd = &forget_me;
+#endif
+	int32_t ret_fd;
+
+	if (where_path_affixed != NULL) {
+		if (*parent_dir_fd < 0) {
+			char create_dir[PATH_MAX];
+			const ptrdiff_t to_path_affix = where_path_affixed - path;
+			*where_path_affixed = '\0';  /* also marks created dir */
+			assert(to_path_affix + sizeof(RND_TAIL) <= PATH_MAX);
+			assert(memchr(where_path_affixed, '\0',
+			       PATH_MAX - to_path_affix - sizeof(RND_TAIL)));
+			memcpy(create_dir, path, to_path_affix + 1);
+			if (file_flags & O_CREAT) {
+				strcpy(create_dir + to_path_affix, RND_TAIL);
+				if (mkdtemp(create_dir) == NULL) {
+					return -1;
+				}
+			}
+#if defined(O_SEARCH)
+			if ((*parent_dir_fd = open(create_dir, O_SEARCH)) == -1) {
+#elif defined(O_PATH)
+			if ((*parent_dir_fd = open(create_dir, O_PATH)) == -1) {
+#else
+			if (0) {
+#endif
+				*where_path_affixed = ':';  /* restore input */
+				(void) rmdir(create_dir);
+				return -1;
+			}
+			if (file_flags & O_CREAT) {
+				*(create_dir + to_path_affix + sizeof(RND_TAIL) - 1) = '/';
+				strcpy(create_dir + to_path_affix + sizeof(RND_TAIL),
+				       where_path_affixed + 1);
+				/* redefine input */
+				strcpy(where_path_affixed, create_dir + to_path_affix);
+				where_path_affixed += sizeof(RND_TAIL) - 1;
+			} else {
+				*where_path_affixed = '/';  /* use right away thereby */
+			}
+		} else {
+			*where_path_affixed = '/';  /* use right away thereby */
+		}
+		ret_fd = openat(*parent_dir_fd, where_path_affixed + 1,
+		                file_flags, 0600);
+		if (ret_fd == -1 || parent_dir_fd == &forget_me) {
+			close(*parent_dir_fd);
+			*parent_dir_fd = -1;
+			if (ret_fd == -1 && *where_path_affixed == '\0') {
+				(void) rmdir(dirname(path));
+			}
+		}
+	} else if ((last_X = strrchr(path, 'X')) != NULL && last_X[1] == '\0'
+			&& last_X - path >= 5 && strspn(last_X - 5, "X") >= 6) {
 		mode_t old_mode = umask(177);
-		int32_t temp_fd = mkstemp(path);
+		ret_fd = mkstemp(path);
 		(void) umask(old_mode);
-		return temp_fd;
+	} else {
+		ret_fd = open(path, file_flags, 0600);
 	}
 
-	return open(path, file_flags, 0600);
+	return ret_fd;
 }
 
 int32_t
 qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
-		       uint32_t file_flags)
+                      uint32_t file_flags, int32_t *parent_dir_fd)
 {
 	int32_t fd;
 	int32_t i;
@@ -89,12 +150,12 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		is_absolute = path;
 #endif
 	}
-	fd = open_mmap_file(path, file_flags);
+	fd = open_mmap_file(path, file_flags, parent_dir_fd);
 	if (fd < 0 && !is_absolute) {
 		qb_util_perror(LOG_ERR, "couldn't open file %s", path);
 
 		snprintf(path, PATH_MAX, "%s/%s", SOCKETDIR, file);
-		fd = open_mmap_file(path, file_flags);
+		fd = open_mmap_file(path, file_flags, parent_dir_fd);
 		if (fd < 0) {
 			res = -errno;
 			qb_util_perror(LOG_ERR, "couldn't open file %s", path);
@@ -145,6 +206,11 @@ unlink_exit:
 	unlink(path);
 	if (fd >= 0) {
 		close(fd);
+	}
+	if (parent_dir_fd != NULL && *parent_dir_fd != -1) {
+		close(*parent_dir_fd);
+		*parent_dir_fd = -1;
+		(void) rmdir(dirname(path));
 	}
 	return res;
 }

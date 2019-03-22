@@ -60,10 +60,11 @@
  * @param file (in) the name of the file to be used.
  * @param bytes the size to truncate the file to.
  * @param file_flags same as passed into open()
+ * @parent_dir_fd pointer to opened (O_SEARCH) directory if any
  * @return 0 (success) or -errno
  */
 int32_t qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
-			       uint32_t file_flags);
+                              uint32_t file_flags, int32_t *parent_dir_fd);
 
 /**
  * Create a shared mamory circular buffer.

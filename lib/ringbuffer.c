@@ -135,8 +135,10 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	uint32_t file_flags = O_RDWR;
 	char filename[PATH_MAX];
 	int32_t error = 0;
+	int32_t parent_dir_fd = -1;
 	void *shm_addr;
 	long page_size = sysconf(_SC_PAGESIZE);
+	char *where_to_affix;
 
 #ifdef QB_ARCH_HPPA
 	page_size = QB_MAX(page_size, 0x00400000); /* align to page colour */
@@ -166,9 +168,13 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	/*
 	 * Create a shared_hdr memory segment for the header.
 	 */
-	snprintf(filename, PATH_MAX, "qb-%s-header", name);
-	fd_hdr = qb_sys_mmap_file_open(path, filename,
-				       shared_size, file_flags);
+	if (flags & QB_RB_FLAG_CREATE || *name != '/') {
+		snprintf(filename, PATH_MAX, "qb-%s:header", name);
+	} else {
+		snprintf(filename, PATH_MAX, "%s:header", name);
+	}
+	fd_hdr = qb_sys_mmap_file_open(path, filename, shared_size, file_flags,
+	                               &parent_dir_fd);
 	if (fd_hdr < 0) {
 		error = fd_hdr;
 		qb_util_log(LOG_ERR, "couldn't create file for mmap");
@@ -217,15 +223,29 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	 * They have to be separate.
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
-		snprintf(filename, PATH_MAX, "qb-%s-data", name);
+		where_to_affix = strrchr(path, '/');
+		assert(where_to_affix != NULL && sizeof(path)
+		       > (where_to_affix - path));
+		strncpy(filename, path, where_to_affix - path);
+		strcpy(filename + (where_to_affix - path), ":data");
 		fd_data = qb_sys_mmap_file_open(path,
-						filename,
-						real_size, file_flags);
+		                                filename,
+		                                real_size, file_flags,
+		                                &parent_dir_fd);
 		(void)strlcpy(rb->shared_hdr->data_path, path, PATH_MAX);
 	} else {
+		strncpy(filename, rb->shared_hdr->data_path, sizeof(path));
+		where_to_affix = strrchr(filename, '/');
+		if (where_to_affix != NULL) {
+			*where_to_affix = ':';
+		}
 		fd_data = qb_sys_mmap_file_open(path,
-						rb->shared_hdr->data_path,
-						real_size, file_flags);
+		                                filename,
+		                                real_size, file_flags,
+		                                &parent_dir_fd);
+	}
+	if (parent_dir_fd >= 0) {
+		close(parent_dir_fd);
 	}
 	if (fd_data < 0) {
 		error = fd_data;

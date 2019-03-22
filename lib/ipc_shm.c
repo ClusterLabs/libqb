@@ -309,32 +309,49 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		    struct qb_ipc_connection_response *r)
 {
 	int32_t res;
+	char request[PATH_MAX], response[PATH_MAX], event[PATH_MAX];
+	char *where_to_affix;
 
 	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
-	snprintf(r->request, NAME_MAX, "%s-request-%s",
-		 s->name, c->description);
-	snprintf(r->response, NAME_MAX, "%s-response-%s",
-		 s->name, c->description);
-	snprintf(r->event, NAME_MAX, "%s-event-%s",
-		 s->name, c->description);
+	snprintf(request, NAME_MAX, "%s-request-%s", s->name, c->description);
+	snprintf(response, NAME_MAX, "%s-response-%s", s->name, c->description);
+	snprintf(event, NAME_MAX, "%s-event-%s", s->name, c->description);
 
-	res = qb_ipcs_shm_rb_open(c, &c->request,
-				  r->request);
+	res = qb_ipcs_shm_rb_open(c, &c->request, request);
 	if (res != 0) {
 		goto cleanup;
 	}
 
-	res = qb_ipcs_shm_rb_open(c, &c->response,
-				  r->response);
+	res = qb_ipcs_shm_rb_open(c, &c->response, response);
 	if (res != 0) {
 		goto cleanup_request;
 	}
 
-	res = qb_ipcs_shm_rb_open(c, &c->event,
-				  r->event);
+	res = qb_ipcs_shm_rb_open(c, &c->event, event);
 	if (res != 0) {
 		goto cleanup_request_response;
+	}
+
+	/* we are strict on path passed towards client side here, but that
+	   would be easily lifted when copying from last-but-one-slash */
+	strncpy(r->request, qb_rb_name_get(c->request.u.shm.rb),
+	        sizeof(r->request) - 1);
+	where_to_affix = strrchr(r->request, '/');
+	if (where_to_affix != NULL) {
+		*where_to_affix = '\0';
+	}
+	strncpy(r->response, qb_rb_name_get(c->response.u.shm.rb),
+	        sizeof(r->response) - 1);
+	where_to_affix = strrchr(r->response, '/');
+	if (where_to_affix != NULL) {
+		*where_to_affix = '\0';
+	}
+	strncpy(r->event, qb_rb_name_get(c->event.u.shm.rb),
+	        sizeof(r->event) - 1);
+	where_to_affix = strrchr(r->event, '/');
+	if (where_to_affix != NULL) {
+		*where_to_affix = '\0';
 	}
 
 	res = s->poll_fns.dispatch_add(s->poll_priority,
