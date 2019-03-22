@@ -56,10 +56,12 @@ qb_strerror_r(int errnum, char *buf, size_t buflen)
 static int32_t
 open_mmap_file(char *path, uint32_t file_flags)
 {
-	if (strstr(path, "XXXXXX") != NULL) {
-		mode_t old_mode = umask(077);
+	const char *last_X;
+	if ((last_X = strrchr(path, 'X')) != NULL && last_X + 1 == '\0'
+			&& last_X - path >= 5 && strspn(last_X - 5, 'X') >= 6) {
+		mode_t old_mode = umask(177);
 		int32_t temp_fd = mkstemp(path);
-		(void)umask(old_mode);
+		(void) umask(old_mode);
 		return temp_fd;
 	}
 
