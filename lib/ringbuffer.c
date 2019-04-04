@@ -166,7 +166,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	/*
 	 * Create a shared_hdr memory segment for the header.
 	 */
-	snprintf(filename, PATH_MAX, "qb-%s-header", name);
+	snprintf(filename, PATH_MAX, "%s-header", name);
 	fd_hdr = qb_sys_mmap_file_open(path, filename,
 				       shared_size, file_flags);
 	if (fd_hdr < 0) {
@@ -217,7 +217,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	 * They have to be separate.
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
-		snprintf(filename, PATH_MAX, "qb-%s-data", name);
+		snprintf(filename, PATH_MAX, "%s-data", name);
 		fd_data = qb_sys_mmap_file_open(path,
 						filename,
 						real_size, file_flags);

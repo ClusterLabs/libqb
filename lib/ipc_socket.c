@@ -374,6 +374,10 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 			free(base_name);
 		}
 	}
+
+	/* Last-ditch attempt to tidy up after ourself */
+	remove_tempdir(c->request.u.us.shared_file_name, PATH_MAX);
+
 	qb_ipcc_us_sock_close(c->event.u.us.sock);
 	qb_ipcc_us_sock_close(c->request.u.us.sock);
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
@@ -765,7 +769,10 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		munmap(c->request.u.us.shared_data, SHM_CONTROL_SIZE);
 		unlink(c->request.u.us.shared_file_name);
+
+
 	}
+	remove_tempdir(c->description, CONNECTION_DESCRIPTION);
 }
 
 static int32_t
@@ -784,9 +791,9 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	c->request.u.us.sock = c->setup.u.us.sock;
 	c->response.u.us.sock = c->setup.u.us.sock;
 
-	snprintf(r->request, NAME_MAX, "qb-%s-control-%s",
-		 s->name, c->description);
-	snprintf(r->response, NAME_MAX, "qb-%s-%s", s->name, c->description);
+	snprintf(r->request, NAME_MAX, "%s-control-%s",
+		 c->description, s->name);
+	snprintf(r->response, NAME_MAX, "%s-%s", c->description, s->name);
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
 				       SHM_CONTROL_SIZE,
