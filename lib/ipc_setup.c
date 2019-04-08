@@ -651,6 +651,11 @@ handle_new_connection(struct qb_ipcs_service *s,
 		res = errno;
 		goto send_response;
 	}
+	res = chown(c->description, c->auth.uid, c->auth.gid);
+	if (res != 0) {
+		res = errno;
+		goto send_response;
+	}
 
 	/* We can't pass just a directory spec to the clients */
 	strncat(c->description,"/qb", CONNECTION_DESCRIPTION);
