@@ -790,7 +790,7 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	fd_hdr = qb_sys_mmap_file_open(path, r->request,
 				       SHM_CONTROL_SIZE,
-				       O_CREAT | O_TRUNC | O_RDWR);
+				       O_CREAT | O_TRUNC | O_RDWR | O_EXCL);
 	if (fd_hdr < 0) {
 		res = fd_hdr;
 		errno = -fd_hdr;
