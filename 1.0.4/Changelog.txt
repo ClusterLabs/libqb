@@ -1,0 +1,22 @@
+2019-04-12  Christine Caulfield  <ccaulfie@redhat.com>
+
+	version: update version-info for 1.0.4 release
+
+2019-04-09  Christine Caulfield  <ccaulfie@redhat.com>
+
+	ipc: Use mkdtemp for more secure IPC files
+	Use mkdtemp makes sure that IPC files are only visible to the
+	owning (client) process and do not use predictable names outside
+	of that.
+	This is not meant to be the last word on the subject, it's mainly a
+	simple way of making the current libqb more secure. Importantly, it's
+	backwards compatible with an old server.
+	It calls rmdir on the directory created by mkdtemp way too often, but
+	it seems to be the only way to be sure that things get cleaned up on
+	the various types of server/client exit. I'm sure we can come up with
+	something tidier for master but I hope this, or something similar, will
+	be OK for 1.0.x.
+
+2019-04-08  Christine Caulfield  <ccaulfie@redhat.com>
+
+	ipc: use O_EXCL when opening IPC files
