@@ -207,6 +207,6 @@ int32_t qb_ipc_us_sock_error_is_disconnected(int err);
 
 int use_filesystem_sockets(void);
 
-void remove_tempdir(const char *name, size_t namelen);
+void remove_tempdir(const char *name);
 
 #endif /* QB_IPC_INT_H_DEFINED */
