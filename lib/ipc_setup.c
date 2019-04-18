@@ -650,7 +650,9 @@ handle_new_connection(struct qb_ipcs_service *s,
 		res = errno;
 		goto send_response;
 	}
-	res = chown(c->description, c->auth.uid, c->auth.gid);
+	/* chown can fail because we might not be root */
+	(void)chown(c->description, c->auth.uid, c->auth.gid);
+	res = chmod(c->description, 0770);
 	if (res != 0) {
 		res = errno;
 		goto send_response;
