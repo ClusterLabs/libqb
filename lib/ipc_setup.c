@@ -904,16 +904,15 @@ retry_accept:
 	return 0;
 }
 
-void remove_tempdir(const char *name, size_t namelen)
+void remove_tempdir(const char *name)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	char dirname[PATH_MAX];
-	char *slash;
-	memcpy(dirname, name, namelen);
+	char *slash = strrchr(name, '/');
 
-	slash = strrchr(dirname, '/');
-	if (slash) {
-		*slash = '\0';
+	if (slash && slash - name < sizeof dirname) {
+		memcpy(dirname, name, slash - name);
+		dirname[slash - name] = '\0';
 		/* This gets called more than it needs to be really, so we don't check
 		 * the return code. It's more of a desperate attempt to clean up after ourself
 		 * in either the server or client.

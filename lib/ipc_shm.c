@@ -240,7 +240,7 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 		}
 	}
 
-	remove_tempdir(c->description, CONNECTION_DESCRIPTION);
+	remove_tempdir(c->description);
 }
 
 static int32_t
