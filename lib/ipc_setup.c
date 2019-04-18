@@ -628,6 +628,8 @@ handle_new_connection(struct qb_ipcs_service *s,
 	int32_t res2 = 0;
 	uint32_t max_buffer_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
 	struct qb_ipc_connection_response response;
+	const char suffix[] = "/qb";
+	int desc_len;
 
 	c = qb_ipcs_connection_alloc(s);
 	if (c == NULL) {
@@ -654,8 +656,16 @@ handle_new_connection(struct qb_ipcs_service *s,
 	memset(&response, 0, sizeof(response));
 
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(c->description, CONNECTION_DESCRIPTION,
-		 "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
+	desc_len = snprintf(c->description, CONNECTION_DESCRIPTION - sizeof suffix,
+			    "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
+	if (desc_len < 0) {
+		res = -errno;
+		goto send_response;
+	}
+	if (desc_len >= CONNECTION_DESCRIPTION - sizeof suffix) {
+		res = -ENAMETOOLONG;
+		goto send_response;
+	}
 	if (mkdtemp(c->description) == NULL) {
 		res = -errno;
 		goto send_response;
@@ -668,10 +678,18 @@ handle_new_connection(struct qb_ipcs_service *s,
 	(void)chown(c->description, c->auth.uid, c->auth.gid);
 
 	/* We can't pass just a directory spec to the clients */
-	strncat(c->description,"/qb", CONNECTION_DESCRIPTION);
+	memcpy(c->description + desc_len, suffix, sizeof suffix);
 #else
-	snprintf(c->description, CONNECTION_DESCRIPTION,
-		 "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
+	desc_len = snprintf(c->description, CONNECTION_DESCRIPTION,
+			    "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
+	if (desc_len < 0) {
+		res = -errno;
+		goto send_response;
+	}
+	if (desc_len >= CONNECTION_DESCRIPTION) {
+		res = -ENAMETOOLONG;
+		goto send_response;
+	}
 #endif
 
 
