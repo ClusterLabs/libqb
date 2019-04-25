@@ -1,0 +1,31 @@
+2019-04-25  Christine Caulfield  <ccaulfie@redhat.com>
+
+	version: bump soname for 1.0.5 release
+
+2019-04-23  Ferenc Wágner  <wferi@debian.org>
+
+	Let remote_tempdir() assume a NUL-terminated name
+	This is the case already.  We also fix a buffer overflow opportunity in
+	the memcpy() call by this change.
+
+	Make it impossible to truncate or overflow the connection description
+	It's hard to predict the length of formatted output, so we'd better
+	notice (and abort) if the description is truncated.  Incidentally,
+	mkdtemp() does this for us in the shared memory branch, but do an
+	explicit check there as well for consistency, and get rid of the wrongly
+	parametrized strncat() risking a buffer overflow (CONNECTION_DESCRIPTION
+	is not the length of the source "/qb").
+	Similar truncation checks should be added to qb_ipcs_{shm,us}_connect()
+	where they build the request/response names, and possibly to other
+	places using snprintf().
+
+	Allow group access to the IPC directory
+	And don't abort if we aren't permitted to chown() it.  The client might
+	still have the privileges to enter it.
+
+	Errors are represented as negative values
+
+	Fix garbled Doxygen markup
+	Part of d0ec0a6 on the master branch: fix the unreadable docstring.
+
+	Fix spelling: plaform -> platform
