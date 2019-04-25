@@ -26,7 +26,7 @@
 #include "loop_int.h"
 #include "util_int.h"
 
-static struct qb_loop *default_intance = NULL;
+static struct qb_loop *default_instance = NULL;
 
 static void
 qb_loop_run_level(struct qb_loop_level *level)
@@ -77,7 +77,7 @@ qb_loop_level_item_del(struct qb_loop_level *level, struct qb_loop_item *job)
 struct qb_loop *
 qb_loop_default_get(void)
 {
-	return default_intance;
+	return default_instance;
 }
 
 struct qb_loop *
@@ -105,8 +105,8 @@ qb_loop_create(void)
 	l->fd_source = qb_loop_poll_create(l);
 	l->signal_source = qb_loop_signals_create(l);
 
-	if (default_intance == NULL) {
-		default_intance = l;
+	if (default_instance == NULL) {
+		default_instance = l;
 	}
 	return l;
 }
@@ -119,8 +119,8 @@ qb_loop_destroy(struct qb_loop *l)
 	qb_loop_poll_destroy(l);
 	qb_loop_signals_destroy(l);
 
-	if (default_intance == l) {
-		default_intance = NULL;
+	if (default_instance == l) {
+		default_instance = NULL;
 	}
 	free(l);
 }
@@ -128,10 +128,11 @@ qb_loop_destroy(struct qb_loop *l)
 void
 qb_loop_stop(struct qb_loop *l)
 {
-	if (l == NULL) {
-		default_intance->stop_requested = QB_TRUE;
+	struct qb_loop *apply_loop = (l != NULL) ? l : default_instance;
+	if (apply_loop != NULL) {
+		apply_loop->stop_requested = QB_TRUE;
 	} else {
-		l->stop_requested = QB_TRUE;
+		qb_util_log(LOG_CRIT, "API misuse: cannot stop nonexisting loop");
 	}
 }
 
@@ -148,7 +149,7 @@ qb_loop_run(struct qb_loop *lp)
 	struct qb_loop *l = lp;
 
 	if (l == NULL) {
-		l = default_intance;
+		l = default_instance;
 	}
 	l->stop_requested = QB_FALSE;
 

@@ -820,7 +820,7 @@ END_TEST
 static const char *tagtest_stringify_tag(uint32_t tag)
 {
 	static char buf[32];
-	sprintf(buf, "%5d", tag);
+	sprintf(buf, "%5" PRIu32, tag);
 	return buf;
 }
 

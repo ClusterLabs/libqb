@@ -39,6 +39,11 @@ extern "C" {
 /**
  * @file qbhdb.h
  * The handle database is for reference counting objects.
+ *
+ * @note
+ * Historically, handle database implementation also served internal needs
+ * of libqb (e.g. for IPC services tracking), which was eventually replaced
+ * with indirection-less reference counters and their direct modifications.
  */
 
 /**
@@ -118,6 +123,7 @@ int32_t qb_hdb_handle_get(struct qb_hdb *hdb, qb_handle_t handle_in,
  * @param hdb the database instance
  * @param instance (out) pointer to the desired object.
  * @return (0 == ok, -errno failure)
+ * @note This is currently an alias to @ref qb_hdb_handle_get.
  */
 int32_t qb_hdb_handle_get_always(struct qb_hdb *hdb, qb_handle_t handle_in,
 				 void **instance);

@@ -40,6 +40,13 @@
 #include "util_int.h"
 #include <regex.h>
 
+#if defined(QB_NEED_ATTRIBUTE_SECTION_WORKAROUND) && !defined(S_SPLINT_S)
+/* following only needed to force these symbols be global
+   with ld 2.29: https://bugzilla.redhat.com/1477354 */
+struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_START[] = { {0} };
+struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_STOP[] = { {0} };
+#endif
+
 static struct qb_log_target conf[QB_LOG_TARGET_MAX];
 static uint32_t conf_active_max = 0;
 static int32_t in_logger = QB_FALSE;
@@ -139,8 +146,10 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 		break;
 	case QB_LOG_FILTER_FILE_REGEX:
 		next = next ? next : cs->filename;
+		/* fallthrough */
 	case QB_LOG_FILTER_FUNCTION_REGEX:
 		next = next ? next : cs->function;
+		/* fallthrough */
 	case QB_LOG_FILTER_FORMAT_REGEX:
 		next = next ? next : cs->format;
 
@@ -402,6 +411,24 @@ qb_log_from_external_source(const char *function,
 	va_end(ap);
 }
 
+static void
+qb_log_callsites_dump_sect(struct callsite_section *sect)
+{
+	struct qb_log_callsite *cs;
+	printf(" start %p - stop %p\n", sect->start, sect->stop);
+	printf("filename    lineno targets         tags\n");
+	for (cs = sect->start; cs < sect->stop; cs++) {
+		if (cs->lineno > 0) {
+#ifndef S_SPLINT_S
+			printf("%12s %6" PRIu32 " %16" PRIu32 " %16u\n",
+			       cs->filename, cs->lineno, cs->targets,
+			       cs->tags);
+#endif /* S_SPLINT_S */
+		}
+	}
+}
+
+
 int32_t
 qb_log_callsites_register(struct qb_log_callsite *_start,
 			  struct qb_log_callsite *_stop)
@@ -466,21 +493,6 @@ qb_log_callsites_register(struct qb_log_callsite *_start,
 	/* qb_log_callsites_dump_sect(sect); */
 
 	return 0;
-}
-
-static void
-qb_log_callsites_dump_sect(struct callsite_section *sect)
-{
-	struct qb_log_callsite *cs;
-
-	printf(" start %p - stop %p\n", sect->start, sect->stop);
-	printf("filename    lineno targets         tags\n");
-	for (cs = sect->start; cs < sect->stop; cs++) {
-		if (cs->lineno > 0) {
-			printf("%12s %6d %16d %16d\n", cs->filename, cs->lineno,
-			       cs->targets, cs->tags);
-		}
-	}
 }
 
 void
@@ -852,6 +864,18 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t l;
 	enum qb_log_target_slot i;
+#ifdef QB_HAVE_ATTRIBUTE_SECTION
+	void *work_handle; struct qb_log_callsite *work_s1, *work_s2;
+	Dl_info work_dli;
+#endif /* QB_HAVE_ATTRIBUTE_SECTION */
+	/* cannot reuse single qb_log invocation in various contexts
+	   through the variables (when section attribute in use),
+	   hence this indirection */
+	enum {
+		preinit_err_none,
+		preinit_err_target_sec,
+		preinit_err_target_empty,
+	} preinit_err = preinit_err_none;
 
 	l = pthread_rwlock_init(&_listlock, NULL);
 	assert(l == 0);
@@ -870,6 +894,28 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 
 	qb_log_dcs_init();
 #ifdef QB_HAVE_ATTRIBUTE_SECTION
+	/* sanity check that target chain supplied QB_ATTR_SECTION_ST{ART,OP}
+	   symbols and hence the local references to them are not referencing
+	   the proper libqb's ones (locating libqb by it's relatively unique
+	   non-functional symbols -- the two are mutually exclusive, the
+	   ordinarily latter was introduced by accident, the former is
+	   intentional -- due to possible confusion otherwise) */
+	if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)
+	     || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))
+	    && (work_handle = dlopen(work_dli.dli_fname,
+	                             RTLD_LOCAL|RTLD_LAZY)) != NULL) {
+		work_s1 = (struct qb_log_callsite *)
+		          dlsym(work_handle, QB_ATTR_SECTION_START_STR);
+		work_s2 = (struct qb_log_callsite *)
+		          dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);
+		if (work_s1 == QB_ATTR_SECTION_START
+		    || work_s2 == QB_ATTR_SECTION_STOP) {
+			preinit_err = preinit_err_target_sec;
+		} else if (work_s1 == work_s2) {
+			preinit_err = preinit_err_target_empty;
+		}
+		dlclose(work_handle);  /* perhaps overly eager thing to do */
+	}
 	qb_log_callsites_register(QB_ATTR_SECTION_START, QB_ATTR_SECTION_STOP);
 	dl_iterate_phdr(_log_so_walk_callback, NULL);
 	_log_so_walk_dlnames();
@@ -883,6 +929,25 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	_log_target_state_set(&conf[QB_LOG_SYSLOG], QB_LOG_STATE_ENABLED);
 	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 				QB_LOG_FILTER_FILE, "*", priority);
+
+	if (preinit_err == preinit_err_target_sec)
+		qb_util_log(LOG_NOTICE, "(libqb) log module hasn't observed"
+		                        " target chain supplied callsite"
+		                        " section, target's and/or libqb's"
+		                        " build is at fault, preventing"
+		                        " reliable logging (unless qb_log_init"
+		                        " invoked in no-custom-logging context"
+		                        " unexpectedly, or target chain built"
+		                        " purposefully without these sections)");
+	else if (preinit_err == preinit_err_target_empty) {
+		qb_util_log(LOG_WARNING, "(libqb) log module has observed"
+		                         " target chain supplied section"
+		                         " unpopulated, target's and/or libqb's"
+		                         " build is at fault, preventing"
+		                         " reliable logging (unless qb_log_init"
+		                         " invoked in no-custom-logging context"
+		                         " unexpectedly)");
+	}
 }
 
 void
@@ -997,7 +1062,9 @@ qb_log_custom_open(qb_log_logger_fn log_fn,
 	}
 
 	t->instance = user_data;
-	snprintf(t->filename, PATH_MAX, "custom-%d", t->pos);
+#ifndef S_SPLINT_S
+	snprintf(t->filename, PATH_MAX, "custom-%" PRIu32, t->pos);
+#endif /* S_SPLINT_S */
 
 	t->logger = log_fn;
 	t->vlogger = NULL;

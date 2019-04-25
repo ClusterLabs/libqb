@@ -141,7 +141,7 @@ typedef void (*qb_ipcs_connection_created_fn) (qb_ipcs_connection_t *c);
  * @note This callback will only be invoked if the connection is
  * successfully created.
  * @note if you return anything but 0 this function will be
- * repeativily called (until 0 is returned).
+ * repeatedly called (until 0 is returned).
  */
 typedef int32_t (*qb_ipcs_connection_closed_fn) (qb_ipcs_connection_t *c);
 

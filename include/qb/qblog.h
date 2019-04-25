@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright 2017 Red Hat, Inc.
  *
  * All rights reserved.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
+ *         Jan Pokorny <jpokorny@redhat.com>
  *
  * libqb is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -38,9 +39,14 @@ extern "C" {
 #include <qb/qbutil.h>
 #include <qb/qbconfig.h>
 
-#ifdef S_SPLINT_S
+#if defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S)
 #undef QB_HAVE_ATTRIBUTE_SECTION
-#endif /* S_SPLINT_S */
+#endif  /* defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S) */
+
+#ifdef QB_HAVE_ATTRIBUTE_SECTION
+#include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */
+#include <dlfcn.h>  /* dynamic linking: dlopen, dlsym, dladdr, ... */
+#endif
 
 /**
  * @file qblog.h
@@ -64,9 +70,28 @@ extern "C" {
  * }
  * @endcode
  *
+ * @note
+ * In practice, such a minimalistic approach hardly caters real use cases.
+ * Following section discusses the customization.  Moreover when employing
+ * the log module is bound to its active use (some log messages are assuredly
+ * emitted within the target compilation unit), it's quite vital to instrument
+ * the target side with @c QB_LOG_INIT_DATA() macro placed in the top file
+ * scope in exactly one source file (preferably the main one) to be mixed into
+ * the resulting compilation unit.  This is a self-defensive measure for when
+ * the linker-assisted collection of callsite data silently fails, which could
+ * otherwise go unnoticed, causing troubles down the road, but alas it cannot
+ * discern misuse of @c QB_LOG_INIT_DATA() macro in no-logging context from
+ * broken callsite section handling assumptions owing to overboard fancy
+ * linker -- situation that the self-check aims to detect in the first place.
+ *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
- * By default only syslog is enabled.
+ * By default, only syslog is enabled.  While this is customary for daemons,
+ * it is rarely appropriate for ordinary programs, which should promptly
+ * disable that when other targets (read on) are to be utilized:
+ * @code
+ *	qb_log_ctl(B_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+ * @endcode
  *
  * To enable a target do the following:
  * @code
@@ -74,16 +99,16 @@ extern "C" {
  * @endcode
  *
  * syslog, stderr, the blackbox, and stdout are static (they don't need
- * to be created, just enabled or disabled). However you can open multiple
- * logfiles (QB_LOG_TARGET_MAX - QB_LOG_TARGET_STATIC_MAX).
- * To do this, use the following code:
+ * to be created, just enabled or disabled).  However, you can open multiple
+ * logfiles (falling within inclusive range @c QB_LOG_TARGET_DYNAMIC_START
+ * up to @c QB_LOG_TARGET_DYNAMIC_END).  To do this, use the following code:
  * @code
  *	mytarget = qb_log_file_open("/var/log/mylogfile");
  *	qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);
  * @endcode
  *
- * Once your targets are enabled/opened you can configure them as follows:
- * Configure the size of blackbox
+ * Once your targets are enabled/opened, you can configure them as follows:
+ * Configure the size of blackbox:
  * @code
  *	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);
  * @endcode
@@ -93,13 +118,21 @@ extern "C" {
  *	qb_log_ctl(mytarget, QB_LOG_CONF_THREADED, QB_TRUE);
  * @endcode
  *
- * To workaround your syslog daemon filtering all messages > LOG_INFO
+ * Sometimes, syslog daemons are (pre)configured to filter messages not
+ * exceeding a particular priority.  When this happens to be the logging
+ * target, the designated priority of the message is passed along unchanged,
+ * possibly resulting in message loss.  For messages up to @c LOG_DEBUG
+ * importance, this can be worked around by proportionally bumping the
+ * priorities to be passed to syslog (here, the step is such that
+ * @c LOG_DEBUG gets promoted to @c LOG_INFO):
  * @code
  *	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP,
- *		   LOG_INFO - LOG_DEBUG);
+ *	           LOG_INFO - LOG_DEBUG);
  * @endcode
  *
- * To ensure all logs to file targets are fsync'ed (default QB_FALSE)
+ * To ensure all logs to file targets are fsync'ed (new messages expressly
+ * transferred to the storage device as they keep coming, otherwise defaults
+ * to @c QB_FALSE):
  * @code
  *	qb_log_ctl(mytarget, QB_LOG_CONF_FILE_SYNC, QB_TRUE);
  * @endcode
@@ -268,15 +301,104 @@ typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 extern struct qb_log_callsite QB_ATTR_SECTION_START[];
 extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
 
-/* mere linker sanity check, possible future extension for internal purposes */
-#define QB_LOG_INIT_DATA(name)							\
-    void name(void);								\
-    void name(void) 								\
-    { if (QB_ATTR_SECTION_START == QB_ATTR_SECTION_STOP) assert(0); }	\
+/* Related to the next macro that is -- unlike this one -- a public API */
+#ifndef _GNU_SOURCE
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
+	_Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
+	        without "_GNU_SOURCE" defined (directly or not) 	\
+		QB_LOG_INIT_DATA cannot check sanity of libqb proper	\
+		nor of the target site originating this check alone)))
+#else
+#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
+    { Dl_info work_dli;							\
+    /* libqb sanity (locating libqb by it's relatively unique		\
+       non-functional symbols -- the two are mutually exclusive, the	\
+       ordinarily latter was introduced by accident, the former is	\
+       intentional -- due to possible confusion otherwise) */		\
+    if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)		\
+         || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))	\
+        && (work_handle = dlopen(work_dli.dli_fname,			\
+                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("libqb's callsite section is observable, otherwise \
+libqb's build is at fault, preventing reliable logging"			\
+               && work_s1 != NULL && work_s2 != NULL);			\
+        assert("libqb's callsite section is populated, otherwise \
+libqb's build is at fault, preventing reliable logging"			\
+               && work_s1 != work_s2);					\
+        dlclose(work_handle); }						\
+    /* sanity of the target site originating this check alone */	\
+    if (dladdr(dlsym(RTLD_DEFAULT, QB_PP_STRINGIFY(name)), &work_dli)	\
+        && (work_handle = dlopen(work_dli.dli_fname,			\
+                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("target's own callsite section observable, otherwise \
+target's own linkage at fault and logging would not work reliably \
+(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
+               && work_s1 != NULL && work_s2 != NULL);			\
+        assert("target's own callsite section non-empty, otherwise \
+target's own linkage at fault and logging would not work reliably \
+(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
+               && work_s1 != work_s2);					\
+        dlclose(work_handle); } }
+#endif  /* _GNU_SOURCE */
+
+/**
+ * Optional on-demand self-check of 1/ toolchain sanity (prerequisite for
+ * the logging subsystem to work properly) and 2/ non-void active use of
+ * logging (satisfied with a justifying existence of a logging callsite as
+ * defined with a @c qb_logt invocation) at the target (but see below), which
+ * is supposedly assured by it's author(!) as of relying on this very macro
+ * [technically, the symbols that happen to be resolved under the respective
+ * identifiers do not necessarily originate in the same compilation unit as
+ * when it's not the end executable (or by induction, a library positioned
+ * earlier in the symbol lookup order) but a shared library, the former takes
+ * a precedence unless that site comes short of exercising the logging,
+ * making its callsite section empty and, in turn, without such boundary
+ * symbols, hence making the resolution continue further in the lookup order
+ * -- despite fuzzily targeted attestation, the check remains reasonable];
+ * only effective when link-time ("run-time amortizing") callsite collection
+ * is;  as a side effect, it can ensure the boundary-denoting symbols for the
+ * target collection area are kept alive with some otherwise unkind linkers.
+ *
+ * Applying this macro in the target program/library is strongly recommended
+ * whenever the logging as framed by this header file is in use.
+ * Moreover, it's important to state that using this check while not ensuring
+ * @c _GNU_SOURCE macro definition is present at compile-time means only half
+ * of the available sanity checking will be performed, possibly resulting
+ * in libqb's own internally logged messages being lost without warning.
+ */
+#define QB_LOG_INIT_DATA(name)						\
+    void name(void);							\
+    void name(void) {							\
+    void *work_handle; struct qb_log_callsite *work_s1, *work_s2;	\
+    /* our own (target's) sanity, or possibly that of higher priority	\
+       symbol resolution site (unless target equals end executable)	\
+       or even the lower one if no such predecessor defines these */	\
+    if ((work_handle = dlopen(NULL, RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
+        work_s1 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
+        work_s2 = (struct qb_log_callsite *)				\
+                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
+        assert("implicit callsite section is observable, otherwise \
+target's and/or libqb's build is at fault, preventing reliable logging" \
+               && work_s1 != NULL && work_s2 != NULL);			\
+        dlclose(work_handle);  /* perhaps overly eager thing to do */ }	\
+    QB_NONAPI_LOG_INIT_DATA_EXTRA_(name);				\
+    /* finally, original, straightforward check */			\
+    assert("implicit callsite section is populated, otherwise \
+target's build is at fault, preventing reliable logging"		\
+           && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }		\
     void __attribute__ ((constructor)) name(void);
 #else
 #define QB_LOG_INIT_DATA(name)
-#endif
+#endif  /* QB_HAVE_ATTRIBUTE_SECTION */
 
 /**
  * Internal function: use qb_log() or qb_logt()
@@ -285,7 +407,7 @@ void qb_log_real_(struct qb_log_callsite *cs, ...);
 void qb_log_real_va_(struct qb_log_callsite *cs, va_list ap);
 
 #define QB_LOG_TAG_LIBQB_MSG_BIT 31
-#define QB_LOG_TAG_LIBQB_MSG (1 << QB_LOG_TAG_LIBQB_MSG_BIT)
+#define QB_LOG_TAG_LIBQB_MSG (1U << QB_LOG_TAG_LIBQB_MSG_BIT)
 
 /**
  * This function is to import logs from other code (like libraries)
@@ -535,7 +657,7 @@ void qb_log_callsites_dump(void);
  *
  * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
  * @param conf_type configuration directive ("what to configure") that accepts
- *        <tt>int32_t</tt> argument determining the new value unless ignored
+ *        @c int32_t argument determining the new value unless ignored
  *        for particular directive altogether
  *        (incompatible directives: QB_LOG_CONF_IDENT)
  * @param arg the new value for a state-changing configuration directive,
@@ -558,7 +680,7 @@ typedef union {
  *
  * @param target QB_LOG_SYSLOG, QB_LOG_STDERR or result from qb_log_file_open()
  * @param conf_type configuration directive ("what to configure") that accepts
- *        either <tt>int32_t</tt> or a null-terminated string argument
+ *        either @c int32_t or a null-terminated string argument
  *        determining the new value unless ignored for particular directive
  *        (compatible directives: those valid for qb_log_ctl
  *                                + QB_LOG_CONF_IDENT)
@@ -569,9 +691,9 @@ typedef union {
  *        that original function directly as it allows for more type safety)
  * @see qb_log_ctl
  *
- * @note You can use <tt>QB_LOG_CTL2_I32</tt> and <tt>QB_LOG_CTL2_S</tt>
- *       macros for a convenient on-the-fly construction of the object
- *       to be passed as an <tt>arg</tt> argument.
+ * @note You can use @ref QB_LOG_CTL2_I32 and @ref QB_LOG_CTL2_S macros
+ *       for a convenient on-the-fly construction of the object
+ *       to be passed as an @p arg argument.
  */
 int32_t qb_log_ctl2(int32_t target, enum qb_log_conf conf_type,
 		    qb_log_ctl2_arg_t arg);
@@ -640,7 +762,15 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * %P PID
  * %H hostname
  *
- * any number between % and character specify field length to pad or chop
+ * Any number between % and character specify field length to pad or chop.
+ *
+ * @note Some of the fields are immediately evaluated and remembered
+ *       for performance reasons, so when there's an objective for log
+ *       messages to carry PIDs (not in the default setup) and, moreover,
+ *       precisely, this function needs to be reinvoked upon @c fork
+ *       (@c clone) in the respective children.  When already linking
+ *       to @c libpthread, @c pthread_atfork callback registration
+ *       could be useful.
  */
 void qb_log_format_set(int32_t t, const char* format);
 
@@ -707,13 +837,13 @@ void qb_log_custom_close(int32_t t);
 void *qb_log_target_user_data_get(int32_t t);
 
 /**
- * Associate user data with this log target
+ * Associate user data with this log target.
  * @note only use this with custom targets
  */
 int32_t qb_log_target_user_data_set(int32_t t, void *user_data);
 
 /**
- * format the callsite and timestamp info according to the format
+ * Format the callsite and timestamp info according to the format.
  * set using qb_log_format_set()
  * It is intended to be used from your custom logger function.
  */

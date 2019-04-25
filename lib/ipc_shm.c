@@ -239,6 +239,8 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 			qb_rb_close(qb_rb_lastref_and_ret(&c->request.u.shm.rb));
 		}
 	}
+
+	remove_tempdir(c->description);
 }
 
 static int32_t
@@ -285,11 +287,11 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
 	snprintf(r->request, NAME_MAX, "%s-request-%s",
-		 s->name, c->description);
+		 c->description, s->name);
 	snprintf(r->response, NAME_MAX, "%s-response-%s",
-		 s->name, c->description);
+		 c->description, s->name);
 	snprintf(r->event, NAME_MAX, "%s-event-%s",
-		 s->name, c->description);
+		 c->description, s->name);
 
 	res = qb_ipcs_shm_rb_open(c, &c->request,
 				  r->request);

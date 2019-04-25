@@ -50,7 +50,7 @@ extern "C" {
 /*
  * bit manipulation
  */
-#define qb_bit_value(bit) (1 << (bit))
+#define qb_bit_value(bit) (1U << (bit))
 #define qb_bit_set(barray, bit) (barray |= qb_bit_value(bit))
 #define qb_bit_clear(barray, bit) (barray &= ~(qb_bit_value(bit)))
 #define qb_bit_is_set(barray, bit) (barray & qb_bit_value(bit))

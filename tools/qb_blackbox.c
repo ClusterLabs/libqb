@@ -22,9 +22,10 @@ main(int argc, char **argv)
 {
 	int lpc = 0;
 
-        qb_log_init("qb_blackbox", LOG_USER, LOG_TRACE);
-        qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
-        qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FILE, "*", LOG_TRACE);
+	qb_log_init("qb_blackbox", LOG_USER, LOG_TRACE);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 
 	for(lpc = 1; lpc < argc && argv[lpc] != NULL; lpc++) {
 		printf("Dumping the contents of %s\n", argv[lpc]);

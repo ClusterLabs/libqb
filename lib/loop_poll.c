@@ -68,7 +68,7 @@ _poll_entry_check_generate_(struct qb_poll_entry *pe)
 	for (i = 0; i < 200; i++) {
 		pe->check = random();
 
-		if (pe->check != 0 && pe->check != 0xffffffff) {
+		if (pe->check != 0 && pe->check != UINT32_MAX) {
 			break;
 		}
 	}

@@ -155,7 +155,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	    sizeof(struct qb_ringbuffer_shared_s) + shared_user_data_size;
 
 	if (flags & QB_RB_FLAG_CREATE) {
-		file_flags |= O_CREAT | O_TRUNC;
+		file_flags |= O_CREAT | O_TRUNC | O_EXCL;
 	}
 
 	rb = calloc(1, sizeof(struct qb_ringbuffer_s));
@@ -166,7 +166,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	/*
 	 * Create a shared_hdr memory segment for the header.
 	 */
-	snprintf(filename, PATH_MAX, "qb-%s-header", name);
+	snprintf(filename, PATH_MAX, "%s-header", name);
 	fd_hdr = qb_sys_mmap_file_open(path, filename,
 				       shared_size, file_flags);
 	if (fd_hdr < 0) {
@@ -217,7 +217,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	 * They have to be separate.
 	 */
 	if (flags & QB_RB_FLAG_CREATE) {
-		snprintf(filename, PATH_MAX, "qb-%s-data", name);
+		snprintf(filename, PATH_MAX, "%s-data", name);
 		fd_data = qb_sys_mmap_file_open(path,
 						filename,
 						real_size, file_flags);
@@ -698,12 +698,12 @@ print_header(struct qb_ringbuffer_s * rb)
 	} else {
 		printf(" ->NORMAL\n");
 	}
-	printf(" ->write_pt [%d]\n", rb->shared_hdr->write_pt);
-	printf(" ->read_pt [%d]\n", rb->shared_hdr->read_pt);
-	printf(" ->size [%d words]\n", rb->shared_hdr->word_size);
 #ifndef S_SPLINT_S
-	printf(" =>free [%zu bytes]\n", qb_rb_space_free(rb));
-	printf(" =>used [%zu bytes]\n", qb_rb_space_used(rb));
+	printf(" ->write_pt [%" PRIu32 "]\n", rb->shared_hdr->write_pt);
+	printf(" ->read_pt [%" PRIu32 "]\n", rb->shared_hdr->read_pt);
+	printf(" ->size [%" PRIu32 " words]\n", rb->shared_hdr->word_size);
+	printf(" =>free [%zd bytes]\n", qb_rb_space_free(rb));
+	printf(" =>used [%zd bytes]\n", qb_rb_space_used(rb));
 #endif /* S_SPLINT_S */
 }
 

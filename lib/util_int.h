@@ -35,7 +35,7 @@
  * This is used internally by libqb.
  *
  * It sets the 32nd bit of the tags so that internal logs can be
- * destinguished from external ones.
+ * distinguished from external ones.
  */
 #ifndef S_SPLINT_S
 #define qb_util_log(priority, fmt, args...) qb_logt(priority, QB_LOG_TAG_LIBQB_MSG, fmt, ##args)

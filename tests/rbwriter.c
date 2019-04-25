@@ -150,5 +150,6 @@ int32_t main(int32_t argc, char *argv[])
 			QB_RB_FLAG_SHARED_PROCESS, 0);
 	do_throughput_benchmark();
 	qb_rb_close(rb);
+	qb_log_fini();
 	return EXIT_SUCCESS;
 }

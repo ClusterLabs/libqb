@@ -40,7 +40,7 @@ notify_fn(uint32_t event, char *key, void *old_value, void *value,
 		fprintf(stderr, "Notify[REPLACED] %s [%d] -> [%d]\n",
 			key, *(int *)old_value, *(int *)value);
 	} else {
-		fprintf(stderr, "Notify[%d] %s \n", event, key);
+		fprintf(stderr, "Notify[%" PRIu32 "] %s \n", event, key);
 		if (value != NULL) {
 			fprintf(stderr, " value = [%d]\n", *(int *)value);
 		}

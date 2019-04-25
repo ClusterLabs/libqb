@@ -81,7 +81,9 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		(void)strlcpy(path, file, PATH_MAX);
 	} else {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
-		snprintf(path, PATH_MAX, "/dev/shm/%s", file);
+		/* This is only now called when talking to an old libqb
+		   where we need to add qb- to the name */
+		snprintf(path, PATH_MAX, "/dev/shm/qb-%s", file);
 #else
 		snprintf(path, PATH_MAX, "%s/%s", SOCKETDIR, file);
 		is_absolute = path;

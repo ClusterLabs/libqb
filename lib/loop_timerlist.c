@@ -35,7 +35,7 @@ struct qb_loop_timer {
 	enum qb_loop_priority p;
 	timer_handle timerlist_handle;
 	enum qb_poll_entry_state state;
-	uint32_t check;
+	int32_t check;
 	uint32_t install_pos;
 };
 
@@ -123,7 +123,7 @@ _timer_from_handle_(struct qb_timer_source *s,
 		    struct qb_loop_timer **timer_pt)
 {
 	int32_t rc;
-	uint32_t check;
+	int32_t check;
 	uint32_t install_pos;
 	struct qb_loop_timer *timer;
 
@@ -131,8 +131,8 @@ _timer_from_handle_(struct qb_timer_source *s,
 		return -EINVAL;
 	}
 
-	check = ((uint32_t) (((uint64_t) handle_in) >> 32));
-	install_pos = handle_in & 0xffffffff;
+	check = handle_in >> 32;
+	install_pos = handle_in & UINT32_MAX;
 
 	rc = qb_array_index(s->timers, install_pos, (void **)&timer);
 	if (rc != 0) {
@@ -202,11 +202,17 @@ qb_loop_timer_add(struct qb_loop * lp,
 	t->p = p;
 	qb_list_init(&t->item.list);
 
+	/*
+	 * Make sure just positive integers are used for the integrity(?)
+	 * checks within 2^32 address space, if we miss 200 times in a row
+	 * (just 0 is concerned per specification of random), the PRNG may be
+	 * broken -> the value is unspecified, subject of previous assignment.
+	 */
 	for (i = 0; i < 200; i++) {
 		t->check = random();
 
-		if (t->check != 0 && t->check != 0xffffffff) {
-			break;
+		if (t->check > 0) {
+			break;  /* covers also t->check == UINT32_MAX */
 		}
 	}
 

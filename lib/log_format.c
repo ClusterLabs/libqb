@@ -49,7 +49,7 @@ static struct syslog_names prioritynames[] = {
 	{NULL, -1}
 };
 
-struct syslog_names facilitynames[] = {
+static struct syslog_names facilitynames[] = {
 	{"auth", LOG_AUTH},
 #if defined(LOG_AUTHPRIV)
 	{"authpriv", LOG_AUTHPRIV},
@@ -385,7 +385,9 @@ qb_log_target_format(int32_t target,
 				break;
 
 			case 'l':
-				snprintf(tmp_buf, 30, "%d", cs->lineno);
+#ifndef S_SPLINT_S
+				snprintf(tmp_buf, 30, "%" PRIu32, cs->lineno);
+#endif /* S_SPLINT_S */
 				p = tmp_buf;
 				break;
 
@@ -465,8 +467,8 @@ qb_vsnprintf_serialize(char *serialize, size_t max_len,
 	char *qb_xc;
 	int type_long = QB_FALSE;
 	int type_longlong = QB_FALSE;
-        int sformat_length = 0;
-        int sformat_precision = QB_FALSE;
+	size_t sformat_length = 0;
+	int sformat_precision = QB_FALSE;
 	uint32_t location = my_strlcpy(serialize, fmt, max_len) + 1;
 
 	/* Assume serialized output always wants extended information

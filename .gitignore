@@ -15,15 +15,25 @@ aclocal.m4
 autom4te.cache/
 config.status
 configure
+conftest.*
 .libs
+
+# since we use subdir-objects as automake option
+.dirstamp
 
 # ignore "libtoolized" m4 files, but keep our (custom-prefixed) ones
 /m4/*
 !/m4/ax_*.m4
 
+# build-aux/release.mk related litter
+/.tarball-version
+/tag-*
+
+/lib/qblog_script.ld
+# already captured with wildcard: /lib/qblog_script.la
+
 libtool
 .version
-.tarball-version
 libqb.spec
 libqb-*
 cov
@@ -32,4 +42,12 @@ abi_dumps
 TAGS
 *~
 test-driver
-tests/*.trs
+
+/tests/**/*.real
+/tests/**/*.trs
+/tests/functional/log_callsite_bench.c
+/tests/functional/**/log_callsite_bench_section*.c
+/tests/functional/**/log_client
+/tests/functional/**/log_interlib_client
+/tests/functional/_pkgs
+/tests/functional/_results

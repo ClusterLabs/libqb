@@ -30,7 +30,12 @@
 /* Enabling code using __attribute__((section)) */
 #undef QB_HAVE_ATTRIBUTE_SECTION
 
-/* versioning info: MAJOR, MINOR, MICRO, and REST components */
+/* versioning info: MAJOR, MINOR, MICRO, and REST components;
+   note that static compile-time info is not that useful as consulting
+   the respectively named members of qb_version struct constant under
+   @c qb_ver identifier (or @c qb_ver_str equivalent of the local
+   upper-cased value) directly from libqb in run-time (see qbutil.h),
+   but that was only introduced after v1.0.2 */
 #undef QB_VER_MAJOR
 #undef QB_VER_MINOR
 #undef QB_VER_MICRO

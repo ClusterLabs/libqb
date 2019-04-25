@@ -31,7 +31,8 @@ make %{?_smp_mflags}
 
 %if 0%{?with_check}
 %check
-VERBOSE=1 make check
+make V=1 check \
+  && make -C tests/functional/log_internal V=1 check
 %endif
 
 %install
@@ -52,7 +53,8 @@ rm -rf $RPM_BUILD_ROOT/%{_datadir}/doc/libqb
 %package        devel
 Summary:        Development files for %{name}
 Group:          Development/Libraries
-Requires:       %{name} = %{version}-%{release} pkgconfig
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       pkgconfig
 
 %description    devel
 The %{name}-devel package contains libraries and header files for

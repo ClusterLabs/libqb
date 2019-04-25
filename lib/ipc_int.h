@@ -160,7 +160,7 @@ enum qb_ipcs_connection_state {
 	QB_IPCS_CONNECTION_SHUTTING_DOWN,
 };
 
-#define CONNECTION_DESCRIPTION (34) /* INT_MAX length + 3 */
+#define CONNECTION_DESCRIPTION NAME_MAX
 
 struct qb_ipcs_connection_auth {
 	uid_t uid;
@@ -206,5 +206,7 @@ int32_t qb_ipcs_process_request(struct qb_ipcs_service *s,
 int32_t qb_ipc_us_sock_error_is_disconnected(int err);
 
 int use_filesystem_sockets(void);
+
+void remove_tempdir(const char *name);
 
 #endif /* QB_IPC_INT_H_DEFINED */
