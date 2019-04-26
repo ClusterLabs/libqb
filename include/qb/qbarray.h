@@ -48,7 +48,7 @@ extern "C" {
  * @endcode
  *
  * Currently, this dynamic array abstract data type can accommodate only
- * 2^(@c * QB_ARRAY_MAX_INDEX_BITS) elements, and with standard zero-based
+ * 2^@c QB_ARRAY_MAX_INDEX_BITS elements, and with standard zero-based
  * indexing, this gives a valid index range [0, @c QB_ARRAY_MAX_ELEMENTS),
  * where the notation denotes the beginning of the interval is included and
  * the end is excluded.  In other words, client space shall avoid a pitfall
