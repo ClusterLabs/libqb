@@ -23,12 +23,11 @@
 #include <qb/qbarray.h>
 #include <qb/qbutil.h>
 
-/* We divide the "array index" address of the element to
-   ELEMENTS_PER_BIN_BITS lower bits denoting the local "bin index"
-   of the element, and the remaining higher bits than specify
-   the particular "bin" (currently, we restrict that there is
-   only a limited number of them so the whole "array index"
-   always fits ARRAY_INDEX_BITS_MAX bits). */
+/* The highest ARRAY_INDEX_BITS_BINS bits of the array index are the
+ * number of the bin containing the indicated element, while the
+ * remaining ARRAY_INDEX_BITS_ELEMS_PER_BIN bits give its index inside
+ * the bin.  The full array index is ARRAY_INDEX_BITS_MAX bits long.
+ */
 
 #define ARRAY_INDEX_BITS_ELEMS_PER_BIN 4
 #define ARRAY_INDEX_BITS_BINS \
