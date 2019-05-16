@@ -830,7 +830,8 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 	                               POLLIN | POLLPRI | POLLNVAL,
 	                               data, process_auth);
 	if (res < 0) {
-		qb_util_log(LOG_DEBUG, "Failed to process AUTH for fd (%d)", data->sock);
+		qb_util_log(LOG_DEBUG, "Failed to arrange for AUTH for fd (%d)",
+		            data->sock);
 		close(sock);
 		destroy_ipc_auth_data(data);
 	}
