@@ -399,8 +399,30 @@ s1_connection_created(qb_ipcs_connection_t *c)
 
 }
 
-static void
-run_ipc_server(void)
+static volatile sig_atomic_t usr1_bit;
+
+static void usr1_bit_setter(int signal) {
+    if (signal == SIGUSR1) {
+        usr1_bit = 1;
+    }
+}
+
+#define READY_SIGNALLER(name, data_arg)  void (name)(void *data_arg)
+typedef READY_SIGNALLER(ready_signaller_fn, );
+
+static
+READY_SIGNALLER(usr1_signaller, parent_target)
+{
+	kill(*((pid_t *) parent_target), SIGUSR1);
+}
+
+#define NEW_PROCESS_RUNNER(name, ready_signaller_arg, signaller_data_arg) \
+	void (name)(ready_signaller_fn ready_signaller_arg, \
+	      void *signaller_data_arg)
+typedef NEW_PROCESS_RUNNER(new_process_runner_fn, , );
+
+static
+NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data)
 {
 	int32_t res;
 	qb_loop_signal_handle handle;
@@ -423,7 +445,7 @@ run_ipc_server(void)
 
 	my_loop = qb_loop_create();
 	qb_loop_signal_add(my_loop, QB_LOOP_HIGH, SIGTERM,
-			   NULL, exit_handler, &handle);
+	                   NULL, exit_handler, &handle);
 
 
 	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
@@ -437,22 +459,35 @@ run_ipc_server(void)
 	res = qb_ipcs_run(s1);
 	ck_assert_int_eq(res, 0);
 
+	if (ready_signaller != NULL) {
+		ready_signaller(signaller_data);
+	}
+
 	qb_loop_run(my_loop);
 	qb_log(LOG_DEBUG, "loop finished - done ...");
 }
 
 static pid_t
-run_function_in_new_process(void (*run_ipc_server_fn)(void))
+run_function_in_new_process(new_process_runner_fn new_process_runner)
 {
-	pid_t pid1 = fork ();
-	pid_t pid2;
+	pid_t parent_target, pid1, pid2;
+	struct sigaction orig_sa, purpose_sa;
+	sigset_t orig_mask, purpose_mask, purpose_clear_mask;
 
-	if (pid1 == -1) {
-		fprintf (stderr, "Can't fork\n");
-		return -1;
-	}
+	sigemptyset(&purpose_mask);
+	sigaddset(&purpose_mask, SIGUSR1);
+
+	sigprocmask(SIG_BLOCK, &purpose_mask, &orig_mask);
+	purpose_clear_mask = orig_mask;
+	sigdelset(&purpose_clear_mask, SIGUSR1);
+
+	purpose_sa.sa_handler = usr1_bit_setter;
+	purpose_sa.sa_mask = purpose_mask;
+	purpose_sa.sa_flags = SA_RESTART;
 
 	/* Double-fork so the servers can be reaped in a timely manner */
+	parent_target = getpid();
+	pid1 = fork();
 	if (pid1 == 0) {
 		pid2 = fork();
 		if (pid2 == -1) {
@@ -460,13 +495,28 @@ run_function_in_new_process(void (*run_ipc_server_fn)(void))
 			exit(0);
 		}
 		if (pid2 == 0) {
-			run_ipc_server_fn();
+			sigprocmask(SIG_SETMASK, &orig_mask, NULL);
+			new_process_runner(usr1_signaller, &parent_target);
 			exit(0);
 		} else {
 			waitpid(pid2, NULL, 0);
 			exit(0);
 		}
 	}
+
+	usr1_bit = 0;
+	/* XXX assume never fails */
+	sigaction(SIGUSR1, &purpose_sa, &orig_sa);
+
+	do {
+		/* XXX assume never fails with EFAULT */
+		sigsuspend(&purpose_clear_mask);
+	} while (usr1_bit != 1);
+	usr1_bit = 0;
+	sigprocmask(SIG_SETMASK, &orig_mask, NULL);
+	/* give children a slight/non-strict scheduling advantage */
+	sched_yield();
+
 	return pid1;
 }
 
@@ -616,14 +666,13 @@ test_ipc_txrx_timeout(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -648,11 +697,6 @@ test_ipc_txrx_timeout(void)
 	verify_graceful_stop(pid);
 
 	/*
-	 * wait a bit for the server to die.
-	 */
-	sleep(1);
-
-	/*
 	 * this needs to free up the shared mem
 	 */
 	qb_ipcc_disconnect(conn);
@@ -670,14 +714,13 @@ test_ipc_txrx(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -721,14 +764,13 @@ test_ipc_exit(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -747,11 +789,6 @@ test_ipc_exit(void)
 
 	request_server_exit();
 	verify_graceful_stop(pid);
-
-	/*
-	 * wait a bit for the server to die.
-	 */
-	sleep(1);
 
 	/*
 	 * this needs to free up the shared mem
@@ -889,14 +926,13 @@ test_ipc_dispatch(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1017,7 +1053,6 @@ test_ipc_stress_connections(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	for (connections = 1; connections < 70000; connections++) {
 		if (conn) {
@@ -1065,14 +1100,13 @@ test_ipc_bulk_events(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1131,14 +1165,13 @@ test_ipc_stress_test(void)
 	pid = run_function_in_new_process(run_ipc_server);
 	enforce_server_buffer = 0;
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, client_buf_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1233,14 +1266,13 @@ test_ipc_event_on_created(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1288,14 +1320,13 @@ test_ipc_disconnect_after_created(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1346,14 +1377,13 @@ test_ipc_server_fail(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1463,8 +1493,8 @@ START_TEST(test_ipcc_truncate_when_unlink_fails_shm)
 	_fi_unlink_inject_failure = QB_TRUE;
 	test_ipc_server_fail();
 	_fi_unlink_inject_failure = QB_FALSE;
-	qb_leave();
 	unlink(sock_file);
+	qb_leave();
 }
 END_TEST
 #endif
@@ -1481,14 +1511,13 @@ test_ipc_service_ref_count(void)
 
 	pid = run_function_in_new_process(run_ipc_server);
 	fail_if(pid == -1);
-	sleep(1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			sleep(1);
+			poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -1572,18 +1601,18 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
-	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 30);
-	add_tcase(s, tc, test_ipc_server_fail_shm, 8);
-	add_tcase(s, tc, test_ipc_txrx_shm_block, 8);
-	add_tcase(s, tc, test_ipc_txrx_shm_tmo, 8);
-	add_tcase(s, tc, test_ipc_fc_shm, 8);
-	add_tcase(s, tc, test_ipc_dispatch_shm, 16);
-	add_tcase(s, tc, test_ipc_stress_test_shm, 16);
-	add_tcase(s, tc, test_ipc_bulk_events_shm, 16);
-	add_tcase(s, tc, test_ipc_exit_shm, 8);
-	add_tcase(s, tc, test_ipc_event_on_created_shm, 10);
-	add_tcase(s, tc, test_ipc_service_ref_count_shm, 10);
-	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600);
+	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 28);
+	add_tcase(s, tc, test_ipc_server_fail_shm, 7);
+	add_tcase(s, tc, test_ipc_txrx_shm_block, 7);
+	add_tcase(s, tc, test_ipc_txrx_shm_tmo, 7);
+	add_tcase(s, tc, test_ipc_fc_shm, 7);
+	add_tcase(s, tc, test_ipc_dispatch_shm, 15);
+	add_tcase(s, tc, test_ipc_stress_test_shm, 15);
+	add_tcase(s, tc, test_ipc_bulk_events_shm, 15);
+	add_tcase(s, tc, test_ipc_exit_shm, 6);
+	add_tcase(s, tc, test_ipc_event_on_created_shm, 9);
+	add_tcase(s, tc, test_ipc_service_ref_count_shm, 9);
+	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600 /* ? */);
 
 #ifdef HAVE_FAILURE_INJECTION
 	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
@@ -1598,24 +1627,24 @@ make_soc_suite(void)
 	Suite *s = suite_create("socket");
 	TCase *tc;
 
-	add_tcase(s, tc, test_ipc_txrx_us_timeout, 30);
+	add_tcase(s, tc, test_ipc_txrx_us_timeout, 28);
 /* Commented out for the moment as space in /dev/shm on the CI machines
    causes random failures */
 /*	add_tcase(s, tc, test_ipc_max_dgram_size, 30); */
-	add_tcase(s, tc, test_ipc_server_fail_soc, 8);
-	add_tcase(s, tc, test_ipc_txrx_us_block, 8);
-	add_tcase(s, tc, test_ipc_txrx_us_tmo, 8);
-	add_tcase(s, tc, test_ipc_fc_us, 8);
-	add_tcase(s, tc, test_ipc_exit_us, 8);
-	add_tcase(s, tc, test_ipc_dispatch_us, 16);
+	add_tcase(s, tc, test_ipc_server_fail_soc, 7);
+	add_tcase(s, tc, test_ipc_txrx_us_block, 7);
+	add_tcase(s, tc, test_ipc_txrx_us_tmo, 7);
+	add_tcase(s, tc, test_ipc_fc_us, 7);
+	add_tcase(s, tc, test_ipc_exit_us, 6);
+	add_tcase(s, tc, test_ipc_dispatch_us, 15);
 #ifndef __clang__ /* see variable length array in structure' at the top */
-	add_tcase(s, tc, test_ipc_stress_test_us, 60);
+	add_tcase(s, tc, test_ipc_stress_test_us, 58);
 #endif
-	add_tcase(s, tc, test_ipc_bulk_events_us, 16);
-	add_tcase(s, tc, test_ipc_event_on_created_us, 10);
-	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 10);
-	add_tcase(s, tc, test_ipc_service_ref_count_us, 10);
-	add_tcase(s, tc, test_ipc_stress_connections_us, 3600);
+	add_tcase(s, tc, test_ipc_bulk_events_us, 15);
+	add_tcase(s, tc, test_ipc_event_on_created_us, 9);
+	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 9);
+	add_tcase(s, tc, test_ipc_service_ref_count_us, 9);
+	add_tcase(s, tc, test_ipc_stress_connections_us, 3600 /* ? */);
 
 	return s;
 }
