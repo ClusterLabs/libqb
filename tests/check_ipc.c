@@ -468,8 +468,10 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data)
 }
 
 static pid_t
-run_function_in_new_process(new_process_runner_fn new_process_runner)
+run_function_in_new_process(const char *role,
+                            new_process_runner_fn new_process_runner)
 {
+	char formatbuf[1024];
 	pid_t parent_target, pid1, pid2;
 	struct sigaction orig_sa, purpose_sa;
 	sigset_t orig_mask, purpose_mask, purpose_clear_mask;
@@ -496,6 +498,15 @@ run_function_in_new_process(new_process_runner_fn new_process_runner)
 		}
 		if (pid2 == 0) {
 			sigprocmask(SIG_SETMASK, &orig_mask, NULL);
+
+			if (role == NULL) {
+				qb_log_format_set(QB_LOG_STDERR, "lib/%f|%l[%P] %b");
+			} else {
+				snprintf(formatbuf, sizeof(formatbuf),
+				         "lib/%%f|%%l|%s[%%P] %%b", role);
+				qb_log_format_set(QB_LOG_STDERR, formatbuf);
+			}
+
 			new_process_runner(usr1_signaller, &parent_target);
 			exit(0);
 		} else {
@@ -664,7 +675,7 @@ test_ipc_txrx_timeout(void)
 	pid_t pid;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -712,7 +723,7 @@ test_ipc_txrx(void)
 	pid_t pid;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -762,7 +773,7 @@ test_ipc_exit(void)
 	pid_t pid;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -924,7 +935,7 @@ test_ipc_dispatch(void)
 	int32_t size;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -1051,7 +1062,7 @@ test_ipc_stress_connections(void)
 			  QB_LOG_FILTER_FILE, "*", LOG_INFO);
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	for (connections = 1; connections < 70000; connections++) {
@@ -1098,7 +1109,7 @@ test_ipc_bulk_events(void)
 	int32_t fd;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -1162,7 +1173,7 @@ test_ipc_stress_test(void)
 	int32_t real_buf_size;
 
 	enforce_server_buffer = 1;
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	enforce_server_buffer = 0;
 	fail_if(pid == -1);
 
@@ -1264,7 +1275,7 @@ test_ipc_event_on_created(void)
 
 	num_bulk_events = 1;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -1318,7 +1329,7 @@ test_ipc_disconnect_after_created(void)
 	int32_t res;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -1375,7 +1386,7 @@ test_ipc_server_fail(void)
 	pid_t pid;
 	uint32_t max_size = MAX_MSG_SIZE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
@@ -1509,7 +1520,7 @@ test_ipc_service_ref_count(void)
 
 	reference_count_test = QB_TRUE;
 
-	pid = run_function_in_new_process(run_ipc_server);
+	pid = run_function_in_new_process("server", run_ipc_server);
 	fail_if(pid == -1);
 
 	do {
