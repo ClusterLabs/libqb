@@ -926,22 +926,19 @@ struct my_res {
 	char message[1024 * 1024];
 };
 
-static void
-test_ipc_dispatch(void)
+static inline
+NEW_PROCESS_RUNNER(client_dispatch, ready_signaller, signaller_data)
 {
-	int32_t j;
-	int32_t c = 0;
-	pid_t pid;
-	int32_t size;
 	uint32_t max_size = MAX_MSG_SIZE;
-
-	pid = run_function_in_new_process("server", run_ipc_server);
-	fail_if(pid == -1);
+	int32_t size;
+	int32_t c = 0;
+	int32_t j;
+	pid_t server_pid = *((pid_t *) signaller_data);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
 		if (conn == NULL) {
-			j = waitpid(pid, NULL, WNOHANG);
+			j = waitpid(server_pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
 			poll(NULL, 0, 400);
 			c++;
@@ -949,16 +946,31 @@ test_ipc_dispatch(void)
 	} while (conn == NULL && c < 5);
 	fail_if(conn == NULL);
 
+	if (ready_signaller != NULL) {
+		ready_signaller(signaller_data);
+	}
+
 	size = QB_MIN(sizeof(struct qb_ipc_request_header), 64);
 	for (j = 1; j < 19; j++) {
 		size *= 2;
 		if (size >= max_size)
 			break;
 		if (send_and_check(IPC_MSG_REQ_DISPATCH, size,
-				   recv_timeout, QB_TRUE) < 0) {
+		                   recv_timeout, QB_TRUE) < 0) {
 			break;
 		}
 	}
+}
+
+static void
+test_ipc_dispatch(void)
+{
+	pid_t pid;
+
+	pid = run_function_in_new_process(NULL, run_ipc_server);
+	fail_if(pid == -1);
+
+	client_dispatch(NULL, (void *) &pid);
 
 	request_server_exit();
 	qb_ipcc_disconnect(conn);
