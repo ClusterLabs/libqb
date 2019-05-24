@@ -843,10 +843,10 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
-	res = s->poll_fns.dispatch_add(QB_LOOP_MED,
-					data->sock,
-					POLLIN | POLLPRI | POLLNVAL,
-					data, process_auth);
+	res = s->poll_fns.dispatch_add(s->poll_priority,
+	                               data->sock,
+	                               POLLIN | POLLPRI | POLLNVAL,
+	                               data, process_auth);
 	if (res < 0) {
 		qb_util_log(LOG_DEBUG, "Failed to process AUTH for fd (%d)", data->sock);
 		close(sock);
