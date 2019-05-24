@@ -36,6 +36,26 @@ extern "C" {
  *
  * Main loop manages timers, jobs and polling sockets.
  *
+ * Only a weaker sense of priorities is implemented, alluding to distinct
+ * set of pros and cons compared to the stronger, strict approach to them
+ * as widely applied in this problem space (since the latter gives the
+ * application more control as the effect of the former can still be
+ * achieved with some reductions, whereas it is not straightforward the
+ * other way around; cf. static priority task scheduling vs. relative
+ * fine-tuning within a single priority domain with nice(2)):
+ *
+ * + implicit mitigation for deadlock-prone priority arrangements
+ *
+ * - less predictable (proportional probability based, we can talk
+ *   about an advisory effect of the priorities) responses to the arrival
+ *   of the high-ranked events (i.e. in the process of the picking the next
+ *   event to handle from the priority queue when at least two different
+ *   priorities are eligible at the moment)
+ *
+ * One practical application for this module of libqb is in combination with
+ * IPC servers based on qbipcs.h published one (the #qb_ipcs_poll_handlers
+ * structure maps fittingly to the control functions published here).
+ *
  * @example tcpserver.c
  */
 

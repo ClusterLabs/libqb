@@ -43,6 +43,12 @@ extern "C" {
  * @example ipcserver.c
  */
 
+/**
+ * Rates to be passed to #qb_ipcs_request_rate_limit.  The exact interpretation
+ * depends on how the event loop implementation understands the concept of
+ * priorities, see the discussion at #qb_ipcs_poll_handlers structure -- an
+ * integration point between IPC server instance and the underlying event loop.
+ */
 enum qb_ipcs_rate_limit {
 	QB_IPCS_RATE_FAST,
 	QB_IPCS_RATE_NORMAL,
@@ -104,6 +110,22 @@ typedef int32_t (*qb_ipcs_job_add_fn)(enum qb_loop_priority p,
 				      void *data,
 				      qb_loop_job_dispatch_fn dispatch_fn);
 
+/**
+ * A set of callbacks that need to be provided (only #job_add can be #NULL)
+ * whenever the IPC server is to be run (by the means of #qb_ipcs_run).
+ * It is possible to use accordingly named functions defined in qbloop.h module
+ * or integrate with other existing (like GLib's event loop) or entirely new
+ * code -- see the subtle distinction amongst the possible event loops pointed
+ * out in the introductory comment at qbloop.h.
+ *
+ * At that occasion, please note the correlation of #QB_IPCS_RATE_FAST etc.
+ * symbolic names with said advisory effect of the priorities in the native
+ * implementation.  This correspondence will not be this intuitively seemless
+ * if some other event loop implementation is hooked in given that it abids
+ * them strictly as mentioned (e.g. GLib's event loop over poll'able sources).
+ * Differences between the two paradigms should also be accounted for when
+ * the requirement to swap the event loop implementations arises.
+ */
 struct qb_ipcs_poll_handlers {
 	qb_ipcs_job_add_fn job_add;
 	qb_ipcs_dispatch_add_fn dispatch_add;
