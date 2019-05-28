@@ -8,6 +8,8 @@ addons:
                 packages:
                         - check
                         - splint
+                        # for ipc.test:test_ipc_dispatch_*_deadlock_provoke
+                        - libglib2.0-dev  # natively present, but doesn't hurt
                         # for "make rpm"
                         - doxygen
                         - rpm
