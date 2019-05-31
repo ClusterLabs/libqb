@@ -133,7 +133,7 @@ set_ipc_name(const char *prefix)
 	if (f) {
 		fgets(process_name, sizeof(process_name), f);
 		fclose(f);
-		snprintf(ipc_name, sizeof(ipc_name), "%s%s", prefix, process_name);
+		snprintf(ipc_name, sizeof(ipc_name), "%.44s%s", prefix, process_name);
 	} else {
 		/* This is the old code, use only as a fallback */
 		static char t_sec[3] = "";
@@ -143,7 +143,7 @@ set_ipc_name(const char *prefix)
 			t_sec[sizeof(t_sec) - 1] = '\0';
 		}
 
-		snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
+		snprintf(ipc_name, sizeof(ipc_name), "%.44s%s%lX%.4x", prefix, t_sec,
 			 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
 	}
 }
