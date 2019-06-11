@@ -147,6 +147,11 @@ ipc_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 if HAVE_FAILURE_INJECTION
 ipc_test_LDADD += _failure_injection.la
 
+if HAVE_GLIB
+ipc_test_CFLAGS += $(GLIB_CFLAGS)
+ipc_test_LDADD += $(GLIB_LIBS)
+endif
+
 check_LTLIBRARIES += _failure_injection.la
 _failure_injection_la_SOURCES = _failure_injection.c _failure_injection.h
 _failure_injection_la_LDFLAGS = -module
