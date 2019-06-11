@@ -140,7 +140,7 @@ set_ipc_name(const char *prefix)
 		t_sec[sizeof(t_sec) - 1] = '\0';
 	}
 
-	snprintf(ipc_name, sizeof(ipc_name), "%s%s%lX%.4x", prefix, t_sec,
+	snprintf(ipc_name, sizeof(ipc_name), "%.44s%s%lX%.4x", prefix, t_sec,
 		 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
 }
 
