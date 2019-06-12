@@ -94,28 +94,7 @@ enum my_msg_ids {
 };
 
 
-#ifdef HAVE_GLIB
 /* these 2 functions from pacemaker code */
-static gint
-conv_prio_libqb2glib(enum qb_loop_priority prio)
-{
-	gint ret = G_PRIORITY_DEFAULT;
-	switch (prio) {
-	case QB_LOOP_LOW:
-		ret = G_PRIORITY_LOW;
-		break;
-	case QB_LOOP_HIGH:
-		ret = G_PRIORITY_HIGH;
-		break;
-	default:
-		qb_log(LOG_DEBUG, "Invalid libqb's loop priority %d,"
-		       " assuming QB_LOOP_MED", prio);
-		/* fall-through */
-	case QB_LOOP_MED:
-		break;
-	}
-	return ret;
-}
 static enum qb_ipcs_rate_limit
 conv_libqb_prio2ratelimit(enum qb_loop_priority prio)
 {
@@ -127,6 +106,27 @@ conv_libqb_prio2ratelimit(enum qb_loop_priority prio)
 		break;
 	case QB_LOOP_HIGH:
 		ret = QB_IPCS_RATE_FAST;
+		break;
+	default:
+		qb_log(LOG_DEBUG, "Invalid libqb's loop priority %d,"
+		       " assuming QB_LOOP_MED", prio);
+		/* fall-through */
+	case QB_LOOP_MED:
+		break;
+	}
+	return ret;
+}
+#ifdef HAVE_GLIB
+static gint
+conv_prio_libqb2glib(enum qb_loop_priority prio)
+{
+	gint ret = G_PRIORITY_DEFAULT;
+	switch (prio) {
+	case QB_LOOP_LOW:
+		ret = G_PRIORITY_LOW;
+		break;
+	case QB_LOOP_HIGH:
+		ret = G_PRIORITY_HIGH;
 		break;
 	default:
 		qb_log(LOG_DEBUG, "Invalid libqb's loop priority %d,"
