@@ -44,6 +44,13 @@
 #include "_failure_injection.h"
 #endif
 
+/* The stress test takes over an hour on FreeBSD otherwise */
+#if defined(QB_BSD)
+#define NUM_STRESS_CONNECTIONS 7000
+#else
+#define NUM_STRESS_CONNECTIONS 70000
+#endif
+
 static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
@@ -1414,7 +1421,7 @@ test_ipc_stress_connections(void)
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
 	fail_if(pid == -1);
 
-	for (connections = 1; connections < 70000; connections++) {
+	for (connections = 1; connections < NUM_STRESS_CONNECTIONS; connections++) {
 		if (conn) {
 			qb_ipcc_disconnect(conn);
 			conn = NULL;
