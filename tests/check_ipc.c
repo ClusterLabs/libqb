@@ -611,6 +611,13 @@ s1_connection_closed(qb_ipcs_connection_t *c)
 	if (multiple_connections) {
 		return 0;
 	}
+	/* Stop the connection being freed when we call qb_ipcs_disconnect()
+	   in the callback */
+	if (disconnect_after_created == QB_TRUE) {
+		disconnect_after_created = QB_FALSE;
+		return 1;
+	}
+
 	qb_enter();
 	qb_leave();
 	return 0;
