@@ -600,6 +600,13 @@ qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 		socklen_t socklen = sizeof(sockname);
 		if ((getsockname(s->server_sock, (struct sockaddr *)&sockname, &socklen) == 0) &&
 		    sockname.sun_family == AF_UNIX) {
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+			/*
+			 * Terminating NUL on FreeBSD is not part of the sun_path.
+			 * Add it to use sun_path as a parameter of unlink
+			 */
+			sockname.sun_path[sockname.sun_len - offsetof(struct sockaddr_un, sun_path)] = '\0';
+#endif
 			unlink(sockname.sun_path);
 		}
 	}
