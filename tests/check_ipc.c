@@ -44,6 +44,8 @@
 #include "_failure_injection.h"
 #endif
 
+#define NUM_STRESS_CONNECTIONS 5000
+
 static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
@@ -604,6 +606,13 @@ s1_connection_closed(qb_ipcs_connection_t *c)
 	if (multiple_connections) {
 		return 0;
 	}
+	/* Stop the connection being freed when we call qb_ipcs_disconnect()
+	   in the callback */
+	if (disconnect_after_created == QB_TRUE) {
+		disconnect_after_created = QB_FALSE;
+		return 1;
+	}
+
 	qb_enter();
 	qb_leave();
 	return 0;
@@ -1414,7 +1423,7 @@ test_ipc_stress_connections(void)
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
 	fail_if(pid == -1);
 
-	for (connections = 1; connections < 70000; connections++) {
+	for (connections = 1; connections < NUM_STRESS_CONNECTIONS; connections++) {
 		if (conn) {
 			qb_ipcc_disconnect(conn);
 			conn = NULL;
