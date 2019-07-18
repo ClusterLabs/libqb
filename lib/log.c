@@ -886,6 +886,7 @@ qb_log_target_alloc(void)
 			return &conf[i];
 		}
 	}
+	errno = EMFILE;
 	return NULL;
 }
 
