@@ -80,15 +80,15 @@ qb_array_create_2(size_t max_elements, size_t element_size,
 	size_t b;
 
 	if (max_elements > QB_ARRAY_MAX_ELEMENTS) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 	if (element_size < 1) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 	if (autogrow_elements > MAX_ELEMENTS_PER_BIN) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 	a = calloc(1, sizeof(struct qb_array));
