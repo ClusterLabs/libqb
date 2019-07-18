@@ -912,7 +912,7 @@ qb_log_target_user_data_get(int32_t t)
 {
 	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
 	    conf[t].state == QB_LOG_STATE_UNUSED) {
-		errno = -EBADF;
+		errno = EBADF;
 		return NULL;
 	}
 
