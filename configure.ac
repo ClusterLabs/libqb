@@ -534,6 +534,12 @@ AC_ARG_ENABLE([fatal-warnings],
 AC_ARG_ENABLE([debug],
   [AS_HELP_STRING([--enable-debug],[enable debug build])])
 
+AC_ARG_WITH([sanitizers],
+  [AS_HELP_STRING([--with-sanitizers=...,...],
+    [enable SANitizer build, do *NOT* use for production. Only ASAN/UBSAN/TSAN are currently supported])],
+  [ SANITIZERS="$withval" ],
+  [ SANITIZERS="" ])
+
 AC_ARG_ENABLE([coverage],
   [AS_HELP_STRING([--enable-coverage],[coverage analysis of the codebase])])
 
@@ -709,11 +715,41 @@ else
 	WERROR_CFLAGS=""
 fi
 
+# --- ASAN/UBSAN/TSAN (see man gcc) ---
+# when using SANitizers, we need to pass the -fsanitize..
+# to both CFLAGS and LDFLAGS. The CFLAGS/LDFLAGS must be
+# specified as first in the list or there will be runtime
+# issues (for example user has to LD_PRELOAD asan for it to work
+# properly).
+
+if test -n "${SANITIZERS}"; then
+  SANITIZERS=$(echo $SANITIZERS | sed -e 's/,/ /g')
+  for SANITIZER in $SANITIZERS; do
+    case $SANITIZER in
+      asan|ASAN)
+	SANITIZERS_CFLAGS="$SANITIZERS_CFLAGS -fsanitize=address"
+	SANITIZERS_LDFLAGS="$SANITIZERS_LDFLAGS -fsanitize=address -lasan"
+	AC_CHECK_LIB([asan],[main],,AC_MSG_ERROR([Unable to find libasan]))
+	;;
+      ubsan|UBSAN)
+	SANITIZERS_CFLAGS="$SANITIZERS_CFLAGS -fsanitize=undefined"
+	SANITIZERS_LDFLAGS="$SANITIZERS_LDFLAGS -fsanitize=undefined -lubsan"
+	AC_CHECK_LIB([ubsan],[main],,AC_MSG_ERROR([Unable to find libubsan]))
+	;;
+      tsan|TSAN)
+	SANITIZERS_CFLAGS="$SANITIZERS_CFLAGS -fsanitize=thread"
+	SANITIZERS_LDFLAGS="$SANITIZERS_LDFLAGS -fsanitize=thread -ltsan"
+	AC_CHECK_LIB([tsan],[main],,AC_MSG_ERROR([Unable to find libtsan]))
+	;;
+    esac
+  done
+fi
+
 # final build of *FLAGS
-CFLAGS="$ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS \
+CFLAGS="$SANITIZERS_CFLAGS $ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS \
 	$COVERAGE_CFLAGS $EXTRA_WARNINGS $WERROR_CFLAGS"
 CPPFLAGS="$ENV_CPPFLAGS $ANSI_CPPFLAGS"
-LDFLAGS="$ENV_LDFLAGS $COVERAGE_LDFLAGS"
+LDFLAGS="$SANITIZERS_LDFLAGS $ENV_LDFLAGS $COVERAGE_LDFLAGS"
 
 if test -f /usr/share/dict/words ; then
 	HAVE_DICT_WORDS=yes
