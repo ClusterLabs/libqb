@@ -644,6 +644,8 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->auth.mode = 0600;
 	c->stats.client_pid = ugp->pid;
 
+	memset(&response, 0, sizeof(response));
+
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	snprintf(c->description, CONNECTION_DESCRIPTION,
 		 "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
@@ -677,7 +679,6 @@ handle_new_connection(struct qb_ipcs_service *s,
 	qb_util_log(LOG_DEBUG, "IPC credentials authenticated (%s)",
 		    c->description);
 
-	memset(&response, 0, sizeof(response));
 	if (s->funcs.connect) {
 		res = s->funcs.connect(s, c, &response);
 		if (res != 0) {
