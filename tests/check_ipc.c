@@ -1625,7 +1625,7 @@ READY_SIGNALLER(connected_signaller, _)
 	request_server_exit();
 }
 
-START_TEST(test_ipc_dispatch_us_native_prio_deadlock_provoke)
+START_TEST(test_ipc_dispatch_us_native_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -1664,7 +1664,7 @@ START_TEST(test_ipc_dispatch_us_native_prio_deadlock_provoke)
 END_TEST
 
 #if HAVE_GLIB
-START_TEST(test_ipc_dispatch_us_glib_prio_deadlock_provoke)
+START_TEST(test_ipc_dispatch_us_glib_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -1897,7 +1897,7 @@ START_TEST(test_ipc_stress_connections_shm)
 }
 END_TEST
 
-START_TEST(test_ipc_dispatch_shm_native_prio_deadlock_provoke)
+START_TEST(test_ipc_dispatch_shm_native_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -1936,7 +1936,7 @@ START_TEST(test_ipc_dispatch_shm_native_prio_deadlock_provoke)
 END_TEST
 
 #if HAVE_GLIB
-START_TEST(test_ipc_dispatch_shm_glib_prio_deadlock_provoke)
+START_TEST(test_ipc_dispatch_shm_glib_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -2149,9 +2149,9 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipc_event_on_created_shm, 9);
 	add_tcase(s, tc, test_ipc_service_ref_count_shm, 9);
 	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600 /* ? */);
-	add_tcase(s, tc, test_ipc_dispatch_shm_native_prio_deadlock_provoke, 15);
+	add_tcase(s, tc, test_ipc_dispatch_shm_native_prio_dlock, 15);
 #if HAVE_GLIB
-	add_tcase(s, tc, test_ipc_dispatch_shm_glib_prio_deadlock_provoke, 15);
+	add_tcase(s, tc, test_ipc_dispatch_shm_glib_prio_dlock, 15);
 #endif
 #ifdef HAVE_FAILURE_INJECTION
 	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
@@ -2184,9 +2184,9 @@ make_soc_suite(void)
 	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 9);
 	add_tcase(s, tc, test_ipc_service_ref_count_us, 9);
 	add_tcase(s, tc, test_ipc_stress_connections_us, 3600 /* ? */);
-	add_tcase(s, tc, test_ipc_dispatch_us_native_prio_deadlock_provoke, 15);
+	add_tcase(s, tc, test_ipc_dispatch_us_native_prio_dlock, 15);
 #if HAVE_GLIB
-	add_tcase(s, tc, test_ipc_dispatch_us_glib_prio_deadlock_provoke, 15);
+	add_tcase(s, tc, test_ipc_dispatch_us_glib_prio_dlock, 15);
 #endif
 
 	return s;
