@@ -190,9 +190,8 @@ ssize_t qb_ipcc_sendv_recv(qb_ipcc_connection_t *c,
  * @param c connection instance
  * @param msg_ptr pointer to a message buffer to receive into
  * @param msg_len the size of the buffer
- * @param ms_timeout time in milli seconds to wait for a message
+ * @param ms_timeout time in milliseconds to wait for a message
  *        0 == no wait, negative == block, positive == wait X ms.
- * @param ms_timeout max time to wait for a response
  * @return size of the message or error (-errno)
  *
  * @note that msg_ptr will include a qb_ipc_response_header at

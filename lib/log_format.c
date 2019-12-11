@@ -408,7 +408,7 @@ qb_log_target_format(int32_t target,
 				time_sec = the_ts->tv_sec;
 				(void)localtime_r(&time_sec, &tm_res);
 				snprintf(tmp_buf, TIME_STRING_SIZE,
-					 "%s %02d %02d:%02d:%02d.%03lld",
+					 "%s %02d %02d:%02d:%02d.%03llu",
 					 log_month_name[tm_res.tm_mon],
 					 tm_res.tm_mday, tm_res.tm_hour,
 					 tm_res.tm_min, tm_res.tm_sec,
