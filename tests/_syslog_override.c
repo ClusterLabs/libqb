@@ -39,7 +39,7 @@ openlog(const char *ident, int option, int facility)
 	_syslog_opened = 1;
 	_syslog_option = option;
 	_syslog_facility = facility;
-	strncpy(_syslog_ident, ident, sizeof(_syslog_ident));
+	strncpy(_syslog_ident, ident, sizeof(_syslog_ident)-1);
 }
 
 void syslog(int priority, const char *format, ...);

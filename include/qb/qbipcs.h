@@ -110,7 +110,7 @@ typedef int32_t (*qb_ipcs_job_add_fn)(enum qb_loop_priority p,
 				      void *data,
 				      qb_loop_job_dispatch_fn dispatch_fn);
 
-/**
+/*
  * A set of callbacks that need to be provided (only #job_add can be #NULL)
  * whenever the IPC server is to be run (by the means of #qb_ipcs_run).
  * It is possible to use accordingly named functions defined in qbloop.h module

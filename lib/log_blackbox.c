@@ -342,7 +342,7 @@ qb_log_blackbox_print_from_file(const char *bb_filename)
 			int slen = strftime(time_buf,
 					    sizeof(time_buf), "%b %d %T",
 					    tm);
-			snprintf(time_buf+slen, sizeof(time_buf - slen), ".%03lld", timestamp.tv_nsec/QB_TIME_NS_IN_MSEC);
+			snprintf(time_buf+slen, sizeof(time_buf - slen), ".%03llu", timestamp.tv_nsec/QB_TIME_NS_IN_MSEC);
 		} else {
 			snprintf(time_buf, sizeof(time_buf), "%ld",
 				 (long int)time_sec);
