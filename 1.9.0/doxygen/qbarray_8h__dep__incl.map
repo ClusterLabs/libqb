@@ -1,0 +1,4 @@
+<map id="qbarray.h" name="qbarray.h">
+<area shape="rect" id="node1" title="This is a dynamic array (it can grow, but without moving memory)." alt="" coords="5,5,88,32"/>
+<area shape="rect" id="node2" href="$qbhdb_8h.html" title="The handle database is for reference counting objects." alt="" coords="9,80,84,107"/>
+</map>

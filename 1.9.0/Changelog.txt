@@ -1,0 +1,583 @@
+2019-12-11  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	make: Remove splint tests (#374)
+	Now that splint is actually contradicting errors that come from
+	the compilers I think it's time to retire it. I could cope with it
+	being a minor nuisance on the argument that "another check can't
+	hurt", but contradicting the actual compilers is too much.
+	The CI has Coverity installed which is much more up-to-date anyway.
+	Splint hasn't been updated since 2010
+
+2019-12-11  Christine Caulfield  <ccaulfie@redhat.com>
+
+	lib: Fix some minor warnings from newer compilers
+	and doxygen
+
+2019-12-06  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	tests: Shorted deadlock test names (#372)
+	On newer Fedora systems that can have 32 bit PIDs, these long test
+	names can get truncated in the libqb internal buffers and thus break the
+	tests, so I've shortened the names.
+
+2019-11-08  Jan Friesse  <jfriesse@redhat.com>
+
+	ipc: Always initialize response struct
+	Response structure was not initialized completely,
+	when mkdtemp/chown failed, server was not accepting connection yet or
+	connect failed for some reason.
+	This is not an issue, but valgrind reports this
+	as a problem so it is easy to miss real problem then.
+	Solution is to initialize response before it is used.
+
+2019-10-09  Fabio M. Di Nitto  <fdinitto@redhat.com>
+
+	[build] add --with-sanitizers= option for sanitizer builds (#366)
+	this option is stricly meant for runtime debugging purposes.
+	do NOT use in production.
+	check gcc/clang man pages on how to use ASAN/UBSAN/TSAN.
+	Also allow to users to specificy SANITIZERS_CFLAGS and SANITIZERS_LDFLAGS
+	for advanced use.
+
+2019-07-26  Jan Pokorný  <jpokorny@redhat.com>
+
+	ringbuffer: fix mistaken errno handling around _rb_chunk_reclaim
+	Previously, there were two separate logical issues:
+	- errno could be set negative in qb_rb_chunk_alloc when
+	  when "reclaim" notifier failed
+	- _rb_chunk_reclaim (note: local scoped, hence comfortable for changes)
+	  was already setting errno at a single (coincidentally, in a correct
+	  way, but that'd be overwritten with the inverse because of the
+	  previous logical issue in qb_rb_chunk_alloc), so make it set errno
+	  at each failure path (now also when internal integrity in
+	  _rb_chunk_reclaim failed(), sparing the callers to double on that task
+
+2019-07-26  Ken Gaillot  <kgaillot@redhat.com>
+
+	array,log: Never set errno to a negative value
+	These are clearly a logical mistake due to the standard practice of returning
+	-errno on error, but errno itself should never be negative.
+
+	log: Set errno when qb_log_target_alloc() fails
+	The callers of qb_log_target_alloc() return -errno when it fails.
+	However, qb_log_target_alloc() wasn't setting errno.
+	The only failure case is when QB_TARGET_LOG_MAX (32) logs have been opened, so
+	it's unlikely to ever be a real-world problem. But in that case, now set errno
+	to EMFILE ("Too many open files").
+
+2019-06-27  Christine Caulfield  <ccaulfie@redhat.com>
+
+	ipc: Remove kqueue EOF log message
+	It's not logged for epoll systems and just clutters up logs
+	and slows things down without telling us anything useful.
+
+	tests: Speed up IPC tests, especially on FreeBSD
+	After much discussion on IRC it was decided that 70000 iterations
+	of the stress patch didn't achieve anything significant over a
+	reasonable but smaller number. So it has been reduced to 5000 on
+	all platforms.
+	This patch also fixes a bug where test_ipc_disconnect_after_created
+	committed a use-after-free which could cause a crash on FreeBSD-devel.
+
+2019-06-24  Christine Caulfield  <ccaulfie@redhat.com>
+
+	ipc: fix force-filesystem-sockets
+	the /etc/libqb/force-filesystem-sockets option got broken for some
+	applications in the last security update.
+
+2019-06-20  Jan Friesse  <jfriesse@redhat.com>
+
+	ipc: Fix named socket unlink on FreeBSD
+	Terminating NUL on FreeBSD is not part of the sun_path.
+	Add it to use sun_path as a parameter of unlink.
+
+2019-06-12  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: ipc: fix the no-GLib conditionalizing
+	In particular, qb_ipcs_rate_limit() needs to be outside the
+	"#ifdef HAVE_GLIB" conditional, since it gets used regardless.
+	This should have been like this as of 28e7259.
+
+2019-06-07  Jan Pokorný  <jpokorny@redhat.com>
+
+	CI: travis: add (redundant for now, but...) libglib2.0-dev prerequisite
+	We want to run every and each test we can, without reliance on
+	transitive deoendencies and environment "invariants".
+
+	doc: qbloop.h: document pros/cons of using built-in event loop impl
+	Make the qbipcs.h module interdependence clear (also shedding light to
+	some semantic dependencies) as well.
+
+2019-06-05  Jan Pokorný  <jpokorny@redhat.com>
+
+	IPC: server: fix debug message wrt. what actually went wrong
+	It's misleading towards a random code observer, at least,
+	hiding the fact that what failed is actually the queing up
+	of some handling to perform asynchronously in the future,
+	rather than invoking it synchronously right away.
+
+	IPC: server: avoid temporary channel priority loss, up to deadlock-worth
+	It turns out that while 7f56f58 allowed for less blocking (thus
+	throughput increasing) initial handling of connections from clients
+	within the abstract (out-of-libqb managed) event loop, it unfortunately
+	subscribes itself back to such polling mechanism for UNIX-socket-check
+	with a default priority, which can be lower than desired (via explicit
+	qb_ipcs_request_rate_limit() configuration) for particular channel
+	(amongst attention-competing siblings in the pool, the term here
+	refers to associated communication, that is, both server and
+	on-server abstraction for particular clients).  And priority-based
+	discrepancies are not forgiven in true priority abiding systems
+	(that is, unlikele with libqb's native event loop harness as detailed
+	in the previous commit, for which this would be soft-torelated hence
+	the problem would not be spotted in the first place -- but that's
+	expliicitly excluded from further discussion).
+	On top of that, it violates the natural assumption that once (single
+	threaded, which is imposed by libqb, at least between initial accept()
+	and after-said-UNIX-socket-check) server accepts the connection, it
+	shall rather take care of serving it (at least within stated initial
+	scope of client connection life cycle) rather than be rushing to accept
+	new ones -- which is exactly what used to happen previously once the
+	library user set the effectively priority in the abstract poll
+	above the default one.
+	It's conceivable, just as with the former case of attention-competing
+	siblings with higher priority whereby they could _infinitely_ live on
+	at the expense of starving the client in the initial handling phase
+	(authentication) despite the library user's as-high-as-siblings
+	intention (for using the default priority for that unconditionally
+	instead, which we address here), the dead lock is imminent also in
+	this latter accept-to-client-authentication-handling case as well
+	if there's an _unlimited_ fast-paced arrival queue (well, limited
+	by with number of allowable open descriptors within the system,
+	but for the Linux built-in maximum of 1M, there may be no practical
+	difference, at least for time-sensitive applications).
+	The only hope then is that such dead-locks are rather theoretical,
+	since a "spontaneous" constant stream of either communication on
+	unrelated, higher-prio sibling channels, or of new connection arrivals
+	can as well testify the poor design of the libqb's IPC application.
+	That being said, unconditional default priority in the isolated
+	context of initial server-side client authentication is clearly
+	a bug, but such application shall apply appropriate rate-limiting
+	measures (exactly on priority basis) to handle unexpected flux
+	nonetheless.
+	The fix makes test_ipc_dispatch_*_glib_prio_deadlock_provoke tests pass.
+
+2019-06-04  Jan Pokorný  <jpokorny@redhat.com>
+
+	tests: ipc: check deadlock-like situation due to mixing priorities
+	Compared to the outer world, libqb brings rather unintuitive approach
+	to priorities within a native event loop (qbloop.h) -- it doesn't do
+	an exhaustive high-to-low priorities in a batched (clean-the-level)
+	manner, but rather linearly adds a possibility to pick the handling
+	task from the higher priority level as opposed to lower priority ones.
+	This has the advantage of limiting the chances of starvation and
+	deadlock opportunities in the incorrectly constructed SW, on the other
+	hand, it means that libqb is not fulfilling the architected intentions
+	regarding what deserves a priority truthfully, so these priorities are
+	worth just a hint rather than urgency-based separation.
+	And consequently, a discovery of these deadlocks etc. is deferred to
+	the (as Murphy's laws have it) least convenient moment, e.g., when
+	said native event loop is exchanged for other (this time priority
+	trully abiding, like GLib) implementation, while retaining the same
+	basic notion and high-level handling of priorities on libqb
+	side, in IPC server (service handling) context.
+	Hence, demonstration of such a degenerate blocking is not trivial,
+	and we must defer such other event loop implementation.  After this
+	hassle, we are rewarded with a practical proof said "high-level
+	handling [...] in IPC server (service handling) context" contains
+	a bug (which we are going to subsequently fix) -- this is contrasted
+	with libqb's native loop implementation that works just fine even
+	prior that fix.
+
+	tests: ipc: refactor/split test_ipc_dispatch part into client_dispatch
+	This way, this core part can be easily reused where needed.
+	Note that "ready_signaller" similarity with run_ipc_server is not
+	accidental, following commit will justify it.
+
+	tests: ipc: allow for easier tests debugging by discerning PIDs/roles
+	Roles specifications are currently not applied and are rather
+	a preparation for the actual meaningful use to come.
+
+	tests: ipc: speed the suite up with avoiding expendable sleep(3)s
+	Using i7-6820HQ CPU yields these results:
+	Before: ~2:54
+	After: ~2:26
+	Speedup: ~16%
+	The main optimization lies in how run_function_in_new_process helper is
+	constructed, since now, there's an actual synchronization between the
+	parent and its child (that needs to be prioritized here, which is
+	furthermore help with making the parent immediately give up it's
+	processor possession) after the fork, so that a subsequent sleep is
+	completely omitted -- at worst (unlikely), additional sleep round(s)
+	will need to be undertaken as already arranged for (and now, just
+	400 ms is waited rather than excessive 1 second).
+	Another slight optimization is likewise in omission of sleep where
+	the control gets returned to once the waited for process has been
+	suceesfully examined post-mortem, without worries it's previous
+	life is still resounding.
+
+	tests: ipc: avoid problems when UNIX_PATH_MAX (108) limits is hit
+	There's some slight reserve for when bigger PID ranges are in use.
+	The method to yield the limit on prefix string was derived from
+	practical experience (rather than based on exact calculations).
+
+2019-05-07  Ferenc Wágner  <wferi@debian.org>
+
+	doc: qbarray: reword comment about index partitioning
+
+	doc: qbarray.h: remove stray asterisk and parentheses
+
+2019-04-08  Christine Caulfield  <ccaulfie@redhat.com>
+
+	ipc: Use mkdtemp for more secure IPC files
+	Use mkdtemp makes sure that IPC files are only visible to the
+	owning (client) process and do not use predictable names outside
+	of that.
+	This is not meant to be the last word on the subject, it's mainly a
+	simple way of making the current libqb more secure. Importantly, it's
+	backwards compatible with an old server.
+	It calls rmdir on the directory created by mkdtemp way too often, but
+	it seems to be the only way to be sure that things get cleaned up on
+	the various types of server/client exit. I'm sure we can come up with
+	something tidier for master but I hope this, or something similar, will
+	be OK for 1.0.x.
+
+	ipc: fixes
+	Use O_EXCL on IPC files
+
+	ipc: use O_EXCL on SHM files, and randomize the names
+
+2019-03-26  Christine Caulfield  <ccaulfie@redhat.com>
+
+	tests: allow blackbox-segfault.sh to run out-of-tree
+
+2019-03-26  Fabio M. Di Nitto  <fdinitto@redhat.com>
+
+	[tests] first pass at fixing test execution
+
+	[tests] enable building / shipping of libqb-tests.rpm
+
+	[tests] allow installation of test suite
+
+	[tests] export SOCKETDIR from tests/Makefile.am
+	allows make check to be executed correctly from tests/ dir.
+
+	[test-rpm] build test binaries by default
+	build test binaries at "make" or "make all" instead of "make check".
+	this is necessary if it´s not possible to run make check during make rpm.
+
+2019-01-14  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: configure: fix "snapshot consumption" feature on FreeBSD
+	There were a few missed leftovers in d6875f2 regarding compatibility
+	with sed on FreeBSD (some commands do require a newline and/or
+	backslash separation).
+	Merges: #335
+
+2018-12-13  wferi  <wferi@debian.org>
+
+	Add Pthreads (and possibly other) flags to the pkg-config file (#332)
+	Proper Libs.private enables linking applications statically against
+	libqb: static archives (.a) don't carry their own dependency
+	information, unlike shared libraries (.so).  Modern libc versions
+	include socket and RT functions, so socket_LIBS and rt_LIBS will be
+	empty there, but we include them for strict correctness on older
+	platforms; basically, we're matching libqb_la_LIBADD here.
+	Consequently, nsl_LIBS and GLIB_LIBS don't enter this field, since they
+	are only used in the examples and tests, not in the library proper.
+	Cflags, on the other hand, is emitted all the time and (under GCC)
+	propagates the -pthread option (which also affects the preprocessing
+	stage) to all users of libqb even when compiling modules or linking
+	everything dynamically.
+
+2018-12-12  Christine Caulfield  <ccaulfie@redhat.com>
+
+	skiplist: Fix previous skiplist fix
+	The last fix to skiplist never ran the code that patched up the level
+	list as it updated the current level before runnign the loop.
+	This now works.
+	Merges: https://github.com/ClusterLabs/libqb/pull/333
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+2018-11-12  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	log: Remove more dead code from linker callsites (#331)
+	Thanks for the review
+
+2018-11-09  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Add the option of hi-res (millisecond) timestamps (#329)
+	* log: Add high-resolution timestamp option for log files
+	This adds the %T option to the log format for millisecond timestamps. There's a feature test macro QB_FEATURE_LOG_HIRES_TIMESTAMPS so that applications know that they are available.
+	Because this changes the internal logging API, applications that use custom loggers will also need to change their custom logging destinations to take a struct timespec instead of a time_t. The above feature test macro will help in deciding which is appropriate.
+
+2018-11-08  Fabio M. Di Nitto  <fdinitto@redhat.com>
+
+	[build] fix supported compiler warning detection (#330)
+	move from AC_PREPROC_IFELSE (strongly discouraged) to AC_COMPILE_IFELSE
+	our detection system was very weak and recent versions of clang did
+	show that PREPROC_IFELFE (cpp) would enable warning options that
+	the compiler does not support (clang).
+	use a full compilation test to detect what works and what doesn't.
+	Also expand the warning list to include new / renamed clang options
+	of equivalents already enabled for older versions of clang and gcc.
+
+2018-10-26  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	log: Add configure-time option to use systemd journal instead of syslog (#327)
+	* log: add systemd journal as a logging option
+	systemd journal can be configured as a logging option
+	at ./configure time (--enable-systemd-journal).
+	If libqb is buit with this then the syslog target can be switched
+	to sending to the journal using
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
+
+2018-10-23  Yusuke Iida  <iidayuus@intellilink.co.jp>
+
+	configure: Fixed the problem that librt was explicitly needed in RHEL 6 (#328)
+
+2018-10-16  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	log: Add option to re-open a log file (#326)
+	As this patch also brought up some locking issues with re-configuring the logging while threaded logging was enabled, it also includes locking around qb_log_ctl2() and conversion of in_logger to an atomic.
+
+2018-10-15  Christine Caulfield  <ccaulfie@redhat.com>
+
+	skiplist: fix use-after-free in the skiplist traversal
+	(Patch from poki, only committed under my name because github is being
+	weird)
+	This used to happen when an iterator contained a reference on the item
+	to continue with, which got outdated when such item had been removed in
+	the interim, though it's original memory would still be -- mistakenly --
+	accessed. Actually such a condition is exercised with an existing
+	"test_map_iter_safety(ordered=true)" test, though it likely never run
+	under valgrind's supervision and standard memory checking harness was
+	too coarse (perhaps because of low memory pressure or other "lucky"
+	coincidence). Thankfully, the default, paranoid approach towards dynamic
+	memory handling in OpenBSD (free(3) call makes small chunks "junked",
+	i.e., filled with 0xdf bytes, see malloc.conf(5)) resulted in the
+	explicit segmentation fault when tripping over the happens-to-be-freed
+	pointer in the assumed iteration chain.
+	We solve the "out-of-sync iterator" issue with a twist, inverting
+	the responsibility to carry (and more widely, to contribute in the
+	propagation of) the up-to-date "forward" pointers, as clearly,
+	iterating over and over through the items would not be very scalable
+	(and it was not done, which had resulted in the first place).
+	So now, when any skiplist item is to be removed, its preceding item
+	gets the "forward" pointers recomputed as before, but then, they are
+	copied into "forward" pointers for the item to be removed, original
+	area containing them is disposed, and this preceding item just points
+	to the area primarily managed by the to-be-removed item (procedure
+	dubbed "takeover-and-repoint" in the comment). This itself gets
+	a special mark so that this area won't be dropped when that item gets
+	disposed, which rather happens with the disposal of the preceding item
+	that points to the "forward" memory area at hand and is not marked so.
+	This is believed to be sufficient to address out-of-band (iterator
+	based) access versus interim future iteration chain mangling, as these
+	operate de facto on the non-sparse, linear level of the skiplist.
+	Alternative approaches include:
+	    turning pointers-to-arrays into pointers-to-pointers-to-arrays to
+	    allow for explicit setting to NULL after free, and sharing this
+	    additional indirection -- this straightforward extension was
+	    attempted first, but shortly after, it became apparent it would
+	    be a nightmare with the current interprocedural dependencies
+	    extra tagging of the structures and adding complexities around
+	    checking the eligibility, like every other manipulation with the
+	    skiplist
+	    completely split life-cycle of "node" and "node->forward", i.e.,
+	    separate reference-counting etc.
+	Also said test was extended to push the corner case to the limit:
+	when to-resume-with item in the chain is being figured out, the
+	predecessors may be consulted (it is in that test), but the very
+	first predecessor is now removed as well, for good measure, as
+	it makes for boundary condition ^ 2.
+	Signed-off-by: Jan Pokorný jpokorny@redhat.com
+
+2018-09-27  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	logging: Remove linker 'magic' and just use statics for logging callsites (#322)
+	It is my (and several others') opinion that the linker 'magic' used to maintain callsite data in libqb is hugely over complicated and unnecessarily fragile. It's main purpose seems to have been to improve performance but empirical testing shows this to be tiny at best. The overhead of sprintf makes minor optimisations in this code pointless.
+	With this code removed, libqb allocates callsites using a C static variable at run-time. This sounds bad but in actuality it merely moves the allocation from program load time to the first few milliseconds of program run-time. Applications like corosync and pacemaker spend most of their time in small loops doing the same work over and over again so the overhead doesn't apply and jitter does not occur.
+	We've tested this with corosync and pacemaker under valgrind and massif and the differences are minimal and even then only show up under artificial stress testing.
+	For this change I've bumped the soname up to 20 to indicate this is an incompatible change. I'm open to suggestions as to a release number but am currently thinking of 2.0.0
+
+2018-09-25  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	UPDATED: doc (ABI comparison) and various other fixes (#324)
+	* doc: qbarray.h: fix garbled Doxygen markup
+	* build: follow-up for and fine-tuning of a rushed 6d62b64 commit
+	  (It made a service as-was, but being afforded more time, this would
+	  have accompanied that commit right away, for better understanding,
+	  brevity and uniformity.)
+	* build: prune superfluous Makefile declarations within tests directory
+	  There was a significant redundancy wrt. build flags and EXTRA_DIST
+	  assignment (the latter become redundant as of f6e4042 at latest)
+	  spread all over the place (vivat copy&paste).  Also, in one instance,
+	  CPPFLAGS (used) was confused with CFLAGS (meant).
+	* maint: check abi: fix two issues with abi-compliance-checker/libstdc++
+	1. ABICC >= 2 needs to be passed -cxx-incompatible switch because C is
+	   no longer a default for this tool (used to be vice versa),
+	   plus current version will stop choking on C vs. C++ (our C code with
+	   C++ compatibility wrapping being viewed from C++ perspective for the
+	   purpose of dumping the declared symbols, which somewhat conflicts
+	   with internal masking of the C++ keywords being used as valid C
+	   identifiers [yet some instances must not be masked here, see
+	   https://github.com/lvc/abi-compliance-checker/issues/64) only
+	  if _also_ something like this is applied:
+	   https://github.com/lvc/abi-compliance-checker/pull/70
+	2. since 20246f5, libqb.so no longer poses a symlink to the actual
+	   version-qualified shared library, but rather a standalone linker
+	   script, which confuses ABICC, so blacklist that file for the scanning
+	   purposes explicitly, together with referring to the library through
+	   it's basic version qualification (which alone, sadly, is not
+	   sufficient as ABICC proceeds to scan whole containing directory
+	   despite particular file is specified)
+	* maint: check abi: switch to abi-dumper for creating "ABI dumps"
+	Beside avoiding issues with abi-compliance-checker in the role of ABI
+	dumps producer (see the preceding commit), it also seems to generate
+	more accurate picture (maybe because it expressly requires compiling
+	with debugging information requested).
+	* Low: qblist.h: fix incompatibility with C++ & check it regularly
+	* tests: check_list.c: start zeroing in on the gaps in tests' coverage
+	* tests: print_ver: make preprocessor emit "note" rather than warning
+	IIRC, Chrissie asked about this around inclusion of the test at
+	hand, and it seemed there was no way but to emit a warning to get
+	something output at all.  Now it turns wrong, and moreover, we
+	make the code not fixed on GCC specific pragmas, with a bit of
+	luck, "#pragma message" approach is adopted more widely by compilers.
+	* Replace ck_assert_uint_eq() with ck_assert_int_eq()
+	it's not available in check 0.9
+	* Proper check for C++ compiler (from Fabio)
+	* add (c) to copyright dates
+
+2018-09-13  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: allow for being consumed in a (non-endorsed) form of snapshots
+	This is meant as a lean, customized policy driven alternative
+	to the original proposal by Jan Friesse <jfriesse@redhat.com> that
+	balances the inherent trade-off in the opposite direction, so that the
+	configure.ac script is practically untouched and more weight and policy
+	is hardcoded in git-version-gen.  Problem with that approach stems from
+	(avoidable) effective fork of the respective gnulib's module and imposed
+	maintenance burden.
+	Speaking for libqb in particular, we should nonetheless make it
+	absolutely clear such in-development snapshots are nothing more,
+	nothing binding (not to think of viral injection of these bits
+	into circle of dependent packages upon their rebuilds), since the
+	changes accumulated since the last official release should only be
+	assumed firmly committed at the point the new release is cut (may
+	happen 99% of time with snapshots but no accountability from our
+	side for the complementary inter-release twists...), which is exactly
+	when many possibly unanticipated variables like correct SONAME
+	versions get to reflect what's appropriate.
+	Also, OpenPGP signature constitutes something more eligible for
+	one's trust than (provably) bit/content unstable archives without
+	the possibility of an independent authenticity/integrity verification.
+	  Therefore, the only thinkable and upstream-endorsed use cases
+	  for such snapshots are development-only purposes (CI et al.)!
+	V2 of the patch:
+	Thanks to feedback from Jan Friesse, a glitch in "make rpm" et al.
+	not working with the snapshots was pointed out.
+	V3:
+	Only normalize configure.ac back when known to be previously affected
+	with "git archive" substitution logic, and do not use an exclamation
+	mark as short commit - decoration separator since that could be
+	ambiguous (it is a valid branch name character), stick with double
+	question marks instead (not allowed, doubled for good measure).
+
+2018-09-04  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: configure: fix non-portable '\s' and '//{q}' in sed expression
+	Turned out that the current way of checking of symbol visibility
+	(introduced with the main linker compatibiity fixing commit 20246f54)
+	doesn't work on FreeBSD as caught thanks for Kronosnet's CI[0]:
+	> checking whether linker emits global boundary symbols for orphan
+	> sections... sed: 1: "/__start___verbose/{s/^ ...": extra characters
+	> at the end of q command
+	[0] https://ci.kronosnet.org/view/libqb/job/libqb-build-all-nonvoting/libqb-build-all-nonvoting=freebsd-devel-x86-64/lastBuild/consoleFull
+
+2018-08-28  Daniel Black  <daniel@linux.ibm.com>
+
+	build: dpkg-architecture on trusty (cf. Travis CI) uses -q{NAME}
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+	build: split hack for splint to work on non-x86 architectures
+	Uses dpkg-architecture, if present, to return
+	DEB_HOST_GNU_TYPE, and use this appended to /usr/include
+	for form the path.
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+	CI: travis: show logs of test failures
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+	tests: blackbox-segfault test - remove residual core files
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+2018-05-14  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	log: Use RTLD_NOOPEN when checking symbols (#310)
+	on FreeBSD 11 call dlopen on a shared library causes the constructors
+	to run again. As we're just getting symbols we don't need this to
+	happen.
+	Actually we don't WANT it to happen because it can cause qb_log_init to
+	be called twice (recursively) and the dlnames list gets corrupted. This
+	causess corosync (at leasT0 to crash at startup.
+
+2018-05-03  Fabio M. Di Nitto  <fdinitto@redhat.com>
+
+	tests: use RUNPATH instead of RPATH consistently (#309)
+	some vendors default to RPATH, others to RUNPATH. The former does not allow override
+	with LD_LIBRARY_PATH when running binaries such as test suite and it was causing
+	problems on platforms where RPATH is default, by running the test suite against
+	the wrong library (out-of-tree vs in-tree).
+	This change has no effect on libqb itself, but only on the binaries.
+
+2018-05-03  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	Allow customisable log line length (#292)
+	* log: Allow flexible size of logging buffer & ellipsis if it overflows.
+	Allow the logging line length to be changed. Any reasonable length is allowable, the default is 512 as before. Anything more than 512 incurs several mallocs.
+	Also add an option to set the last 3 characters as '...' if the line length overflows.
+
+2018-04-20  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	ipc_shm: Don't truncate SHM files of an active server (#307)
+	* ipc_shm: Don't truncate SHM files of an active server
+	I've put in an extra check so that clients don't truncate the
+	SHM file if the server still exists. Sadly on FreeBSD we can't
+	get the server PID for the client (unless someone has a patch handy!)
+	so we still do the truncate when disconnected. As a backstop (and also
+	to cover the BSD issue) I've added a SIGBUS trap to the server shutdown
+	so that it doesn't cause a server crash.
+	Reviewed by: Jan Friesse <jfriesse@redhat.com>
+
+2018-03-27  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	test: Fix 'make distcheck' (#303)
+	Miscellaneous fixes and cleanups to get 'make distcheck' to work on most
+	platforms.
+
+2018-03-20  wferi  <wferi@debian.org>
+
+	Fix comment typo (#296)
+	* Fix misleading comment on preprocessor conditional
+	* Fix spelling: plaform -> platform
+
+2018-03-08  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	tests: Improve test isolation (#298)
+	* tests: Improve test isolation
+	Make all the IPC tests run with a common date/pid stamp name, so that
+	the final resource.test only fails if it finds one of OUR files left
+	lying around and not those from another test.
+	Falls back to old IPC naming style if we can't create the file.
+	Reviewed-by:  Jan Friesse <jfriesse@redhat.com>
+
+2017-12-25  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: fix configure script neglecting, re-enable out-of-tree builds
+	For the former, a prototype and the final code got (hm, mysteriously)
+	intertwisted.  For the latter, I am clearly guilty of (rare, anyway)
+	testing of the out-of-tree builds only with libqb-already-system-wide
+	scenario, which is rather shortsighted.
+	Thanks Fabio and his ci.kronosnet.org project for spotting that.
+	X-mas-present-for: Fabio M. Di Nitto <fdinitto@redhat.com>

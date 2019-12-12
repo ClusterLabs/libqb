@@ -1,0 +1,5 @@
+<map id="qbrb.h" name="qbrb.h">
+<area shape="rect" id="node1" title="This implements a ring buffer that works in &quot;chunks&quot;, not bytes." alt="" coords="75,5,138,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,101,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="126,80,197,107"/>
+</map>

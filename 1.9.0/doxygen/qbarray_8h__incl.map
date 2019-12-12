@@ -1,0 +1,6 @@
+<map id="qbarray.h" name="qbarray.h">
+<area shape="rect" id="node1" title="This is a dynamic array (it can grow, but without moving memory)." alt="" coords="97,5,179,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,76,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="101,80,175,107"/>
+<area shape="rect" id="node4" href="$qbdefs_8h.html" title="These are some convience macros and defines." alt="" coords="199,80,298,107"/>
+</map>

@@ -1,0 +1,4 @@
+<map id="qbloop.h" name="qbloop.h">
+<area shape="rect" id="node1" title="Main loop manages timers, jobs and polling sockets." alt="" coords="5,5,84,32"/>
+<area shape="rect" id="node2" href="$qbipcs_8h.html" title="Server IPC API." alt="" coords="7,80,83,107"/>
+</map>

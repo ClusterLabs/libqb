@@ -1,0 +1,9 @@
+<map id="qbhdb.h" name="qbhdb.h">
+<area shape="rect" id="node1" title="The handle database is for reference counting objects." alt="" coords="117,5,191,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,76,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="129,155,200,181"/>
+<area shape="rect" id="node4" title=" " alt="" coords="152,80,239,107"/>
+<area shape="rect" id="node5" href="$qbarray_8h.html" title="This is a dynamic array (it can grow, but without moving memory)." alt="" coords="263,80,365,107"/>
+<area shape="rect" id="node6" title=" " alt="" coords="250,155,325,181"/>
+<area shape="rect" id="node7" href="$qbdefs_8h.html" title="These are some convience macros and defines." alt="" coords="349,155,447,181"/>
+</map>

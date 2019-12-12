@@ -1,0 +1,6 @@
+<map id="qbloop.h" name="qbloop.h">
+<area shape="rect" id="node1" title="Main loop manages timers, jobs and polling sockets." alt="" coords="99,5,177,32"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,80,79,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="103,80,173,107"/>
+<area shape="rect" id="node4" title=" " alt="" coords="198,80,257,107"/>
+</map>
