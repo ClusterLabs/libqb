@@ -25,9 +25,6 @@
 #endif /* HAVE_LINK_H */
 #include <stdarg.h>
 #include <pthread.h>
-#ifdef HAVE_DLFCN_H
-#include <dlfcn.h>
-#endif /* HAVE_DLFCN_H */
 #include <stdarg.h>
 #include <string.h>
 
@@ -36,16 +33,10 @@
 #include <qb/qblog.h>
 #include <qb/qbutil.h>
 #include <qb/qbarray.h>
+#include <qb/qbatomic.h>
 #include "log_int.h"
 #include "util_int.h"
 #include <regex.h>
-
-#if defined(QB_NEED_ATTRIBUTE_SECTION_WORKAROUND) && !defined(S_SPLINT_S)
-/* following only needed to force these symbols be global
-   with ld 2.29: https://bugzilla.redhat.com/1477354 */
-struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_START[] = { {0} };
-struct qb_log_callsite __attribute__((weak)) QB_ATTR_SECTION_STOP[] = { {0} };
-#endif
 
 static struct qb_log_target conf[QB_LOG_TARGET_MAX];
 static uint32_t conf_active_max = 0;
@@ -54,14 +45,8 @@ static int32_t logger_inited = QB_FALSE;
 static pthread_rwlock_t _listlock;
 static qb_log_filter_fn _custom_filter_fn = NULL;
 
-static QB_LIST_DECLARE(dlnames);
 static QB_LIST_DECLARE(tags_head);
 static QB_LIST_DECLARE(callsite_sections);
-
-struct dlname {
-	char *dln_name;
-	struct qb_list_head list;
-};
 
 struct callsite_section {
 	struct qb_log_callsite *start;
@@ -193,16 +178,17 @@ _cs_matches_filter_(struct qb_log_callsite *cs,
 #endif
 #endif
 static inline void
-cs_format(char *str, struct qb_log_callsite *cs, va_list ap)
+cs_format(char *str, size_t maxlen, struct qb_log_callsite *cs, va_list ap)
 {
 	va_list ap_copy;
 	int len;
 
 	va_copy(ap_copy, ap);
-	len = vsnprintf(str, QB_LOG_MAX_LEN, cs->format, ap_copy);
+	len = vsnprintf(str, maxlen, cs->format, ap_copy);
 	va_end(ap_copy);
-	if (len > QB_LOG_MAX_LEN) {
-		len = QB_LOG_MAX_LEN;
+
+	if (len > maxlen) {
+		len = maxlen;
 	}
 	if (str[len - 1] == '\n') {
 		str[len - 1] = '\0';
@@ -219,20 +205,38 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 	struct qb_log_target *t;
 	struct timespec tv;
 	enum qb_log_target_slot pos;
+	size_t max_line_length = 0;
 	int32_t formatted = QB_FALSE;
 	char buf[QB_LOG_MAX_LEN];
 	char *str = buf;
 	va_list ap_copy;
 
-	if (in_logger || cs == NULL) {
+	if (qb_atomic_int_compare_and_exchange(&in_logger, QB_FALSE, QB_TRUE) == QB_FALSE || cs == NULL) {
 		return;
 	}
-	in_logger = QB_TRUE;
+
+	/* 0 Work out the longest line length available */
+	for (pos = QB_LOG_TARGET_START; pos <= conf_active_max; pos++) {
+		t = &conf[pos];
+		if ((t->state == QB_LOG_STATE_ENABLED)
+		       && qb_bit_is_set(cs->targets, pos)) {
+			if (t->max_line_length > max_line_length) {
+				max_line_length = t->max_line_length;
+			}
+		}
+	}
+
+	if (max_line_length > QB_LOG_MAX_LEN) {
+		str = malloc(max_line_length);
+		if (!str) {
+			return;
+		}
+	}
 
 	if (old_internal_log_fn &&
 	    qb_bit_is_set(cs->tags, QB_LOG_TAG_LIBQB_MSG_BIT)) {
 		if (formatted == QB_FALSE) {
-			cs_format(str, cs, ap);
+			cs_format(str, max_line_length, cs, ap);
 			formatted = QB_TRUE;
 		}
 		qb_do_extended(str, QB_TRUE,
@@ -254,31 +258,35 @@ qb_log_real_va_(struct qb_log_callsite *cs, va_list ap)
 				if (!found_threaded) {
 					found_threaded = QB_TRUE;
 					if (formatted == QB_FALSE) {
-						cs_format(str, cs, ap);
+						cs_format(str, max_line_length, cs, ap);
 						formatted = QB_TRUE;
 					}
 				}
 
 			} else if (t->vlogger) {
 				va_copy(ap_copy, ap);
-				t->vlogger(t->pos, cs, tv.tv_sec, ap_copy);
+				t->vlogger(t->pos, cs, &tv, ap_copy);
 				va_end(ap_copy);
 
 			} else if (t->logger) {
 				if (formatted == QB_FALSE) {
-					cs_format(str, cs, ap);
+					cs_format(str, max_line_length, cs, ap);
 					formatted = QB_TRUE;
 				}
 				qb_do_extended(str, t->extended,
-					       t->logger(t->pos, cs, tv.tv_sec, str));
+					       t->logger(t->pos, cs, &tv, str));
 			}
 		}
 	}
 
 	if (found_threaded) {
-		qb_log_thread_log_post(cs, tv.tv_sec, str);
+		qb_log_thread_log_post(cs, &tv, str);
 	}
-	in_logger = QB_FALSE;
+	qb_atomic_int_set(&in_logger, QB_FALSE);
+
+	if (max_line_length > QB_LOG_MAX_LEN) {
+		free(str);
+	}
 }
 
 void
@@ -293,7 +301,7 @@ qb_log_real_(struct qb_log_callsite *cs, ...)
 
 void
 qb_log_thread_log_write(struct qb_log_callsite *cs,
-			time_t timestamp, const char *buffer)
+			struct timespec *timestamp, const char *buffer)
 {
 	struct qb_log_target *t;
 	enum qb_log_target_slot pos;
@@ -772,73 +780,6 @@ qb_log_filter_ctl(int32_t t, enum qb_log_filter_conf c,
 	return qb_log_filter_ctl2(t, c, type, text, LOG_EMERG, priority);
 }
 
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-/* Some platforms (eg. FreeBSD 10+) don't support calling dlopen() from
- * within a dl_iterate_phdr() callback; so save all of the dlpi_names to
- * a list and iterate over them afterwards. */
-static int32_t
-_log_so_walk_callback(struct dl_phdr_info *info, size_t size, void *data)
-{
-	struct dlname *dlname;
-
-	if (strlen(info->dlpi_name) > 0) {
-		dlname = calloc(1, sizeof(struct dlname));
-		if (!dlname)
-			return 0;
-		dlname->dln_name = strdup(info->dlpi_name);
-		qb_list_add_tail(&dlname->list, &dlnames);
-	}
-
-	return 0;
-}
-
-static void
-_log_so_walk_dlnames(void)
-{
-	struct dlname *dlname;
-	struct qb_list_head *iter;
-	struct qb_list_head *next;
-
-	void *handle;
-	void *start;
-	void *stop;
-	const char *error;
-
-	qb_list_for_each_safe(iter, next, &dlnames) {
-		dlname = qb_list_entry(iter, struct dlname, list);
-
-		handle = dlopen(dlname->dln_name, RTLD_LAZY);
-		error = dlerror();
-		if (!handle || error) {
-			qb_log(LOG_ERR, "%s", error);
-			goto done;
-		}
-
-		start = dlsym(handle, QB_ATTR_SECTION_START_STR);
-		error = dlerror();
-		if (error) {
-			goto done;
-		}
-
-		stop = dlsym(handle, QB_ATTR_SECTION_STOP_STR);
-		error = dlerror();
-		if (error) {
-			goto done;
-
-		} else {
-			qb_log_callsites_register(start, stop);
-		}
-done:
-		if (handle)
-			dlclose(handle);
-		qb_list_del(iter);
-		if (dlname->dln_name)
-			free(dlname->dln_name);
-		free(dlname);
-	}
-}
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
-
 static void
 _log_target_state_set(struct qb_log_target *t, enum qb_log_target_state s)
 {
@@ -864,18 +805,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 {
 	int32_t l;
 	enum qb_log_target_slot i;
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-	void *work_handle; struct qb_log_callsite *work_s1, *work_s2;
-	Dl_info work_dli;
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
-	/* cannot reuse single qb_log invocation in various contexts
-	   through the variables (when section attribute in use),
-	   hence this indirection */
-	enum {
-		preinit_err_none,
-		preinit_err_target_sec,
-		preinit_err_target_empty,
-	} preinit_err = preinit_err_none;
 
 	l = pthread_rwlock_init(&_listlock, NULL);
 	assert(l == 0);
@@ -889,37 +818,11 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 		conf[i].state = QB_LOG_STATE_UNUSED;
 		(void)strlcpy(conf[i].name, name, PATH_MAX);
 		conf[i].facility = facility;
+		conf[i].max_line_length = QB_LOG_MAX_LEN;
 		qb_list_init(&conf[i].filter_head);
 	}
 
 	qb_log_dcs_init();
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-	/* sanity check that target chain supplied QB_ATTR_SECTION_ST{ART,OP}
-	   symbols and hence the local references to them are not referencing
-	   the proper libqb's ones (locating libqb by it's relatively unique
-	   non-functional symbols -- the two are mutually exclusive, the
-	   ordinarily latter was introduced by accident, the former is
-	   intentional -- due to possible confusion otherwise) */
-	if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)
-	     || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))
-	    && (work_handle = dlopen(work_dli.dli_fname,
-	                             RTLD_LOCAL|RTLD_LAZY)) != NULL) {
-		work_s1 = (struct qb_log_callsite *)
-		          dlsym(work_handle, QB_ATTR_SECTION_START_STR);
-		work_s2 = (struct qb_log_callsite *)
-		          dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);
-		if (work_s1 == QB_ATTR_SECTION_START
-		    || work_s2 == QB_ATTR_SECTION_STOP) {
-			preinit_err = preinit_err_target_sec;
-		} else if (work_s1 == work_s2) {
-			preinit_err = preinit_err_target_empty;
-		}
-		dlclose(work_handle);  /* perhaps overly eager thing to do */
-	}
-	qb_log_callsites_register(QB_ATTR_SECTION_START, QB_ATTR_SECTION_STOP);
-	dl_iterate_phdr(_log_so_walk_callback, NULL);
-	_log_so_walk_dlnames();
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
 	for (i = QB_LOG_TARGET_STATIC_START; i < QB_LOG_TARGET_STATIC_MAX; i++)
 		conf[i].state = QB_LOG_STATE_DISABLED;
@@ -929,25 +832,6 @@ qb_log_init(const char *name, int32_t facility, uint8_t priority)
 	_log_target_state_set(&conf[QB_LOG_SYSLOG], QB_LOG_STATE_ENABLED);
 	(void)qb_log_filter_ctl(QB_LOG_SYSLOG, QB_LOG_FILTER_ADD,
 				QB_LOG_FILTER_FILE, "*", priority);
-
-	if (preinit_err == preinit_err_target_sec)
-		qb_util_log(LOG_NOTICE, "(libqb) log module hasn't observed"
-		                        " target chain supplied callsite"
-		                        " section, target's and/or libqb's"
-		                        " build is at fault, preventing"
-		                        " reliable logging (unless qb_log_init"
-		                        " invoked in no-custom-logging context"
-		                        " unexpectedly, or target chain built"
-		                        " purposefully without these sections)");
-	else if (preinit_err == preinit_err_target_empty) {
-		qb_util_log(LOG_WARNING, "(libqb) log module has observed"
-		                         " target chain supplied section"
-		                         " unpopulated, target's and/or libqb's"
-		                         " build is at fault, preventing"
-		                         " reliable logging (unless qb_log_init"
-		                         " invoked in no-custom-logging context"
-		                         " unexpectedly)");
-	}
 }
 
 void
@@ -1002,6 +886,7 @@ qb_log_target_alloc(void)
 			return &conf[i];
 		}
 	}
+	errno = EMFILE;
 	return NULL;
 }
 
@@ -1027,7 +912,7 @@ qb_log_target_user_data_get(int32_t t)
 {
 	if (t < 0 || t >= QB_LOG_TARGET_MAX ||
 	    conf[t].state == QB_LOG_STATE_UNUSED) {
-		errno = -EBADF;
+		errno = EBADF;
 		return NULL;
 	}
 
@@ -1090,9 +975,9 @@ qb_log_custom_close(int32_t t)
 	target = qb_log_target_get(t);
 
 	if (target->close) {
-		in_logger = QB_TRUE;
+		qb_atomic_int_set(&in_logger, QB_TRUE);
 		target->close(t);
-		in_logger = QB_FALSE;
+		qb_atomic_int_set(&in_logger, QB_FALSE);
 	}
 	qb_log_target_free(target);
 }
@@ -1127,9 +1012,9 @@ _log_target_disable(struct qb_log_target *t)
 	}
 	_log_target_state_set(t, QB_LOG_STATE_DISABLED);
 	if (t->close) {
-		in_logger = QB_TRUE;
+		qb_atomic_int_set(&in_logger, QB_TRUE);
 		t->close(t->pos);
-		in_logger = QB_FALSE;
+		qb_atomic_int_set(&in_logger, QB_FALSE);
 	}
 }
 
@@ -1150,6 +1035,12 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 	    conf[t].state == QB_LOG_STATE_UNUSED) {
 		return -EBADF;
 	}
+
+	/* Starting/stopping the thread has its own locking that can interfere with this */
+	if (c != QB_LOG_CONF_THREADED) {
+		qb_log_thread_pause(&conf[t]);
+	}
+
 	switch (c) {
 	case QB_LOG_CONF_ENABLED:
 		if (arg_i32) {
@@ -1182,12 +1073,13 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 	case QB_LOG_CONF_SIZE:
 		if (t == QB_LOG_BLACKBOX) {
 			if (arg_i32 <= 0) {
-				return -EINVAL;
+				rc = -EINVAL;
+				goto unlock_fini;
 			}
 			conf[t].size = arg_i32;
 			need_reload = QB_TRUE;
 		} else {
-			return -ENOSYS;
+			rc = -ENOSYS;
 		}
 		break;
 	case QB_LOG_CONF_THREADED:
@@ -1196,14 +1088,41 @@ qb_log_ctl2(int32_t t, enum qb_log_conf c, qb_log_ctl2_arg_t arg_not4directuse)
 	case QB_LOG_CONF_EXTENDED:
 		conf[t].extended = arg_i32;
 		break;
+	case QB_LOG_CONF_MAX_LINE_LEN:
+		/* arbitrary limit, but you'd be insane to go further */
+		if (arg_i32 > QB_LOG_ABSOLUTE_MAX_LEN) {
+			rc = -EINVAL;
+		} else {
+			conf[t].max_line_length = arg_i32;
+		}
+		break;
+	case QB_LOG_CONF_ELLIPSIS:
+		conf[t].ellipsis = arg_i32;
+		break;
+	case QB_LOG_CONF_USE_JOURNAL:
+#ifdef USE_JOURNAL
+		if (t == QB_LOG_SYSLOG) {
+			conf[t].use_journal = arg_i32;
+		} else {
+			rc = -EINVAL;
+		}
+#else
+		rc = -EOPNOTSUPP;
+#endif
+		break;
 
 	default:
 		rc = -EINVAL;
 	}
 	if (rc == 0 && need_reload && conf[t].reload) {
-		in_logger = QB_TRUE;
+		qb_atomic_int_set(&in_logger, QB_TRUE);
 		conf[t].reload(t);
-		in_logger = QB_FALSE;
+		qb_atomic_int_set(&in_logger, QB_FALSE);
+	}
+
+unlock_fini:
+	if (c != QB_LOG_CONF_THREADED) {
+		qb_log_thread_resume(&conf[t]);
 	}
 	return rc;
 }

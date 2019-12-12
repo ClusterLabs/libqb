@@ -642,7 +642,7 @@ qb_ipcs_disconnect(struct qb_ipcs_connection *c)
 				scheduled_retry = 1;
 			}
 		}
-		remove_tempdir(c->description);
+		remove_tempdir(c->description, CONNECTION_DESCRIPTION);
 		if (scheduled_retry == 0) {
 			/* This removes the initial alloc ref */
 			qb_ipcs_connection_unref(c);

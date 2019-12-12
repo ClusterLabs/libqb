@@ -27,9 +27,6 @@
 /* need atomic memory barrier */
 #undef QB_ATOMIC_OP_MEMORY_BARRIER_NEEDED
 
-/* Enabling code using __attribute__((section)) */
-#undef QB_HAVE_ATTRIBUTE_SECTION
-
 /* versioning info: MAJOR, MINOR, MICRO, and REST components;
    note that static compile-time info is not that useful as consulting
    the respectively named members of qb_version struct constant under

@@ -422,8 +422,7 @@ qb_rb_chunk_alloc(struct qb_ringbuffer_s * rb, size_t len)
 		while (qb_rb_space_free(rb) < (len + QB_RB_CHUNK_MARGIN)) {
 			int rc = _rb_chunk_reclaim(rb);
 			if (rc != 0) {
-				errno = rc;
-				return NULL;
+				return NULL;  /* errno already set */
 			}
 		}
 	} else {
@@ -542,7 +541,8 @@ _rb_chunk_reclaim(struct qb_ringbuffer_s * rb)
 	old_read_pt = rb->shared_hdr->read_pt;
 	chunk_magic = QB_RB_CHUNK_MAGIC_GET(rb, old_read_pt);
 	if (chunk_magic != QB_RB_CHUNK_MAGIC) {
-		return -EINVAL;
+		errno = EINVAL;
+		return -errno;
 	}
 
 	old_chunk_size = QB_RB_CHUNK_SIZE_GET(rb, old_read_pt);

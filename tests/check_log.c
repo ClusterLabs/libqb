@@ -30,6 +30,10 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
+#ifdef USE_JOURNAL
+#include <systemd/sd-journal.h>
+#endif
+
 #include "_syslog_override.h"
 
 extern size_t qb_vsnprintf_serialize(char *serialize, size_t max_len, const char *fmt, va_list ap);
@@ -187,9 +191,10 @@ START_TEST(test_log_stupid_inputs)
 }
 END_TEST
 
-static char test_buf[QB_LOG_MAX_LEN];
+static char test_buf[4097];
 static uint8_t test_priority;
 static int32_t num_msgs;
+static size_t last_length;
 
 /*
  * to test that we get what we expect.
@@ -197,13 +202,26 @@ static int32_t num_msgs;
 static void
 _test_logger(int32_t t,
 	     struct qb_log_callsite *cs,
-	     time_t timestamp, const char *msg)
+	     struct timespec *timestamp, const char *msg)
 {
 	test_buf[0] = '\0';
 	qb_log_target_format(t, cs, timestamp, msg, test_buf);
 	test_priority = cs->priority;
 
 	num_msgs++;
+}
+
+static void
+_test_length_logger(int32_t t,
+	     struct qb_log_callsite *cs,
+	     struct timespec *timestamp, const char *msg)
+{
+	strcpy(test_buf, msg);
+	qb_log_target_format(t, cs, timestamp, msg, test_buf);
+	test_priority = cs->priority;
+
+	num_msgs++;
+	last_length = strlen(msg);
 }
 
 static void log_also(void)
@@ -278,6 +296,143 @@ START_TEST(test_log_filter_fn)
 }
 END_TEST
 
+START_TEST(test_file_logging)
+{
+	struct stat st;
+	int rc, lf;
+
+	unlink("test1.log");
+	unlink("test2.log");
+
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	lf = qb_log_file_open("test1.log");
+	rc = qb_log_filter_ctl(lf, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FILE,
+			       __FILE__, LOG_DEBUG);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(lf, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_INFO, "write to file 1");
+	qb_log(LOG_INFO, "write to file 1 again");
+
+	rc = stat("test1.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_ge(st.st_size, 32);
+
+	/* Test reopen with NULL arg */
+	rc = qb_log_file_reopen(lf, NULL);
+	ck_assert_int_eq(rc, 0);
+	qb_log(LOG_INFO, "write to file 1 and again");
+	qb_log(LOG_INFO, "write to file 1 yet again");
+	rc = stat("test1.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_ge(st.st_size, 64);
+
+	/* Test reopen with new file */
+	rc = qb_log_file_reopen(lf, "test2.log");
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_INFO, "write to file 2");
+	qb_log(LOG_INFO, "write to file 2 again");
+
+	rc = stat("test2.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_ge(st.st_size, 32);
+
+	unlink("test1.log");
+	unlink("test2.log");
+}
+END_TEST
+
+START_TEST(test_timestamps)
+{
+	int32_t t;
+	int32_t rc;
+	int a,b,c,d;
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			       QB_LOG_FILTER_FILE, "*", LOG_INFO);
+	ck_assert_int_eq(rc, 0);
+
+	/* normal timestamp */
+	qb_log_format_set(t, "%t %b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_INFO, "The time now is (see left)");
+	rc = sscanf(test_buf+7, "%d:%d:%d.%d", &a, &b, &c, &d);
+	ck_assert_int_eq(rc, 3);
+
+	/* millisecond timestamp */
+	qb_log_format_set(t, "%T %b");
+	qb_log(LOG_INFO, "The time now is precisely (see left)");
+	rc = sscanf(test_buf+7, "%d:%d:%d.%d", &a, &b, &c, &d);
+	ck_assert_int_eq(rc, 4);
+}
+END_TEST
+
+
+START_TEST(test_line_length)
+{
+	int32_t t;
+	int32_t rc;
+	int i;
+	char bigbuf[4097];
+
+	qb_log_init("test", LOG_USER, LOG_EMERG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
+
+	t = qb_log_custom_open(_test_length_logger, NULL, NULL, NULL);
+	rc = qb_log_filter_ctl(t, QB_LOG_FILTER_ADD,
+			  QB_LOG_FILTER_FORMAT, "*", LOG_WARNING);
+	ck_assert_int_eq(rc, 0);
+	qb_log_format_set(t, "[%p] %b");
+	rc = qb_log_ctl(t, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_MAX_LINE_LEN, 32);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(t, QB_LOG_CONF_ELLIPSIS, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	/* captures last log */
+	memset(test_buf, 0, sizeof(test_buf));
+	test_priority = 0;
+	num_msgs = 0;
+
+	qb_log(LOG_ERR, "Short message");
+	qb_log(LOG_ERR, "This is a longer message 123456789012345678901234567890");
+	qb_log(LOG_ERR, "Long message with parameters %d %s", 1234, "Oh yes it is");
+
+	ck_assert_int_eq(num_msgs, 3);
+	ck_assert_int_eq(last_length, 31);
+
+	ck_assert_str_eq(test_buf+28, "...");
+
+	rc = qb_log_ctl(t, QB_LOG_CONF_ELLIPSIS, QB_FALSE);
+	ck_assert_int_eq(rc, 0);
+
+	qb_log(LOG_ERR, "Long message with parameters %d %s", 1234, "Oh yes it is");
+	ck_assert_str_ne(test_buf+28, "...");
+
+	/* Long lines */
+	num_msgs = 0;
+	rc = qb_log_ctl(t, QB_LOG_CONF_MAX_LINE_LEN, 4096);
+	ck_assert_int_eq(rc, 0);
+
+	for (i=0; i<4096; i++) {
+		bigbuf[i] = '0'+(i%10);
+	}
+	bigbuf[4096] = '\0';
+	qb_log(LOG_ERR, "%s", bigbuf);
+	ck_assert_int_eq(num_msgs, 1);
+	ck_assert_int_eq(last_length, 4095);
+}
+END_TEST
+
 START_TEST(test_log_basic)
 {
 	int32_t t;
@@ -312,7 +467,7 @@ START_TEST(test_log_basic)
 	ck_assert_str_eq(test_buf, "Hello Angus, how are you?");
 
 
-	/* 
+	/*
 	 * test filtering by file regex
  	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
@@ -327,7 +482,7 @@ START_TEST(test_log_basic)
 				    56, 0, "filename/lineno");
 	ck_assert_int_eq(num_msgs, 1);
 
-	/* 
+	/*
 	 * test filtering by format regex
  	 */
 	qb_log_filter_ctl(t, QB_LOG_FILTER_CLEAR_ALL,
@@ -857,8 +1012,55 @@ START_TEST(test_zero_tags)
 }
 END_TEST
 
+#ifdef USE_JOURNAL
+START_TEST(test_journal)
+{
+	int rc;
+	const char *msg;
+	size_t len;
+	pid_t log_pid;
+	sd_journal *jnl;
+	int count = 0;
+
+	qb_log_init("check_log", LOG_USER, LOG_DEBUG);
+	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, 0);
+	qb_log(LOG_ERR, "Test message 1 from libqb");
+
+	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
+	rc = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, -EINVAL);
+	sleep(1);
+
+	/* Check it reached the journal */
+	rc = sd_journal_open(&jnl, 0);
+	ck_assert_int_eq(rc, 0);
+	rc = sd_journal_seek_tail(jnl);
+	ck_assert_int_eq(rc, 0);
+	SD_JOURNAL_FOREACH_BACKWARDS(jnl) {
+	    rc = sd_journal_get_data(jnl, "_PID", (const void **)&msg, &len);
+	    ck_assert_int_eq(rc, 0);
+	    sscanf(msg, "_PID=%d", &log_pid);
+	    fprintf(stderr, "PID message = '%s' - pid = %d (pid=%d, parent=%d)\n", msg, log_pid, getpid(), getppid());
+	    if (log_pid == getpid()) {
+	        rc = sd_journal_get_data(jnl, "MESSAGE", (const void **)&msg, &len);
+		ck_assert_int_eq(rc, 0);
+		break;
+	    }
+	    if (++count > 20) {
+		    break;
+            }
+        }
+	sd_journal_close(jnl);
+	ck_assert_int_lt(count, 20);
+}
+END_TEST
+#else
 START_TEST(test_syslog)
 {
+	int rc;
+
 	qb_log_init("flip", LOG_USER, LOG_INFO);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
 
@@ -870,9 +1072,14 @@ START_TEST(test_syslog)
 	qb_log(LOG_ERR, "second as flop");
 	ck_assert_str_eq(_syslog_ident, "flop");
 
+	/* This test only runs if USE_JOURNAL is undefined, so should always fail */
+	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
+	ck_assert_int_eq(rc, -EOPNOTSUPP);
+
 	qb_log_fini();
 }
 END_TEST
+#endif
 
 static Suite *
 log_suite(void)
@@ -889,12 +1096,23 @@ log_suite(void)
 	add_tcase(s, tc, test_log_long_msg);
 	add_tcase(s, tc, test_log_filter_fn);
 	add_tcase(s, tc, test_threaded_logging);
+	add_tcase(s, tc, test_line_length);
+	add_tcase(s, tc, test_file_logging);
 #ifdef HAVE_PTHREAD_SETSCHEDPARAM
 	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
 #endif
+	add_tcase(s, tc, test_timestamps);
 	add_tcase(s, tc, test_extended_information);
 	add_tcase(s, tc, test_zero_tags);
+/*
+ * You can still use syslog and journal in a normal application,
+ * but the syslog_override code doesn't work when -lsystemd is present
+ */
+#ifdef USE_JOURNAL
+        add_tcase(s, tc, test_journal);
+#else
 	add_tcase(s, tc, test_syslog);
+#endif
 
 	return s;
 }

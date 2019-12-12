@@ -494,6 +494,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 
 	qb_ipc_auth_creds(data);
 	c->egid = data->ugp.gid;
+	c->server_pid = data->ugp.pid;
 
 	destroy_ipc_auth_data(data);
 	return r->hdr.error;
@@ -599,6 +600,13 @@ qb_ipcs_us_withdraw(struct qb_ipcs_service * s)
 		socklen_t socklen = sizeof(sockname);
 		if ((getsockname(s->server_sock, (struct sockaddr *)&sockname, &socklen) == 0) &&
 		    sockname.sun_family == AF_UNIX) {
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+			/*
+			 * Terminating NUL on FreeBSD is not part of the sun_path.
+			 * Add it to use sun_path as a parameter of unlink
+			 */
+			sockname.sun_path[sockname.sun_len - offsetof(struct sockaddr_un, sun_path)] = '\0';
+#endif
 			unlink(sockname.sun_path);
 		}
 	}
@@ -620,8 +628,6 @@ handle_new_connection(struct qb_ipcs_service *s,
 	int32_t res2 = 0;
 	uint32_t max_buffer_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
 	struct qb_ipc_connection_response response;
-	const char suffix[] = "/qb";
-	int desc_len;
 
 	c = qb_ipcs_connection_alloc(s);
 	if (c == NULL) {
@@ -645,41 +651,26 @@ handle_new_connection(struct qb_ipcs_service *s,
 	c->auth.mode = 0600;
 	c->stats.client_pid = ugp->pid;
 
+	memset(&response, 0, sizeof(response));
+
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
-	desc_len = snprintf(c->description, CONNECTION_DESCRIPTION - sizeof suffix,
-			    "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
-	if (desc_len < 0) {
-		res = -errno;
-		goto send_response;
-	}
-	if (desc_len >= CONNECTION_DESCRIPTION - sizeof suffix) {
-		res = -ENAMETOOLONG;
-		goto send_response;
-	}
+	snprintf(c->description, CONNECTION_DESCRIPTION,
+		 "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
 	if (mkdtemp(c->description) == NULL) {
-		res = -errno;
+		res = errno;
 		goto send_response;
 	}
-	if (chmod(c->description, 0770)) {
-		res = -errno;
+	res = chown(c->description, c->auth.uid, c->auth.gid);
+	if (res != 0) {
+		res = errno;
 		goto send_response;
 	}
-	/* chown can fail because we might not be root */
-	(void)chown(c->description, c->auth.uid, c->auth.gid);
 
 	/* We can't pass just a directory spec to the clients */
-	memcpy(c->description + desc_len, suffix, sizeof suffix);
+	strncat(c->description,"/qb", CONNECTION_DESCRIPTION);
 #else
-	desc_len = snprintf(c->description, CONNECTION_DESCRIPTION,
-			    "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
-	if (desc_len < 0) {
-		res = -errno;
-		goto send_response;
-	}
-	if (desc_len >= CONNECTION_DESCRIPTION) {
-		res = -ENAMETOOLONG;
-		goto send_response;
-	}
+	snprintf(c->description, CONNECTION_DESCRIPTION,
+		 "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
 #endif
 
 
@@ -695,7 +686,6 @@ handle_new_connection(struct qb_ipcs_service *s,
 	qb_util_log(LOG_DEBUG, "IPC credentials authenticated (%s)",
 		    c->description);
 
-	memset(&response, 0, sizeof(response));
 	if (s->funcs.connect) {
 		res = s->funcs.connect(s, c, &response);
 		if (res != 0) {
@@ -843,12 +833,13 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 
-	res = s->poll_fns.dispatch_add(QB_LOOP_MED,
-					data->sock,
-					POLLIN | POLLPRI | POLLNVAL,
-					data, process_auth);
+	res = s->poll_fns.dispatch_add(s->poll_priority,
+	                               data->sock,
+	                               POLLIN | POLLPRI | POLLNVAL,
+	                               data, process_auth);
 	if (res < 0) {
-		qb_util_log(LOG_DEBUG, "Failed to process AUTH for fd (%d)", data->sock);
+		qb_util_log(LOG_DEBUG, "Failed to arrange for AUTH for fd (%d)",
+		            data->sock);
 		close(sock);
 		destroy_ipc_auth_data(data);
 	}
@@ -904,15 +895,16 @@ retry_accept:
 	return 0;
 }
 
-void remove_tempdir(const char *name)
+void remove_tempdir(const char *name, size_t namelen)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	char dirname[PATH_MAX];
-	char *slash = strrchr(name, '/');
+	char *slash;
+	memcpy(dirname, name, namelen);
 
-	if (slash && slash - name < sizeof dirname) {
-		memcpy(dirname, name, slash - name);
-		dirname[slash - name] = '\0';
+	slash = strrchr(dirname, '/');
+	if (slash) {
+		*slash = '\0';
 		/* This gets called more than it needs to be really, so we don't check
 		 * the return code. It's more of a desperate attempt to clean up after ourself
 		 * in either the server or client.

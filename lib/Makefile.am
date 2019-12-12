@@ -30,7 +30,7 @@ AM_CPPFLAGS             = -I$(top_builddir)/include -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libqb.la
 
-libqb_la_LDFLAGS	= -version-info 19:2:19
+libqb_la_LDFLAGS	= -version-info 20:0:0
 
 source_to_lint		= util.c hdb.c ringbuffer.c ringbuffer_helper.c \
 			  array.c loop.c loop_poll.c loop_job.c \
@@ -77,11 +77,8 @@ EXTRA_libqb_la_DEPENDENCIES = qblog_script.ld qblog_script.la
 EXTRA_DIST		= qblog_script.ld.in qblog_script.la.in qblog_script_noop.ld
 
 libqb_la_SOURCES	= $(source_to_lint) unix.c
-libqb_la_CFLAGS		= $(PTHREAD_CFLAGS)
-libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS)
-if NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND
-libqb_la_LIBADD 	+= qblog_script.la
-endif
+libqb_la_CFLAGS		= $(PTHREAD_CFLAGS) $(SYSTEMD_CFLAGS)
+libqb_la_LIBADD		= $(LTLIBOBJS) $(dlopen_LIBS) $(PTHREAD_LIBS) $(socket_LIBS) $(rt_LIBS) $(SYSTEMD_LIBS)
 
 AM_LDFLAGS 	= $(LDFLAGS_COPY:-Bsymbolic-functions=)
 
@@ -100,8 +97,9 @@ else
 endif
 endif
 
+# nested sed expression is also escaping meta character for the outer one
 qblog_script.ld: %.ld: %.ld.in
-	$(AM_V_GEN)$(CPP) -xc -I$(top_srcdir)/include -D_GNU_SOURCE -C -P $< \
+	$(AM_V_GEN)$(CPP) -C -D_GNU_SOURCE -P $(AM_CPPFLAGS) -xc $< \
 	  | sed -n "/$$(sed -n '/^[^#]/{s/[*\/]/\\&/g;p;q;}' $<)/,$$ p" \
 	  > $@
 
@@ -110,64 +108,3 @@ qblog_script.ld: %.ld: %.ld.in
 pkgconfigexecdir = $(libdir)/pkgconfig
 pkgconfigexec_DATA = libqb.pc
 
-# find the libqb.so symlink's target, if so, try to find out, iteratively,
-# its gradually shorter forms that likewise symlinks the same target as the
-# original libqb.so path, point to that file from the linker script using
-# qblog_script.ld as a template, storing result in place of original libqb.so
-# (e.g., libqb.so := "INPUT(libqb.so.0) " [...] "SECTIONS { " [...] "}")
-# NOTE: readlink nor realpath are POSIX; not chained links ready
-# NOTE: conservative check, i.e., not per NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND
-if HAVE_GCC_ATTRIBUTE_SECTION
-install-exec-hook: qblog_script.ld
-	target=$$(ls -l "$(DESTDIR)$(libdir)/libqb.so" || :); \
-	  target=$${target#* -> }; t1_bn=$$(basename "$${target}" || :); \
-	  while test -n "$${t1_bn}"; do t2_bn=$${t1_bn%.*[0-9]*}; \
-	  test "$${t2_bn}" != libqb.so || break; \
-	  test -L "$${t2_bn}" || { t1_bn=$${t2_bn}; continue; }; \
-	  t2_target=$$(ls -l "$${t2_bn}" || break); t2_target=$${t2_target#* -> }; \
-	  test "$${t2_target}" = "$${target}" || break; \
-	  t1_bn=$${t2_bn}; done; test -n "$${t1_bn}" || \
-	  { echo "only applicable to SO symlink scheme"; exit 1; }; \
-	  echo "$${t1_bn}" > "$(DESTDIR)$(libdir)/libqb.so-t"
-	so_ver=$$(cat "$(DESTDIR)$(libdir)/libqb.so-t"); \
-	  echo "INPUT($${so_ver})" > "$(DESTDIR)$(libdir)/libqb.so-t"; \
-	  cat $< >> "$(DESTDIR)$(libdir)/libqb.so-t"; \
-	  sed -i -- "s/libqb.so.<digit>/$${so_ver}/" \
-	    "$(DESTDIR)$(libdir)/libqb.so-t" "$(DESTDIR)$(pkgconfigexecdir)/libqb.pc"
-	mv -f "$(DESTDIR)$(libdir)/libqb.so-t" "$(DESTDIR)$(libdir)/libqb.so"
-endif
-
-if HAVE_SPLINT
-check_SCRIPTS = run_splint.sh
-TESTS = $(check_SCRIPTS)
-# this is a hack because debian/ubuntu don't set the arch path
-# in splint.
-DEB_INCLUDES = -I/usr/include/x86_64-linux-gnu -I/usr/include/i386-linux-gnu
-
-ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
-		 $(libqb_la_CPPFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) \
-		 $(LINT_FLAGS)
-# expected for the time being (but SHOULD be fixed eventually):
-# ipc_setup.c: (in function qb_ipcc_us_setup_connect)
-# ipc_setup.c:479:2: Return value (type int32_t) ignored: qb_ipc_us_ready(...
-# ipc_setup.c:494:2: Return value (type int32_t) ignored: qb_ipc_auth_cred...
-SPLINT_SUMMARY_EXP = " 2 code warnings"
-
-run_splint.sh: $(top_srcdir)/configure.ac
-	@echo '$(SPLINT) $(ALL_LINT_FLAGS) \' > $@-t
-	@echo '  $(addprefix $(top_srcdir)/lib/, $(source_to_lint)) \' >> $@-t
-	@echo '  2>&1 | tee $@-o' >> $@-t
-	@echo 'tail -n1 $@-o | grep -qF $(SPLINT_SUMMARY_EXP)' >> $@-t
-	@echo 'ret=$$?' >> $@-t
-	@echo 'rm -f $@-o' >> $@-t
-	@echo 'test $$ret = 0 || echo "EXPECTED:$(SPLINT_SUMMARY_EXP)"' >> $@-t
-	@echo 'exit $$ret' >> $@-t
-	@chmod +x $@-t
-	$(AM_V_GEN)mv $@-t $@
-
-dist-clean-local:
-	rm -f run_splint.sh
-
-clean-local:
-	rm -f run_splint.sh
-endif

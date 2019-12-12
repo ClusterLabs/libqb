@@ -153,8 +153,6 @@ retry_poll:
 			revents |= POLLERR;
 		}
 		if (events[i].flags & EV_EOF) {
-			qb_util_log(LOG_INFO,
-				    "got EV_EOF on fd %d.", pe->ufd.fd);
 			revents |= POLLHUP;
 		}
 		if (events[i].filter == EVFILT_READ) {

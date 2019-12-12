@@ -71,7 +71,7 @@ set_sock_addr(struct sockaddr_un *address, const char *socket_name)
 	address->sun_len = QB_SUN_LEN(address);
 #endif
 
-	if (!use_filesystem_sockets()) {
+	if (socket_name[0] == '/' || !use_filesystem_sockets()) {
 		snprintf(address->sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
 	} else {
 		snprintf(address->sun_path, sizeof(address->sun_path), "%s/%s", SOCKETDIR,
@@ -376,7 +376,7 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 	}
 
 	/* Last-ditch attempt to tidy up after ourself */
-	remove_tempdir(c->request.u.us.shared_file_name);
+	remove_tempdir(c->request.u.us.shared_file_name, PATH_MAX);
 
 	qb_ipcc_us_sock_close(c->event.u.us.sock);
 	qb_ipcc_us_sock_close(c->request.u.us.sock);
@@ -772,7 +772,7 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 
 
 	}
-	remove_tempdir(c->description);
+	remove_tempdir(c->description, CONNECTION_DESCRIPTION);
 }
 
 static int32_t

@@ -3,10 +3,16 @@
 
 AC_PREREQ([2.61])
 
-dnl inject zero as a "patch" component of the version if missing in tag
+dnl inject zero as a "patch" component of the version if missing in tag;
+dnl care to bump "X.Y.Z-yank" template below upon each release very desirable
 AC_INIT([libqb],
-	m4_esyscmd([build-aux/git-version-gen .tarball-version \
-		    's|^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$|\1.0\2|']),
+	m4_esyscmd([build-aux/git-version-gen $(echo '$Format:%h??%D$'\
+	            | sed -ne 's/^[$]Format:[^$]*[$]$/.tarball-version/p;tend'\
+	                  -e 's/.*tag: v\([^, ][^, ]*\).*/\1-yank/;tv'\
+	                  -e 's/^\([[:xdigit:]][[:xdigit:]]*\).*/1.0.3-yank\1/'\
+	                  -e ':v' -e 'w .snapshot-version' -e 'i\
+	                  .snapshot-version' -e ':end' -e 'q')\
+	              's/^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$/\1.0\2/']),
 	[developers@clusterlabs.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([lib/ringbuffer.c])
@@ -20,7 +26,17 @@ dnl command line
 dnl Wrap in m4_ifdef to avoid breaking on older platforms
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 LT_PREREQ([2.2.6])
+# --enable-new-dtags: Use RUNPATH instead of RPATH.
+# It is necessary to have this done before libtool does linker detection.
+# See also: https://github.com/kronosnet/kronosnet/issues/107
+AX_CHECK_LINK_FLAG([-Wl,--enable-new-dtags],
+		   [AM_LDFLAGS=-Wl,--enable-new-dtags],
+		   [AC_MSG_ERROR(["Linker support for --enable-new-dtags is required"])])
+AC_SUBST([AM_LDFLAGS])
+saved_LDFLAGS="$LDFLAGS"
+LDFLAGS="$AM_LDFLAGS $LDFLAGS"
 LT_INIT
+LDFLAGS="$saved_LDFLAGS"
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -61,6 +77,7 @@ if ! ${MAKE-make} --version /cannot/make/this >/dev/null 2>&1; then
 fi
 
 AC_PROG_CXX
+AM_CONDITIONAL(HAVE_GXX, [test "x$GXX" = xyes]) 
 AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
@@ -75,8 +92,6 @@ AC_PROG_MAKE_SET
 AC_CHECK_PROGS([PKGCONFIG], [pkg-config])
 AC_CHECK_PROGS([DOXYGEN], [doxygen])
 AM_CONDITIONAL(HAVE_DOXYGEN, test -n "${DOXYGEN}")
-AC_CHECK_PROGS([SPLINT], [splint])
-AM_CONDITIONAL(HAVE_SPLINT, test -n "${SPLINT}")
 AC_CHECK_TOOLS([NM], [eu-nm nm], [:])
 AC_CHECK_TOOLS([READELF], [eu-readelf readelf], [:])
 AM_PATH_PYTHON([2.6],, [:])
@@ -90,7 +105,7 @@ cc_supports_flag() {
 	BACKUP="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $@ -Werror"
 	AC_MSG_CHECKING([whether $CC supports "$@"])
-	AC_PREPROC_IFELSE([AC_LANG_PROGRAM([])],
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
 			  [RC=0; AC_MSG_RESULT([yes])],
 			  [RC=1; AC_MSG_RESULT([no])])
 	CPPFLAGS="$BACKUP"
@@ -123,6 +138,21 @@ AX_SAVE_FLAGS
 AC_SEARCH_LIBS([gethostbyname], [nsl],,[AC_MSG_ERROR([cannot find gethostbyname() function])])
 AC_SUBST([nsl_LIBS],[$LIBS])
 AX_RESTORE_FLAGS
+AX_SAVE_FLAGS
+AC_SEARCH_LIBS([clock_gettime], [rt],,[AC_MSG_ERROR([cannot find clock_gettime() function])])
+AC_SUBST([rt_LIBS],[$LIBS])
+AX_RESTORE_FLAGS
+
+USE_JOURNAL="no"
+PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [have_systemd=yes],[have_systemd=no])
+if test "x$enable_systemd_journal" = "xyes" ; then
+  if test "x$have_systemd" = "xyes" ; then
+     AC_DEFINE_UNQUOTED(USE_JOURNAL, 1, [Use systemd journal logging])
+     USE_JOURNAL="yes"
+  else
+     echo "systemd libraries not found, will just use syslog"
+  fi
+fi
 
 # look for testing harness "check"
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4],[with_check=yes],[with_check=no])
@@ -186,6 +216,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
+AX_SAVE_FLAGS
+LIBS="$LIBS $rt_LIBS"
 AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 [[#include <time.h>]],
@@ -198,6 +230,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                       AC_MSG_RESULT([no])
                     ]
                  )
+AC_CHECK_FUNCS([clock_gettime])
+AX_RESTORE_FLAGS
 
 
 # Checks for library functions
@@ -205,8 +239,7 @@ AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm clock_gettime \
-		fsync fdatasync ftruncate \
+AC_CHECK_FUNCS([alarm fsync fdatasync ftruncate \
 		gettimeofday localtime localtime_r \
 		memset munmap socket \
 		strchr strrchr strdup strstr strcasecmp \
@@ -293,7 +326,6 @@ case $host_cpu in
 	powerpc*)
 		AC_MSG_RESULT([powerpc])
 		AC_DEFINE_UNQUOTED([QB_ARCH_POWERPC], [1], [powerpc])
-		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		arch_force_shmlba=yes
 		;;
@@ -339,7 +371,6 @@ case "$host_os" in
 	*cygwin*)
 		AC_DEFINE_UNQUOTED([QB_CYGWIN], [1],
 				   [Compiling for Cygwin platform])
-		ac_cv_link_attribute_section=no
 		nongcc_memory_barrier_needed=yes
 		gcc_has_builtin_sync_operations=no
 		AC_MSG_RESULT([Cygwin])
@@ -348,7 +379,6 @@ case "$host_os" in
 		AC_DEFINE_UNQUOTED([QB_DARWIN], [1],
 				   [Compiling for Darwin platform])
 		CP=rsync
-		ac_cv_link_attribute_section=no
 		dnl Attribute section appears to work here but fails later with:
 		dnl cc1: error in backend: Global variable 'descriptor.4902'
 		dnl has an invalid section specifier '__verbose': mach-o
@@ -363,9 +393,6 @@ case "$host_os" in
 				   [Compiling for BSD platform])
 		case "$host_os" in
 			*netbsd*)
-				# this is because dlopen within a dl_iterate_phdr
-				# callback locks up.
-				ac_cv_link_attribute_section=no
 				AC_DEFINE_UNQUOTED([UNIX_PATH_MAX], [103],
 					   [Unix path length])
 			;;
@@ -377,7 +404,6 @@ case "$host_os" in
 		AC_MSG_RESULT([BSD])
 	;;
 	*solaris*)
-		ac_cv_link_attribute_section=no
 		AC_DEFINE_UNQUOTED(DISABLE_IPC_SHM, 1,
 				   [Disable shared mem ipc])
 		AC_DEFINE_UNQUOTED([QB_SOLARIS], [1],
@@ -502,16 +528,18 @@ AC_ARG_ENABLE([fatal-warnings],
 AC_ARG_ENABLE([debug],
   [AS_HELP_STRING([--enable-debug],[enable debug build])])
 
+AC_ARG_WITH([sanitizers],
+  [AS_HELP_STRING([--with-sanitizers=...,...],
+    [enable SANitizer build, do *NOT* use for production. Only ASAN/UBSAN/TSAN are currently supported])],
+  [ SANITIZERS="$withval" ],
+  [ SANITIZERS="" ])
+
 AC_ARG_ENABLE([coverage],
   [AS_HELP_STRING([--enable-coverage],[coverage analysis of the codebase])])
 
 AC_ARG_ENABLE([interlib-deps],
   [AS_HELP_STRING([--disable-interlib-deps],
                   [disable inter-library dependencies (might break builds)])])
-
-AC_ARG_ENABLE([nosection-fallback],
-  [AS_HELP_STRING([--enable-nosection-fallback],
-                  [allow (logging compat-breaking?) fallback when orphan section dead-ended])])
 
 AC_ARG_ENABLE([slow-tests],
   [AS_HELP_STRING([--enable-slow-tests],[build and run slow tests])])
@@ -521,10 +549,24 @@ AC_ARG_WITH([socket-dir],
 	[ SOCKETDIR="$withval" ],
 	[ SOCKETDIR="$localstatedir/run" ])
 
+AC_ARG_ENABLE([systemd-journal],
+  [AS_HELP_STRING([--enable-systemd-journal],[Allow use of systemd journal instead of syslog])])
+
 AC_ARG_WITH([force-sockets-config-file],
   [AS_HELP_STRING([--with-force-sockets-config-file=FILE],[config file to force IPC to use filesystem sockets (Linux & Cygwin only) @<:@SYSCONFDIR/libqb/force-filesystem-sockets@:>@])],
 	[ FORCESOCKETSFILE="$withval" ],
 	[ FORCESOCKETSFILE="$sysconfdir/libqb/force-filesystem-sockets" ])
+
+AC_ARG_ENABLE([install-tests],
+  [AS_HELP_STRING([--enable-install-tests],[install tests])],,
+  [ enable_install_tests="no" ])
+AM_CONDITIONAL([INSTALL_TESTS], [test x$enable_install_tests = xyes])
+
+AC_ARG_WITH([testdir],
+  [AS_HELP_STRING([--with-testdir=DIR],[path to /usr/lib../libqb/tests/ dir where to install the test suite])],
+        [ TESTDIR="$withval" ],
+        [ TESTDIR="$libdir/libqb/tests" ])
+AC_SUBST([TESTDIR])
 
 AC_SUBST(CP)
 # *FLAGS handling goes here
@@ -557,6 +599,7 @@ WARNLIST="
 	missing-declarations
 	suggest-attribute=noreturn
 	suggest-attribute=format
+	property-attribute-mismatch
 	strict-prototypes
 	pointer-arith
 	write-strings
@@ -566,6 +609,7 @@ WARNLIST="
 	float-equal
 	format=2
 	format-signedness
+	shift-overflow
 	shift-overflow=2
 	overlength-strings
 	redundent-decls
@@ -573,6 +617,7 @@ WARNLIST="
 	uninitialized
 	unknown-pragmas
 	no-unused-parameter
+	unused-const-variable
 	no-format-nonliteral
 	no-format-truncation
 	no-sign-compare
@@ -644,144 +689,6 @@ fi
 AM_CONDITIONAL(HAVE_SLOW_TESTS, [test "x${enable_slow_tests}" = xyes])
 AC_SUBST(HAVE_SLOW_TESTS)
 
-# --- callsite sections ---
-if test "x${GCC}" = xyes; then
-	AX_SAVE_FLAGS
-	AC_MSG_CHECKING([whether GCC supports __attribute__((section()) + ld supports orphan sections])
-	if test "x${ac_cv_link_attribute_section}" = x ; then
-		LDFLAGS="${LDFLAGS_save} -shared -fPIC"  # we are compiling shared lib
-		AC_LINK_IFELSE(
-			[AC_LANG_SOURCE(
-			    [[#include <assert.h>
-			      extern int __start___verbose[], __stop___verbose[];
-			      int test(void) {
-			        static int my_var __attribute__((section("__verbose"))) = 3;
-			        assert("L:non-empty data section"
-			               && __start___verbose != __stop___verbose);
-			        assert("L:no data section value loss"
-			               && my_var == 3  /* for 2.29.1+ */);
-			        return *((int *) __start___verbose); }]]
-			)],
-			[gcc_has_attribute_section=yes; cp "conftest${ac_exeext}" "conftest.so"],
-			[gcc_has_attribute_section=no]
-		)
-		AX_RESTORE_FLAGS
-	else
-		gcc_has_attribute_section=${ac_cv_link_attribute_section}
-	fi
-	AC_MSG_RESULT($gcc_has_attribute_section)
-
-	# in the failing case (e.g. with ld from binutils 2.29), it's likely the
-	# following will fail readily in linkage (hidden symbol `__stop___verbose'
-	# in conftest is referenced by DSO), but keep the sensible test
-	# (in-executable symbol is expected to be propagated into the library,
-	# and to draw the full circle back to the executable through standard
-	# return value passing (respectively no-exec probing to spot the issue);
-	# -rpath passed because LD_LIBRARY_PATH exporting is unwieldy here);
-	# moreover, "my_var" == 3 assertion above (respectively checking if the
-	# boundary symbol visibility differs from DEFAULT in readelf output) is
-	# necessary so that binutils 2.29.1+ will not slip other parts of the
-	# overall is-workaround-needed harness, as it restored some (but not
-	# all) of the original behaviour, but the workaround is still provably
-	# needed
-	if test "x${gcc_has_attribute_section}" = xyes; then
-		AC_MSG_CHECKING([whether linker emits global boundary symbols for orphan sections])
-		LIBS="${LIBS} -L. -l:conftest${shrext_cmds} -Wl,-rpath=$(pwd)"
-		dnl could be turned to AC_TRY_RUN (first assertion is equivalent to
-		dnl the further check in action-if-true), but that would prevent
-		dnl cross-building
-		AC_LINK_IFELSE(
-			[AC_LANG_PROGRAM(
-			    [[#include <assert.h>
-			      extern int __start___verbose[], __stop___verbose[];
-			      int test(void);]],
-			    [[static int my_var __attribute__((section("__verbose"))) = 5;
-			      assert("E:non-empty data section"
-			             && __start___verbose != __stop___verbose);
-			      assert("E:no data section value loss"
-			             && my_var == test() /*5?*/);]]
-			)],
-			[# alternatively something like (but requires number parsing):
-			 #   readelf -SW "conftest${ac_exeext}" \
-			 #   | sed -n '/__verbose/s/^\s*//p' | tr -s ' ' | cut -d" " -f6
-			 verbose_start_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
-			                      | grep __start___verbose | cut -d" " -f 3)
-			 verbose_stop_addr=$(${NM} -g --portability -- "conftest${ac_exeext}" \
-			                      | grep __stop___verbose | cut -d" " -f 3)
-			 test "${verbose_start_addr}" = "${verbose_stop_addr}" \
-			   && gcc_has_attribute_section_visible=no \
-			   || { verbose_start_type=$(${READELF} -s backup \
-			                             | sed -n '/__start___verbose/{s/^\s*//p;q}' \
-			                             | tr -s ' ' \
-			                             | cut -d" " -f6)
-			        test "${verbose_start_type}" = DEFAULT \
-			          && gcc_has_attribute_section_visible=yes \
-			          || gcc_has_attribute_section_visible=no; }],
-			[gcc_has_attribute_section_visible=no]
-		)
-		AX_RESTORE_FLAGS
-		AC_MSG_RESULT($gcc_has_attribute_section_visible)
-		rm -f "conftest${shrext_cmds}"
-
-		if test "x${gcc_has_attribute_section_visible}" = xno; then
-			# check if the linker script based workaround is
-			# feasible at all, otherwise fallback to using no
-			# section attribute while making some noise about it
-			# as combining with-without accustomed logging
-			# participants is currently uncharted waters
-			AC_MSG_CHECKING([whether linker workaround for orphan sections usable])
-			>conftest.ld cat <<-EOF
-			SECTIONS {
-			  __verbose : {
-			    __start___verbose = .;
-			    *(__verbose);
-			    __stop___verbose = .;
-			  }
-			}
-			EOF
-			LDFLAGS="${LDFLAGS} -Wl,conftest.ld"
-			AC_LINK_IFELSE(
-				[AC_LANG_PROGRAM(
-				    [[#include <assert.h>
-				      extern int __start___verbose[], __stop___verbose[];
-				      int test(void);]],
-				    [[static int my_var __attribute__((section("__verbose"))) = 5;
-				      assert("E:non-empty data section"
-				             && __start___verbose != __stop___verbose);
-				      assert("E:no data section value loss"
-				             && my_var == 5);]]
-				)],
-				[],
-				[gcc_has_attribute_section=no]
-			)
-			AX_RESTORE_FLAGS
-			AC_MSG_RESULT([$gcc_has_attribute_section])
-			rm -f "conftest.ld"
-		fi
-
-		if test "x${gcc_has_attribute_section}" = xyes; then
-			AC_DEFINE([QB_HAVE_ATTRIBUTE_SECTION], 1,
-				  [Enabling code using __attribute__((section))])
-			AC_SUBST([client_dlopen_LIBS],[$dlopen_LIBS])
-			if test "x${gcc_has_attribute_section_visible}" = xyes; then
-				PACKAGE_FEATURES="$PACKAGE_FEATURES attribute-section"
-			else
-				AC_DEFINE([QB_NEED_ATTRIBUTE_SECTION_WORKAROUND], 1,
-					  [Enabling code using __attribute__((section))])
-				PACKAGE_FEATURES="$PACKAGE_FEATURES attribute-section-workaround"
-			fi
-		elif test "x${enable_nosection_fallback}" = xyes; then
-			AC_MSG_NOTICE([Falling back to not using orphan section])
-		else
-			AC_MSG_ERROR([Would use section attribute, cannot; see --enable-nosection-fallback])
-		fi
-	fi
-fi
-AM_CONDITIONAL(HAVE_GCC_ATTRIBUTE_SECTION, [test "x${gcc_has_attribute_section}" = xyes])
-AM_CONDITIONAL(NEED_GCC_ATTRIBUTE_SECTION_WORKAROUND,
-	       [test "x${gcc_has_attribute_section}" = xyes \
-		&& test "x${gcc_has_attribute_section_visible}" != xyes])
-
 # --- ansi ---
 if test "x${enable_ansi}" = xyes && \
 		cc_supports_flag -std=iso9899:199409 ; then
@@ -802,11 +709,41 @@ else
 	WERROR_CFLAGS=""
 fi
 
+# --- ASAN/UBSAN/TSAN (see man gcc) ---
+# when using SANitizers, we need to pass the -fsanitize..
+# to both CFLAGS and LDFLAGS. The CFLAGS/LDFLAGS must be
+# specified as first in the list or there will be runtime
+# issues (for example user has to LD_PRELOAD asan for it to work
+# properly).
+
+if test -n "${SANITIZERS}"; then
+  SANITIZERS=$(echo $SANITIZERS | sed -e 's/,/ /g')
+  for SANITIZER in $SANITIZERS; do
+    case $SANITIZER in
+      asan|ASAN)
+	SANITIZERS_CFLAGS="$SANITIZERS_CFLAGS -fsanitize=address"
+	SANITIZERS_LDFLAGS="$SANITIZERS_LDFLAGS -fsanitize=address -lasan"
+	AC_CHECK_LIB([asan],[main],,AC_MSG_ERROR([Unable to find libasan]))
+	;;
+      ubsan|UBSAN)
+	SANITIZERS_CFLAGS="$SANITIZERS_CFLAGS -fsanitize=undefined"
+	SANITIZERS_LDFLAGS="$SANITIZERS_LDFLAGS -fsanitize=undefined -lubsan"
+	AC_CHECK_LIB([ubsan],[main],,AC_MSG_ERROR([Unable to find libubsan]))
+	;;
+      tsan|TSAN)
+	SANITIZERS_CFLAGS="$SANITIZERS_CFLAGS -fsanitize=thread"
+	SANITIZERS_LDFLAGS="$SANITIZERS_LDFLAGS -fsanitize=thread -ltsan"
+	AC_CHECK_LIB([tsan],[main],,AC_MSG_ERROR([Unable to find libtsan]))
+	;;
+    esac
+  done
+fi
+
 # final build of *FLAGS
-CFLAGS="$ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS \
+CFLAGS="$SANITIZERS_CFLAGS $ENV_CFLAGS $OPT_CFLAGS $GDB_FLAGS \
 	$COVERAGE_CFLAGS $EXTRA_WARNINGS $WERROR_CFLAGS"
 CPPFLAGS="$ENV_CPPFLAGS $ANSI_CPPFLAGS"
-LDFLAGS="$ENV_LDFLAGS $COVERAGE_LDFLAGS"
+LDFLAGS="$SANITIZERS_LDFLAGS $ENV_LDFLAGS $COVERAGE_LDFLAGS"
 
 if test -f /usr/share/dict/words ; then
 	HAVE_DICT_WORDS=yes
@@ -822,7 +759,6 @@ AC_SUBST([FORCESOCKETSFILE])
 AC_DEFINE_UNQUOTED([SOCKETDIR], "$(eval echo ${SOCKETDIR})", [Socket directory])
 AC_DEFINE_UNQUOTED([LOCALSTATEDIR], "$(eval echo ${localstatedir})", [localstate directory])
 AC_DEFINE_UNQUOTED([PACKAGE_FEATURES], "${PACKAGE_FEATURES}", [quarterback built-in features])
-
 AC_DEFINE_UNQUOTED([FORCESOCKETSFILE], "$(eval echo ${FORCESOCKETSFILE})", [for sockets config file])
 
 # version parsing (for qbconfig.h)
@@ -854,9 +790,6 @@ AC_CONFIG_FILES([Makefile
 		 lib/libqb.pc
 		 tools/Makefile
 		 tests/Makefile
-		 tests/functional/Makefile
-		 tests/functional/log_external/Makefile
-		 tests/functional/log_internal/Makefile
 		 tests/test.conf
 		 examples/Makefile
 		 docs/Makefile
@@ -864,9 +797,6 @@ AC_CONFIG_FILES([Makefile
 		 docs/html.dox
 		 docs/man.dox
 		 lib/qblog_script.la:lib/qblog_script.la.in])
-
-AC_CONFIG_LINKS([lib/qblog_script_noop.ld:lib/qblog_script_noop.ld
-		 tests/functional/GNUmakefile:tests/functional/GNUmakefile])
 
 AC_OUTPUT
 
@@ -884,6 +814,7 @@ AC_MSG_RESULT([  State information        = ${localstatedir}])
 AC_MSG_RESULT([  System configuration     = ${sysconfdir}])
 AC_MSG_RESULT([  SOCKETDIR                = ${SOCKETDIR}])
 AC_MSG_RESULT([  Features                 = ${PACKAGE_FEATURES}])
+AC_MSG_RESULT([  Use systemd journal      = ${USE_JOURNAL}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([$PACKAGE build info:])
 AC_MSG_RESULT([  Optimization             = ${OPT_CFLAGS}])

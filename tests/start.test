@@ -1,0 +1,11 @@
+#!/bin/sh
+
+#
+# Generate a unique(ish) name for the IPCs we will use in the tests and
+# save it in a file for all of the tests to use. This way we know for sure
+# which sockets are our and which we can ignore.
+# The test programs all add "qb-test-<name>-" to the front of this.
+#
+NAME="$$-`date +%N`"
+echo -n "$NAME" > ipc-test-name
+mkdir -p $SOCKETDIR

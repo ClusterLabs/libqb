@@ -92,6 +92,7 @@ struct qb_ipcc_connection {
 	char name[NAME_MAX];
 	int32_t needs_sock_for_poll;
 	gid_t egid;
+	pid_t server_pid;
 	struct qb_ipc_one_way setup;
 	struct qb_ipc_one_way request;
 	struct qb_ipc_one_way response;
@@ -207,6 +208,6 @@ int32_t qb_ipc_us_sock_error_is_disconnected(int err);
 
 int use_filesystem_sockets(void);
 
-void remove_tempdir(const char *name);
+void remove_tempdir(const char *name, size_t namelen);
 
 #endif /* QB_IPC_INT_H_DEFINED */

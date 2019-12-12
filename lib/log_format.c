@@ -290,12 +290,12 @@ qb_log_target_format_static(int32_t target, const char * format,
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
 					     p, cutoff, ralign,
-					     (QB_LOG_MAX_LEN -
+					     (t->max_line_length -
 					      output_buffer_idx));
 			output_buffer_idx += len;
 			format_buffer_idx += 1;
 		}
-		if (output_buffer_idx >= QB_LOG_MAX_LEN - 1) {
+		if (output_buffer_idx >= t->max_line_length - 1) {
 			break;
 		}
 	}
@@ -309,6 +309,7 @@ qb_log_target_format_static(int32_t target, const char * format,
  * %l FILELINE
  * %p PRIORITY
  * %t TIMESTAMP
+ * %T TIMESTAMP with milliseconds
  * %b BUFFER
  * %g SUBSYSTEM
  *
@@ -317,11 +318,12 @@ qb_log_target_format_static(int32_t target, const char * format,
 void
 qb_log_target_format(int32_t target,
 		     struct qb_log_callsite *cs,
-		     time_t current_time,
+		     struct timespec *the_ts,
 		     const char *formatted_message, char *output_buffer)
 {
 	char tmp_buf[128];
 	struct tm tm_res;
+	time_t time_sec;
 	unsigned int format_buffer_idx = 0;
 	unsigned int output_buffer_idx = 0;
 	size_t cutoff;
@@ -392,12 +394,25 @@ qb_log_target_format(int32_t target,
 				break;
 
 			case 't':
-				(void)localtime_r(&current_time, &tm_res);
+				time_sec = the_ts->tv_sec;
+				(void)localtime_r(&time_sec, &tm_res);
 				snprintf(tmp_buf, TIME_STRING_SIZE,
 					 "%s %02d %02d:%02d:%02d",
 					 log_month_name[tm_res.tm_mon],
 					 tm_res.tm_mday, tm_res.tm_hour,
 					 tm_res.tm_min, tm_res.tm_sec);
+				p = tmp_buf;
+				break;
+
+			case 'T':
+				time_sec = the_ts->tv_sec;
+				(void)localtime_r(&time_sec, &tm_res);
+				snprintf(tmp_buf, TIME_STRING_SIZE,
+					 "%s %02d %02d:%02d:%02d.%03llu",
+					 log_month_name[tm_res.tm_mon],
+					 tm_res.tm_mday, tm_res.tm_hour,
+					 tm_res.tm_min, tm_res.tm_sec,
+					 the_ts->tv_nsec/QB_TIME_NS_IN_MSEC);
 				p = tmp_buf;
 				break;
 
@@ -419,12 +434,12 @@ qb_log_target_format(int32_t target,
 			}
 			len = _strcpy_cutoff(output_buffer + output_buffer_idx,
 					     p, cutoff, ralign,
-					     (QB_LOG_MAX_LEN -
+					     (t->max_line_length -
 					      output_buffer_idx));
 			output_buffer_idx += len;
 			format_buffer_idx += 1;
 		}
-		if (output_buffer_idx >= QB_LOG_MAX_LEN - 1) {
+		if (output_buffer_idx >= t->max_line_length - 1) {
 			break;
 		}
 	}
@@ -434,6 +449,13 @@ qb_log_target_format(int32_t target,
 		output_buffer[output_buffer_idx - 1] = '\0';
 	} else {
 		output_buffer[output_buffer_idx] = '\0';
+	}
+
+	/* Indicate truncation */
+	if (t->ellipsis && output_buffer_idx >= t->max_line_length-1) {
+		output_buffer[output_buffer_idx-3] = '.';
+		output_buffer[output_buffer_idx-2] = '.';
+		output_buffer[output_buffer_idx-1] = '.';
 	}
 }
 

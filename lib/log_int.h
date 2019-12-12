@@ -39,7 +39,10 @@ struct qb_log_target {
 	int32_t file_sync;
 	int32_t debug;
 	int32_t extended;
+	int32_t use_journal;
 	size_t size;
+	size_t max_line_length;
+	int32_t ellipsis;
 	char *format;
 	int32_t threaded;
 	void *instance;
@@ -63,7 +66,7 @@ struct qb_log_filter {
 
 struct qb_log_record {
 	struct qb_log_callsite *cs;
-	time_t timestamp;
+	struct timespec timestamp;
 	char *buffer;
 	struct qb_list_head list;
 };
@@ -111,11 +114,13 @@ int32_t qb_log_blackbox_open(struct qb_log_target *t);
 
 void qb_log_thread_stop(void);
 void qb_log_thread_log_post(struct qb_log_callsite *cs,
-			    time_t current_time,
+			    struct timespec *current_time,
 			    const char *buffer);
 void qb_log_thread_log_write(struct qb_log_callsite *cs,
-			    time_t current_time,
+			    struct timespec *current_time,
 			    const char *buffer);
+void qb_log_thread_pause(struct qb_log_target *t);
+void qb_log_thread_resume(struct qb_log_target *t);
 
 void qb_log_dcs_init(void);
 void qb_log_dcs_fini(void);

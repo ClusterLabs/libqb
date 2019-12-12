@@ -20,6 +20,8 @@
  */
 #include "os_base.h"
 #include <poll.h>
+#include <signal.h>
+#include <setjmp.h>
 
 #include "ipc_int.h"
 #include "util_int.h"
@@ -36,9 +38,12 @@
 static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
-	void (*rb_destructor)(struct qb_ringbuffer_s *) = c->is_connected
-		? qb_rb_close
-		: qb_rb_force_close;
+	void (*rb_destructor)(struct qb_ringbuffer_s *);
+
+	rb_destructor = qb_rb_close;
+	if (!c->is_connected && (!c->server_pid || (kill(c->server_pid, 0) == -1 && errno == ESRCH))) {
+		rb_destructor = qb_rb_force_close;
+	}
 
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
 
@@ -215,18 +220,30 @@ return_error:
  * service functions
  * --------------------------------------------------------
  */
+static jmp_buf sigbus_jmpbuf;
+static void catch_sigbus(int signal)
+{
+	longjmp(sigbus_jmpbuf, 1);
+}
 
 static void
 qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 {
-	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
-	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
-		if (c->setup.u.us.sock > 0) {
-			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
-			qb_ipcc_us_sock_close(c->setup.u.us.sock);
-			c->setup.u.us.sock = -1;
-		}
+	struct sigaction sa;
+	struct sigaction old_sa;
+
+	/* Don't die if the client has truncated the SHM under us */
+	memset(&old_sa, 0, sizeof(old_sa));
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = catch_sigbus;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sigaction(SIGBUS, &sa, &old_sa);
+
+	if (setjmp(sigbus_jmpbuf) == 1) {
+		goto end_disconnect;
 	}
+
 	if (c->state == QB_IPCS_CONNECTION_SHUTTING_DOWN ||
 	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
 		if (c->response.u.shm.rb) {
@@ -240,7 +257,19 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 		}
 	}
 
-	remove_tempdir(c->description);
+	if (c->state == QB_IPCS_CONNECTION_ESTABLISHED ||
+	    c->state == QB_IPCS_CONNECTION_ACTIVE) {
+		if (c->setup.u.us.sock > 0) {
+			(void)c->service->poll_fns.dispatch_del(c->setup.u.us.sock);
+			qb_ipcc_us_sock_close(c->setup.u.us.sock);
+			c->setup.u.us.sock = -1;
+		}
+	}
+
+	remove_tempdir(c->description, CONNECTION_DESCRIPTION);
+
+end_disconnect:
+	sigaction(SIGBUS, &old_sa, NULL);
 }
 
 static int32_t

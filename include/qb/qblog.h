@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Red Hat, Inc.
+ * Copyright (c) 2017 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -39,15 +39,6 @@ extern "C" {
 #include <qb/qbutil.h>
 #include <qb/qbconfig.h>
 
-#if defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S)
-#undef QB_HAVE_ATTRIBUTE_SECTION
-#endif  /* defined(QB_KILL_ATTRIBUTE_SECTION) || defined(S_SPLINT_S) */
-
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-#include <assert.h>  /* possibly needed for QB_LOG_INIT_DATA */
-#include <dlfcn.h>  /* dynamic linking: dlopen, dlsym, dladdr, ... */
-#endif
-
 /**
  * @file qblog.h
  * The logging API provides four main parts (basics, filtering, threading & blackbox).
@@ -70,25 +61,11 @@ extern "C" {
  * }
  * @endcode
  *
- * @note
- * In practice, such a minimalistic approach hardly caters real use cases.
- * Following section discusses the customization.  Moreover when employing
- * the log module is bound to its active use (some log messages are assuredly
- * emitted within the target compilation unit), it's quite vital to instrument
- * the target side with @c QB_LOG_INIT_DATA() macro placed in the top file
- * scope in exactly one source file (preferably the main one) to be mixed into
- * the resulting compilation unit.  This is a self-defensive measure for when
- * the linker-assisted collection of callsite data silently fails, which could
- * otherwise go unnoticed, causing troubles down the road, but alas it cannot
- * discern misuse of @c QB_LOG_INIT_DATA() macro in no-logging context from
- * broken callsite section handling assumptions owing to overboard fancy
- * linker -- situation that the self-check aims to detect in the first place.
- *
  * @par Configuring log targets.
  * A log target can be syslog, stderr, the blackbox, stdout, or a text file.
- * By default, only syslog is enabled.  While this is customary for daemons,
- * it is rarely appropriate for ordinary programs, which should promptly
- * disable that when other targets (read on) are to be utilized:
+ * By default, only syslog is enabled.  While this is usual for daemons,
+ * it is rarely appropriate for ordinary programs, which should
+ * disable it when other targets (see below) are to be used:
  * @code
  *	qb_log_ctl(B_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);
  * @endcode
@@ -265,14 +242,13 @@ extern "C" {
 #define LOG_TRACE    (LOG_DEBUG + 1)
 
 #define QB_LOG_MAX_LEN 512
+#define QB_LOG_ABSOLUTE_MAX_LEN 4096
 #define QB_LOG_STRERROR_MAX_LEN 128
 
 typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
 
 /**
- * An instance of this structure is created in a special
- * ELF section at every dynamic debug callsite.  At runtime,
- * the special section is treated as an array of these.
+ * An instance of this structure is created for each log message
  */
 struct qb_log_callsite {
 	const char *function;
@@ -286,119 +262,7 @@ struct qb_log_callsite {
 
 typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
 
-/* will be assigned by linker magic (assuming linker supports that):
- * https://sourceware.org/binutils/docs/ld/Orphan-Sections.html
- */
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-
-#define QB_ATTR_SECTION			__verbose  /* conforms to C ident. */
-#define QB_ATTR_SECTION_STR		QB_PP_STRINGIFY(QB_ATTR_SECTION)
-#define QB_ATTR_SECTION_START		QB_PP_JOIN(__start_, QB_ATTR_SECTION)
-#define QB_ATTR_SECTION_STOP		QB_PP_JOIN(__stop_, QB_ATTR_SECTION)
-#define QB_ATTR_SECTION_START_STR	QB_PP_STRINGIFY(QB_ATTR_SECTION_START)
-#define QB_ATTR_SECTION_STOP_STR	QB_PP_STRINGIFY(QB_ATTR_SECTION_STOP)
-
-extern struct qb_log_callsite QB_ATTR_SECTION_START[];
-extern struct qb_log_callsite QB_ATTR_SECTION_STOP[];
-
-/* Related to the next macro that is -- unlike this one -- a public API */
-#ifndef _GNU_SOURCE
-#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
-	_Pragma(QB_PP_STRINGIFY(GCC warning QB_PP_STRINGIFY(		\
-	        without "_GNU_SOURCE" defined (directly or not) 	\
-		QB_LOG_INIT_DATA cannot check sanity of libqb proper	\
-		nor of the target site originating this check alone)))
-#else
-#define QB_NONAPI_LOG_INIT_DATA_EXTRA_(name)				\
-    { Dl_info work_dli;							\
-    /* libqb sanity (locating libqb by it's relatively unique		\
-       non-functional symbols -- the two are mutually exclusive, the	\
-       ordinarily latter was introduced by accident, the former is	\
-       intentional -- due to possible confusion otherwise) */		\
-    if ((dladdr(dlsym(RTLD_DEFAULT, "qb_ver_str"), &work_dli)		\
-         || dladdr(dlsym(RTLD_DEFAULT, "facilitynames"), &work_dli))	\
-        && (work_handle = dlopen(work_dli.dli_fname,			\
-                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
-        work_s1 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
-        work_s2 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
-        assert("libqb's callsite section is observable, otherwise \
-libqb's build is at fault, preventing reliable logging"			\
-               && work_s1 != NULL && work_s2 != NULL);			\
-        assert("libqb's callsite section is populated, otherwise \
-libqb's build is at fault, preventing reliable logging"			\
-               && work_s1 != work_s2);					\
-        dlclose(work_handle); }						\
-    /* sanity of the target site originating this check alone */	\
-    if (dladdr(dlsym(RTLD_DEFAULT, QB_PP_STRINGIFY(name)), &work_dli)	\
-        && (work_handle = dlopen(work_dli.dli_fname,			\
-                                 RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
-        work_s1 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
-        work_s2 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
-        assert("target's own callsite section observable, otherwise \
-target's own linkage at fault and logging would not work reliably \
-(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
-               && work_s1 != NULL && work_s2 != NULL);			\
-        assert("target's own callsite section non-empty, otherwise \
-target's own linkage at fault and logging would not work reliably \
-(unless QB_LOG_INIT_DATA macro used unexpectedly in no-logging context)"\
-               && work_s1 != work_s2);					\
-        dlclose(work_handle); } }
-#endif  /* _GNU_SOURCE */
-
-/**
- * Optional on-demand self-check of 1/ toolchain sanity (prerequisite for
- * the logging subsystem to work properly) and 2/ non-void active use of
- * logging (satisfied with a justifying existence of a logging callsite as
- * defined with a @c qb_logt invocation) at the target (but see below), which
- * is supposedly assured by it's author(!) as of relying on this very macro
- * [technically, the symbols that happen to be resolved under the respective
- * identifiers do not necessarily originate in the same compilation unit as
- * when it's not the end executable (or by induction, a library positioned
- * earlier in the symbol lookup order) but a shared library, the former takes
- * a precedence unless that site comes short of exercising the logging,
- * making its callsite section empty and, in turn, without such boundary
- * symbols, hence making the resolution continue further in the lookup order
- * -- despite fuzzily targeted attestation, the check remains reasonable];
- * only effective when link-time ("run-time amortizing") callsite collection
- * is;  as a side effect, it can ensure the boundary-denoting symbols for the
- * target collection area are kept alive with some otherwise unkind linkers.
- *
- * Applying this macro in the target program/library is strongly recommended
- * whenever the logging as framed by this header file is in use.
- * Moreover, it's important to state that using this check while not ensuring
- * @c _GNU_SOURCE macro definition is present at compile-time means only half
- * of the available sanity checking will be performed, possibly resulting
- * in libqb's own internally logged messages being lost without warning.
- */
-#define QB_LOG_INIT_DATA(name)						\
-    void name(void);							\
-    void name(void) {							\
-    void *work_handle; struct qb_log_callsite *work_s1, *work_s2;	\
-    /* our own (target's) sanity, or possibly that of higher priority	\
-       symbol resolution site (unless target equals end executable)	\
-       or even the lower one if no such predecessor defines these */	\
-    if ((work_handle = dlopen(NULL, RTLD_LOCAL|RTLD_LAZY)) != NULL) {	\
-        work_s1 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_START_STR);	\
-        work_s2 = (struct qb_log_callsite *)				\
-                  dlsym(work_handle, QB_ATTR_SECTION_STOP_STR);		\
-        assert("implicit callsite section is observable, otherwise \
-target's and/or libqb's build is at fault, preventing reliable logging" \
-               && work_s1 != NULL && work_s2 != NULL);			\
-        dlclose(work_handle);  /* perhaps overly eager thing to do */ }	\
-    QB_NONAPI_LOG_INIT_DATA_EXTRA_(name);				\
-    /* finally, original, straightforward check */			\
-    assert("implicit callsite section is populated, otherwise \
-target's build is at fault, preventing reliable logging"		\
-           && QB_ATTR_SECTION_START != QB_ATTR_SECTION_STOP); }		\
-    void __attribute__ ((constructor)) name(void);
-#else
 #define QB_LOG_INIT_DATA(name)
-#endif  /* QB_HAVE_ATTRIBUTE_SECTION */
 
 /**
  * Internal function: use qb_log() or qb_logt()
@@ -476,21 +340,12 @@ void qb_log_from_external_source_va(const char *function,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
-#ifdef QB_HAVE_ATTRIBUTE_SECTION
-#define qb_logt(priority, tags, fmt, args...) do {			\
-	static struct qb_log_callsite descriptor			\
-	__attribute__((section(QB_ATTR_SECTION_STR), aligned(8))) =	\
-	{ __func__, __FILE__, fmt, priority, __LINE__, 0, tags };	\
-	qb_log_real_(&descriptor, ##args);				\
-    } while(0)
-#else
 #define qb_logt(priority, tags, fmt, args...) do {	\
 	struct qb_log_callsite* descriptor_pt =		\
 	qb_log_callsite_get(__func__, __FILE__, fmt,	\
 			    priority, __LINE__, tags);	\
 	qb_log_real_(descriptor_pt, ##args);		\
     } while(0)
-#endif /* QB_HAVE_ATTRIBUTE_SECTION */
 
 
 /**
@@ -539,8 +394,8 @@ void qb_log_from_external_source_va(const char *function,
  * as non-inclusive higher bounds of the respective categories
  * (static and all the log targets) and also denote the number
  * of (reserved) items in the category.  Both are possibly subject
- * of change, hence it is only adequate to always refer to them
- * via these defined values.
+ * to change, so you should always refer to them using
+ * these defined values.
  * Similarly, there are QB_LOG_TARGET_{STATIC_,DYNAMIC_,}START
  * and QB_LOG_TARGET_{STATIC_,DYNAMIC_,}END values, but these
  * are inclusive lower and higher bounds, respectively.
@@ -582,6 +437,9 @@ enum qb_log_conf {
 	QB_LOG_CONF_FILE_SYNC,
 	QB_LOG_CONF_EXTENDED,
 	QB_LOG_CONF_IDENT,
+	QB_LOG_CONF_MAX_LINE_LEN,
+	QB_LOG_CONF_ELLIPSIS,
+	QB_LOG_CONF_USE_JOURNAL,
 };
 
 enum qb_log_filter_type {
@@ -604,11 +462,11 @@ enum qb_log_filter_conf {
 
 typedef void (*qb_log_logger_fn)(int32_t t,
 				 struct qb_log_callsite *cs,
-				 time_t timestamp,
+				 struct timespec *timestamp,
 				 const char *msg);
 typedef void (*qb_log_vlogger_fn)(int32_t t,
 				 struct qb_log_callsite *cs,
-				 time_t timestamp,
+				 struct timespec *timestamp,
 				 va_list ap);
 
 typedef void (*qb_log_close_fn)(int32_t t);
@@ -748,6 +606,15 @@ int32_t qb_log_filter_fn_set(qb_log_filter_fn fn);
  */
 void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
 
+
+/**
+ *This is a Feature Test macro so that calling applications know that
+ * millisecond timestamps are implemented. Because %T a string in
+ * function call with an indirect effect, there is no easy test for it
+ * beyond the library version (which is a very blunt instrument)
+ */
+#define QB_FEATURE_LOG_HIRES_TIMESTAMPS 1
+
 /**
  * Set the format specifiers.
  *
@@ -756,6 +623,7 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * %l FILELINE
  * %p PRIORITY
  * %t TIMESTAMP
+ * %T TIMESTAMP with milliseconds
  * %b BUFFER
  * %g TAGS
  * %N name (passed into qb_log_init)
@@ -765,11 +633,10 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
  * Any number between % and character specify field length to pad or chop.
  *
  * @note Some of the fields are immediately evaluated and remembered
- *       for performance reasons, so when there's an objective for log
- *       messages to carry PIDs (not in the default setup) and, moreover,
- *       precisely, this function needs to be reinvoked upon @c fork
+ *       for performance reasons, so whenlog messages carry PIDs (not the default)
+ *       this function needs to be reinvoked following @c fork
  *       (@c clone) in the respective children.  When already linking
- *       to @c libpthread, @c pthread_atfork callback registration
+ *       with @c libpthread, @c pthread_atfork callback registration
  *       could be useful.
  */
 void qb_log_format_set(int32_t t, const char* format);
@@ -785,9 +652,19 @@ void qb_log_format_set(int32_t t, const char* format);
 int32_t qb_log_file_open(const char *filename);
 
 /**
- * Close a log file and release is resources.
+ * Close a log file and release its resources.
  */
 void qb_log_file_close(int32_t t);
+
+/**
+ * Open a new log file for an existing target
+ * @param t target
+ * @param filename may be NULL to use existing file name
+ *
+ * @retval -errno on error
+ *
+ */
+int32_t qb_log_file_reopen(int32_t t, const char *filename);
 
 /**
  * When using threaded logging set the pthread policy and priority.
@@ -810,7 +687,7 @@ ssize_t qb_log_blackbox_write_to_file(const char *filename);
 /**
  * Read the blackbox for file and print it out.
  */
-void qb_log_blackbox_print_from_file(const char* filename);
+int qb_log_blackbox_print_from_file(const char* filename);
 
 /**
  * Open a custom log target.
@@ -826,7 +703,7 @@ int32_t qb_log_custom_open(qb_log_logger_fn log_fn,
 			   void *user_data);
 
 /**
- * Close a custom log target and release is resources.
+ * Close a custom log target and release its resources.
  */
 void qb_log_custom_close(int32_t t);
 
@@ -849,7 +726,7 @@ int32_t qb_log_target_user_data_set(int32_t t, void *user_data);
  */
 void qb_log_target_format(int32_t target,
 			  struct qb_log_callsite *cs,
-			  time_t timestamp,
+			  struct timespec *timestamp,
 			  const char* formatted_message,
 			  char *output_buffer);
 
