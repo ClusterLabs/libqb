@@ -129,9 +129,11 @@ dist-hook: gen-ChangeLog
 	echo $(VERSION) | tee $(distdir)/.tarball-version | grep -Eqv '\-yank' \
 	  || sed "s/\(.*git-version-gen[^']*[']\)[^']*/\1\$$Format:%h??%D\$$/" \
 	     $(distdir)/configure.ac > $(builddir)/configure.ac-t
-	touch -r $(distdir)/configure.ac $(builddir)/configure.ac-t
-	chmod u+w $(distdir)/configure.ac
-	mv $(builddir)/configure.ac-t $(distdir)/configure.ac
+	if [ -f $(builddir)/configure.ac-t ]; then \
+		touch -r $(distdir)/configure.ac $(builddir)/configure.ac-t; \
+		chmod u+w $(distdir)/configure.ac-t; \
+		mv $(builddir)/configure.ac-t $(distdir)/configure.ac; \
+	fi
 
 gen_start_date = 2000-01-01
 .PHONY: gen-ChangeLog
