@@ -131,7 +131,7 @@ dist-hook: gen-ChangeLog
 	     $(distdir)/configure.ac > $(builddir)/configure.ac-t
 	if [ -f $(builddir)/configure.ac-t ]; then \
 		touch -r $(distdir)/configure.ac $(builddir)/configure.ac-t; \
-		chmod u+w $(distdir)/configure.ac-t; \
+		chmod u+w $(builddir)/configure.ac-t; \
 		mv $(builddir)/configure.ac-t $(distdir)/configure.ac; \
 	fi
 
