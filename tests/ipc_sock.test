@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Run the IPC tests under the stat wrapper,
+# this simulates /etc/libqb/use-filesystem-sockets existing
+# so we can test both options without breaking other things
+# that might be running on this system
+#
+if [ "`uname -s`" = "Linux" ]
+then
+  if [ -f `pwd`/.libs/libstatwrapper.so ]
+  then
+    export LD_PRELOAD=`pwd`/.libs/libstat_wrapper.so
+  else
+    export LD_PRELOAD=`pwd`/libstat_wrapper.so
+  fi
+  ./ipc.test
+else
+  exit 0
+fi
