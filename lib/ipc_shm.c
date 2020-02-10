@@ -312,6 +312,8 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		    struct qb_ipc_connection_response *r)
 {
 	int32_t res;
+	char dirname[PATH_MAX];
+	char *slash;
 
 	qb_util_log(LOG_DEBUG, "connecting to client [%d]", c->pid);
 
@@ -321,6 +323,14 @@ qb_ipcs_shm_connect(struct qb_ipcs_service *s,
 		 c->description, s->name);
 	snprintf(r->event, NAME_MAX, "%s-event-%s",
 		 c->description, s->name);
+
+	/* Set correct ownership if qb_ipcs_connection_auth_set() has been used */
+	strlcpy(dirname, c->description, sizeof(dirname));
+	slash = strrchr(dirname, '/');
+	if (slash) {
+		*slash = '\0';
+		(void)chown(dirname, c->auth.uid, c->auth.gid);
+	}
 
 	res = qb_ipcs_shm_rb_open(c, &c->request,
 				  r->request);
