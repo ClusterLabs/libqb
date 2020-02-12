@@ -151,7 +151,7 @@ ALL_LINT_FLAGS = $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(DEB_INCLUDES) \
 # ipc_setup.c: (in function qb_ipcc_us_setup_connect)
 # ipc_setup.c:479:2: Return value (type int32_t) ignored: qb_ipc_us_ready(...
 # ipc_setup.c:494:2: Return value (type int32_t) ignored: qb_ipc_auth_cred...
-SPLINT_SUMMARY_EXP = " 2 code warnings"
+SPLINT_SUMMARY_EXP = " 3 code warnings"
 
 run_splint.sh: $(top_srcdir)/configure.ac
 	@echo '$(SPLINT) $(ALL_LINT_FLAGS) \' > $@-t
