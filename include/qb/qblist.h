@@ -193,8 +193,8 @@ static inline void qb_list_splice_tail(struct qb_list_head *list,
  * @param type:	the type of the struct this is embedded in.
  * @param member:	the name of the list_struct within the struct.
  */
-#define qb_list_entry(ptr,type,member)\
-	((type *)((char *)(ptr)-(char*)(&((type *)0)->member)))
+#define qb_list_entry(ptr,type,member) ({	       \
+	((type *)((void*)ptr - offsetof(type, member))); })
 
 /**
  * Get the first element from a list
