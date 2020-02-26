@@ -601,6 +601,7 @@ WARNLIST="
 	suggest-attribute=format
 	property-attribute-mismatch
 	strict-prototypes
+	pointer-arith
 	write-strings
 	cast-align
 	bad-function-cast
