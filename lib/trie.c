@@ -64,8 +64,8 @@ static void trie_destroy_node(struct trie_node *node);
  * characters are stored in reverse to make accessing the
  * more common case (non-control chars) more space efficient.
  */
-#define TRIE_CHAR2INDEX(ch) abs(126 - ch)
-#define TRIE_INDEX2CHAR(idx) abs(126 - idx)
+#define TRIE_CHAR2INDEX(ch) (127 - (signed char)ch)
+#define TRIE_INDEX2CHAR(idx) (127 - (signed char)idx)
 
 
 static int32_t

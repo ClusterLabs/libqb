@@ -50,7 +50,9 @@ const char *composers[] = {
 	"Benjamin Britten",
 	"Josef Haydn",
 	"Claude Debussy",
-	"Charles Ives"
+	"Charles Ives",
+	/* Maybe in an alien language ... but they can cause trie crashes & conflicts */
+	"\x7e\x7f\x80\x81", "\x7e", "\x7e\x7f", "\x7e\x7f\x80",
 };
 
 
