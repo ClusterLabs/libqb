@@ -41,6 +41,19 @@ const char *chars2[] = {
 	NULL,
 };
 
+const char *composers[] = {
+	"Béla Bartók",
+	"Zoltán Kodály",
+	"Ludwig van Beethoven",
+	"Wolfgang Amadeus Mozart",
+	"Leoš Janáček",
+	"Benjamin Britten",
+	"Josef Haydn",
+	"Claude Debussy",
+	"Charles Ives"
+};
+
+
 static char *notified_key = NULL;
 static void *notified_value = NULL;
 static void *notified_new_value = NULL;
@@ -717,6 +730,45 @@ test_map_load(qb_map_t *m, const char* test_name)
 	qb_log(LOG_INFO, "%25s %12.2f dels/sec (%d/%fs)\n", test_name, ops, count2, secs);
 }
 
+static void test_accents_load(qb_map_t *m, const char* test_name)
+{
+	int i;
+	int32_t res = 0;
+	int32_t count = 0;
+	int32_t count2;
+	void *value;
+
+	ck_assert(m != NULL);
+	/*
+	 * Load accented names
+	 */
+	for (i=0; i<sizeof(composers)/sizeof(char*); i++) {
+		qb_map_put(m, strdup(composers[i]), strdup(composers[i]));
+		count++;
+	}
+	ck_assert_int_eq(qb_map_count_get(m), count);
+
+	/*
+	 * Verify dictionary produces correct values
+	 */
+	count2 = 0;
+	for (i=0; i<sizeof(composers)/sizeof(char*); i++) {
+		value = qb_map_get(m, composers[i]);
+		ck_assert_str_eq(value, composers[i]);
+		count2++;
+	}
+	ck_assert_int_eq(qb_map_count_get(m), count2);
+
+	/*
+	 * Delete all dictionary entries
+	 */
+	for (i=0; i<sizeof(composers)/sizeof(char*); i++) {
+		res = qb_map_rm(m, composers[i]);
+		ck_assert_int_eq(res, QB_TRUE);
+	}
+	ck_assert_int_eq(qb_map_count_get(m), 0);
+}
+
 START_TEST(test_skiplist_simple)
 {
 	qb_map_t *m = qb_skiplist_create();
@@ -873,6 +925,31 @@ START_TEST(test_trie_load)
 }
 END_TEST
 
+START_TEST(test_skiplist_accents)
+{
+	qb_map_t *m;
+	m = qb_skiplist_create();
+	test_accents_load(m, __func__);
+}
+END_TEST
+
+START_TEST(test_hashtable_accents)
+{
+	qb_map_t *m;
+	m = qb_hashtable_create(16);
+	test_accents_load(m, __func__);
+}
+END_TEST
+
+START_TEST(test_trie_accents)
+{
+	qb_map_t *m;
+	m = qb_trie_create();
+	test_accents_load(m, __func__);
+}
+END_TEST
+
+
 /*
  * From Honza: https://github.com/asalkeld/libqb/issues/44
  */
@@ -935,6 +1012,10 @@ map_suite(void)
 	add_tcase(s, tc, test_skiplist_load, 30);
 	add_tcase(s, tc, test_hashtable_load, 30);
 	add_tcase(s, tc, test_trie_load, 30);
+
+	add_tcase(s, tc, test_skiplist_accents);
+	add_tcase(s, tc, test_hashtable_accents);
+	add_tcase(s, tc, test_trie_accents);
 
 	return s;
 }
