@@ -1,5 +1,6 @@
 %bcond_without check
 %bcond_without testsrpm
+%bcond_without doxygen2man
 
 %global alphatag @alphatag@
 %global numcomm @numcomm@
@@ -84,6 +85,23 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 %description	tests
 The %{name}-tests package contains the %{name} test suite.
 %endif
+
+
+%if %{with doxygen2man}
+%package	-n doxygen2man
+Summary:        tool to generate man pages from Doxygen XML files
+Group:          Development/Libraries
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%files -n doxygen2man
+%{_bindir}/doxygen2man
+%{_mandir}/man1/doxygen2man.1*
+%doc COPYING
+
+%description	-n doxygen2man
+The doxygen2man package contains the doxygen2man utility.
+%endif
+
 
 %changelog
 * @date@ Autotools generated version <nobody@nowhere.org> - @version@-1-@numcomm@.@alphatag@.@dirty@
