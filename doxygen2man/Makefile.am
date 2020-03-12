@@ -17,8 +17,8 @@ all: $(PROGRAMS) $(MANS)
 
 doxygen2man_SOURCES = doxygen2man.c
 doxygen2man_CPPFLAGS = -I$(top_srcdir)/include/
-doxygen2man_CFLAGS = $(AM_CFLAGS) $(libqb_BUILD_CFLAGS) $(libxml_BUILD_CFLAGS)
-doxygen2man_LDADD = $(top_builddir)/lib/libqb.la $(libxml_BUILD_LIBS)
+doxygen2man_CFLAGS = $(AM_CFLAGS) $(libxml_CFLAGS)
+doxygen2man_LDADD = $(top_builddir)/lib/libqb.la $(libxml_LIBS)
 
 man1_MANS = doxygen2man.1
 

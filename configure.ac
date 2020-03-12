@@ -168,7 +168,7 @@ AC_DEFINE_UNQUOTED([HAVE_GLIB], [1], [We have glib])
 fi
 
 # For building doxygen2man - ONLY
-PKG_CHECK_MODULES([libxml_BUILD], [libxml-2.0])
+PKG_CHECK_MODULES([libxml], [libxml-2.0])
 
 # Checks for header files.
 AC_HEADER_STDC
