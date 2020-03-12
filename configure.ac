@@ -167,6 +167,9 @@ if test x"$have_glib" = xyes; then
 AC_DEFINE_UNQUOTED([HAVE_GLIB], [1], [We have glib])
 fi
 
+# For building doxygen2man - ONLY
+PKG_CHECK_MODULES([libxml_BUILD], [libxml-2.0])
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
@@ -792,6 +795,7 @@ AC_CONFIG_FILES([Makefile
 		 tests/Makefile
 		 tests/test.conf
 		 examples/Makefile
+		 doxygen2man/Makefile
 		 docs/Makefile
 		 docs/common.dox
 		 docs/html.dox
