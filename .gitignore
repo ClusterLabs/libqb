@@ -44,6 +44,7 @@ conftest.*
 libtool
 libqb.spec
 libqb-*
+/doxygen2man/doxygen2man
 cov
 compat_reports
 abi_dumps
@@ -53,6 +54,7 @@ test-driver
 
 /tests/**/*.real
 /tests/**/*.trs
+/tests/ipc-test-name
 /tests/functional/log_callsite_bench.c
 /tests/functional/**/log_callsite_bench_section*.c
 /tests/functional/**/log_client
