@@ -9,7 +9,7 @@ AC_INIT([libqb],
 	m4_esyscmd([build-aux/git-version-gen $(echo '$Format:%h??%D$'\
 	            | sed -ne 's/^[$]Format:[^$]*[$]$/.tarball-version/p;tend'\
 	                  -e 's/.*tag: v\([^, ][^, ]*\).*/\1-yank/;tv'\
-	                  -e 's/^\([[:xdigit:]][[:xdigit:]]*\).*/1.0.3-yank\1/'\
+	                  -e 's/^\([[:xdigit:]][[:xdigit:]]*\).*/1.9.0-yank\1/'\
 	                  -e ':v' -e 'w .snapshot-version' -e 'i\
 	                  .snapshot-version' -e ':end' -e 'q')\
 	              's/^\(v[0-9][0-9]*\.[0-9][0-9]*\)\([^.].*\)\?$/\1.0\2/']),
@@ -166,6 +166,24 @@ AC_SUBST(GLIB_LIBS)
 if test x"$have_glib" = xyes; then
 AC_DEFINE_UNQUOTED([HAVE_GLIB], [1], [We have glib])
 fi
+
+# For building doxygen2man and man pages
+PKG_CHECK_MODULES([libxml], [libxml-2.0])
+
+# if we are not cross-compiling, we can use the locally built
+# version of doxygen2man, otherwise we can look for
+# a locally installed version. If neither are usable, then
+# don´t build the man pages
+if test "x$cross_compiling" = "xno"; then
+  AM_CONDITIONAL([BUILD_MAN], 1)
+  DOXYGEN2MAN="\$(abs_builddir)/doxygen2man/doxygen2man"
+else
+  AC_CHECK_PROGS([DOXYGEN2MAN], [doxygen2man])
+  if test "x$DOXYGEN2MAN" = "x"; then
+    AM_CONDITIONAL([BUILD_MAN], 0)
+  fi
+fi
+AC_SUBST(DOXYGEN2MAN)
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -792,6 +810,7 @@ AC_CONFIG_FILES([Makefile
 		 tests/Makefile
 		 tests/test.conf
 		 examples/Makefile
+		 doxygen2man/Makefile
 		 docs/Makefile
 		 docs/common.dox
 		 docs/html.dox

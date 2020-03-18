@@ -657,14 +657,15 @@ handle_new_connection(struct qb_ipcs_service *s,
 	snprintf(c->description, CONNECTION_DESCRIPTION,
 		 "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
 	if (mkdtemp(c->description) == NULL) {
-		res = errno;
+		res = -errno;
 		goto send_response;
 	}
-	res = chown(c->description, c->auth.uid, c->auth.gid);
-	if (res != 0) {
-		res = errno;
+	if (chmod(c->description, 0770)) {
+		res = -errno;
 		goto send_response;
 	}
+	/* chown can fail because we might not be root */
+	(void)chown(c->description, c->auth.uid, c->auth.gid);
 
 	/* We can't pass just a directory spec to the clients */
 	strncat(c->description,"/qb", CONNECTION_DESCRIPTION);

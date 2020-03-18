@@ -1,0 +1,67 @@
+.\"
+.\" * Copyright (C) 2010-2020 Red Hat, Inc.
+.\" *
+.\" * All rights reserved.
+.\" *
+.\" * Author: Christine Caulfield <ccaulfie@redhat.com>
+.\" *
+
+.TH "DOXYGEN2MAN" "8" "2020-03-09" "" ""
+.SH "NAME"
+doxygen2man \- A tool to generate man pages from Doxygen XML files
+.SH "SYNOPSIS"
+.B doxygen2man [OPTIONS] <XML file>
+.SH "DESCRIPTION"
+.P
+This is a tool to generate API manpages from a doxygen-annotated header file
+First run doxygen on the file and then run this program against the main XML file
+it created and the directory containing the ancilliary files. It will then
+output a lot of *.3 man page files which you can then ship with your library.
+.P
+You will need to invoke this program once for each .h file in your library,
+using the name of the generated .xml file. This file will usually be called
+something like <include-file>_8h.xml, eg qbipcs_8h.xml
+.P
+If you want HTML output then simpy use nroff on the generated files as you
+would do with any other man page.
+
+.SH "OPTIONS"
+.TP
+.B -a
+Print ASCII dump of man pages to stdout
+.TP
+.B -m
+Write man page files to <output dir>
+.TP
+.B -P
+Print PARAMS section
+.TP
+.B -s <s>
+Write man pages into section <s> <default 3)
+.TP
+.B -p <package>
+Use <package> name. default <Package>
+.TP
+.B -H <header>
+Set header (default \"Programmer's Manual\")
+.TP
+.B -D <date>
+Date to print at top of man pages (format not checked, default: today)
+.TP
+.B -Y <year>
+Year to print at end of copyright line (default: today's year)
+.TP
+.B -o <dir>
+Write all man pages to <dir> (default .)
+.TP
+.B -d <dir>
+Directory for XML files (./xml/)
+.TP
+.B -h
+Print usage text
+
+.SH "SEE ALSO"
+.BR doxygen (1)
+.SH "AUTHOR"
+Christine Caulfield
+.PP
