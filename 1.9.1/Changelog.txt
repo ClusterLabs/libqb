@@ -1,0 +1,89 @@
+2020-03-18  Fabio M. Di Nitto  <fdinitto@redhat.com>
+	    Christine Caulfield  <ccaulfie@redhat.com>
+
+	Doxygen2man (#388)
+	* doxygen2man: Add utility to generate man pages from doxygen
+	This is in here from kronosnet so it cna be used by other parts
+	of the cluster stack.
+	* [man] drop trailing white spaces
+	* [build] cleanup variable names
+	* [build] add conditionals to use internal or external doxygen2man
+	* Update .gitignore
+
+2020-03-09  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	trie: Don't assume that chars are unsigned < 126 (#386)
+	* trie: Don't assume that chars are unsigned < 126
+	Trie fails on systems with unsigned chars when using characters over
+	126.
+
+2020-02-26  Jan Friesse  <jfriesse@redhat.com>
+
+	qblist: Retype ptr in qb_list_entry to char* (#385)
+	This allows pointer arithmetics without issuing warning.
+
+2020-02-21  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	list: #include <stddef.h> in qblist.h (#384)
+	Some platforms require it.
+
+2020-02-20  Chrissie Caulfield  <ccaulfie@redhat.com>
+
+	list: fix list handling for gcc10 (#383)
+	-Wpointer-arith has been removed from warnings as with GCC10 that warns every time qb_list_entry is used, which is just noise.
+
+2020-02-10  Jonas Witschel  <diabonas@gmx.de>
+
+	Set correct ownership if qb_ipcs_connection_auth_set() has been used
+	When qb_ipcs_connection_auth_set() has been used, the ownership of the
+	temp directory initially set by handle_new_connection() must be updated
+	as well.
+
+2020-02-10  Ferenc Wágner  <wferi@debian.org>
+
+	Allow group access to the IPC directory
+	And don't abort if we aren't permitted to chown() it.  The client might
+	still have the privileges to enter it.
+
+	Errors are represented as negative values
+
+2020-01-10  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: allow for possible v1 branch continuity by generous SONAME offset
+	The main and the most ABI-touching thing for the envisioned 2.0 branch
+	is the usage of the linker-build-time allocated callsite info, avoiding
+	the non-economic evaluations and, under some circumstances dangerous,
+	heap allocations in the run-time.
+	Considering that v1.9.0 release (libqb.so.20) was expressly marked as
+	tech-preview[1,2] (hence something that shall not make it to production
+	use), there should be no harm for master branch (that is headed towards
+	2.0 and beyond) to receive noticable SONAME bump (libqb.so.100) so as to
+	- leave enough of space for a possible v1-compatible branch evolution
+	  (for use cases where recompile-everything is a no-go).
+	  in particular, with resuming with libqb.so.30, there would
+	  be a room for 99-33 = 63 add-new-drop-nothing compatible
+	  changes for that branch (which is more than plentiful)
+	- indicate some big change is going on more clearly towards client space
+	This is supposed to be a reasonable trade-off solution that would still
+	leave enough wiggle space, and would represent responsible approach to the
+	development (like the original attempt to prevent ABI break in the first
+	place was), allowing for more than an enforced unanimity (rather
+	antagonistic in the free software realms).
+	[1] https://lists.clusterlabs.org/pipermail/users/2019-December/026690.html
+	[2] https://github.com/ClusterLabs/libqb/releases/tag/1.9.0
+
+2020-01-07  Jan Pokorný  <jpokorny@redhat.com>
+
+	build: bump version for inter-release "plain repo" generated tarballs
+
+2020-01-07  Fabio M. Di Nitto  <fdinitto@redhat.com>
+
+	[build] chown the right file
+	Closes: #377
+	Also, for original issue, closes: #375
+	Reviewed-by: Jan Pokorný <jpokorny@redhat.com>
+
+2020-01-06  Fabio M. Di Nitto  <fdinitto@redhat.com>
+
+	[build] fix configure.ac in release tarball
+	only mingle with configure.ac if configure.ac-t exists
