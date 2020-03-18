@@ -1,0 +1,19 @@
+#
+# Copyright (C) 2017-2020 Red Hat, Inc.  All rights reserved.
+#
+# Author: Fabio M. Di Nitto <fabbione@kronosnet.org>
+#         Christine Caulfield <ccaulfie@redhat.com>
+#
+# This software licensed under GPL-2.0+
+#
+# Example file for doxygen when using doxygen2man
+#
+PROJECT_NAME	       = libqb
+PROJECT_NUMBER         = 2.0
+INPUT                  = ../include/qb/
+XML_OUTPUT             = ./xml
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = NO
+AUTOLINK_SUPPORT       = NO
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
