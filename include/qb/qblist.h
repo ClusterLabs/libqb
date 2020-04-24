@@ -28,6 +28,7 @@ extern "C" {
 /* *INDENT-ON* */
 
 #include <stdint.h>
+#include <stddef.h>
 #include <qb/qbdefs.h>
 
 /**
@@ -112,13 +113,13 @@ static inline void qb_list_del(struct qb_list_head *_remove)
  * @param old: the element to be replaced
  * @param new: the new element to insert
  */
-static inline void qb_list_replace(struct qb_list_head *old,
-		struct qb_list_head *new)
+static inline void qb_list_replace(struct qb_list_head *old_one,
+		struct qb_list_head *new_one)
 {
-	new->next = old->next;
-	new->next->prev = new;
-	new->prev = old->prev;
-	new->prev->next = new;
+	new_one->next = old_one->next;
+	new_one->next->prev = new_one;
+	new_one->prev = old_one->prev;
+	new_one->prev->next = new_one;
 }
 
 /**
@@ -193,8 +194,8 @@ static inline void qb_list_splice_tail(struct qb_list_head *list,
  * @param type:	the type of the struct this is embedded in.
  * @param member:	the name of the list_struct within the struct.
  */
-#define qb_list_entry(ptr,type,member)\
-	((type *)((char *)(ptr)-(char*)(&((type *)0)->member)))
+#define qb_list_entry(ptr,type,member) ({	       \
+	((type *)((char*)ptr - offsetof(type, member))); })
 
 /**
  * Get the first element from a list
