@@ -286,6 +286,56 @@ qb_loop_timer_expire_time_get(struct qb_loop * lp, qb_loop_timer_handle th)
 	return timerlist_expire_time(&s->timerlist, t->timerlist_handle);
 }
 
+uint64_t
+qb_loop_timer_expire_time_remaining(struct qb_loop * lp, qb_loop_timer_handle th)
+{
+
+	uint64_t current_ns;
+	/* NOTE: while it does not appear that absolute timers are used anywhere,
+	 * we may as well respect this pattern in case that changes.
+	 * Unfortunately, that means we do need to repeat timer fetch code from qb_loop_timer_expire_time_get
+	 * rather than just a simple call to qb_loop_timer_expire_time_get and qb_util_nano_current_get.
+	 */
+
+	struct qb_timer_source *s;
+	struct qb_loop_timer *t;
+	int32_t res;
+	struct qb_loop *l = lp;
+
+	if (l == NULL) {
+		l = qb_loop_default_get();
+	}
+	s = (struct qb_timer_source *)l->timer_source;
+
+	res = _timer_from_handle_(s, th, &t);
+	if (res != 0) {
+		return 0;
+	}
+
+	struct timerlist_timer *timer = (struct timerlist_timer *)t->timerlist_handle;
+
+
+	if (timer->is_absolute_timer) {
+		current_ns = qb_util_nano_from_epoch_get();
+	}
+	else {
+		current_ns = qb_util_nano_current_get();
+	}
+	uint64_t timer_ns = timerlist_expire_time(&s->timerlist, t->timerlist_handle);
+	/* since time estimation is racy by nature, I'll try to check the state late,
+	 * and try to understand that no matter what, the timer might have expired in the mean time
+	 */
+	if (t->state != QB_POLL_ENTRY_ACTIVE) {
+		return 0;
+	}
+	if (timer_ns < current_ns) {
+		return 0; // respect the "expired" contract
+	}
+	return timer_ns - current_ns;
+
+
+}
+
 int32_t
 qb_loop_timer_is_running(qb_loop_t *l, qb_loop_timer_handle th)
 {
