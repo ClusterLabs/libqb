@@ -1,0 +1,27 @@
+2020-05-04  Jan Pokorný  <jpokorny@redhat.com>
+
+	log: journal: fix forgotten syslog reload when flipped from journal
+
+2020-05-01  Ferenc Wágner  <wferi@debian.org>
+
+	Let remote_tempdir() assume a NUL-terminated name
+	This is the case already.  We also fix a buffer overflow opportunity in
+	the memcpy() call by this change.
+	Conflicts:
+		lib/ipc_shm.c
+
+	Make it impossible to truncate or overflow the connection description
+	It's hard to predict the length of formatted output, so we'd better
+	notice (and abort) if the description is truncated.  Incidentally,
+	mkdtemp() does this for us in the shared memory branch, but do an
+	explicit check there as well for consistency, and get rid of the wrongly
+	parametrized strncat() risking a buffer overflow (CONNECTION_DESCRIPTION
+	is not the length of the source "/qb").
+	Similar truncation checks should be added to qb_ipcs_{shm,us}_connect()
+	where they build the request/response names, and possibly to other
+	places using snprintf().
+
+2020-04-29  Chris Murphy  <cmurphycode@gmail.com>
+
+	master: Issue 390: Clarify documentation of qb_loop_timer_expire_time_get and provide new function to return previously documented behavior (#391)
+	Includes unit test addition by chrissie-c
