@@ -266,10 +266,9 @@ qb_ipcs_shm_disconnect(struct qb_ipcs_connection *c)
 		}
 	}
 
-	remove_tempdir(c->description, CONNECTION_DESCRIPTION);
-
 end_disconnect:
 	sigaction(SIGBUS, &old_sa, NULL);
+	remove_tempdir(c->description);
 }
 
 static int32_t

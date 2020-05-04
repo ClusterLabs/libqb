@@ -348,6 +348,22 @@ static Suite *loop_job_suite(void)
  *  Timers
  */
 static qb_loop_timer_handle test_th;
+static qb_loop_timer_handle test_th2;
+
+static void check_time_left(void *data)
+{
+	qb_loop_t *l = (qb_loop_t *)data;
+
+	/* NOTE: We are checking the 'stop_loop' timer here, not our own */
+	uint64_t abs_time = qb_loop_timer_expire_time_get(l, test_th);
+	uint64_t rel_time = qb_loop_timer_expire_time_remaining(l, test_th);
+
+	ck_assert(abs_time > 0ULL);
+	ck_assert(rel_time > 0ULL);
+	ck_assert(abs_time >  rel_time);
+	ck_assert(rel_time <= 60*QB_TIME_NS_IN_MSEC);
+}
+
 
 START_TEST(test_loop_timer_input)
 {
@@ -407,6 +423,9 @@ START_TEST(test_loop_timer_basic)
 	ck_assert_int_eq(res, QB_TRUE);
 
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_add(l, QB_LOOP_HIGH, 20*QB_TIME_NS_IN_MSEC, l, check_time_left, &test_th2);
 	ck_assert_int_eq(res, 0);
 
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 60*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);

@@ -108,8 +108,8 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 		   sizeof(local_address));
 
 	if (use_filesystem_sockets()) {
-		chmod(local_address.sun_path, 0660);
-		chown(local_address.sun_path, -1, gid);
+		(void)chmod(local_address.sun_path, 0660);
+		(void)chown(local_address.sun_path, -1, gid);
 	}
 	if (res < 0) {
 		goto error_connect;
@@ -376,7 +376,7 @@ qb_ipcc_us_disconnect(struct qb_ipcc_connection *c)
 	}
 
 	/* Last-ditch attempt to tidy up after ourself */
-	remove_tempdir(c->request.u.us.shared_file_name, PATH_MAX);
+	remove_tempdir(c->request.u.us.shared_file_name);
 
 	qb_ipcc_us_sock_close(c->event.u.us.sock);
 	qb_ipcc_us_sock_close(c->request.u.us.sock);
@@ -772,7 +772,7 @@ qb_ipcs_us_disconnect(struct qb_ipcs_connection *c)
 
 
 	}
-	remove_tempdir(c->description, CONNECTION_DESCRIPTION);
+	remove_tempdir(c->description);
 }
 
 static int32_t

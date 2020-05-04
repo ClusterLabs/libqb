@@ -628,6 +628,8 @@ handle_new_connection(struct qb_ipcs_service *s,
 	int32_t res2 = 0;
 	uint32_t max_buffer_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
 	struct qb_ipc_connection_response response;
+	const char suffix[] = "/qb";
+	int desc_len;
 
 	c = qb_ipcs_connection_alloc(s);
 	if (c == NULL) {
@@ -654,8 +656,16 @@ handle_new_connection(struct qb_ipcs_service *s,
 	memset(&response, 0, sizeof(response));
 
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(c->description, CONNECTION_DESCRIPTION,
-		 "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
+	desc_len = snprintf(c->description, CONNECTION_DESCRIPTION - sizeof suffix,
+			    "/dev/shm/qb-%d-%d-%d-XXXXXX", s->pid, ugp->pid, c->setup.u.us.sock);
+	if (desc_len < 0) {
+		res = -errno;
+		goto send_response;
+	}
+	if (desc_len >= CONNECTION_DESCRIPTION - sizeof suffix) {
+		res = -ENAMETOOLONG;
+		goto send_response;
+	}
 	if (mkdtemp(c->description) == NULL) {
 		res = -errno;
 		goto send_response;
@@ -668,10 +678,18 @@ handle_new_connection(struct qb_ipcs_service *s,
 	(void)chown(c->description, c->auth.uid, c->auth.gid);
 
 	/* We can't pass just a directory spec to the clients */
-	strncat(c->description,"/qb", CONNECTION_DESCRIPTION);
+	memcpy(c->description + desc_len, suffix, sizeof suffix);
 #else
-	snprintf(c->description, CONNECTION_DESCRIPTION,
-		 "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
+	desc_len = snprintf(c->description, CONNECTION_DESCRIPTION,
+			    "%d-%d-%d", s->pid, ugp->pid, c->setup.u.us.sock);
+	if (desc_len < 0) {
+		res = -errno;
+		goto send_response;
+	}
+	if (desc_len >= CONNECTION_DESCRIPTION) {
+		res = -ENAMETOOLONG;
+		goto send_response;
+	}
 #endif
 
 
@@ -896,16 +914,15 @@ retry_accept:
 	return 0;
 }
 
-void remove_tempdir(const char *name, size_t namelen)
+void remove_tempdir(const char *name)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	char dirname[PATH_MAX];
-	char *slash;
-	memcpy(dirname, name, namelen);
+	char *slash = strrchr(name, '/');
 
-	slash = strrchr(dirname, '/');
-	if (slash) {
-		*slash = '\0';
+	if (slash && slash - name < sizeof dirname) {
+		memcpy(dirname, name, slash - name);
+		dirname[slash - name] = '\0';
 		/* This gets called more than it needs to be really, so we don't check
 		 * the return code. It's more of a desperate attempt to clean up after ourself
 		 * in either the server or client.

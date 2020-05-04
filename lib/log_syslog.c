@@ -97,8 +97,8 @@ _syslog_reload(int32_t target)
 {
 	struct qb_log_target *t = qb_log_target_get(target);
 
+	closelog();
 	if (!t->use_journal) {
-		closelog();
 		openlog(t->name, LOG_PID, t->facility);
 	}
 }
