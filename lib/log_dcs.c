@@ -105,21 +105,30 @@ qb_log_dcs_get(int32_t * newly_created,
 	if (format == NULL) {
 		safe_format = "";
 	}
+
 	/*
-	 * try the fastest access first (no locking needed)
+	 * try the fastest access first.
 	 */
 	rc = qb_array_index(lookup_arr, lineno, (void **)&csl_head);
 	assert(rc == 0);
+
+	/*
+	 * Still need to lock here as we are reading from cs->* members
+	 * and they might not be completely filled in yet by another thread
+	 * that's running in _log_dcs_new_cs() below
+	 */
+	(void)qb_thread_lock(arr_next_lock);
 	if (csl_head->cs &&
 		priority == csl_head->cs->priority &&
 		strcmp(safe_filename, csl_head->cs->filename) == 0 &&
 		strcmp(safe_format, csl_head->cs->format) == 0) {
+		(void)qb_thread_unlock(arr_next_lock);
 		return csl_head->cs;
 	}
+
 	/*
-	 * so we will either have to create it or go through a list, so lock it.
+	 * so we will either have to create it or go through a list
 	 */
-	(void)qb_thread_lock(arr_next_lock);
 	if (csl_head->cs == NULL) {
 		csl_head->cs = _log_dcs_new_cs(safe_function, safe_filename, safe_format,
 					       priority, lineno, tags);

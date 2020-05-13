@@ -296,7 +296,9 @@ qb_log_thread_stop(void)
 			free(rec);
 		}
 	} else {
+		(void)qb_thread_lock(logt_wthread_lock);
 		wthread_should_exit = QB_TRUE;
+		(void)qb_thread_unlock(logt_wthread_lock);
 		sem_post(&logt_print_finished);
 		pthread_join(logt_thread_id, NULL);
 	}
