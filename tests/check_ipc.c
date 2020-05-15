@@ -190,6 +190,8 @@ static GSourceFuncs gio_source_funcs = {
  * 7) service availability
  *
  * 8) multiple services
+ *
+ * 9) setting perms on the sockets
  */
 static qb_loop_t *my_loop;
 static qb_ipcs_service_t* s1;
@@ -201,6 +203,7 @@ static int32_t num_bulk_events = 10;
 static int32_t num_stress_events = 30000;
 static int32_t reference_count_test = QB_FALSE;
 static int32_t multiple_connections = QB_FALSE;
+static int32_t set_perms_on_socket = QB_FALSE;
 
 
 static int32_t
@@ -666,6 +669,16 @@ s1_connection_destroyed(qb_ipcs_connection_t *c)
 	qb_leave();
 }
 
+static int32_t
+s1_connection_accept(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
+{
+	if (set_perms_on_socket) {
+		qb_ipcs_connection_auth_set(c, 555, 741, S_IRWXU|S_IRWXG|S_IROTH|S_IWOTH);
+	}
+	return 0;
+}
+
+
 static void
 s1_connection_created(qb_ipcs_connection_t *c)
 {
@@ -730,7 +743,7 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data, data)
 	qb_loop_signal_handle handle;
 
 	struct qb_ipcs_service_handlers sh = {
-		.connection_accept = NULL,
+		.connection_accept = s1_connection_accept,
 		.connection_created = s1_connection_created,
 		.msg_process = s1_msg_process_fn,
 		.connection_destroyed = s1_connection_destroyed,
@@ -925,7 +938,7 @@ verify_graceful_stop(pid_t pid)
 	} else {
 		fail_if(rc == 0);
 	}
-	
+
 	return 0;
 }
 
@@ -1438,7 +1451,7 @@ test_ipc_stress_connections(void)
 			}
 		} while (conn == NULL && c < 5);
 		fail_if(conn == NULL);
-		
+
 		if (((connections+1) % 1000) == 0) {
 			qb_log(LOG_INFO, "%d ipc connections made", connections+1);
 		}
@@ -1897,6 +1910,69 @@ START_TEST(test_ipc_stress_connections_shm)
 }
 END_TEST
 
+// Check perms uses illegal access to libqb internals
+// DO NOT try this at home.
+#include "../lib/ipc_int.h"
+#include "../lib/ringbuffer_int.h"
+START_TEST(test_ipc_server_perms)
+{
+	pid_t pid;
+	struct stat st;
+	int j;
+	uint32_t max_size;
+	int res;
+	int c = 0;
+
+	// Can only test this if we are root
+	if (getuid() != 0) {
+		return;
+	}
+
+	ipc_type = QB_IPC_SHM;
+	set_perms_on_socket = QB_TRUE;
+	max_size = MAX_MSG_SIZE;
+
+	pid = run_function_in_new_process("server", run_ipc_server, NULL);
+	fail_if(pid == -1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, max_size);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			poll(NULL, 0, 400);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	/* Check perms - uses illegal access to libqb internals */
+
+	/* BSD uses /var/run for sockets so we can't alter the perms on the
+	   directory */
+#ifdef __linux__
+	char sockdir[PATH_MAX];
+	strcpy(sockdir, conn->request.u.shm.rb->shared_hdr->hdr_path);
+	*strrchr(sockdir, '/') = 0;
+
+	res = stat(sockdir, &st);
+
+	ck_assert_int_eq(res, 0);
+	ck_assert(st.st_mode & S_IRWXG);
+	ck_assert_int_eq(st.st_uid, 555);
+	ck_assert_int_eq(st.st_gid, 741);
+#endif
+
+	res = stat(conn->request.u.shm.rb->shared_hdr->hdr_path, &st);
+	ck_assert_int_eq(res, 0);
+	ck_assert_int_eq(st.st_uid, 555);
+	ck_assert_int_eq(st.st_gid, 741);
+
+	qb_ipcc_disconnect(conn);
+	verify_graceful_stop(pid);
+}
+END_TEST
+
 START_TEST(test_ipc_dispatch_shm_native_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
@@ -2053,7 +2129,7 @@ test_ipc_service_ref_count(void)
 		if (conn == NULL) {
 			j = waitpid(pid, NULL, WNOHANG);
 			ck_assert_int_eq(j, 0);
-			poll(NULL, 0, 400);
+			(void)poll(NULL, 0, 400);
 			c++;
 		}
 	} while (conn == NULL && c < 5);
@@ -2088,7 +2164,7 @@ END_TEST
 #if 0
 static void test_max_dgram_size(void)
 {
-	/* most implementations will not let you set a dgram buffer 
+	/* most implementations will not let you set a dgram buffer
 	 * of 1 million bytes. This test verifies that the we can detect
 	 * the max dgram buffersize regardless, and that the value we detect
 	 * is consistent. */
@@ -2148,6 +2224,7 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipc_exit_shm, 6);
 	add_tcase(s, tc, test_ipc_event_on_created_shm, 9);
 	add_tcase(s, tc, test_ipc_service_ref_count_shm, 9);
+	add_tcase(s, tc, test_ipc_server_perms, 7);
 	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600 /* ? */);
 	add_tcase(s, tc, test_ipc_dispatch_shm_native_prio_dlock, 15);
 #if HAVE_GLIB
