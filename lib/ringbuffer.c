@@ -266,13 +266,13 @@ cleanup_hdr:
 	if (fd_hdr >= 0) {
 		close(fd_hdr);
 	}
-	if (rb && (flags & QB_RB_FLAG_CREATE)) {
+	if (rb && (rb->shared_hdr != MAP_FAILED) && (flags & QB_RB_FLAG_CREATE)) {
 		unlink(rb->shared_hdr->hdr_path);
 		if (rb->notifier.destroy_fn) {
 			(void)rb->notifier.destroy_fn(rb->notifier.instance);
 		}
 	}
-	if (rb && (rb->shared_hdr != MAP_FAILED && rb->shared_hdr != NULL)) {
+	if (rb && (rb->shared_hdr != MAP_FAILED)) {
 		munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
 	}
 	free(rb);
