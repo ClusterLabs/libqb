@@ -191,7 +191,7 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 	uint64_t current_time;
 
 	current_monotonic_time = qb_util_nano_current_get();
-	current_time_from_epoch = current_time = qb_util_nano_from_epoch_get();
+	current_time_from_epoch = qb_util_nano_from_epoch_get();
 
 	qb_list_for_each_safe(pos, next, &timerlist->timer_head) {
 
