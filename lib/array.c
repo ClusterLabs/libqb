@@ -135,10 +135,9 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 	b = BIN_NUM_GET((uint32_t) idx);
 	assert(b < MAX_BINS);
 
+	(void)qb_thread_lock(a->grow_lock);
 	if (b >= a->num_bins || a->bin[b] == NULL) {
 		int32_t bin_alloced = QB_FALSE;
-
-		(void)qb_thread_lock(a->grow_lock);
 
 		if (b >= a->num_bins) {
 			rc = _grow_bin_array(a, b + 1);
@@ -154,11 +153,13 @@ qb_array_index(struct qb_array * a, int32_t idx, void **element_out)
 			}
 			bin_alloced = QB_TRUE;
 		}
-
 		(void)qb_thread_unlock(a->grow_lock);
 		if (bin_alloced && a->new_bin_cb) {
 			a->new_bin_cb(a, b);
 		}
+	} else {
+		// new_bin_cb() needs to be called unlocked so can't extend the lock after the if block */
+		(void)qb_thread_unlock(a->grow_lock);
 	}
 
 	elem = ELEM_NUM_GET(idx);
@@ -188,10 +189,15 @@ qb_array_new_bin_cb_set(struct qb_array * a, qb_array_new_bin_cb_fn fn)
 size_t
 qb_array_num_bins_get(struct qb_array * a)
 {
+	size_t bins;
+
 	if (a == NULL) {
 		return -EINVAL;
 	}
-	return a->num_bins;
+	(void)qb_thread_lock(a->grow_lock);
+	bins = a->num_bins;
+	(void)qb_thread_unlock(a->grow_lock);
+	return bins;
 }
 
 size_t
@@ -217,13 +223,13 @@ qb_array_grow(struct qb_array * a, size_t max_elements)
 	}
 	a->max_elements = max_elements;
 	b = QB_MIN((max_elements / MAX_ELEMENTS_PER_BIN) + 1, MAX_BINS);
+	(void)qb_thread_lock(a->grow_lock);
 	if (b > a->num_bins) {
-		(void)qb_thread_lock(a->grow_lock);
 		if (b >= a->num_bins) {
 			rc = _grow_bin_array(a, b + 1);
 		}
-		(void)qb_thread_unlock(a->grow_lock);
 	}
+	(void)qb_thread_unlock(a->grow_lock);
 	return rc;
 }
 
@@ -231,6 +237,12 @@ void
 qb_array_free(struct qb_array *a)
 {
 	size_t i;
+
+	/* In theory we should lock before accessing a->num_bins
+	 * but as we're freeing the whole array here it seems
+	 * a bit pointless as any other threads would segv when we
+	 * unlock anyway
+	 */
 	for (i = 0; i < a->num_bins; i++) {
 		free(a->bin[i]);
 	}
