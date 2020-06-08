@@ -151,6 +151,8 @@ struct qb_ipcs_service {
 	struct qb_list_head list;
 	struct qb_ipcs_stats stats;
 
+	qb_ipcs_service_t *alias_for; /* NULL if not an alias service */
+
 	void *context;
 };
 

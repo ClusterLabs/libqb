@@ -207,6 +207,20 @@ qb_ipcs_service_t* qb_ipcs_create(const char *name,
 
 
 /**
+ * Create an alias for an existing IPC server.
+ *
+ * @param name for clients to connect to.
+ * @param service existing service ref
+ * @param type transport type.
+ * @return the new service instance.
+ */
+
+qb_ipcs_service_t *
+qb_ipcs_alias_create(qb_ipcs_service_t *service,
+		     const char *name,
+		     enum qb_ipc_type type);
+
+/**
  * Increase the reference counter on the service object.
  *
  * @param s service instance
