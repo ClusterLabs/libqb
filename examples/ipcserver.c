@@ -38,8 +38,10 @@ static qb_array_t *gio_map;
 
 static int32_t use_glib = QB_FALSE;
 static int32_t use_events = QB_FALSE;
+static int32_t use_alias = QB_FALSE;
 static qb_loop_t *bms_loop;
 static qb_ipcs_service_t *s1;
+static qb_ipcs_service_t *s2;
 
 static int32_t
 s1_connection_accept_fn(qb_ipcs_connection_t * c, uid_t uid, gid_t gid)
@@ -310,10 +312,10 @@ my_dispatch_del(int32_t fd)
 int32_t
 main(int32_t argc, char *argv[])
 {
-	const char *options = "mpseugh";
+	const char *options = "mpseuagh";
 	int32_t opt;
 	int32_t rc;
-	enum qb_ipc_type ipc_type = QB_IPC_NATIVE;
+	enum qb_ipc_type ipc_type = QB_IPC_SHM;
 	struct qb_ipcs_service_handlers sh = {
 		.connection_accept = s1_connection_accept_fn,
 		.connection_created = s1_connection_created_fn,
@@ -350,6 +352,9 @@ main(int32_t argc, char *argv[])
 		case 'e':
 			use_events = QB_TRUE;
 			break;
+		case 'a':
+			use_alias = QB_TRUE;
+			break;
 		case 'h':
 		default:
 			show_usage(argv[0]);
@@ -370,7 +375,16 @@ main(int32_t argc, char *argv[])
 		qb_perror(LOG_ERR, "qb_ipcs_create");
 		exit(1);
 	}
-	/* This forces the clients to use a minimum buffer size */
+	if (use_alias) {
+		s2 = qb_ipcs_alias_create(s1, "ipcserver_alias", ipc_type);
+		if (s2 == 0) {
+			qb_perror(LOG_ERR, "qb_ipcs_alias_create");
+			exit(1);
+		}
+	}
+
+
+/* This forces the clients to use a minimum buffer size */
 	qb_ipcs_enforce_buffer_size(s1, ONE_MEG);
 
 	if (!use_glib) {
@@ -381,6 +395,14 @@ main(int32_t argc, char *argv[])
 			errno = -rc;
 			qb_perror(LOG_ERR, "qb_ipcs_run");
 			exit(1);
+		}
+		if (use_alias) {
+			rc = qb_ipcs_run(s2);
+			if (rc != 0) {
+				errno = -rc;
+				qb_perror(LOG_ERR, "qb_ipcs_run");
+				exit(1);
+			}
 		}
 		qb_loop_run(bms_loop);
 	} else {

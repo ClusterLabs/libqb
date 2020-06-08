@@ -626,10 +626,12 @@ handle_new_connection(struct qb_ipcs_service *s,
 	struct qb_ipc_connection_request *req = msg;
 	int32_t res = auth_result;
 	int32_t res2 = 0;
-	uint32_t max_buffer_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
+	uint32_t max_buffer_size;
 	struct qb_ipc_connection_response response;
 	const char suffix[] = "/qb";
 	int desc_len;
+
+	max_buffer_size = QB_MAX(req->max_msg_size, s->max_buffer_size);
 
 	c = qb_ipcs_connection_alloc(s);
 	if (c == NULL) {
@@ -691,8 +693,6 @@ handle_new_connection(struct qb_ipcs_service *s,
 		goto send_response;
 	}
 #endif
-
-
 
 	if (auth_result == 0 && c->service->serv_fns.connection_accept) {
 		res = c->service->serv_fns.connection_accept(c,

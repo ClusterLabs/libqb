@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Red Hat, Inc.
+ * Copyright (c) 2010-2020 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -47,6 +47,7 @@
 #define NUM_STRESS_CONNECTIONS 5000
 
 static char ipc_name[256];
+static char ipc_alias_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
 #ifndef __clang__
@@ -195,6 +196,7 @@ static GSourceFuncs gio_source_funcs = {
  */
 static qb_loop_t *my_loop;
 static qb_ipcs_service_t* s1;
+static qb_ipcs_service_t* s2;
 static int32_t turn_on_fc = QB_FALSE;
 static int32_t fc_enabled = 89;
 static int32_t send_event_on_created = QB_FALSE;
@@ -204,7 +206,7 @@ static int32_t num_stress_events = 30000;
 static int32_t reference_count_test = QB_FALSE;
 static int32_t multiple_connections = QB_FALSE;
 static int32_t set_perms_on_socket = QB_FALSE;
-
+static int32_t create_alias = QB_FALSE;
 
 static int32_t
 exit_handler(int32_t rsignal, void *data)
@@ -228,6 +230,7 @@ set_ipc_name(const char *prefix)
 		fgets(process_name, sizeof(process_name), f);
 		fclose(f);
 		snprintf(ipc_name, sizeof(ipc_name), "%.44s%s", prefix, process_name);
+		snprintf(ipc_alias_name, sizeof(ipc_alias_name), "alias%.44s%s", prefix, process_name);
 	} else {
 		/* This is the old code, use only as a fallback */
 		static char t_sec[3] = "";
@@ -238,6 +241,8 @@ set_ipc_name(const char *prefix)
 		}
 
 		snprintf(ipc_name, sizeof(ipc_name), "%.44s%s%lX%.4x", prefix, t_sec,
+			 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
+		snprintf(ipc_alias_name, sizeof(ipc_alias_name), "alias%.44s%s%lX%.4x", prefix, t_sec,
 			 (unsigned long)getpid(), (unsigned) ((long) time(NULL) % (0x10000)));
 	}
 }
@@ -765,6 +770,11 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data, data)
 		qb_ipcs_request_rate_limit(s1,
 		                           conv_libqb_prio2ratelimit(global_loop_prio));
 	}
+	if (create_alias) {
+		s2 = qb_ipcs_alias_create(s1, ipc_alias_name, ipc_type);
+	}
+
+
 	if (global_use_glib) {
 #ifdef HAVE_GLIB
 		ph = (struct qb_ipcs_poll_handlers) {
@@ -795,6 +805,11 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data, data)
 
 	res = qb_ipcs_run(s1);
 	ck_assert_int_eq(res, 0);
+
+	if (create_alias) {
+		res = qb_ipcs_run(s2);
+		ck_assert_int_eq(res, 0);
+	}
 
 	if (ready_signaller != NULL) {
 		ready_signaller(signaller_data);
@@ -1336,12 +1351,67 @@ test_ipc_dispatch(void)
 	verify_graceful_stop(pid);
 }
 
+
+static void
+test_ipc_alias(void)
+{
+	pid_t pid;
+	struct dispatch_data data;
+	uint32_t max_size = MAX_MSG_SIZE;
+	int j;
+	int c = 0;
+
+	create_alias = QB_TRUE;
+	pid = run_function_in_new_process(NULL, run_ipc_server, NULL);
+	fail_if(pid == -1);
+	data = (struct dispatch_data){.server_pid = pid,
+	                              .msg_type = IPC_MSG_REQ_DISPATCH,
+	                              .repetitions = 1};
+
+	do {
+		conn = qb_ipcc_connect(ipc_alias_name, max_size);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			poll(NULL, 0, 400);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	fail_if(conn == NULL);
+
+	request_server_exit();
+	qb_ipcc_disconnect(conn);
+	verify_graceful_stop(pid);
+	create_alias = QB_FALSE;
+}
+
+
 START_TEST(test_ipc_dispatch_us)
 {
 	qb_enter();
 	ipc_type = QB_IPC_SOCKET;
 	set_ipc_name(__func__);
 	test_ipc_dispatch();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_server_alias_us)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SOCKET;
+	set_ipc_name(__func__);
+	test_ipc_alias();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_server_alias_shm)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	test_ipc_alias();
 	qb_leave();
 }
 END_TEST
@@ -2218,6 +2288,7 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipc_txrx_shm_block, 7);
 	add_tcase(s, tc, test_ipc_txrx_shm_tmo, 7);
 	add_tcase(s, tc, test_ipc_fc_shm, 7);
+	add_tcase(s, tc, test_ipc_server_alias_shm, 7);
 	add_tcase(s, tc, test_ipc_dispatch_shm, 15);
 	add_tcase(s, tc, test_ipc_stress_test_shm, 15);
 	add_tcase(s, tc, test_ipc_bulk_events_shm, 15);
@@ -2252,6 +2323,7 @@ make_soc_suite(void)
 	add_tcase(s, tc, test_ipc_txrx_us_tmo, 7);
 	add_tcase(s, tc, test_ipc_fc_us, 7);
 	add_tcase(s, tc, test_ipc_exit_us, 6);
+	add_tcase(s, tc, test_ipc_server_alias_us, 7);
 	add_tcase(s, tc, test_ipc_dispatch_us, 15);
 #ifndef __clang__ /* see variable length array in structure' at the top */
 	add_tcase(s, tc, test_ipc_stress_test_us, 58);

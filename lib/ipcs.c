@@ -78,6 +78,51 @@ qb_ipcs_create(const char *name,
 	return s;
 }
 
+qb_ipcs_service_t *
+qb_ipcs_alias_create(qb_ipcs_service_t *service,
+		     const char *name,
+		     enum qb_ipc_type type)
+{
+	struct qb_ipcs_service *s;
+
+	s = calloc(1, sizeof(struct qb_ipcs_service));
+	if (s == NULL) {
+		return NULL;
+	}
+	if (type == QB_IPC_NATIVE) {
+#ifdef DISABLE_IPC_SHM
+		s->type = QB_IPC_SOCKET;
+#else
+		s->type = QB_IPC_SHM;
+#endif /* DISABLE_IPC_SHM */
+	} else {
+		s->type = type;
+	}
+
+	s->pid = getpid();
+	s->needs_sock_for_poll = QB_FALSE;
+	s->poll_priority = QB_LOOP_MED;
+
+	/* Initial alloc ref */
+	qb_ipcs_ref(s);
+
+	s->service_id = service->service_id;
+	(void)strlcpy(s->name, name, NAME_MAX);
+
+	s->serv_fns.connection_accept = service->serv_fns.connection_accept;
+	s->serv_fns.connection_created = service->serv_fns.connection_created;
+	s->serv_fns.msg_process = service->serv_fns.msg_process;
+	s->serv_fns.connection_closed =	service->serv_fns.connection_closed;
+	s->serv_fns.connection_destroyed = s->serv_fns.connection_destroyed;
+	s->alias_for = service;
+
+	qb_list_init(&s->connections);
+	qb_list_init(&s->list);
+	qb_list_add(&s->list, &qb_ipc_services);
+
+	return s;
+}
+
 void
 qb_ipcs_poll_handlers_set(struct qb_ipcs_service *s,
 			  struct qb_ipcs_poll_handlers *handlers)
@@ -105,6 +150,10 @@ int32_t
 qb_ipcs_run(struct qb_ipcs_service *s)
 {
 	int32_t res = 0;
+
+	if (s->alias_for) {
+		memcpy(&s->poll_fns, &s->alias_for->poll_fns, sizeof(s->poll_fns));
+	}
 
 	if (s->poll_fns.dispatch_add == NULL ||
 	    s->poll_fns.dispatch_mod == NULL ||

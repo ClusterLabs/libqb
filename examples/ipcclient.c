@@ -28,6 +28,7 @@
 
 static int32_t do_benchmark = QB_FALSE;
 static int32_t use_events = QB_FALSE;
+static int32_t use_alias = QB_FALSE;
 static int alarm_notice;
 static qb_util_stopwatch_t *sw;
 #define ONE_MEG 1048576
@@ -192,7 +193,7 @@ int
 main(int argc, char *argv[])
 {
 	qb_ipcc_connection_t *conn;
-	const char *options = "ebh";
+	const char *options = "eabh";
 	int32_t opt;
 
 	while ((opt = getopt(argc, argv, options)) != -1) {
@@ -202,6 +203,9 @@ main(int argc, char *argv[])
 			break;
 		case 'e':
 			use_events = QB_TRUE;
+			break;
+		case 'a':
+			use_alias = QB_TRUE;
 			break;
 		case 'h':
 		default:
@@ -222,7 +226,11 @@ main(int argc, char *argv[])
 	/* Our example server is enforcing a buffer size minimum,
 	 * so the client does not need to be concerned with setting
 	 * the buffer size */
-	conn = qb_ipcc_connect("ipcserver", 0);
+	if (use_alias) {
+		conn = qb_ipcc_connect("ipcserver_alias", 0);
+	} else {
+		conn = qb_ipcc_connect("ipcserver", 0);
+	}
 	if (conn == NULL) {
 		perror("qb_ipcc_connect");
 		exit(1);
