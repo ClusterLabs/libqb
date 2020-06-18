@@ -123,6 +123,9 @@ s1_msg_process_fn(qb_ipcs_connection_t * c, void *data, size_t size)
 	qb_log(LOG_DEBUG, "msg received (id:%d, size:%d, data:%s)",
 	       req_pt->hdr.id, req_pt->hdr.size, req_pt->message);
 
+	if (strcmp(req_pt->message, "exit") == 0) {
+		qb_loop_stop(bms_loop);
+	}
 	if (strcmp(req_pt->message, "kill") == 0) {
 		exit(0);
 	}
@@ -428,6 +431,9 @@ main(int32_t argc, char *argv[])
 		       "You don't seem to have glib-devel installed.\n");
 #endif
 	}
+	/* Deliberately do this in the 'wrong' order to check for bugs */
+	qb_ipcs_destroy(s1);
+	qb_ipcs_destroy(s2);
 	qb_log_fini();
 	return EXIT_SUCCESS;
 }
