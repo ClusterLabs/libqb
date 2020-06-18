@@ -72,7 +72,7 @@ struct struct_info {
 	struct qb_list_head list;
 };
 
-static char *get_texttree(int *type, xmlNode *cur_node, char **returntext);
+static char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext);
 static void traverse_node(xmlNode *parentnode, const char *leafname, void (do_members(xmlNode*, void*)), void *arg);
 
 static void free_paraminfo(struct param_info *pi)
@@ -194,7 +194,7 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 	}
 }
 
-static char *get_text(xmlNode *cur_node, char **returntext)
+static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 {
 	xmlNode *this_tag;
 	xmlNode *sub_tag;
@@ -231,10 +231,13 @@ static char *get_text(xmlNode *cur_node, char **returntext)
 			char *tmp;
 
 			kind = get_attr(this_tag, "kind");
-			tmp = get_text(this_tag->children, NULL);
+			tmp = get_text(this_tag->children, NULL, NULL);
 
 			if (returntext && strcmp(kind, "return") == 0) {
 				*returntext = tmp;
+			}
+			if (notetext && strcmp(kind, "note") == 0) {
+				*notetext = tmp;
 			}
 		}
 
@@ -402,7 +405,7 @@ static void print_structure(FILE *manfile, char *refid, char *name)
 	}
 }
 
-char *get_texttree(int *type, xmlNode *cur_node, char **returntext)
+char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext)
 {
 	xmlNode *this_tag;
 	char *tmp = NULL;
@@ -411,7 +414,7 @@ char *get_texttree(int *type, xmlNode *cur_node, char **returntext)
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "para") == 0) {
-			tmp = get_text(this_tag, returntext);
+			tmp = get_text(this_tag, returntext, notetext);
 			strcat(buffer, tmp);
 			strcat(buffer, "\n");
 			free(tmp);
@@ -427,11 +430,15 @@ char *get_texttree(int *type, xmlNode *cur_node, char **returntext)
 
 /* The text output is VERY basic and just a check that it's working really */
 static void print_text(char *name, char *def, char *brief, char *args, char *detailed,
-		       struct qb_list_head *param_list, char *returntext)
+		       struct qb_list_head *param_list, char *returntext, char *notetext)
 {
 	printf(" ------------------ %s --------------------\n", name);
 	printf("NAME\n");
-	printf("        %s - %s\n", name, brief);
+	if (brief) {
+		printf("        %s - %s\n", name, brief);
+	} else {
+		printf("        %s\n", name);
+	}
 
 	printf("SYNOPSIS\n");
 	printf("        %s %s\n\n", name, args);
@@ -442,6 +449,10 @@ static void print_text(char *name, char *def, char *brief, char *args, char *det
 	if (returntext) {
 		printf("RETURN VALUE\n");
 		printf("        %s\n", returntext);
+	}
+	if (notetext) {
+		printf("NOTE\n");
+		printf("        %s\n", notetext);
 	}
 }
 
@@ -465,7 +476,7 @@ static void man_print_long_string(FILE *manfile, char *text)
 }
 
 static void print_manpage(char *name, char *def, char *brief, char *args, char *detailed,
-			  struct qb_list_head *param_map, char *returntext)
+			  struct qb_list_head *param_map, char *returntext, char *notetext)
 {
 	char manfilename[PATH_MAX];
 	char gendate[64];
@@ -535,7 +546,11 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	fprintf(manfile, ".TH %s %s %s \"%s\" \"%s\"\n", name, man_section, dateptr, package_name, header);
 
 	fprintf(manfile, ".SH NAME\n");
-	fprintf(manfile, "%s \\- %s\n", name, brief);
+	if (brief) {
+		fprintf(manfile, "%s \\- %s\n", name, brief);
+	} else {
+		fprintf(manfile, "%s\n", name);
+	}
 
 	fprintf(manfile, ".SH SYNOPSIS\n");
 	fprintf(manfile, ".nf\n");
@@ -588,6 +603,10 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	if (returntext) {
 		fprintf(manfile, ".SH RETURN VALUE\n");
 		man_print_long_string(manfile, returntext);
+	}
+	if (notetext) {
+		fprintf(manfile, ".SH NOTE\n");
+		man_print_long_string(manfile, notetext);
 	}
 
 	qb_list_for_each(iter, &retval_list) {
@@ -719,6 +738,7 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 		char *brief = NULL;
 		char *detailed = NULL;
 		char *returntext = NULL;
+		char *notetext = NULL;
 		int type;
 
 		kind=def=args=name=NULL;
@@ -738,7 +758,7 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 				name = strdup((char *)this_tag->children->content);
 
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "briefdescription") == 0) {
-				brief = get_texttree(&type, this_tag, &returntext);
+				brief = get_texttree(&type, this_tag, &returntext, &notetext);
 				if (brief) {
 					/*
 					 * apparently brief text contains extra trailing space and 2 \n.
@@ -748,7 +768,7 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 				}
 			}
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "detaileddescription") == 0) {
-				detailed = get_texttree(&type, this_tag, &returntext);
+				detailed = get_texttree(&type, this_tag, &returntext, &notetext);
 			}
 			/* Get all the params */
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "param") == 0) {
@@ -773,10 +793,10 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 			}
 
 			if (print_man) {
-				print_manpage(name, def, brief, args, detailed, &params_list, returntext);
+				print_manpage(name, def, brief, args, detailed, &params_list, returntext, notetext);
 			}
 			else {
-				print_text(name, def, brief, args, detailed, &params_list, returntext);
+				print_text(name, def, brief, args, detailed, &params_list, returntext, notetext);
 			}
 
 		}
