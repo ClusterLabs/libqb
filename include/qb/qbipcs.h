@@ -213,6 +213,10 @@ qb_ipcs_service_t* qb_ipcs_create(const char *name,
  * @param service existing service ref
  * @param type transport type.
  * @return the new service instance.
+ *
+ * @note the alias is only marginally dependant on its parent
+ * service. About the only thing you must NOT do is to free the
+ * parent service before calling qb_ipcs_run() on the alias.
  */
 
 qb_ipcs_service_t *

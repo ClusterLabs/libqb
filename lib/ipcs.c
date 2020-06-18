@@ -123,7 +123,9 @@ qb_ipcs_run(struct qb_ipcs_service *s)
 	if (s->alias_for) {
 		memcpy(&s->poll_fns, &s->alias_for->poll_fns, sizeof(s->poll_fns));
 
-		/* Clear this now so we don't use it by accident later when the original connection might have gone away */
+		/* Clear this now so we don't use it by accident later when the
+		 * original connection might have gone away
+		 */
 		s->alias_for = NULL;
 	}
 
