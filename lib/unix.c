@@ -196,6 +196,9 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 #endif
 
 	if (addr != addr_orig) {
+		/* explicitly set errno to non-zero because last mmap()
+		   could succeed and errno can be zero */
+		errno = EINVAL;
 		res = -errno;
 		goto cleanup_fail;
 	}
