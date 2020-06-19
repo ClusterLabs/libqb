@@ -54,6 +54,7 @@ static const char *xml_dir = "./xml/";
 static const char *xml_file;
 static const char *manpage_date = NULL;
 static const char *headerfile = NULL;
+static const char *header_prefix = "";
 static long manpage_year = LONG_MIN;
 static long start_year = 2010;
 static struct qb_list_head params_list;
@@ -482,7 +483,7 @@ static void print_text(char *name, char *def, char *brief, char *args, char *det
 	}
 
 	printf("SYNOPSIS\n");
-	printf("        #include <%s>\n", headerfile);
+	printf("        #include <%s%s>\n", header_prefix, headerfile);
 	printf("        %s %s\n\n", name, args);
 
 	printf("DESCRIPTION\n");
@@ -602,7 +603,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 
 	fprintf(manfile, ".SH SYNOPSIS\n");
 	fprintf(manfile, ".nf\n");
-	fprintf(manfile, ".B #include <%s>\n", headerfile);
+	fprintf(manfile, ".B #include <%s%s>\n", header_prefix, headerfile);
 	fprintf(manfile, ".sp\n");
 	fprintf(manfile, "\\fB%s\\fP(\n", def);
 
@@ -916,6 +917,7 @@ static void usage(char *name)
 	printf("       -p <package>  Use <package> name. default <Package>\n");
 	printf("       -H <header>   Set header (default \"Programmer's Manual\"\n");
 	printf("       -I <include>  Set include filename (default taken from xml)\n");
+	printf("       -i <prefix>   Prefix for include files. eg qb/ (default \"\")\n");
 	printf("       -C <company>  Company name in copyright (defaults to Red Hat)\n");
 	printf("       -D <date>     Date to print at top of man pages (format not checked, default: today)\n");
 	printf("       -S <year>     Start year to print at end of copyright line (default: 2010)\n");
@@ -947,7 +949,7 @@ int main(int argc, char *argv[])
 	int opt;
 	char xml_filename[PATH_MAX];
 
-	while ( (opt = getopt_long(argc, argv, "H:amqPD:Y:s:S:d:o:p:f:I:C:h?", NULL, NULL)) != EOF)
+	while ( (opt = getopt_long(argc, argv, "H:amqPD:Y:s:S:d:o:p:f:I:i:C:h?", NULL, NULL)) != EOF)
 	{
 		switch(opt)
 		{
@@ -967,6 +969,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'I':
 				headerfile = optarg;
+				break;
+			case 'i':
+				header_prefix = optarg;
 				break;
 			case 'C':
 				company = optarg;
