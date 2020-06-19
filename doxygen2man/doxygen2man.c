@@ -21,6 +21,7 @@
 #define _XOPEN_SOURCE_EXTENDED
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <stdio.h>
 #include <limits.h>
@@ -43,14 +44,18 @@ static int print_ascii = 1;
 static int print_man = 0;
 static int print_params = 0;
 static int num_functions = 0;
+static int quiet=0;
 static const char *man_section="3";
 static const char *package_name="Package";
 static const char *header="Programmer's Manual";
+static const char *company="Red Hat";
 static const char *output_dir="./";
 static const char *xml_dir = "./xml/";
 static const char *xml_file;
 static const char *manpage_date = NULL;
+static const char *headerfile = NULL;
 static long manpage_year = LONG_MIN;
+static long start_year = 2010;
 static struct qb_list_head params_list;
 static struct qb_list_head retval_list;
 static qb_map_t *function_map;
@@ -217,6 +222,17 @@ static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 				strcat(buffer, "\\fR");
 			}
 		}
+
+		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "ref") == 0) {
+			if (print_man) {
+				strcat(buffer, "\\fI");
+			}
+			strcat(buffer, (char*)this_tag->children->content);
+			if (print_man) {
+				strcat(buffer, "\\fR");
+			}
+		}
+
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "itemizedlist") == 0) {
 			for (sub_tag = this_tag->children; sub_tag; sub_tag = sub_tag->next) {
 				if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "listitem") == 0) {
@@ -266,6 +282,20 @@ static void read_structname(xmlNode *cur_node, void *arg)
 	}
 }
 
+
+static void read_headername(xmlNode *cur_node, void *arg)
+{
+	char **h_file = arg;
+	xmlNode *this_tag;
+
+	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
+		if (strcmp((char*)this_tag->name, "compoundname") == 0) {
+			*h_file = strdup((char*)this_tag->children->content);
+		}
+	}
+}
+
+
 /* Called from traverse_node() */
 static void read_struct(xmlNode *cur_node, void *arg)
 {
@@ -279,10 +309,14 @@ static void read_struct(xmlNode *cur_node, void *arg)
 
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		if (strcmp((char*)this_tag->name, "type") == 0) {
-			type = (char*)this_tag->children->content ;
+			type = (char*)this_tag->children->content;
+			/* If type is NULL then look for a ref - it's probably an external struct or typedef */
+			if (type == NULL) {
+				type = get_child(this_tag, "ref");
+			}
 		}
 		if (strcmp((char*)this_tag->name, "name") == 0) {
-			name = (char*)this_tag->children->content ;
+			name = (char*)this_tag->children->content;
 		}
 		if (this_tag->children && strcmp((char*)this_tag->name, "argsstring") == 0) {
 			args = (char*)this_tag->children->content;
@@ -301,15 +335,21 @@ static void read_struct(xmlNode *cur_node, void *arg)
 	}
 }
 
-static int read_structure_from_xml(char *refid, char *name)
+static int read_structure_from_xml(const char *refid, const char *name)
 {
 	char fname[PATH_MAX];
 	xmlNode *rootdoc;
 	xmlDocPtr doc;
 	struct struct_info *si;
+	struct stat st;
 	int ret = -1;
 
 	snprintf(fname, sizeof(fname),  "%s/%s.xml", xml_dir, refid);
+
+	/* Don't call into libxml if the file does not exist - saves unwanted error messages */
+	if (stat(fname, &st) == -1) {
+		return -1;
+	}
 
 	doc = xmlParseFile(fname);
 	if (doc == NULL) {
@@ -355,6 +395,12 @@ static void print_param(FILE *manfile, struct param_info *pi, int field_width, i
 			asterisks="**";
 			type[typelength-2] = '\0';
 		}
+
+		/* Tidy function pointers */
+		if (typelength > 1 && pi->paramtype[typelength-2] == '(') {
+			asterisks="(*";
+			type[typelength-2] = '\0';
+		}
 	}
 
 	fprintf(manfile, "    %s%-*s%s%s\\fI%s\\fP%s\n",
@@ -366,43 +412,38 @@ static void print_param(FILE *manfile, struct param_info *pi, int field_width, i
 	}
 }
 
-static void print_structure(FILE *manfile, char *refid, char *name)
+static void print_structure(FILE *manfile, struct struct_info *si)
 {
-	struct struct_info *si;
 	struct param_info *pi;
 	struct qb_list_head *iter;
 	unsigned int max_param_length=0;
 
-	/* If it's not been read in - go and look for it */
-	si = qb_map_get(structures_map, refid);
-	if (!si) {
-		if (!read_structure_from_xml(refid, name)) {
-			si = qb_map_get(structures_map, refid);
+	fprintf(manfile, ".nf\n");
+	fprintf(manfile, "\\fB\n");
+
+	qb_list_for_each(iter, &si->params_list) {
+		pi = qb_list_entry(iter, struct param_info, list);
+		if (strlen(pi->paramtype) > max_param_length) {
+			max_param_length = strlen(pi->paramtype);
 		}
 	}
 
-	if (si) {
-		qb_list_for_each(iter, &si->params_list) {
-			pi = qb_list_entry(iter, struct param_info, list);
-			if (strlen(pi->paramtype) > max_param_length) {
-				max_param_length = strlen(pi->paramtype);
-			}
-		}
-
-		if (si->kind == STRUCTINFO_STRUCT) {
-			fprintf(manfile, "struct %s {\n", si->structname);
-		} else if (si->kind == STRUCTINFO_ENUM) {
-			fprintf(manfile, "enum %s {\n", si->structname);
-		} else {
-			fprintf(manfile, "%s {\n", si->structname);
-		}
-
-		qb_list_for_each(iter, &si->params_list) {
-			pi = qb_list_entry(iter, struct param_info, list);
-			print_param(manfile, pi, max_param_length, 0,";");
-		}
-		fprintf(manfile, "};\n");
+	if (si->kind == STRUCTINFO_STRUCT) {
+		fprintf(manfile, "struct %s {\n", si->structname);
+	} else if (si->kind == STRUCTINFO_ENUM) {
+		fprintf(manfile, "enum %s {\n", si->structname);
+	} else {
+		fprintf(manfile, "%s {\n", si->structname);
 	}
+
+	qb_list_for_each(iter, &si->params_list) {
+		pi = qb_list_entry(iter, struct param_info, list);
+		print_param(manfile, pi, max_param_length, 0,";");
+	}
+	fprintf(manfile, "};\n");
+
+	fprintf(manfile, "\\fP\n");
+	fprintf(manfile, ".fi\n");
 }
 
 char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext)
@@ -441,6 +482,7 @@ static void print_text(char *name, char *def, char *brief, char *args, char *det
 	}
 
 	printf("SYNOPSIS\n");
+	printf("        #include <%s>\n", headerfile);
 	printf("        %s %s\n\n", name, args);
 
 	printf("DESCRIPTION\n");
@@ -527,6 +569,12 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	qb_list_for_each(iter, &params_list) {
 		pi = qb_list_entry(iter, struct param_info, list);
 
+		/* It's mainly macros that break this,
+		 * macros need more work
+		 */
+		if (!pi->paramtype) {
+			pi->paramtype = strdup("");
+		}
 		if ((strlen(pi->paramtype) < LINE_LENGTH) &&
 		    (strlen(pi->paramtype) > max_param_type_len)) {
 			max_param_type_len = strlen(pi->paramtype);
@@ -554,7 +602,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 
 	fprintf(manfile, ".SH SYNOPSIS\n");
 	fprintf(manfile, ".nf\n");
-	fprintf(manfile, ".B #include <libknet.h>\n");
+	fprintf(manfile, ".B #include <%s>\n", headerfile);
 	fprintf(manfile, ".sp\n");
 	fprintf(manfile, "\\fB%s\\fP(\n", def);
 
@@ -583,17 +631,31 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	man_print_long_string(manfile, detailed);
 
 	if (qb_map_count_get(used_structures_map)) {
-		fprintf(manfile, ".SH STRUCTURES\n");
+		int first_struct = 1;
 
 		map_iter = qb_map_iter_create(used_structures_map);
 		for (p = qb_map_iter_next(map_iter, &data); p; p = qb_map_iter_next(map_iter, &data)) {
-			fprintf(manfile, ".nf\n");
-			fprintf(manfile, "\\fB\n");
+			struct struct_info *si;
+			const char *refid = p;
+			char *refname = data;
 
-			print_structure(manfile, (char*)p, (char *)data);
+			/* If it's not been read in - go and look for it */
+			si = qb_map_get(structures_map, refid);
+			if (!si) {
+				if (!read_structure_from_xml(refid, refname)) {
+					si = qb_map_get(structures_map, refid);
+				}
+			}
 
-			fprintf(manfile, "\\fP\n");
-			fprintf(manfile, ".fi\n");
+			/* Only print header if the struct files exist - sometimes they don't */
+			if (si && first_struct) {
+				fprintf(manfile, ".SH STRUCTURES\n");
+				first_struct = 0;
+			}
+			if (si) {
+				print_structure(manfile, si);
+			}
+
 		}
 		qb_map_iter_free(map_iter);
 
@@ -640,7 +702,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	fprintf(manfile, ".hy\n");
 	fprintf(manfile, ".SH \"COPYRIGHT\"\n");
 	fprintf(manfile, ".PP\n");
-	fprintf(manfile, "Copyright (C) 2010-%4ld Red Hat, Inc. All rights reserved.\n", manpage_year);
+	fprintf(manfile, "Copyright (C) %4ld-%4ld %s, Inc. All rights reserved.\n", start_year, manpage_year, company);
 	fclose(manfile);
 
 	/* Free the params & retval info */
@@ -789,10 +851,13 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 			/* Make sure function has a doxygen description */
 			if (!detailed) {
 				fprintf(stderr, "No doxygen description for function '%s' - please fix this\n", name);
-				exit(1);
+				return;
 			}
 
 			if (print_man) {
+				if (!quiet) {
+					printf("Printing manpage for %s\n", name);
+				}
 				print_manpage(name, def, brief, args, detailed, &params_list, returntext, notetext);
 			}
 			else {
@@ -850,22 +915,39 @@ static void usage(char *name)
 	printf("       -s <s>        Write man pages into section <s> <default 3)\n");
 	printf("       -p <package>  Use <package> name. default <Package>\n");
 	printf("       -H <header>   Set header (default \"Programmer's Manual\"\n");
+	printf("       -I <include>  Set include filename (default taken from xml)\n");
+	printf("       -C <company>  Company name in copyright (defaults to Red Hat)\n");
 	printf("       -D <date>     Date to print at top of man pages (format not checked, default: today)\n");
+	printf("       -S <year>     Start year to print at end of copyright line (default: 2010)\n");
 	printf("       -Y <year>     Year to print at end of copyright line (default: today's year)\n");
 	printf("       -o <dir>      Write all man pages to <dir> (default .)\n");
 	printf("       -d <dir>      Directory for XML files (./xml/)\n");
 	printf("       -h            Print this usage text\n");
 }
 
+static long get_year(char *optionarg, char optionchar)
+{
+	long year = strtol(optionarg, NULL, 10);
+	/*
+	 * Don't make too many assumptions about the year. I was on call at the
+	 * 2000 rollover. #experience
+	 */
+	if (year == LONG_MIN || year == LONG_MAX ||
+	    year < 1900) {
+		fprintf(stderr, "Value passed to -%c is not a valid year number\n", optionchar);
+		return 0;
+	}
+	return year;
+}
+
 int main(int argc, char *argv[])
 {
 	xmlNode *rootdoc;
 	xmlDocPtr doc;
-	int quiet=0;
 	int opt;
 	char xml_filename[PATH_MAX];
 
-	while ( (opt = getopt_long(argc, argv, "H:amPD:Y:s:d:o:p:f:h?", NULL, NULL)) != EOF)
+	while ( (opt = getopt_long(argc, argv, "H:amqPD:Y:s:S:d:o:p:f:I:C:h?", NULL, NULL)) != EOF)
 	{
 		switch(opt)
 		{
@@ -880,8 +962,23 @@ int main(int argc, char *argv[])
 			case 'P':
 				print_params = 1;
 				break;
+			case 'q':
+				quiet = 1;
+				break;
+			case 'I':
+				headerfile = optarg;
+				break;
+			case 'C':
+				company = optarg;
+				break;
 			case 's':
 				man_section = optarg;
+				break;
+			case 'S':
+				start_year = get_year(optarg, 'S');
+				if (start_year == 0) {
+					return 1;
+				}
 				break;
 			case 'd':
 				xml_dir = optarg;
@@ -890,14 +987,8 @@ int main(int argc, char *argv[])
 				manpage_date = optarg;
 				break;
 			case 'Y':
-				manpage_year = strtol(optarg, NULL, 10);
-				/*
-				 * Don't make too many assumptions about the year. I was on call at the
-				 * 2000 rollover. #experience
-				 */
-				if (manpage_year == LONG_MIN || manpage_year == LONG_MAX ||
-				    manpage_year < 1900) {
-					fprintf(stderr, "Value passed to -Y is not a valid year number\n");
+				manpage_year = get_year(optarg, 'Y');
+				if (manpage_year == 0) {
 					return 1;
 				}
 				break;
@@ -926,7 +1017,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!quiet) {
-		fprintf(stderr, "reading xml ... ");
+		printf("reading %s ... ", xml_file);
 	}
 
 	snprintf(xml_filename, sizeof(xml_filename), "%s/%s", xml_dir, xml_file);
@@ -942,7 +1033,16 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	if (!quiet)
-		fprintf(stderr, "done.\n");
+		printf("done.\n");
+
+	/* Get our header file name */
+	if (!headerfile) {
+		traverse_node(rootdoc, "compounddef", read_headername, &headerfile);
+	}
+	/* Default to *something* if it all goes wrong */
+	if (!headerfile) {
+		headerfile = "unknown.h";
+	}
 
 	qb_list_init(&params_list);
 	qb_list_init(&retval_list);

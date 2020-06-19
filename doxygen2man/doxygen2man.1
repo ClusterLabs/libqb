@@ -36,8 +36,8 @@ Write man page files to <output dir>
 .B -P
 Print PARAMS section
 .TP
-.B -s <s>
-Write man pages into section <s> <default 3)
+.B -s <n>
+Write man pages into section <n> (default 3)
 .TP
 .B -p <package>
 Use <package> name. default <Package>
@@ -45,11 +45,20 @@ Use <package> name. default <Package>
 .B -H <header>
 Set header (default \"Programmer's Manual\")
 .TP
+.B -I <include>
+Set the include filename (defaults to the one in the XML file or unknown.h)
+.TP
+.B -C <company>
+Set the company name in the copyright (default Red Hat)
+.TP
 .B -D <date>
 Date to print at top of man pages (format not checked, default: today)
 .TP
 .B -Y <year>
 Year to print at end of copyright line (default: today's year)
+.TP
+.B -S <year>
+Year to print at start of copyright line (default: 2010)
 .TP
 .B -o <dir>
 Write all man pages to <dir> (default .)
