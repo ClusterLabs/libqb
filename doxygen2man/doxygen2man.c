@@ -178,7 +178,8 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 			if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "parameternamelist") == 0) {
 				paramname = (char*)sub_tag->children->next->children->content;
 			}
-			if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "parameterdescription") == 0) {
+			if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "parameterdescription") == 0 &&
+			    paramname) {
 				paramdesc = (char*)sub_tag->children->next->children->content;
 
 				/* Add text to the param_map */
@@ -464,10 +465,10 @@ char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notet
 	}
 
 	if (buffer[0]) {
-		tmp = strdup(buffer);
+		return strdup(buffer);
+	} else {
+		return NULL;
 	}
-
-	return tmp;
 }
 
 /* The text output is VERY basic and just a check that it's working really */
