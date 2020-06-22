@@ -118,12 +118,12 @@ static char *get_child(xmlNode *node, const char *tag)
 			refid = NULL;
 			for (child = this_node->children; child; child = child->next) {
 				if (child->content) {
-					strcat(buffer, (char *)child->content);
+					strncat(buffer, (char *)child->content, sizeof(buffer)-1);
 				}
 
 				if ((strcmp( (char*)child->name, "ref") == 0)) {
 					if (child->children->content) {
-						strcat(buffer,(char *)child->children->content);
+						strncat(buffer,(char *)child->children->content, sizeof(buffer)-1);
 					}
 					refid = get_attr(child, "refid");
 				}
@@ -210,35 +210,35 @@ static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		if (this_tag->type == XML_TEXT_NODE && strcmp((char *)this_tag->name, "text") == 0) {
 			if (not_all_whitespace((char*)this_tag->content)) {
-				strcat(buffer, (char*)this_tag->content);
-				strcat(buffer, "\n");
+				strncat(buffer, (char*)this_tag->content, sizeof(buffer)-1);
+				strncat(buffer, "\n", sizeof(buffer)-1);
 			}
 		}
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "emphasis") == 0) {
 			if (print_man) {
-				strcat(buffer, "\\fB");
+				strncat(buffer, "\\fB", sizeof(buffer)-1);
 			}
-			strcat(buffer, (char*)this_tag->children->content);
+			strncat(buffer, (char*)this_tag->children->content, sizeof(buffer)-1);
 			if (print_man) {
-				strcat(buffer, "\\fR");
+				strncat(buffer, "\\fR", sizeof(buffer)-1);
 			}
 		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "ref") == 0) {
 			if (print_man) {
-				strcat(buffer, "\\fI");
+				strncat(buffer, "\\fI", sizeof(buffer)-1);
 			}
-			strcat(buffer, (char*)this_tag->children->content);
+			strncat(buffer, (char*)this_tag->children->content, sizeof(buffer)-1);
 			if (print_man) {
-				strcat(buffer, "\\fR");
+				strncat(buffer, "\\fR", sizeof(buffer)-1);
 			}
 		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "itemizedlist") == 0) {
 			for (sub_tag = this_tag->children; sub_tag; sub_tag = sub_tag->next) {
 				if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "listitem") == 0) {
-					strcat(buffer, (char*)sub_tag->children->children->content);
-					strcat(buffer, "\n");
+					strncat(buffer, (char*)sub_tag->children->children->content, sizeof(buffer)-1);
+					strncat(buffer, "\n", sizeof(buffer)-1);
 				}
 			}
 		}
@@ -457,8 +457,8 @@ char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notet
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "para") == 0) {
 			tmp = get_text(this_tag, returntext, notetext);
-			strcat(buffer, tmp);
-			strcat(buffer, "\n");
+			strncat(buffer, tmp, sizeof(buffer)-1);
+			strncat(buffer, "\n", sizeof(buffer)-1);
 			free(tmp);
 		}
 	}
