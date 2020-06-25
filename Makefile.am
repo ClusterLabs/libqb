@@ -41,9 +41,6 @@ dist_doc_DATA		= COPYING INSTALL README.markdown
 
 SUBDIRS			= include lib doxygen2man docs tools tests examples
 
-doxygen:
-	$(MAKE) -C doxygen2xml docs doxygen
-
 dist-clean-local:
 	rm -f .snapshot-version autoconf automake autoheader
 
