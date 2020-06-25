@@ -814,8 +814,6 @@ AC_CONFIG_FILES([Makefile
 		 examples/Makefile
 		 doxygen2man/Makefile
 		 docs/Makefile
-		 docs/common.dox
-		 docs/html.dox
 		 docs/man.dox
 		 lib/qblog_script.la:lib/qblog_script.la.in])
 
