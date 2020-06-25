@@ -23,29 +23,21 @@ noinst_HEADERS          = mainpage.h
 
 dist_man_MANS = man8/qb-blackbox.8
 if HAVE_DOXYGEN
-inc_dir = $(top_srcdir)/include/qb
-public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
-	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
-	| MAKEFLAGS= ${MAKE} --no-print-directory -f- inst_HEADERS.var \
-	|| echo $(inc_dir)/qb*.h*))))
-public_headers_omit = qbconfig.h
-public_headers_pick = $(filter-out $(public_headers_omit),$(public_headers) )
-
 if BUILD_MAN
 
-doxygen2man_flags = -q -i qb/ -o man3/ -m -P -H "libqb Programmer's Manual"
+doxygen2man_flags = -q -i qb/ -o man3/ -m -g -P -H "libqb Programmer's Manual"
 
-dist_man3_MANS = $(patsubst %,man3/%.3,$(public_headers_pick))
+dist_man3_MANS = man3/*.3
 
 $(dist_man3_MANS): txt-man
 
-txt-man: man.dox $(public_headers_pick:%=$(inc_dir)/%)
+txt-man: man.dox
 	doxygen man.dox
 
 xml-man: txt-man
+	mkdir -p man3
 	$(DOXYGEN2MAN) $(doxygen2man_flags) qbarray_8h.xml
 	$(DOXYGEN2MAN) $(doxygen2man_flags) qbatomic_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbconfig_8h.xml
 	$(DOXYGEN2MAN) $(doxygen2man_flags) qbdefs_8h.xml
 	$(DOXYGEN2MAN) $(doxygen2man_flags) qbhdb_8h.xml
 	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcc_8h.xml

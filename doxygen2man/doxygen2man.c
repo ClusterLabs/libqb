@@ -43,6 +43,7 @@
 static int print_ascii = 1;
 static int print_man = 0;
 static int print_params = 0;
+static int print_general = 0;
 static int num_functions = 0;
 static int quiet=0;
 static const char *man_section="3";
@@ -485,10 +486,14 @@ static void print_text(char *name, char *def, char *brief, char *args, char *det
 
 	printf("SYNOPSIS\n");
 	printf("        #include <%s%s>\n", header_prefix, headerfile);
-	printf("        %s %s\n\n", name, args);
+	if (args) {
+		printf("        %s %s\n\n", name, args);
+	}
 
-	printf("DESCRIPTION\n");
-	printf("        %s\n", detailed);
+	if (detailed) {
+		printf("DESCRIPTION\n");
+		printf("        %s\n", detailed);
+	}
 
 	if (returntext) {
 		printf("RETURN VALUE\n");
@@ -605,18 +610,19 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	fprintf(manfile, ".SH SYNOPSIS\n");
 	fprintf(manfile, ".nf\n");
 	fprintf(manfile, ".B #include <%s%s>\n", header_prefix, headerfile);
-	fprintf(manfile, ".sp\n");
-	fprintf(manfile, "\\fB%s\\fP(\n", def);
+	if (def) {
+		fprintf(manfile, ".sp\n");
+		fprintf(manfile, "\\fB%s\\fP(\n", def);
 
+		qb_list_for_each(iter, &params_list) {
+			pi = qb_list_entry(iter, struct param_info, list);
 
-	qb_list_for_each(iter, &params_list) {
-		pi = qb_list_entry(iter, struct param_info, list);
+			print_param(manfile, pi, max_param_type_len, 1, ++param_num < param_count?",":"");
+		}
 
-		print_param(manfile, pi, max_param_type_len, 1, ++param_num < param_count?",":"");
+		fprintf(manfile, ");\n");
+		fprintf(manfile, ".fi\n");
 	}
-
-	fprintf(manfile, ");\n");
-	fprintf(manfile, ".fi\n");
 
 	if (print_params && num_param_descs) {
 		fprintf(manfile, ".SH PARAMS\n");
@@ -629,8 +635,10 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		}
 	}
 
-	fprintf(manfile, ".SH DESCRIPTION\n");
-	man_print_long_string(manfile, detailed);
+	if (detailed) {
+		fprintf(manfile, ".SH DESCRIPTION\n");
+		man_print_long_string(manfile, detailed);
+	}
 
 	if (qb_map_count_get(used_structures_map)) {
 		int first_struct = 1;
@@ -794,7 +802,9 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 {
 	xmlNode *this_tag;
 
-	if (cur_node->name && strcmp((char *)cur_node->name, "memberdef") == 0) {
+	/* if arg == NULL then we're generating a page for the whole header file */
+	if ((cur_node->name && (strcmp((char *)cur_node->name, "memberdef") == 0)) ||
+	    ((arg == NULL) && cur_node->name && strcmp((char *)cur_node->name, "compounddef")) == 0) {
 		char *kind = NULL;
 		char *def = NULL;
 		char *args = NULL;
@@ -848,22 +858,39 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 			}
 		}
 
-		if (kind && strcmp(kind, "function") == 0) {
-
-			/* Make sure function has a doxygen description */
-			if (!detailed) {
-				fprintf(stderr, "No doxygen description for function '%s' - please fix this\n", name);
-				return;
-			}
-
+		if (arg == headerfile) {
+			/* Print header page */
+			name = (char*)headerfile;
 			if (print_man) {
 				if (!quiet) {
-					printf("Printing manpage for %s\n", name);
+					printf("Printing header manpage for %s\n", name);
 				}
 				print_manpage(name, def, brief, args, detailed, &params_list, returntext, notetext);
 			}
 			else {
 				print_text(name, def, brief, args, detailed, &params_list, returntext, notetext);
+			}
+		}
+
+		if (kind && strcmp(kind, "function") == 0) {
+
+			/* Make sure function has a doxygen description */
+			if (!detailed) {
+				fprintf(stderr, "No detailed description for function '%s' - please fix this\n", name);
+			}
+
+			if (!name) {
+				fprintf(stderr, "Internal error - no name found for function\n");
+			} else {
+				if (print_man) {
+					if (!quiet) {
+						printf("Printing manpage for %s\n", name);
+					}
+					print_manpage(name, def, brief, args, detailed, &params_list, returntext, notetext);
+				}
+				else {
+					print_text(name, def, brief, args, detailed, &params_list, returntext, notetext);
+				}
 			}
 
 		}
@@ -914,6 +941,7 @@ static void usage(char *name)
 	printf("       -a            Print ASCII dump of man pages to stdout\n");
 	printf("       -m            Write man page files to <output dir>\n");
 	printf("       -P            Print PARAMS section\n");
+	printf("       -g            Print general man page for the whole header file\n");
 	printf("       -s <s>        Write man pages into section <s> <default 3)\n");
 	printf("       -p <package>  Use <package> name. default <Package>\n");
 	printf("       -H <header>   Set header (default \"Programmer's Manual\"\n");
@@ -950,7 +978,7 @@ int main(int argc, char *argv[])
 	int opt;
 	char xml_filename[PATH_MAX];
 
-	while ( (opt = getopt_long(argc, argv, "H:amqPD:Y:s:S:d:o:p:f:I:i:C:h?", NULL, NULL)) != EOF)
+	while ( (opt = getopt_long(argc, argv, "H:amqgPD:Y:s:S:d:o:p:f:I:i:C:h?", NULL, NULL)) != EOF)
 	{
 		switch(opt)
 		{
@@ -964,6 +992,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'P':
 				print_params = 1;
+				break;
+			case 'g':
+				print_general = 1;
 				break;
 			case 'q':
 				quiet = 1;
@@ -1065,5 +1096,9 @@ int main(int argc, char *argv[])
 	/* print pages */
 	traverse_node(rootdoc, "memberdef", traverse_members, NULL);
 
+	if (print_general) {
+		/* Generate and print a page for the headerfile itself */
+		traverse_node(rootdoc, "compounddef", traverse_members, (char *)headerfile);
+	}
 	return 0;
 }
