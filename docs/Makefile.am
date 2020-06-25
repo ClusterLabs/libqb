@@ -32,10 +32,27 @@ public_headers_omit = qbconfig.h
 public_headers_pick = $(filter-out $(public_headers_omit),$(public_headers) )
 
 dist_man3_MANS = $(patsubst %,man3/%.3,$(public_headers_pick))
+doxygen2man_flags = -q -i qb/ -o man3/ -m -P -H "libqb Programmer's Manual"
 
 $(dist_man3_MANS): man.dox $(public_headers_pick:%=$(inc_dir)/%)
 	mkdir -p man3
 	doxygen man.dox
+if BUILD_MAN
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbarray_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbatomic_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbconfig_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbdefs_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbhdb_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcc_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipc__common_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcs_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qblist_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qblog_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbloop_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbmap_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbrb_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbutil_8h.xml
+endif
 
 doxygen: html.dox
 	mkdir -p html

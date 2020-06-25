@@ -205,4 +205,9 @@ CLASS_DIAGRAMS         = NO
 
 #HAVE_DOT               = NO
 
+# for doxygen2xml
+
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = NO
+
 # [DOT options stripped]

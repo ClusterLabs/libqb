@@ -175,12 +175,14 @@ PKG_CHECK_MODULES([libxml], [libxml-2.0])
 # a locally installed version. If neither are usable, then
 # don´t build the man pages
 if test "x$cross_compiling" = "xno"; then
-  AM_CONDITIONAL([BUILD_MAN], 1)
-  DOXYGEN2MAN="\$(abs_builddir)/doxygen2man/doxygen2man"
+  AM_CONDITIONAL([BUILD_MAN], [true])
+  DOXYGEN2MAN="\$(abs_builddir)/../doxygen2man/doxygen2man"
 else
   AC_CHECK_PROGS([DOXYGEN2MAN], [doxygen2man])
   if test "x$DOXYGEN2MAN" = "x"; then
-    AM_CONDITIONAL([BUILD_MAN], 0)
+    AM_CONDITIONAL([BUILD_MAN], [false])
+  else
+    AM_CONDITIONAL([BUILD_MAN], [true])
   fi
 fi
 AC_SUBST(DOXYGEN2MAN)
