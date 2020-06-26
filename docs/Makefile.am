@@ -18,33 +18,42 @@
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 
 MAINTAINERCLEANFILES	= Makefile.in
-EXTRA_DIST 		= common.dox html.dox man.dox
+EXTRA_DIST 		= man.dox.in
 noinst_HEADERS          = mainpage.h
 
 dist_man_MANS = man8/qb-blackbox.8
 if HAVE_DOXYGEN
-inc_dir = $(top_srcdir)/include/qb
-public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
-	printf 'include $(inc_dir)/Makefile.am\n\n%%.var:\n\t@echo $$($$*)' \
-	| MAKEFLAGS= ${MAKE} --no-print-directory -f- inst_HEADERS.var \
-	|| echo $(inc_dir)/qb*.h*))))
-public_headers_omit = qbconfig.h
-public_headers_pick = $(filter-out $(public_headers_omit),$(public_headers) )
+if BUILD_MAN
 
-dist_man3_MANS = $(patsubst %,man3/%.3,$(public_headers_pick))
+doxygen2man_flags = -q -i qb/ -o man3/ -m -g -P -H "libqb Programmer's Manual"
 
-$(dist_man3_MANS): man.dox $(public_headers_pick:%=$(inc_dir)/%)
-	mkdir -p man3
+dist_man3_MANS = man3/*.3
+
+$(dist_man3_MANS): txt-man
+
+txt-man: man.dox
 	doxygen man.dox
 
-doxygen: html.dox
-	mkdir -p html
-	doxygen html.dox
+xml-man: txt-man
+	mkdir -p man3
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbarray_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbatomic_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbdefs_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbhdb_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcc_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipc__common_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcs_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qblist_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qblog_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbloop_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbmap_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbrb_8h.xml
+	$(DOXYGEN2MAN) $(doxygen2man_flags) qbutil_8h.xml
 
-else
-doxygen:
-	@echo WARNING: no doxygen to build man pages!
+all: $(dist_man3_MANS) xml-man
+
+endif
 endif
 
 clean-local:
-	rm -rf html man3
+	rm -rf html man3 xml
