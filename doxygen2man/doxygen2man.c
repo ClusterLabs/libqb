@@ -28,6 +28,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <errno.h>
+#include <ctype.h>
 #include <libxml/tree.h>
 #include <qb/qblist.h>
 #include <qb/qbmap.h>
@@ -405,6 +406,17 @@ static int read_structure_from_xml(const char *refid, const char *name)
 	return ret;
 }
 
+static char *allcaps(const char *name)
+{
+	static char buffer[1024] = {'\0'};
+	int i;
+
+	for (i=0; i< strlen(name); i++) {
+		buffer[i] = toupper(name[i]);
+	}
+	buffer[strlen(name)] = '\0';
+	return buffer;
+}
 
 static void print_param(FILE *manfile, struct param_info *pi, int field_width, int bold, const char *delimiter)
 {
@@ -635,7 +647,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	/* Off we go */
 
 	fprintf(manfile, ".\\\"  Automatically generated man page, do not edit\n");
-	fprintf(manfile, ".TH %s %s %s \"%s\" \"%s\"\n", name, man_section, dateptr, package_name, header);
+	fprintf(manfile, ".TH %s %s %s \"%s\" \"%s\"\n", allcaps(name), man_section, dateptr, package_name, header);
 
 	fprintf(manfile, ".SH NAME\n");
 	if (brief) {
@@ -712,18 +724,20 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	if (returntext) {
 		fprintf(manfile, ".SH RETURN VALUE\n");
 		man_print_long_string(manfile, returntext);
-	}
-	if (notetext) {
-		fprintf(manfile, ".SH NOTE\n");
-		man_print_long_string(manfile, notetext);
+		fprintf(manfile, ".PP\n");
 	}
 
 	qb_list_for_each(iter, &retval_list) {
 		pi = qb_list_entry(iter, struct param_info, list);
 
-		fprintf(manfile, "\\fB%-*s \\fP\\fI%s\\fP\n", 10, pi->paramname,
+		fprintf(manfile, "\\fB%-*s \\fP%s\n", 10, pi->paramname,
 			pi->paramdesc);
 		fprintf(manfile, ".PP\n");
+	}
+
+	if (notetext) {
+		fprintf(manfile, ".SH NOTE\n");
+		man_print_long_string(manfile, notetext);
 	}
 
 	fprintf(manfile, ".SH SEE ALSO\n");
