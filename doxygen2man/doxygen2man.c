@@ -75,6 +75,8 @@ struct param_info {
 struct struct_info {
 	enum {STRUCTINFO_STRUCT, STRUCTINFO_ENUM} kind;
 	char *structname;
+	char *description;
+	char *brief_description;
 	struct qb_list_head params_list; /* our params */
 	struct qb_list_head list;
 };
@@ -176,11 +178,12 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 	/* This is not robust, and very inflexible */
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		for (sub_tag = this_tag->children; sub_tag; sub_tag = sub_tag->next) {
-			if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "parameternamelist") == 0) {
+			if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "parameternamelist") == 0 &&
+				sub_tag->children->next->children) {
 				paramname = (char*)sub_tag->children->next->children->content;
 			}
 			if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "parameterdescription") == 0 &&
-			    paramname) {
+			    paramname && sub_tag->children->next->children) {
 				paramdesc = (char*)sub_tag->children->next->children->content;
 
 				/* Add text to the param_map */
@@ -213,7 +216,6 @@ static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 		if (this_tag->type == XML_TEXT_NODE && strcmp((char *)this_tag->name, "text") == 0) {
 			if (not_all_whitespace((char*)this_tag->content)) {
 				strncat(buffer, (char*)this_tag->content, sizeof(buffer)-1);
-				strncat(buffer, "\n", sizeof(buffer)-1);
 			}
 		}
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "emphasis") == 0) {
@@ -281,6 +283,27 @@ static void read_structname(xmlNode *cur_node, void *arg)
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		if (strcmp((char*)this_tag->name, "compoundname") == 0) {
 			si->structname = strdup((char*)this_tag->children->content);
+		}
+	}
+}
+
+static void read_structdesc(xmlNode *cur_node, void *arg)
+{
+	struct struct_info *si=arg;
+	xmlNode *this_tag;
+
+	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
+		if (strcmp((char*)this_tag->name, "detaileddescription") == 0) {
+			char *desc = get_texttree(NULL, this_tag, NULL, NULL);
+			if (desc) {
+				si->description = strdup((char*)desc);
+			}
+		}
+		if (strcmp((char*)this_tag->name, "briefdescription") == 0) {
+			char *brief = get_texttree(NULL, this_tag, NULL, NULL);
+			if (brief) {
+				si->brief_description = brief;
+			}
 		}
 	}
 }
@@ -368,9 +391,11 @@ static int read_structure_from_xml(const char *refid, const char *name)
 
 	si = malloc(sizeof(struct struct_info));
 	if (si) {
+		memset(si, 0, sizeof(*si));
 		si->kind = STRUCTINFO_STRUCT;
 		qb_list_init(&si->params_list);
 		traverse_node(rootdoc, "memberdef", read_struct, si);
+		traverse_node(rootdoc, "compounddef", read_structdesc, si);
 		traverse_node(rootdoc, "compounddef", read_structname, si);
 		ret = 0;
 		qb_map_put(structures_map, refid, si);
@@ -423,6 +448,13 @@ static void print_structure(FILE *manfile, struct struct_info *si)
 
 	fprintf(manfile, ".nf\n");
 	fprintf(manfile, "\\fB\n");
+
+	if (si->brief_description) {
+		fprintf(manfile, "%s\n", si->brief_description);
+	}
+	if (si->description) {
+		fprintf(manfile, "%s\n", si->description);
+	}
 
 	qb_list_for_each(iter, &si->params_list) {
 		pi = qb_list_entry(iter, struct param_info, list);
@@ -521,6 +553,11 @@ static void man_print_long_string(FILE *manfile, char *text)
 		*next_nl = '\n';
 		current = next_nl+1;
 		next_nl = strchr(current, '\n');
+	}
+
+	/* The bit at the end */
+	if (strlen(current)) {
+		fprintf(manfile, ".PP\n%s\n", current);
 	}
 }
 
@@ -664,8 +701,8 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 			}
 			if (si) {
 				print_structure(manfile, si);
+				fprintf(manfile, ".PP\n");
 			}
-
 		}
 		qb_map_iter_free(map_iter);
 
@@ -700,7 +737,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 
 		/* Exclude us! */
 		if (strcmp(data, name)) {
-			fprintf(manfile, "\\fI%s(%s)%s", (char *)data, man_section,
+			fprintf(manfile, "\\fI%s\\fR(%s)%s", (char *)data, man_section,
 				param_num < (num_functions - 1)?", ":"");
 		}
 		param_num++;
@@ -787,6 +824,7 @@ static void collect_enums(xmlNode *cur_node, void *arg)
 			if (name) {
 				si = malloc(sizeof(struct struct_info));
 				if (si) {
+					memset(si, 0, sizeof(*si));
 					si->kind = STRUCTINFO_ENUM;
 					qb_list_init(&si->params_list);
 					si->structname = strdup(name);
@@ -835,10 +873,10 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 				brief = get_texttree(&type, this_tag, &returntext, &notetext);
 				if (brief) {
 					/*
-					 * apparently brief text contains extra trailing space and 2 \n.
+					 * apparently brief text contains extra trailing space and a \n.
 					 * remove them.
 					 */
-					brief[strlen(brief) - 3] = '\0';
+					brief[strlen(brief) - 2] = '\0';
 				}
 			}
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "detaileddescription") == 0) {
@@ -908,7 +946,6 @@ static void traverse_node(xmlNode *parentnode, const char *leafname, void (do_me
 	xmlNode *cur_node;
 
 	for (cur_node = parentnode->children; cur_node; cur_node = cur_node->next) {
-
 		if (cur_node->type == XML_ELEMENT_NODE && cur_node->name
 		    && strcmp((char*)cur_node->name, leafname)==0) {
 			do_members(cur_node, arg);
