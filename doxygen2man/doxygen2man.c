@@ -409,7 +409,7 @@ static int read_structure_from_xml(const char *refid, const char *name)
 static char *allcaps(const char *name)
 {
 	static char buffer[1024] = {'\0'};
-	int i;
+	size_t i;
 
 	for (i=0; i< strlen(name); i++) {
 		buffer[i] = toupper(name[i]);
