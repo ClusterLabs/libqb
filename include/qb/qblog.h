@@ -652,6 +652,19 @@ void qb_log_format_set(int32_t t, const char* format);
 int32_t qb_log_file_open(const char *filename);
 
 /**
+ * Open a log file with set permissions
+ *
+ * These permissions are stored with the target and
+ * will also be applied to qb_log_reopen()
+ *
+ * @retval -errno on error
+ * @retval value in inclusive range QB_LOG_TARGET_DYNAMIC_START
+ *         to QB_LOG_TARGET_DYNAMIC_END
+ *         (to be passed into other qb_log_* functions)
+ */
+int32_t qb_log_file_open2(const char *filename, mode_t mode);
+
+/**
  * Close a log file and release its resources.
  */
 void qb_log_file_close(int32_t t);

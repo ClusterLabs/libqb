@@ -344,6 +344,40 @@ START_TEST(test_file_logging)
 }
 END_TEST
 
+START_TEST(test_file_mode)
+{
+	struct stat st;
+	int rc, lf;
+
+	unlink("test1.log");
+	unlink("test2.log");
+
+	qb_log_init("test", LOG_USER, LOG_DEBUG);
+	lf = qb_log_file_open2("test1.log", 0600);
+	rc = qb_log_filter_ctl(lf, QB_LOG_FILTER_ADD, QB_LOG_FILTER_FILE,
+			       __FILE__, LOG_DEBUG);
+	ck_assert_int_eq(rc, 0);
+	rc = qb_log_ctl(lf, QB_LOG_CONF_ENABLED, QB_TRUE);
+	ck_assert_int_eq(rc, 0);
+
+	rc = stat("test1.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_eq(st.st_mode & 01777, 0600);
+
+	/* Check it continues over reopen */
+	rc = qb_log_file_reopen(lf, "test2.log");
+	ck_assert_int_eq(rc, 0);
+
+	rc = stat("test2.log", &st);
+	ck_assert_int_eq(rc, 0);
+	ck_assert_int_eq(st.st_mode & 01777, 0600);
+
+
+	unlink("test2.log");
+	unlink("test1.log");
+}
+END_TEST
+
 START_TEST(test_timestamps)
 {
 	int32_t t;
@@ -1098,6 +1132,7 @@ log_suite(void)
 	add_tcase(s, tc, test_threaded_logging);
 	add_tcase(s, tc, test_line_length);
 	add_tcase(s, tc, test_file_logging);
+	add_tcase(s, tc, test_file_mode);
 #ifdef HAVE_PTHREAD_SETSCHEDPARAM
 	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
 #endif

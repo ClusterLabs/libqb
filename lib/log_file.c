@@ -73,11 +73,20 @@ _do_file_reload(const char *filename, int32_t target)
 	FILE *newfile;
 	int saved_errno;
 	int rc;
+	mode_t oldmode = 0;
 
 	if (filename == NULL) {
 		filename = t->filename;
 	}
+
+	if (t->file_mode) {
+		oldmode = umask(0666 - t->file_mode);
+	}
 	newfile = fopen(filename, "a+");
+	if (t->file_mode) {
+		umask(oldmode);
+	}
+
 	saved_errno = errno;
 
 	qb_log_thread_pause(t);
@@ -126,18 +135,29 @@ qb_log_stderr_open(struct qb_log_target *t)
 }
 
 int32_t
-qb_log_file_open(const char *filename)
+qb_log_file_open2(const char *filename, mode_t mode)
 {
 	struct qb_log_target *t;
 	FILE *fp;
 	int32_t rc;
+	mode_t oldmode = 0;
 
 	t = qb_log_target_alloc();
 	if (t == NULL) {
 		return -errno;
 	}
 
+	if (mode) {
+		t->file_mode = mode;
+		oldmode = umask(0666 - mode);
+	}
+
 	fp = fopen(filename, "a+");
+
+	if (mode) {
+		umask(oldmode);
+	}
+
 	if (fp == NULL) {
 		rc = -errno;
 		qb_log_target_free(t);
@@ -151,6 +171,13 @@ qb_log_file_open(const char *filename)
 	t->close = _file_close;
 	return t->pos;
 }
+
+int32_t
+qb_log_file_open(const char *filename)
+{
+	return qb_log_file_open2(filename, 0);
+}
+
 
 void
 qb_log_file_close(int32_t t)
