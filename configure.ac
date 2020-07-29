@@ -259,7 +259,7 @@ AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([alarm fsync fdatasync ftruncate \
+AC_CHECK_FUNCS([alarm fsync fdatasync ftruncate posix_fallocate \
 		gettimeofday localtime localtime_r \
 		memset munmap socket \
 		strchr strrchr strdup strstr strcasecmp \

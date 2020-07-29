@@ -26,6 +26,9 @@
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
 #endif
+#if defined(HAVE_FCNTL_H) && defined(HAVE_POSIX_FALLOCATE)
+#include <fcntl.h>
+#endif
 
 #include "util_int.h"
 #include <qb/qbdefs.h>
@@ -112,6 +115,14 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		goto unlink_exit;
 	}
 
+#ifdef HAVE_POSIX_FALLOCATE
+	if ((res = posix_fallocate(fd, 0, bytes)) != 0) {
+		errno = res;
+		res = -1 * res;
+		qb_util_perror(LOG_ERR, "couldn't allocate file %s", path);
+		goto unlink_exit;
+	}
+#else
 	if (file_flags & O_CREAT) {
 		long page_size = sysconf(_SC_PAGESIZE);
 		long write_size = QB_MIN(page_size, bytes);
@@ -138,6 +149,7 @@ retry_write:
 		}
 		free(buffer);
 	}
+#endif /* HAVE_POSIX_FALLOCATE */
 
 	return fd;
 
