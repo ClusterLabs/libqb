@@ -45,7 +45,7 @@ START_TEST(test_ring_buffer1)
 	ssize_t avail;
 
 	rb = qb_rb_open("test1", 200, QB_RB_FLAG_CREATE, 0);
-	fail_if(rb == NULL);
+	ck_assert(rb != NULL);
 
 	for (b = 0; b < 3; b++) {
 		memcpy(&hdr, my_buf, sizeof(struct qb_ipc_request_header));
@@ -100,7 +100,7 @@ START_TEST(test_ring_buffer2)
 	ssize_t l;
 
 	t = qb_rb_open("test2", 200 * sizeof(int64_t), QB_RB_FLAG_CREATE, 0);
-	fail_if(t == NULL);
+	ck_assert(t != NULL);
 	for (i = 0; i < 200; i++) {
 		l = qb_rb_chunk_write(t, &v, sizeof(v));
 		ck_assert_int_eq(l, sizeof(v));
@@ -108,7 +108,7 @@ START_TEST(test_ring_buffer2)
 	for (i = 0; i < 100; i++) {
 		l = qb_rb_chunk_peek(t, (void **)&new_data, 0);
 		ck_assert_int_eq(l, sizeof(v));
-		fail_unless(v == *new_data);
+		ck_assert(v == *new_data);
 		qb_rb_chunk_reclaim(t);
 	}
 	for (i = 0; i < 100; i++) {
@@ -122,7 +122,7 @@ START_TEST(test_ring_buffer2)
 			break;
 		}
 		ck_assert_int_eq(l, sizeof(v));
-		fail_unless(v == *new_data);
+		ck_assert(v == *new_data);
 		qb_rb_chunk_reclaim(t);
 	}
 	qb_rb_close(t);
@@ -142,7 +142,7 @@ START_TEST(test_ring_buffer3)
 	size_t len = strlen(v) + 1;
 
 	t = qb_rb_open("test3", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
-	fail_if(t == NULL);
+	ck_assert(t != NULL);
 	for (i = 0; i < 9000; i++) {
 		l = qb_rb_chunk_write(t, v, len);
 		ck_assert_int_eq(l, len);
@@ -169,7 +169,7 @@ START_TEST(test_ring_buffer4)
 	ssize_t l;
 
 	t = qb_rb_open("test4", 10, QB_RB_FLAG_CREATE | QB_RB_FLAG_OVERWRITE, 0);
-	fail_if(t == NULL);
+	ck_assert(t != NULL);
 	for (i = 0; i < 2000; i++) {
 		l = qb_rb_chunk_write(t, data, strlen(data));
 		ck_assert_int_eq(l, strlen(data));
