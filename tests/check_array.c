@@ -44,15 +44,15 @@ START_TEST(test_array_limits)
 	struct test_my_st *st;
 
 	a = qb_array_create(INT_MAX, sizeof(struct test_my_st));
-	fail_unless(a == NULL);
+	ck_assert(a == NULL);
 	a = qb_array_create(-56, sizeof(struct test_my_st));
-	fail_unless(a == NULL);
+	ck_assert(a == NULL);
 	a = qb_array_create(67, 0);
-	fail_unless(a == NULL);
+	ck_assert(a == NULL);
 
 	/* working array */
 	a = qb_array_create(10, sizeof(struct test_my_st));
-	fail_if(a == NULL);
+	ck_assert(a != NULL);
 
 	/* out-of-bounds */
 	res = qb_array_index(a, 10, (void**)&st);
@@ -129,7 +129,7 @@ START_TEST(test_array_static_memory)
 	/* confirm the pointer is the same after a grow */
 	res = qb_array_index(a, 99, (void**)&st);
 	ck_assert_int_eq(res, 0);
-	fail_unless(st == st_old);
+	ck_assert(st == st_old);
 
 	qb_array_free(a);
 }

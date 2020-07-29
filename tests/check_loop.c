@@ -148,7 +148,7 @@ START_TEST(test_loop_job_input)
 	ck_assert_int_eq(res, -EINVAL);
 
 	l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_job_add(NULL, QB_LOOP_LOW,  NULL, job_2);
 	ck_assert_int_eq(res, 0);
@@ -164,7 +164,7 @@ START_TEST(test_loop_job_1)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_job_add(l, QB_LOOP_LOW,  NULL, job_1);
 	ck_assert_int_eq(res, 0);
@@ -181,7 +181,7 @@ START_TEST(test_loop_job_4)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_job_add(l, QB_LOOP_LOW,  l, job_1_r);
 	ck_assert_int_eq(res, 0);
@@ -198,13 +198,13 @@ START_TEST(test_loop_job_nuts)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_job_add(l, QB_LOOP_LOW,  l, job_1_add_nuts);
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(l);
-	fail_if(job_1_run_count < 500);
+	ck_assert(job_1_run_count >= 500);
 	qb_loop_destroy(l);
 }
 END_TEST
@@ -213,7 +213,7 @@ START_TEST(test_loop_job_order)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	job_1_run_count = 0;
 
@@ -267,10 +267,10 @@ START_TEST(test_job_rate_limit)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	rl_sw = qb_util_stopwatch_create();
-	fail_if(rl_sw == NULL);
+	ck_assert(rl_sw != NULL);
 
 	qb_util_stopwatch_start(rl_sw);
 
@@ -303,7 +303,7 @@ START_TEST(test_job_add_del)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_job_add(l, QB_LOOP_MED, l, job_1);
 	ck_assert_int_eq(res, 0);
@@ -374,7 +374,7 @@ START_TEST(test_loop_timer_input)
 	ck_assert_int_eq(res, -EINVAL);
 
 	l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_timer_add(NULL, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, NULL, job_2, &test_th);
 	ck_assert_int_eq(res, 0);
@@ -414,7 +414,7 @@ START_TEST(test_loop_timer_basic)
 {
 	int32_t res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, one_shot_tmo, &test_th);
 	ck_assert_int_eq(res, 0);
@@ -503,7 +503,7 @@ START_TEST(test_loop_timer_precision)
 	struct qb_stop_watch sw[11];
 	qb_loop_t *l = qb_loop_create();
 
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	for (i = 0; i < 10; i++) {
 		tmo = ((1 + i * 9) * QB_TIME_NS_IN_MSEC) + 500000;
@@ -567,7 +567,7 @@ START_TEST(test_loop_timer_expire_leak)
 	qb_loop_timer_handle th;
 	qb_loop_t *l = qb_loop_create();
 
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	expire_leak_counter = 0;
 	for (i = 0; i < 300; i++) {
@@ -605,7 +605,7 @@ START_TEST(test_loop_sig_handling)
 {
 	qb_loop_signal_handle handle;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	qb_loop_signal_add(l, QB_LOOP_HIGH, SIGINT,
 			   l, sig_handler, &handle);
@@ -638,7 +638,7 @@ START_TEST(test_loop_dont_override_other_signals)
 	qb_loop_signal_handle handle;
 
 	this_l = qb_loop_create();
-	fail_if(this_l == NULL);
+	ck_assert(this_l != NULL);
 
 	signal(SIGUSR1, handle_nonqb_signal);
 
@@ -659,7 +659,7 @@ START_TEST(test_loop_sig_only_get_one)
 	int res;
 	qb_loop_signal_handle handle;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	/* make sure we only get one call to the handler
 	 * don't assume we are going to exit the loop.
@@ -708,7 +708,7 @@ START_TEST(test_loop_sig_delete)
 {
 	int res;
 	qb_loop_t *l = qb_loop_create();
-	fail_if(l == NULL);
+	ck_assert(l != NULL);
 
 	/* make sure we can remove a signal job from the job queue.
 	 */

@@ -278,7 +278,7 @@ pipe_reader(int fd, int revents, void *data) {
 		rbytes_sum += rbytes;
 	}
 	if (rbytes_sum > 0) {
-		fail_if(buf[0] == '\0');  /* avoid dead store elimination */
+		ck_assert(buf[0] != '\0');  /* avoid dead store elimination */
 		qb_log(LOG_DEBUG, "read %zd bytes", rbytes_sum);
 		sleep(1);
 	}
@@ -420,7 +420,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 	} else if (req_pt->id == IPC_MSG_REQ_SELF_FEED) {
 		if (pipe(global_pipefd) != 0) {
 			perror("pipefd");
-			fail_if(1);
+			ck_assert(0);
 		}
 		fcntl(global_pipefd[0], F_SETFL, O_NONBLOCK);
 		fcntl(global_pipefd[1], F_SETFL, O_NONBLOCK);
@@ -429,7 +429,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			GSource *source_r, *source_w;
 			source_r = g_source_new(&gio_source_funcs, sizeof(GSource));
 			source_w = g_source_new(&gio_source_funcs, sizeof(GSource));
-			fail_if(source_r == NULL || source_w == NULL);
+			ck_assert(source_r != NULL && source_w != NULL);
 			g_source_set_priority(source_r, conv_prio_libqb2glib(QB_LOOP_HIGH));
 			g_source_set_priority(source_w, conv_prio_libqb2glib(QB_LOOP_HIGH));
 			g_source_set_can_recurse(source_r, FALSE);
@@ -441,7 +441,7 @@ s1_msg_process_fn(qb_ipcs_connection_t *c,
 			g_source_attach(source_r, NULL);
 			g_source_attach(source_w, NULL);
 #else
-			fail_if(1);
+			ck_assert(0);
 #endif
 		} else {
 			qb_loop_poll_add(my_loop, QB_LOOP_HIGH, global_pipefd[1],
@@ -759,7 +759,7 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data, data)
 
 
 	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
-	fail_if(s1 == 0);
+	ck_assert(s1 != 0);
 
 	if (global_loop_prio != QB_LOOP_MED) {
 		qb_ipcs_request_rate_limit(s1,
@@ -775,9 +775,9 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data, data)
 		};
 		glib_loop = g_main_loop_new(NULL, FALSE);
 		gio_map = qb_array_create_2(16, sizeof(struct gio_to_qb_poll), 1);
-		fail_if (gio_map == NULL);
+		ck_assert(gio_map != NULL);
 #else
-		fail_if(1);
+		ck_assert(0);
 #endif
 	} else {
 		ph = (struct qb_ipcs_poll_handlers) {
@@ -936,7 +936,7 @@ verify_graceful_stop(pid_t pid)
 		rc = WEXITSTATUS(status);
 		ck_assert_int_eq(rc, 0);
 	} else {
-		fail_if(rc == 0);
+		ck_assert(rc != 0);
 	}
 
 	return 0;
@@ -1020,7 +1020,7 @@ test_ipc_txrx_timeout(void)
 	uint32_t max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1031,7 +1031,7 @@ test_ipc_txrx_timeout(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	/* The dispatch response will only come over
 	 * the event channel, we want to verify the receive times
@@ -1068,7 +1068,7 @@ test_ipc_txrx(void)
 	uint32_t max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1079,7 +1079,7 @@ test_ipc_txrx(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	size = QB_MIN(sizeof(struct qb_ipc_request_header), 64);
 	for (j = 1; j < 19; j++) {
@@ -1118,7 +1118,7 @@ test_ipc_exit(void)
 	uint32_t max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1129,7 +1129,7 @@ test_ipc_exit(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	req_header.id = IPC_MSG_REQ_TX_RX;
 	req_header.size = sizeof(struct qb_ipc_request_header);
@@ -1295,7 +1295,7 @@ NEW_PROCESS_RUNNER(client_dispatch, ready_signaller, signaller_data, data)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	if (ready_signaller != NULL) {
 		ready_signaller(signaller_data);
@@ -1324,7 +1324,7 @@ test_ipc_dispatch(void)
 	struct dispatch_data data;
 
 	pid = run_function_in_new_process(NULL, run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 	data = (struct dispatch_data){.server_pid = pid,
 	                              .msg_type = IPC_MSG_REQ_DISPATCH,
 	                              .repetitions = 1};
@@ -1434,7 +1434,7 @@ test_ipc_stress_connections(void)
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	for (connections = 1; connections < NUM_STRESS_CONNECTIONS; connections++) {
 		if (conn) {
@@ -1450,7 +1450,7 @@ test_ipc_stress_connections(void)
 				c++;
 			}
 		} while (conn == NULL && c < 5);
-		fail_if(conn == NULL);
+		ck_assert(conn != NULL);
 
 		if (((connections+1) % 1000) == 0) {
 			qb_log(LOG_INFO, "%d ipc connections made", connections+1);
@@ -1481,7 +1481,7 @@ test_ipc_bulk_events(void)
 	uint32_t max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1492,7 +1492,7 @@ test_ipc_bulk_events(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	events_received = 0;
 	cl = qb_loop_create();
@@ -1546,7 +1546,7 @@ test_ipc_stress_test(void)
 	enforce_server_buffer = 1;
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
 	enforce_server_buffer = 0;
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, client_buf_size);
@@ -1557,7 +1557,7 @@ test_ipc_stress_test(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	real_buf_size = qb_ipcc_get_buffer_size(conn);
 	ck_assert_int_eq(real_buf_size, max_size);
@@ -1655,14 +1655,14 @@ START_TEST(test_ipc_dispatch_us_native_prio_dlock)
 
 	server_pid = run_function_in_new_process("server", run_ipc_server,
 	                                         NULL);
-	fail_if(server_pid == -1);
+	ck_assert(server_pid != -1);
 	data = (struct dispatch_data){.server_pid = server_pid,
 	                              .msg_type = IPC_MSG_REQ_SELF_FEED,
 	                              .repetitions = 1};
 	alphaclient_pid = run_function_in_new_process("alphaclient",
 	                                              client_dispatch,
 	                                              (void *) &data);
-	fail_if(alphaclient_pid == -1);
+	ck_assert(alphaclient_pid != -1);
 
 	//sleep(1);
 	sched_yield();
@@ -1695,14 +1695,14 @@ START_TEST(test_ipc_dispatch_us_glib_prio_dlock)
 
 	server_pid = run_function_in_new_process("server", run_ipc_server,
 	                                         NULL);
-	fail_if(server_pid == -1);
+	ck_assert(server_pid != -1);
 	data = (struct dispatch_data){.server_pid = server_pid,
 	                              .msg_type = IPC_MSG_REQ_SELF_FEED,
 	                              .repetitions = 1};
 	alphaclient_pid = run_function_in_new_process("alphaclient",
 	                                              client_dispatch,
 	                                              (void *) &data);
-	fail_if(alphaclient_pid == -1);
+	ck_assert(alphaclient_pid != -1);
 
 	//sleep(1);
 	sched_yield();
@@ -1733,7 +1733,7 @@ test_ipc_event_on_created(void)
 	num_bulk_events = 1;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1744,7 +1744,7 @@ test_ipc_event_on_created(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	events_received = 0;
 	cl = qb_loop_create();
@@ -1787,7 +1787,7 @@ test_ipc_disconnect_after_created(void)
 	uint32_t max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1798,7 +1798,7 @@ test_ipc_disconnect_after_created(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	ck_assert_int_eq(QB_TRUE, qb_ipcc_is_connected(conn));
 
@@ -1844,7 +1844,7 @@ test_ipc_server_fail(void)
 	uint32_t max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1855,7 +1855,7 @@ test_ipc_server_fail(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	request_server_exit();
 	if (_fi_unlink_inject_failure == QB_TRUE) {
@@ -1933,7 +1933,7 @@ START_TEST(test_ipc_server_perms)
 	max_size = MAX_MSG_SIZE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -1944,7 +1944,7 @@ START_TEST(test_ipc_server_perms)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	/* Check perms - uses illegal access to libqb internals */
 
@@ -1990,14 +1990,14 @@ START_TEST(test_ipc_dispatch_shm_native_prio_dlock)
 
 	server_pid = run_function_in_new_process("server", run_ipc_server,
 	                                         NULL);
-	fail_if(server_pid == -1);
+	ck_assert(server_pid != -1);
 	data = (struct dispatch_data){.server_pid = server_pid,
 	                              .msg_type = IPC_MSG_REQ_SELF_FEED,
 	                              .repetitions = 1};
 	alphaclient_pid = run_function_in_new_process("alphaclient",
 	                                              client_dispatch,
 	                                              (void *) &data);
-	fail_if(alphaclient_pid == -1);
+	ck_assert(alphaclient_pid != -1);
 
 	//sleep(1);
 	sched_yield();
@@ -2030,14 +2030,14 @@ START_TEST(test_ipc_dispatch_shm_glib_prio_dlock)
 
 	server_pid = run_function_in_new_process("server", run_ipc_server,
 	                                         NULL);
-	fail_if(server_pid == -1);
+	ck_assert(server_pid != -1);
 	data = (struct dispatch_data){.server_pid = server_pid,
 	                              .msg_type = IPC_MSG_REQ_SELF_FEED,
 	                              .repetitions = 1};
 	alphaclient_pid = run_function_in_new_process("alphaclient",
 	                                              client_dispatch,
 	                                              (void *) &data);
-	fail_if(alphaclient_pid == -1);
+	ck_assert(alphaclient_pid != -1);
 
 	//sleep(1);
 	sched_yield();
@@ -2122,7 +2122,7 @@ test_ipc_service_ref_count(void)
 	reference_count_test = QB_TRUE;
 
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
-	fail_if(pid == -1);
+	ck_assert(pid != -1);
 
 	do {
 		conn = qb_ipcc_connect(ipc_name, max_size);
@@ -2133,7 +2133,7 @@ test_ipc_service_ref_count(void)
 			c++;
 		}
 	} while (conn == NULL && c < 5);
-	fail_if(conn == NULL);
+	ck_assert(conn != NULL);
 
 	sleep(5);
 
@@ -2175,7 +2175,7 @@ static void test_max_dgram_size(void)
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 
 	init = qb_ipcc_verify_dgram_max_msg_size(1000000);
-	fail_if(init <= 0);
+	ck_assert(init > 0);
 	for (i = 0; i < 100; i++) {
 		int try = qb_ipcc_verify_dgram_max_msg_size(1000000);
 #if 0
