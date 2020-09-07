@@ -46,7 +46,8 @@ static int print_man = 0;
 static int print_params = 0;
 static int print_general = 0;
 static int num_functions = 0;
-static int quiet=0;
+static int quiet = 0;
+static int use_header_copyright = 0;
 static const char *man_section="3";
 static const char *package_name="Package";
 static const char *header="Programmer's Manual";
@@ -57,6 +58,8 @@ static const char *xml_file;
 static const char *manpage_date = NULL;
 static const char *headerfile = NULL;
 static const char *header_prefix = "";
+static const char *header_src_dir = "./";
+static char header_copyright[256] = "\0";
 static long manpage_year = LONG_MIN;
 static long start_year = 2010;
 static struct qb_list_head params_list;
@@ -763,7 +766,11 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	fprintf(manfile, ".hy\n");
 	fprintf(manfile, ".SH \"COPYRIGHT\"\n");
 	fprintf(manfile, ".PP\n");
-	fprintf(manfile, "Copyright (C) %4ld-%4ld %s, Inc. All rights reserved.\n", start_year, manpage_year, company);
+	if (header_copyright[0] == 'C') {
+		fprintf(manfile, "%s", header_copyright); /* String already contains trailing NL */
+	} else {
+		fprintf(manfile, "Copyright (C) %4ld-%4ld %s, Inc. All rights reserved.\n", start_year, manpage_year, company);
+	}
 	fclose(manfile);
 
 	/* Free the params & retval info */
@@ -993,6 +1000,8 @@ static void usage(char *name)
 	printf("       -m            Write man page files to <output dir>\n");
 	printf("       -P            Print PARAMS section\n");
 	printf("       -g            Print general man page for the whole header file\n");
+	printf("       -c            Use the Copyright date from the header file (if one can be found)\n");
+	printf("       -O <dir>      Directory for the orignal header file. Often needed by -c above\n");
 	printf("       -s <s>        Write man pages into section <s> <default 3)\n");
 	printf("       -p <package>  Use <package> name. default <Package>\n");
 	printf("       -H <header>   Set header (default \"Programmer's Manual\"\n");
@@ -1029,7 +1038,7 @@ int main(int argc, char *argv[])
 	int opt;
 	char xml_filename[PATH_MAX];
 
-	while ( (opt = getopt_long(argc, argv, "H:amqgPD:Y:s:S:d:o:p:f:I:i:C:h?", NULL, NULL)) != EOF)
+	while ( (opt = getopt_long(argc, argv, "H:amqgcPD:Y:s:S:d:o:p:f:I:i:C:O:h?", NULL, NULL)) != EOF)
 	{
 		switch(opt)
 		{
@@ -1049,6 +1058,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'q':
 				quiet = 1;
+				break;
+			case 'c':
+				use_header_copyright = 1;
 				break;
 			case 'I':
 				headerfile = optarg;
@@ -1089,6 +1101,9 @@ int main(int argc, char *argv[])
 			case 'o':
 				output_dir = optarg;
 				break;
+			case 'O':
+			        header_src_dir = optarg;
+				break;
 			case '?':
 			case 'h':
 				usage(argv[0]);
@@ -1126,7 +1141,32 @@ int main(int argc, char *argv[])
 	/* Get our header file name */
 	if (!headerfile) {
 		traverse_node(rootdoc, "compounddef", read_headername, &headerfile);
+
+		if (use_header_copyright) {
+			/* And get the copyright line from this file if we can */
+			char file_path[PATH_MAX];
+			char file_line[256];
+			FILE *hfile;
+			int lineno = 0;
+
+			snprintf(file_path, sizeof(file_path), "%s/%s", header_src_dir, headerfile);
+			hfile = fopen(file_path, "r");
+			if (hfile) {
+				/* Don't look too far, this should be at the top */
+				while (!feof(hfile) && (lineno++ < 10)) {
+					if (fgets(file_line, sizeof(file_line)-1, hfile)) {
+						if (strncmp(file_line, " * Copyright", 12) == 0) {
+							/* Keep the NL at the end of the buffer, it save us printing one */
+							strncpy(header_copyright, file_line+3, sizeof(header_copyright)-1);
+							break;
+						}
+					}
+				}
+				fclose(hfile);
+			}
+		}
 	}
+
 	/* Default to *something* if it all goes wrong */
 	if (!headerfile) {
 		headerfile = "unknown.h";
