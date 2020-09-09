@@ -123,6 +123,7 @@ BUILT_SOURCES	= .version
 
 # untaint configure.ac when modified upon obtaining the "yanked" snapshot form
 dist-hook: gen-ChangeLog
+	echo $(SOURCE_EPOCH) > $(distdir)/source_epoch
 	echo $(VERSION) | tee $(distdir)/.tarball-version | grep -Eqv '\-yank' \
 	  || sed "s/\(.*git-version-gen[^']*[']\)[^']*/\1\$$Format:%h??%D\$$/" \
 	     $(distdir)/configure.ac > $(builddir)/configure.ac-t

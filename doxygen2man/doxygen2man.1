@@ -6,7 +6,7 @@
 .\" * Author: Christine Caulfield <ccaulfie@redhat.com>
 .\" *
 
-.TH "DOXYGEN2MAN" "8" "2020-03-09" "" ""
+.TH "DOXYGEN2MAN" "8" "2020-09-09" "" ""
 .SH "NAME"
 doxygen2man \- A tool to generate man pages from Doxygen XML files
 .SH "SYNOPSIS"
@@ -68,6 +68,17 @@ Write all man pages to <dir> (default .)
 .TP
 .B -d <dir>
 Directory for XML files (./xml/)
+.TP
+.B -c
+Use the Copyright line from the header file as the copyright line in the manpage. 
+This requires that doxygen2man has access to the original .h file (see option -O below)
+and that the Copyright line has a defined format. It whould be within the first 10 lines
+of the file and start with the text " * Copyright". If this line is not found then 
+the current year or that given by the -Y option will be used.
+.TP
+.B -O
+Specifies the directory containing the original header files. This is (currently) only
+used by the -c option above.
 .TP
 .B -h
 Print usage text

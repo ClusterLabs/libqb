@@ -25,7 +25,8 @@ dist_man_MANS = man8/qb-blackbox.8
 if HAVE_DOXYGEN
 if BUILD_MAN
 
-doxygen2man_flags = -q -i qb/ -o man3/ -m -g -P -H "libqb Programmer's Manual" -p LIBQB
+doxygen2man_flags = -q -i qb/ -o man3/ -m -g -P -H "libqb Programmer's Manual" $$($(UTC_DATE_AT)$(SOURCE_EPOCH) +"-D %F -Y %Y") \
+		    -p LIBQB -c -O ../include/qb -Y $(SOURCE_EPOCH)
 
 man3_MANS = \
 	man3/qb_array_create_2.3 \
