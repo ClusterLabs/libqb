@@ -803,6 +803,47 @@ AC_DEFINE_UNQUOTED([QB_VER_REST],
 		            -e t -e 's|.*|""|')],
 		   [libqb patch version])
 
+AX_PROG_DATE
+AS_IF([test "$ax_cv_prog_date_gnu_date:$ax_cv_prog_date_gnu_utc" = yes:yes],
+	[UTC_DATE_AT="date -u -d@"],
+	[AS_IF([test "x$ax_cv_prog_date_bsd_date" = xyes],
+		[UTC_DATE_AT="date -u -r"],
+		[AC_MSG_ERROR([date utility unable to convert epoch to UTC])])])
+AC_SUBST([UTC_DATE_AT])
+
+AC_ARG_VAR([SOURCE_EPOCH],[last modification date of the source])
+AC_MSG_NOTICE([trying to determine source epoch])
+AC_MSG_CHECKING([for source epoch in \$SOURCE_EPOCH])
+AS_IF([test -n "$SOURCE_EPOCH"],
+	[AC_MSG_RESULT([yes])],
+	[AC_MSG_RESULT([no])
+	 AC_MSG_CHECKING([for source epoch in source_epoch file])
+	 AS_IF([test -e "$srcdir/source_epoch"],
+		[read SOURCE_EPOCH <"$srcdir/source_epoch"
+		 AC_MSG_RESULT([yes])],
+		[AC_MSG_RESULT([no])
+		 AC_MSG_CHECKING([for source epoch baked in by gitattributes export-subst])
+		 SOURCE_EPOCH='$Format:%ct$' # template for rewriting by git-archive
+		 AS_CASE([$SOURCE_EPOCH],
+			[?Format:*], # was not rewritten
+				[AC_MSG_RESULT([no])
+				 AC_MSG_CHECKING([for source epoch in \$SOURCE_DATE_EPOCH])
+				 AS_IF([test "x$SOURCE_DATE_EPOCH" != x],
+					[SOURCE_EPOCH="$SOURCE_DATE_EPOCH"
+					 AC_MSG_RESULT([yes])],
+					[AC_MSG_RESULT([no])
+					 AC_MSG_CHECKING([whether git log can provide a source epoch])
+					 SOURCE_EPOCH=f${SOURCE_EPOCH#\$F} # convert into git log --pretty format
+					 SOURCE_EPOCH=$(cd "$srcdir" && git log -1 --pretty=${SOURCE_EPOCH%$} 2>/dev/null)
+					 AS_IF([test -n "$SOURCE_EPOCH"],
+						[AC_MSG_RESULT([yes])],
+						[AC_MSG_RESULT([no, using current time and breaking reproducibility])
+						 SOURCE_EPOCH=$(date +%s)])])],
+			[AC_MSG_RESULT([yes])]
+		 )])
+	])
+AC_MSG_NOTICE([using source epoch $($UTC_DATE_AT$SOURCE_EPOCH +'%F %T %Z')])
+
 AC_CONFIG_FILES([Makefile
 		 include/Makefile
 		 include/qb/Makefile

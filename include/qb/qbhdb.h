@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2010 Red Hat, Inc.
+ * Copyright (C) 2010-2020 Red Hat, Inc.
  *
  * Author: Steven Dake <sdake@redhat.com>
  *
