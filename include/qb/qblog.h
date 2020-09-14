@@ -618,17 +618,27 @@ void qb_log_tags_stringify_fn_set(qb_log_tags_stringify_fn fn);
 /**
  * Set the format specifiers.
  *
- * %n FUNCTION NAME
- * %f FILENAME
- * %l FILELINE
- * %p PRIORITY
- * %t TIMESTAMP
- * %T TIMESTAMP with milliseconds
- * %b BUFFER
- * %g TAGS
- * %N name (passed into qb_log_init)
- * %P PID
- * %H hostname
+ * \%n FUNCTION NAME
+ *
+ * \%f FILENAME
+ *
+ * \%l FILELINE
+ *
+ * \%p PRIORITY
+ *
+ * \%t TIMESTAMP
+ *
+ * \%T TIMESTAMP with milliseconds
+ *
+ * \%b BUFFER
+ *
+ * \%g TAGS
+ *
+ * \%N name (passed into qb_log_init)
+ *
+ * \%P PID
+ *
+ * \%H hostname
  *
  * Any number between % and character specify field length to pad or chop.
  *

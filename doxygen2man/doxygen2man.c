@@ -241,6 +241,15 @@ static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 				strncat(buffer, "\\fR", sizeof(buffer)-1);
 			}
 		}
+		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "computeroutput") == 0) {
+			if (print_man) {
+				strncat(buffer, "\\fB", sizeof(buffer)-1);
+			}
+			strncat(buffer, (char*)this_tag->children->content, sizeof(buffer)-1);
+			if (print_man) {
+				strncat(buffer, "\\fP", sizeof(buffer)-1);
+			}
+		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "itemizedlist") == 0) {
 			for (sub_tag = this_tag->children; sub_tag; sub_tag = sub_tag->next) {
@@ -724,9 +733,11 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		fprintf(manfile, ".RE\n");
 	}
 
-	if (returntext) {
+	if (returntext || !qb_list_empty(&retval_list)) {
 		fprintf(manfile, ".SH RETURN VALUE\n");
-		man_print_long_string(manfile, returntext);
+		if (returntext) {
+			man_print_long_string(manfile, returntext);
+		}
 		fprintf(manfile, ".PP\n");
 	}
 
