@@ -15,7 +15,7 @@ bin_PROGRAMS	= doxygen2man
 
 all: $(PROGRAMS) $(MANS)
 
-doxygen2man_SOURCES = doxygen2man.c
+doxygen2man_SOURCES = doxygen2man.c string-type.c
 doxygen2man_CPPFLAGS = -I$(top_srcdir)/include/
 doxygen2man_CFLAGS = $(AM_CFLAGS) $(libxml_CFLAGS)
 doxygen2man_LDADD = $(top_builddir)/lib/libqb.la $(libxml_LIBS)

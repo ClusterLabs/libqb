@@ -32,7 +32,6 @@
 #include <libxml/tree.h>
 #include <qb/qblist.h>
 #include <qb/qbmap.h>
-
 /*
  * This isn't a maximum size, it just defines how long a parameter
  * type can get before we decide it's not worth lining everything up.
@@ -40,6 +39,12 @@
  * of all *their* parameters) making everything else 'line-up' over separate lines
  */
 #define LINE_LENGTH 80
+
+/* Size of buffers on the stack
+ * This is the smallest power of 2 that works
+ * for the libqb man pages
+ */
+#define BUFFER_SIZE 8192
 
 static int print_ascii = 1;
 static int print_man = 0;
@@ -87,6 +92,7 @@ struct struct_info {
 
 static char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext);
 static void traverse_node(xmlNode *parentnode, const char *leafname, void (do_members(xmlNode*, void*)), void *arg);
+static char *get_text(xmlNode *cur_node, char **returntext, char **notetext);
 
 static void free_paraminfo(struct param_info *pi)
 {
@@ -112,7 +118,7 @@ static char *get_child(xmlNode *node, const char *tag)
 {
 	xmlNode *this_node;
 	xmlNode *child;
-	char buffer[1024] = {'\0'};
+	char buffer[BUFFER_SIZE] = {'\0'};
 	char *refid = NULL;
 	char *declname = NULL;
 
@@ -209,12 +215,61 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 	}
 }
 
+static char *get_codeline(xmlNode *this_tag)
+{
+	char buffer[BUFFER_SIZE] = {'\0'};
+	xmlNode *sub_tag;
+
+	for (sub_tag = this_tag; sub_tag; sub_tag = sub_tag->next) {
+		if (strcmp((char*)sub_tag->name, "sp") == 0) {
+			strncat(buffer, " ", BUFFER_SIZE-1);
+		}
+		if (strcmp((char*)sub_tag->name, "text") == 0) {
+			strncat(buffer, (char*)sub_tag->content, BUFFER_SIZE-1);
+		}
+		if (strcmp((char*)sub_tag->name, "ref") == 0) {
+			// Handled by the child recusion below
+		}
+		if (sub_tag->children) {
+			char *tmp = get_codeline(sub_tag->children);
+			strncat(buffer, tmp, BUFFER_SIZE-1);
+			free(tmp);
+		}
+	}
+	return strdup(buffer);
+}
+
+static char *get_codetree(xmlNode *cur_node)
+{
+	xmlNode *this_tag;
+	char buffer[BUFFER_SIZE] = {'\0'}; //CC
+	char *tmp;
+
+	strncat(buffer, "\n.EE\n", sizeof(buffer)-1);
+
+	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
+		if (strcmp((char*)this_tag->name, "codeline") == 0) {
+
+			tmp = get_codeline(this_tag->children);
+			strncat(buffer, tmp, sizeof(buffer)-1);
+			free(tmp);
+		}
+		if (strcmp((char*)this_tag->name, "text") == 0) {
+			strncat(buffer, (char*)this_tag->content, sizeof(buffer)-1);
+		}
+	}
+
+	strncat(buffer, ".EX\n", sizeof(buffer)-1);
+	return strdup(buffer);
+}
+
+
 static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 {
 	xmlNode *this_tag;
 	xmlNode *sub_tag;
 	char *kind;
-	char buffer[4096] = {'\0'};
+	char buffer[BUFFER_SIZE] = {'\0'};
 
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		if (this_tag->type == XML_TEXT_NODE && strcmp((char *)this_tag->name, "text") == 0) {
@@ -253,26 +308,47 @@ static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "itemizedlist") == 0) {
 			for (sub_tag = this_tag->children; sub_tag; sub_tag = sub_tag->next) {
-				if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "listitem") == 0) {
+				if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "listitem") == 0
+				    && sub_tag->children->children->content) {
 					strncat(buffer, (char*)sub_tag->children->children->content, sizeof(buffer)-1);
 					strncat(buffer, "\n", sizeof(buffer)-1);
 				}
 			}
 		}
 
+		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "programlisting") == 0) {
+			char *tmp = get_codetree(this_tag);
+			strncat(buffer, tmp, sizeof(buffer)-1);
+			strncat(buffer, "\n", sizeof(buffer)-1);
+			free(tmp);
+		}
+
 		/* Look for subsections - return value & params */
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "simplesect") == 0) {
-			char *tmp;
+			char *tmp = NULL;
 
 			kind = get_attr(this_tag, "kind");
 			tmp = get_text(this_tag->children, NULL, NULL);
 
 			if (returntext && strcmp(kind, "return") == 0) {
-				*returntext = tmp;
+				*returntext = strdup(tmp);
 			}
 			if (notetext && strcmp(kind, "note") == 0) {
-				*notetext = tmp;
+				*notetext = strdup(tmp);
 			}
+			if (notetext && strcmp(kind, "par") == 0) {
+				int type;
+
+				tmp = get_child(this_tag, "title");
+				strncat(buffer, tmp, sizeof(buffer)-1);
+				strncat(buffer, "\n", sizeof(buffer)-1);
+				free(tmp);
+
+				tmp = get_texttree(&type,this_tag, NULL, NULL);
+				strncat(buffer, tmp, sizeof(buffer)-1);
+				strncat(buffer, "\n", sizeof(buffer)-1);
+			}
+			free(tmp);
 		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "parameterlist") == 0) {
@@ -341,7 +417,7 @@ static void read_struct(xmlNode *cur_node, void *arg)
 	xmlNode *this_tag;
 	struct struct_info *si=arg;
 	struct param_info *pi;
-	char fullname[1024];
+	char fullname[BUFFER_SIZE];
 	char *type = NULL;
 	char *name = NULL;
 	const char *args="";
@@ -420,7 +496,7 @@ static int read_structure_from_xml(const char *refid, const char *name)
 
 static char *allcaps(const char *name)
 {
-	static char buffer[1024] = {'\0'};
+	static char buffer[BUFFER_SIZE] = {'\0'};
 	size_t i;
 
 	for (i=0; i< strlen(name); i++) {
@@ -435,6 +511,11 @@ static void print_param(FILE *manfile, struct param_info *pi, int field_width, i
 	const char *asterisks = "  ";
 	char *type = pi->paramtype;
 	int typelength = strlen(type);
+
+	// Mainly to cope with functions that just take '(void)'
+	if (pi->paramtype[0] == '\0') {
+		return;
+	}
 
 	/* Reformat pointer params so they look nicer */
 	if (typelength > 0 && pi->paramtype[typelength-1] == '*') {
@@ -457,7 +538,8 @@ static void print_param(FILE *manfile, struct param_info *pi, int field_width, i
 
 	fprintf(manfile, "    %s%-*s%s%s\\fI%s\\fP%s\n",
 		bold?"\\fB":"", field_width, type,
-		asterisks, bold?"\\fP":"", pi->paramname, delimiter);
+		asterisks, bold?"\\fP":"",
+		pi->paramname?pi->paramname:"", delimiter);
 
 	if (type != pi->paramtype) {
 		free(type);
@@ -509,7 +591,7 @@ char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notet
 {
 	xmlNode *this_tag;
 	char *tmp = NULL;
-	char buffer[4096] = {'\0'};
+	char buffer[BUFFER_SIZE] = {'\0'};
 
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 
@@ -517,6 +599,7 @@ char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notet
 			tmp = get_text(this_tag, returntext, notetext);
 			strncat(buffer, tmp, sizeof(buffer)-1);
 			strncat(buffer, "\n", sizeof(buffer)-1);
+
 			free(tmp);
 		}
 	}
@@ -566,21 +649,36 @@ static void man_print_long_string(FILE *manfile, char *text)
 {
 	char *next_nl;
 	char *current = text;
+	int in_prog = 0;
 
 	next_nl = strchr(text, '\n');
 	while (next_nl && *next_nl != '\0') {
 		*next_nl = '\0';
-		if (strlen(current)) {
-			fprintf(manfile, ".PP\n%s\n", current);
+
+		// Don't format @code blocks
+		if (strncmp(current, ".EE", 3) == 0) {
+			in_prog = 1;
+			fprintf(manfile, "\n");
+		}
+		if (strncmp(current, ".EX", 3) == 0) {
+			in_prog = 0;
+			fprintf(manfile, "\n");
 		}
 
+		if (in_prog) {
+			fprintf(manfile, "%s\n", current);
+		} else {
+			if (strlen(current)) {
+				fprintf(manfile, ".PP\n%s\n", current);
+			}
+		}
 		*next_nl = '\n';
 		current = next_nl+1;
 		next_nl = strchr(current, '\n');
 	}
 
 	/* The bit at the end */
-	if (strlen(current)) {
+	if (strlen(current) && !in_prog) {
 		fprintf(manfile, ".PP\n%s\n", current);
 	}
 }
@@ -650,7 +748,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		if (strlen(pi->paramname) > max_param_name_len) {
 			max_param_name_len = strlen(pi->paramname);
 		}
-		if (pi->paramdesc) {
+		if (pi->paramdesc && pi->paramtype[0] != '\0') {
 			num_param_descs++;
 		}
 		param_count++;
@@ -689,7 +787,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		fprintf(manfile, ".SH PARAMS\n");
 
 		qb_list_for_each(iter, &params_list) {
-		pi = qb_list_entry(iter, struct param_info, list);
+			pi = qb_list_entry(iter, struct param_info, list);
 			fprintf(manfile, "\\fB%-*s \\fP\\fI%s\\fP\n", (int)max_param_name_len, pi->paramname,
 				pi->paramdesc);
 			fprintf(manfile, ".PP\n");
