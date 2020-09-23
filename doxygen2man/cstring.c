@@ -21,6 +21,7 @@ struct cstring_header
 	size_t checker;
 	size_t allocated;
 	size_t used;
+	char the_string[];
 };
 
 cstring_t cstring_alloc(void)
@@ -28,11 +29,10 @@ cstring_t cstring_alloc(void)
 	char *cstring = malloc(INITIAL_SIZE);
 	if (cstring) {
 		struct cstring_header *h = (struct cstring_header *)cstring;
-		char *the_string = (char*)cstring + sizeof(struct cstring_header);
 		h->checker = CHECKER_WORD;
 		h->allocated = INITIAL_SIZE;
 		h->used = 0;
-		the_string[0] = '\0';
+		h->the_string[0] = '\0';
 		return cstring;
 	} else {
 		return NULL;
@@ -42,20 +42,18 @@ cstring_t cstring_alloc(void)
 char *cstring_to_chars(cstring_t cstring)
 {
 	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
-	char *the_string = (char*)cstring + sizeof(struct cstring_header);
 
 	if (!h) {
 		return NULL;
 	}
 
 	assert(h->checker == CHECKER_WORD);
-	return strdup(the_string);
+	return strdup(h->the_string);
 }
 
 cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 {
 	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
-	char *the_string = (char*)cstring + sizeof(struct cstring_header);
 	size_t newlen;
 
 	if (!h) {
@@ -77,10 +75,9 @@ cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 
 		cstring = tmp;
 		h = (struct cstring_header *)(char *)cstring;
-		the_string = (char*)cstring + sizeof(struct cstring_header);
 		h->allocated = new_allocsize;
 	}
-	strncat(the_string, newstring, h->allocated-1);
+	strncat(h->the_string, newstring, h->allocated-1);
 	h->used += strlen(newstring);
 	return cstring;
 }
@@ -89,14 +86,13 @@ cstring_t cstring_append_cstring(cstring_t cstring, cstring_t newstring)
 {
 	/* Just check the newstring - cstring_append_chars() will check the target */
 	struct cstring_header *h = (struct cstring_header *)(char *)newstring;
-	char *the_string = (char*)newstring + sizeof(struct cstring_header);
 
 	if (!h) {
 		return NULL;
 	}
 
 	assert(h->checker == CHECKER_WORD);
-	return cstring_append_chars(cstring, the_string);
+	return cstring_append_chars(cstring, h->the_string);
 }
 
 cstring_t cstring_from_chars(const char* chars)
