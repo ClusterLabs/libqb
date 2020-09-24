@@ -366,6 +366,18 @@ qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 	return 0;
 }
 
+int32_t
+qb_ipcc_auth_get(struct qb_ipcc_connection * c, pid_t *pid, uid_t *uid, gid_t *gid)
+{
+	if (c == NULL || pid == NULL || uid == NULL || gid == NULL) {
+		return -EINVAL;
+	}
+	*pid = c->server_pid;
+	*uid = c->euid;
+	*gid = c->egid;
+	return 0;
+}
+
 ssize_t
 qb_ipcc_event_recv(struct qb_ipcc_connection * c, void *msg_pt,
 		   size_t msg_len, int32_t ms_timeout)

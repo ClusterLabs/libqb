@@ -1106,6 +1106,49 @@ test_ipc_txrx(void)
 }
 
 static void
+test_ipc_getauth(void)
+{
+	int32_t j;
+	int32_t c = 0;
+	pid_t pid;
+	pid_t spid;
+	uid_t suid;
+	gid_t sgid;
+	int res;
+	uint32_t max_size = MAX_MSG_SIZE;
+
+	pid = run_function_in_new_process("server", run_ipc_server, NULL);
+	ck_assert(pid != -1);
+
+	do {
+		conn = qb_ipcc_connect(ipc_name, max_size);
+		if (conn == NULL) {
+			j = waitpid(pid, NULL, WNOHANG);
+			ck_assert_int_eq(j, 0);
+			poll(NULL, 0, 400);
+			c++;
+		}
+	} while (conn == NULL && c < 5);
+	ck_assert(conn != NULL);
+
+	res = qb_ipcc_auth_get(NULL, NULL, NULL, NULL);
+	ck_assert(res == -EINVAL);
+
+	res = qb_ipcc_auth_get(conn, &spid, &suid, &sgid);
+	ck_assert(res == 0);
+#ifndef HAVE_GETPEEREID
+	/* GETPEEREID doesn't return a PID */
+	ck_assert(spid != 0);
+#endif
+	ck_assert(suid == getuid());
+	ck_assert(sgid == getgid());
+
+	request_server_exit();
+	qb_ipcc_disconnect(conn);
+	verify_graceful_stop(pid);
+}
+
+static void
 test_ipc_exit(void)
 {
 	struct qb_ipc_request_header req_header;
@@ -1189,6 +1232,27 @@ START_TEST(test_ipc_txrx_us_timeout)
 	ipc_type = QB_IPC_SOCKET;
 	set_ipc_name(__func__);
 	test_ipc_txrx_timeout();
+	qb_leave();
+}
+END_TEST
+
+
+START_TEST(test_ipc_txrx_shm_getauth)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	test_ipc_getauth();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_txrx_us_getauth)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SOCKET;
+	set_ipc_name(__func__);
+	test_ipc_getauth();
 	qb_leave();
 }
 END_TEST
@@ -2213,6 +2277,7 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
+	add_tcase(s, tc, test_ipc_txrx_shm_getauth, 7);
 	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 28);
 	add_tcase(s, tc, test_ipc_server_fail_shm, 7);
 	add_tcase(s, tc, test_ipc_txrx_shm_block, 7);
@@ -2243,6 +2308,7 @@ make_soc_suite(void)
 	Suite *s = suite_create("socket");
 	TCase *tc;
 
+	add_tcase(s, tc, test_ipc_txrx_us_getauth, 7);
 	add_tcase(s, tc, test_ipc_txrx_us_timeout, 28);
 /* Commented out for the moment as space in /dev/shm on the CI machines
    causes random failures */

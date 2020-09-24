@@ -110,6 +110,17 @@ void qb_ipcc_disconnect(qb_ipcc_connection_t* c);
 int32_t qb_ipcc_fd_get(qb_ipcc_connection_t* c, int32_t * fd);
 
 /**
+ * Get the credentials of the server process
+ *
+ *
+ * @param c connection instance
+ * @param pid PID of the server we are connected to
+ * @param uid UID of the server we are connected to
+ * @param gid GID of the server we are connected to
+ */
+int32_t qb_ipcc_auth_get(qb_ipcc_connection_t* c, pid_t *pid, uid_t *uid, gid_t *gid);
+
+/**
  * Set the maximum allowable flowcontrol value.
  *
  * @note the default is 1
