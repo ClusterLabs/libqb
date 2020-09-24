@@ -32,7 +32,7 @@
 #include <libxml/tree.h>
 #include <qb/qblist.h>
 #include <qb/qbmap.h>
-
+#include "cstring.h"
 /*
  * This isn't a maximum size, it just defines how long a parameter
  * type can get before we decide it's not worth lining everything up.
@@ -85,8 +85,9 @@ struct struct_info {
 	struct qb_list_head list;
 };
 
-static char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext);
+static cstring_t get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext);
 static void traverse_node(xmlNode *parentnode, const char *leafname, void (do_members(xmlNode*, void*)), void *arg);
+static cstring_t get_text(xmlNode *cur_node, char **returntext, char **notetext);
 
 static void free_paraminfo(struct param_info *pi)
 {
@@ -108,11 +109,11 @@ static char *get_attr(xmlNode *node, const char *tag)
 	return NULL;
 }
 
-static char *get_child(xmlNode *node, const char *tag)
+static cstring_t get_child(xmlNode *node, const char *tag)
 {
-	xmlNode *this_node;
-	xmlNode *child;
-	char buffer[1024] = {'\0'};
+        xmlNode *this_node;
+        xmlNode *child;
+        cstring_t buffer = cstring_alloc();
 	char *refid = NULL;
 	char *declname = NULL;
 
@@ -125,12 +126,12 @@ static char *get_child(xmlNode *node, const char *tag)
 			refid = NULL;
 			for (child = this_node->children; child; child = child->next) {
 				if (child->content) {
-					strncat(buffer, (char *)child->content, sizeof(buffer)-1);
+					buffer = cstring_append_chars(buffer, (char *)child->content);
 				}
 
 				if ((strcmp( (char*)child->name, "ref") == 0)) {
 					if (child->children->content) {
-						strncat(buffer,(char *)child->children->content, sizeof(buffer)-1);
+						buffer = cstring_append_chars(buffer, (char *)child->children->content);
 					}
 					refid = get_attr(child, "refid");
 				}
@@ -140,7 +141,7 @@ static char *get_child(xmlNode *node, const char *tag)
 			qb_map_put(used_structures_map, refid, declname);
 		}
 	}
-	return strdup(buffer);
+	return buffer;
 }
 
 static struct param_info *find_param_by_name(struct qb_list_head *list, const char *name)
@@ -200,7 +201,7 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 					if (pi) {
 						pi->paramname = paramname;
 						pi->paramdesc = paramdesc;
-						pi->paramtype = NULL; /* retval */
+						pi->paramtype = NULL; /* it's a retval */
 						qb_list_add_tail(&pi->list, list);
 					}
 				}
@@ -209,70 +210,145 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 	}
 }
 
-static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
+static cstring_t get_codeline(xmlNode *this_tag)
+{
+	cstring_t buffer = cstring_alloc();
+	xmlNode *sub_tag;
+
+	for (sub_tag = this_tag; sub_tag; sub_tag = sub_tag->next) {
+		if (strcmp((char*)sub_tag->name, "sp") == 0) {
+			buffer = cstring_append_chars(buffer, " ");
+		}
+		if (strcmp((char*)sub_tag->name, "text") == 0) {
+			buffer = cstring_append_chars(buffer, (char*)sub_tag->content);
+		}
+		if (strcmp((char*)sub_tag->name, "ref") == 0) {
+			// Handled by the child recusion below
+		}
+		if (sub_tag->children) {
+			char *tmp = get_codeline(sub_tag->children);
+			buffer = cstring_append_cstring(buffer, tmp);
+			cstring_free(tmp);
+		}
+	}
+	return buffer;
+}
+
+static cstring_t get_codetree(xmlNode *cur_node)
+{
+	xmlNode *this_tag;
+	cstring_t buffer = cstring_alloc();
+	cstring_t tmp;
+
+	if (print_man) {
+		buffer = cstring_append_chars(buffer, "\n.nf\n");
+	}
+
+	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
+		if (strcmp((char*)this_tag->name, "codeline") == 0) {
+
+			tmp = get_codeline(this_tag->children);
+			buffer = cstring_append_cstring(buffer, tmp);
+			cstring_free(tmp);
+		}
+		if (strcmp((char*)this_tag->name, "text") == 0) {
+			buffer = cstring_append_chars(buffer, (char*)this_tag->content);
+		}
+	}
+
+	if (print_man) {
+		buffer = cstring_append_chars(buffer, ".fi\n");
+	}
+
+	return buffer;
+}
+
+
+static cstring_t get_text(xmlNode *cur_node, char **returntext, char **notetext)
 {
 	xmlNode *this_tag;
 	xmlNode *sub_tag;
 	char *kind;
-	char buffer[4096] = {'\0'};
+	cstring_t buffer = cstring_alloc();
 
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		if (this_tag->type == XML_TEXT_NODE && strcmp((char *)this_tag->name, "text") == 0) {
 			if (not_all_whitespace((char*)this_tag->content)) {
-				strncat(buffer, (char*)this_tag->content, sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, (char*)this_tag->content);
 			}
 		}
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "emphasis") == 0) {
 			if (print_man) {
-				strncat(buffer, "\\fB", sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, "\\fB");
 			}
-			strncat(buffer, (char*)this_tag->children->content, sizeof(buffer)-1);
+			buffer = cstring_append_chars(buffer, (char*)this_tag->children->content);
 			if (print_man) {
-				strncat(buffer, "\\fR", sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, "\\fR");
 			}
 		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "ref") == 0) {
 			if (print_man) {
-				strncat(buffer, "\\fI", sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, "\\fI");
 			}
-			strncat(buffer, (char*)this_tag->children->content, sizeof(buffer)-1);
+			buffer = cstring_append_chars(buffer, (char*)this_tag->children->content);
 			if (print_man) {
-				strncat(buffer, "\\fR", sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, "\\fR");
 			}
 		}
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "computeroutput") == 0) {
 			if (print_man) {
-				strncat(buffer, "\\fB", sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, "\\fB");
 			}
-			strncat(buffer, (char*)this_tag->children->content, sizeof(buffer)-1);
+			buffer = cstring_append_chars(buffer, (char*)this_tag->children->content);
 			if (print_man) {
-				strncat(buffer, "\\fP", sizeof(buffer)-1);
+				buffer = cstring_append_chars(buffer, "\\fP");
 			}
 		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "itemizedlist") == 0) {
 			for (sub_tag = this_tag->children; sub_tag; sub_tag = sub_tag->next) {
-				if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "listitem") == 0) {
-					strncat(buffer, (char*)sub_tag->children->children->content, sizeof(buffer)-1);
-					strncat(buffer, "\n", sizeof(buffer)-1);
+				if (sub_tag->type == XML_ELEMENT_NODE && strcmp((char *)sub_tag->name, "listitem") == 0
+				    && sub_tag->children->children->content) {
+					buffer = cstring_append_chars(buffer, (char*)sub_tag->children->children->content);
+					buffer = cstring_append_chars(buffer, "\n");
 				}
 			}
 		}
 
+		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "programlisting") == 0) {
+			cstring_t tmp = get_codetree(this_tag);
+			buffer = cstring_append_cstring(buffer, tmp);
+			buffer = cstring_append_chars(buffer, "\n");
+			cstring_free(tmp);
+		}
+
 		/* Look for subsections - return value & params */
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "simplesect") == 0) {
-			char *tmp;
+			cstring_t tmp;
 
 			kind = get_attr(this_tag, "kind");
 			tmp = get_text(this_tag->children, NULL, NULL);
 
 			if (returntext && strcmp(kind, "return") == 0) {
-				*returntext = tmp;
+				*returntext = cstring_to_chars(tmp);
 			}
 			if (notetext && strcmp(kind, "note") == 0) {
-				*notetext = tmp;
+				*notetext = cstring_to_chars(tmp);
 			}
+			if (notetext && strcmp(kind, "par") == 0) {
+				int type;
+
+				tmp = get_child(this_tag, "title");
+				buffer = cstring_append_cstring(buffer, tmp);
+				buffer = cstring_append_chars(buffer, "\n");
+				cstring_free(tmp);
+
+				tmp = get_texttree(&type,this_tag, NULL, NULL);
+				buffer = cstring_append_cstring(buffer, tmp);
+				buffer = cstring_append_chars(buffer, "\n");
+			}
+			cstring_free(tmp);
 		}
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "parameterlist") == 0) {
@@ -285,7 +361,7 @@ static char *get_text(xmlNode *cur_node, char **returntext, char **notetext)
 			}
 		}
 	}
-	return strdup(buffer);
+	return buffer;
 }
 
 static void read_structname(xmlNode *cur_node, void *arg)
@@ -307,16 +383,13 @@ static void read_structdesc(xmlNode *cur_node, void *arg)
 
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 		if (strcmp((char*)this_tag->name, "detaileddescription") == 0) {
-			char *desc = get_texttree(NULL, this_tag, NULL, NULL);
-			if (desc) {
-				si->description = strdup((char*)desc);
-			}
+			cstring_t desc = get_texttree(NULL, this_tag, NULL, NULL);
+			si->description = cstring_to_chars(desc);
+			cstring_free(desc);
 		}
 		if (strcmp((char*)this_tag->name, "briefdescription") == 0) {
-			char *brief = get_texttree(NULL, this_tag, NULL, NULL);
-			if (brief) {
-				si->brief_description = brief;
-			}
+			cstring_t brief = get_texttree(NULL, this_tag, NULL, NULL);
+			si->brief_description = cstring_to_chars(brief);
 		}
 	}
 }
@@ -351,7 +424,9 @@ static void read_struct(xmlNode *cur_node, void *arg)
 			type = (char*)this_tag->children->content;
 			/* If type is NULL then look for a ref - it's probably an external struct or typedef */
 			if (type == NULL) {
-				type = get_child(this_tag, "ref");
+				cstring_t tmp = get_child(this_tag, "ref");
+				type = cstring_to_chars(tmp);
+				cstring_free(tmp);
 			}
 		}
 		if (strcmp((char*)this_tag->name, "name") == 0) {
@@ -420,7 +495,7 @@ static int read_structure_from_xml(const char *refid, const char *name)
 
 static char *allcaps(const char *name)
 {
-	static char buffer[1024] = {'\0'};
+	static char buffer[4096] = {'\0'};
 	size_t i;
 
 	for (i=0; i< strlen(name); i++) {
@@ -457,7 +532,8 @@ static void print_param(FILE *manfile, struct param_info *pi, int field_width, i
 
 	fprintf(manfile, "    %s%-*s%s%s\\fI%s\\fP%s\n",
 		bold?"\\fB":"", field_width, type,
-		asterisks, bold?"\\fP":"", pi->paramname, delimiter);
+		asterisks, bold?"\\fP":"",
+		pi->paramname?pi->paramname:"", delimiter);
 
 	if (type != pi->paramtype) {
 		free(type);
@@ -505,27 +581,23 @@ static void print_structure(FILE *manfile, struct struct_info *si)
 	fprintf(manfile, ".fi\n");
 }
 
-char *get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext)
+cstring_t get_texttree(int *type, xmlNode *cur_node, char **returntext, char **notetext)
 {
 	xmlNode *this_tag;
-	char *tmp = NULL;
-	char buffer[4096] = {'\0'};
+	cstring_t tmp;
+	cstring_t buffer = cstring_alloc();
 
 	for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 
 		if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "para") == 0) {
 			tmp = get_text(this_tag, returntext, notetext);
-			strncat(buffer, tmp, sizeof(buffer)-1);
-			strncat(buffer, "\n", sizeof(buffer)-1);
-			free(tmp);
+			buffer = cstring_append_cstring(buffer, tmp);
+			buffer = cstring_append_chars(buffer, "\n");
+
+			cstring_free(tmp);
 		}
 	}
-
-	if (buffer[0]) {
-		return strdup(buffer);
-	} else {
-		return NULL;
-	}
+	return buffer;
 }
 
 /* The text output is VERY basic and just a check that it's working really */
@@ -566,12 +638,29 @@ static void man_print_long_string(FILE *manfile, char *text)
 {
 	char *next_nl;
 	char *current = text;
+	int in_prog = 0;
 
 	next_nl = strchr(text, '\n');
 	while (next_nl && *next_nl != '\0') {
 		*next_nl = '\0';
-		if (strlen(current)) {
-			fprintf(manfile, ".PP\n%s\n", current);
+
+		// Don't format @code blocks
+		if (strncmp(current, ".nf", 3) == 0) {
+			in_prog = 1;
+			fprintf(manfile, "\n");
+		}
+
+		if (in_prog) {
+			fprintf(manfile, "%s\n", current);
+		} else {
+			if (strlen(current)) {
+				fprintf(manfile, ".PP\n%s\n", current);
+			}
+		}
+
+		if (strncmp(current, ".fi", 3) == 0) {
+			in_prog = 0;
+			fprintf(manfile, "\n");
 		}
 
 		*next_nl = '\n';
@@ -580,7 +669,7 @@ static void man_print_long_string(FILE *manfile, char *text)
 	}
 
 	/* The bit at the end */
-	if (strlen(current)) {
+	if (strlen(current) && !in_prog) {
 		fprintf(manfile, ".PP\n%s\n", current);
 	}
 }
@@ -634,7 +723,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	max_param_name_len = 0;
 	num_param_descs = 0;
 
-	qb_list_for_each(iter, &params_list) {
+	qb_list_for_each(iter, param_map) {
 		pi = qb_list_entry(iter, struct param_info, list);
 
 		/* It's mainly macros that break this,
@@ -650,7 +739,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		if (strlen(pi->paramname) > max_param_name_len) {
 			max_param_name_len = strlen(pi->paramname);
 		}
-		if (pi->paramdesc) {
+		if (pi->paramdesc && pi->paramtype[0] != '\0') {
 			num_param_descs++;
 		}
 		param_count++;
@@ -675,10 +764,12 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		fprintf(manfile, ".sp\n");
 		fprintf(manfile, "\\fB%s\\fP(\n", def);
 
-		qb_list_for_each(iter, &params_list) {
+		qb_list_for_each(iter, param_map) {
 			pi = qb_list_entry(iter, struct param_info, list);
 
-			print_param(manfile, pi, max_param_type_len, 1, ++param_num < param_count?",":"");
+			if (pi->paramtype[0] != '\0') { //CC
+				print_param(manfile, pi, max_param_type_len, 1, ++param_num < param_count?",":"");
+			}
 		}
 
 		fprintf(manfile, ");\n");
@@ -689,7 +780,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 		fprintf(manfile, ".SH PARAMS\n");
 
 		qb_list_for_each(iter, &params_list) {
-		pi = qb_list_entry(iter, struct param_info, list);
+			pi = qb_list_entry(iter, struct param_info, list);
 			fprintf(manfile, "\\fB%-*s \\fP\\fI%s\\fP\n", (int)max_param_name_len, pi->paramname,
 				pi->paramdesc);
 			fprintf(manfile, ".PP\n");
@@ -872,6 +963,8 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 {
 	xmlNode *this_tag;
 
+	qb_list_init(&params_list);
+
 	/* if arg == NULL then we're generating a page for the whole header file */
 	if ((cur_node->name && (strcmp((char *)cur_node->name, "memberdef") == 0)) ||
 	    ((arg == NULL) && cur_node->name && strcmp((char *)cur_node->name, "compounddef")) == 0) {
@@ -902,26 +995,38 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 				name = strdup((char *)this_tag->children->content);
 
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "briefdescription") == 0) {
-				brief = get_texttree(&type, this_tag, &returntext, &notetext);
-				if (brief) {
-					/*
-					 * apparently brief text contains extra trailing space and a \n.
-					 * remove them.
-					 */
-					brief[strlen(brief) - 2] = '\0';
+				cstring_t tmp = get_texttree(&type, this_tag, &returntext, &notetext);
+				if (!brief) {
+					brief = cstring_to_chars(tmp);
+					if (strlen(brief) > 2) {
+						/*
+						 * apparently brief text contains extra trailing space and a \n.
+						 * remove them.
+						 */
+						brief[strlen(brief) - 2] = '\0';
+					}
+				} else {
+					fprintf(stderr, "ERROR function %s has 2 briefdescription tags\n", name?name:"unknown");
 				}
+				cstring_free(tmp);
 			}
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "detaileddescription") == 0) {
-				detailed = get_texttree(&type, this_tag, &returntext, &notetext);
+				cstring_t tmp = get_texttree(&type, this_tag, &returntext, &notetext);
+				if (!detailed) {
+					detailed = cstring_to_chars(tmp);
+				} else {
+					fprintf(stderr, "ERROR function %s has 2 detaileddescription tags\n", name?name:"unknown");
+				}
+				cstring_free(tmp);
 			}
 			/* Get all the params */
 			if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "param") == 0) {
-				char *param_type = get_child(this_tag, "type");
-				char *param_name = get_child(this_tag, "declname");
+				cstring_t param_type = get_child(this_tag, "type");
+				cstring_t param_name = get_child(this_tag, "declname");
 				struct param_info *pi = malloc(sizeof(struct param_info));
 				if (pi) {
-					pi->paramname = param_name;
-					pi->paramtype = param_type;
+					pi->paramname = cstring_to_chars(param_name);
+					pi->paramtype = cstring_to_chars(param_type);
 					pi->paramdesc = NULL;
 					qb_list_add_tail(&pi->list, &params_list);
 				}
@@ -969,6 +1074,8 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 		free(def);
 		free(args);
 		free(name);
+		free(brief);
+		free(detailed);
 	}
 }
 
