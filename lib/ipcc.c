@@ -369,12 +369,18 @@ qb_ipcc_fd_get(struct qb_ipcc_connection * c, int32_t * fd)
 int32_t
 qb_ipcc_auth_get(struct qb_ipcc_connection * c, pid_t *pid, uid_t *uid, gid_t *gid)
 {
-	if (c == NULL || pid == NULL || uid == NULL || gid == NULL) {
+	if (c == NULL) {
 		return -EINVAL;
 	}
-	*pid = c->server_pid;
-	*uid = c->euid;
-	*gid = c->egid;
+	if (pid) {
+		*pid = c->server_pid;
+	}
+	if (uid) {
+		*uid = c->euid;
+	}
+	if (gid) {
+		*gid = c->egid;
+	}
 	return 0;
 }
 
