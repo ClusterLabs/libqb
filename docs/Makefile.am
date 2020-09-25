@@ -256,4 +256,4 @@ endif
 endif
 
 clean-local:
-	rm -rf html man3 xml
+	rm -rf man3 xml

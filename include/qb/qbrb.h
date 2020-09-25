@@ -268,7 +268,7 @@ ssize_t qb_rb_chunks_used(qb_ringbuffer_t * rb);
 ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd);
 
 /**
- * Load the saved ring buffer from file into tempory memory.
+ * Load the saved ring buffer from file into temporary memory.
  * @param fd file with saved ringbuffer data.
  * @param flags same flags as passed into qb_rb_open()
  * @return new ringbuffer instance
