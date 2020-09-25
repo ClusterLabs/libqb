@@ -998,13 +998,6 @@ static void traverse_members(xmlNode *cur_node, void *arg)
 				cstring_t tmp = get_texttree(&type, this_tag, &returntext, &notetext);
 				if (!brief) {
 					brief = cstring_to_chars(tmp);
-					if (strlen(brief) > 2) {
-						/*
-						 * apparently brief text contains extra trailing space and a \n.
-						 * remove them.
-						 */
-						brief[strlen(brief) - 2] = '\0';
-					}
 				} else {
 					fprintf(stderr, "ERROR function %s has 2 briefdescription tags\n", name?name:"unknown");
 				}
