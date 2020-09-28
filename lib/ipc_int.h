@@ -102,6 +102,7 @@ struct qb_ipcc_connection {
 	uint32_t fc_enable_max;
 	int32_t is_connected;
 	void * context;
+	uid_t euid;
 };
 
 int32_t qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
