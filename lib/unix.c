@@ -111,12 +111,15 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		return res;
 	}
 
+#ifndef _WIN32
+	/* ftruncate not supported on WSL
+	   https://github.com/microsoft/WSL/issues/902 */
 	if (ftruncate(fd, bytes) == -1) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "couldn't truncate file %s", path);
 		goto unlink_exit;
 	}
-
+#endif
 #ifdef HAVE_POSIX_FALLOCATE
 	if ((res = posix_fallocate(fd, 0, bytes)) != 0) {
 		errno = res;
