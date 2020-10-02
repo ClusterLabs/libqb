@@ -32,7 +32,6 @@ static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
 static int32_t
 new_event_notification(struct qb_ipcs_connection * c);
 
-static QB_LIST_DECLARE(qb_ipc_services);
 
 qb_ipcs_service_t *
 qb_ipcs_create(const char *name,
@@ -72,8 +71,6 @@ qb_ipcs_create(const char *name,
 	s->serv_fns.connection_destroyed = handlers->connection_destroyed;
 
 	qb_list_init(&s->connections);
-	qb_list_init(&s->list);
-	qb_list_add(&s->list, &qb_ipc_services);
 
 	return s;
 }
@@ -228,7 +225,6 @@ qb_ipcs_unref(struct qb_ipcs_service *s)
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
 		qb_util_log(LOG_DEBUG, "%s() - destroying", __func__);
-		qb_list_del(&s->list);
 		free(s);
 	}
 }
