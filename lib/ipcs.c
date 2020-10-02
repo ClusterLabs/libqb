@@ -228,6 +228,7 @@ qb_ipcs_unref(struct qb_ipcs_service *s)
 	free_it = qb_atomic_int_dec_and_test(&s->ref_count);
 	if (free_it) {
 		qb_util_log(LOG_DEBUG, "%s() - destroying", __func__);
+		qb_list_del(&s->list);
 		free(s);
 	}
 }
