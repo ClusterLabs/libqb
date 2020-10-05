@@ -32,7 +32,6 @@ static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
 static int32_t
 new_event_notification(struct qb_ipcs_connection * c);
 
-static QB_LIST_DECLARE(qb_ipc_services);
 
 qb_ipcs_service_t *
 qb_ipcs_create(const char *name,
@@ -72,8 +71,6 @@ qb_ipcs_create(const char *name,
 	s->serv_fns.connection_destroyed = handlers->connection_destroyed;
 
 	qb_list_init(&s->connections);
-	qb_list_init(&s->list);
-	qb_list_add(&s->list, &qb_ipc_services);
 
 	return s;
 }
