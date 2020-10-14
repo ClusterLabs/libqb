@@ -77,7 +77,7 @@ cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 		h = (struct cstring_header *)(char *)cstring;
 		h->allocated = new_allocsize;
 	}
-	strncat(h->the_string, newstring, h->allocated-1);
+	strncat(h->the_string, newstring, h->allocated - h->used -1);
 	h->used += strlen(newstring);
 	return cstring;
 }

@@ -498,10 +498,12 @@ static char *allcaps(const char *name)
 	static char buffer[4096] = {'\0'};
 	size_t i;
 
-	for (i=0; i< strlen(name); i++) {
-		buffer[i] = toupper(name[i]);
+	if (name) {
+		for (i=0; i< strlen(name); i++) {
+			buffer[i] = toupper(name[i]);
+		}
+		buffer[strlen(name)] = '\0';
 	}
-	buffer[strlen(name)] = '\0';
 	return buffer;
 }
 
