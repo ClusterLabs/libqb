@@ -17,6 +17,7 @@
 
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
+#define _GNU_SOURCE
 #define _XOPEN_SOURCE
 #define _XOPEN_SOURCE_EXTENDED
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 #include <qb/qblist.h>
 #include <qb/qbmap.h>
 #include "cstring.h"
+
 /*
  * This isn't a maximum size, it just defines how long a parameter
  * type can get before we decide it's not worth lining everything up.
@@ -498,10 +500,13 @@ static char *allcaps(const char *name)
 	static char buffer[4096] = {'\0'};
 	size_t i;
 
-	for (i=0; i< strlen(name); i++) {
-		buffer[i] = toupper(name[i]);
+	if (name) {
+		size_t len = strnlen(name, 4096);
+		for (i=0; i< len; i++) {
+			buffer[i] = toupper(name[i]);
+		}
+		buffer[len] = '\0';
 	}
-	buffer[strlen(name)] = '\0';
 	return buffer;
 }
 
