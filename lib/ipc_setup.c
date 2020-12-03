@@ -570,10 +570,10 @@ qb_ipcs_us_publish(struct qb_ipcs_service * s)
 	 * security automatically
 	 */
 	if (use_filesystem_sockets()) {
-	        res = chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
+	        (void)chmod(un_addr.sun_path, S_IRWXU | S_IRWXG | S_IRWXO);
         }
 #ifdef SO_PASSCRED
-	setsockopt(s->server_sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+	(void)setsockopt(s->server_sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 #endif
 	if (listen(s->server_sock, SERVER_BACKLOG) == -1) {
 		qb_util_perror(LOG_ERR, "socket listen failed");
