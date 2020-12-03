@@ -474,7 +474,7 @@ static void stop_watch_tmo(void*data)
 		per = ((sw->total * 100) / sw->count) / (float)sw->ns_timer;
 		printf("average error for %"PRIu64" ns timer is %"PRIi64" (ns) (%f)\n",
 		       sw->ns_timer,
-		       sw->total/sw->count, per);
+		       (int64_t)(sw->total/sw->count), per);
 		if (sw->killer) {
 			qb_loop_stop(sw->l);
 		}

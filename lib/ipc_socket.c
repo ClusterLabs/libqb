@@ -102,7 +102,7 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 	snprintf(sock_path, PATH_MAX, "%s-%s", base_name, service_name);
 	set_sock_addr(&local_address, sock_path);
 	if (use_filesystem_sockets()) {
-		res = unlink(local_address.sun_path);
+		(void)unlink(local_address.sun_path);
 	}
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
