@@ -406,7 +406,7 @@ qb_ipcs_event_send(struct qb_ipcs_connection * c, const void *data, size_t size)
 		resn = new_event_notification(c);
 		if (resn < 0 && resn != -EAGAIN && resn != -ENOBUFS) {
 			errno = -resn;
-			qb_util_perror(LOG_WARNING,
+			qb_util_perror(LOG_DEBUG,
 				       "new_event_notification (%s)",
 				       c->description);
 			res = resn;
@@ -448,7 +448,7 @@ qb_ipcs_event_sendv(struct qb_ipcs_connection * c,
 		resn = new_event_notification(c);
 		if (resn < 0 && resn != -EAGAIN) {
 			errno = -resn;
-			qb_util_perror(LOG_WARNING,
+			qb_util_perror(LOG_DEBUG,
 				       "new_event_notification (%s)",
 				       c->description);
 			res = resn;
