@@ -1192,7 +1192,7 @@ static void usage(char *name)
 	printf(" using the name of the generated .xml file. This file will usually be called\n");
 	printf(" something like <include-file>_8h.xml, eg qbipcs_8h.xml\n");
 	printf("\n");
-	printf(" If you want HTML output then simpy use nroff on the generated files as you\n");
+	printf(" If you want HTML output then simply use nroff on the generated files as you\n");
 	printf(" would do with any other man page.\n");
 	printf("\n");
 	printf("       -a            Print ASCII dump of man pages to stdout\n");
@@ -1200,18 +1200,18 @@ static void usage(char *name)
 	printf("       -P            Print PARAMS section\n");
 	printf("       -g            Print general man page for the whole header file\n");
 	printf("       -c            Use the Copyright date from the header file (if one can be found)\n");
-	printf("       -O <dir>      Directory for the orignal header file. Often needed by -c above\n");
-	printf("       -s <s>        Write man pages into section <s> <default 3)\n");
-	printf("       -p <package>  Use <package> name. default <Package>\n");
-	printf("       -H <header>   Set header (default \"Programmer's Manual\"\n");
+	printf("       -O <dir>      Directory for the original header file. Often needed by -c above\n");
+	printf("       -s <s>        Write man pages into section <s> (default: 3)\n");
+	printf("       -p <package>  Use <package> name (default: Package)\n");
+	printf("       -H <header>   Set header (default: \"Programmer's Manual\"\n");
 	printf("       -I <include>  Set include filename (default taken from xml)\n");
-	printf("       -i <prefix>   Prefix for include files. eg qb/ (default \"\")\n");
-	printf("       -C <company>  Company name in copyright (defaults to Red Hat)\n");
+	printf("       -i <prefix>   Prefix for include files. eg qb/ (nothing by default)\n");
+	printf("       -C <company>  Company name in copyright (default: Red Hat)\n");
 	printf("       -D <date>     Date to print at top of man pages (format not checked, default: today)\n");
 	printf("       -S <year>     Start year to print at end of copyright line (default: 2010)\n");
 	printf("       -Y <year>     Year to print at end of copyright line (default: today's year)\n");
-	printf("       -o <dir>      Write all man pages to <dir> (default .)\n");
-	printf("       -d <dir>      Directory for XML files (./xml/)\n");
+	printf("       -o <dir>      Write all man pages to <dir> (default: .)\n");
+	printf("       -d <dir>      Directory for XML files (default: ./xml/)\n");
 	printf("       -h            Print this usage text\n");
 }
 
