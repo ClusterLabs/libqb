@@ -756,7 +756,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 	fprintf(manfile, ".TH %s %s %s \"%s\" \"%s\"\n", allcaps(name), man_section, dateptr, package_name, header);
 
 	fprintf(manfile, ".SH NAME\n");
-	if (brief) {
+	if (brief && not_all_whitespace(brief)) {
 		fprintf(manfile, "%s \\- %s\n", name, brief);
 	} else {
 		fprintf(manfile, "%s\n", name);
