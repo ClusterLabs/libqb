@@ -222,7 +222,14 @@ static cstring_t get_codeline(xmlNode *this_tag)
 			buffer = cstring_append_chars(buffer, " ");
 		}
 		if (strcmp((char*)sub_tag->name, "text") == 0) {
-			buffer = cstring_append_chars(buffer, (char*)sub_tag->content);
+			// If the line starts with a dot then escape the first one to
+			// stop nroff thinking it's a macro
+			char *tmp = (char*)sub_tag->content;
+			if (tmp[0] == '.') {
+				buffer = cstring_append_chars(buffer, (char*)"\\[char46]");
+				tmp += 1;
+			}
+			buffer = cstring_append_chars(buffer, tmp);
 		}
 		if (strcmp((char*)sub_tag->name, "ref") == 0) {
 			// Handled by the child recusion below
