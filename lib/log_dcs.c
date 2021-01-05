@@ -58,7 +58,8 @@ _log_register_callsites(qb_array_t * a, uint32_t bin)
 }
 
 static struct qb_log_callsite *
-_log_dcs_new_cs(const char *function,
+_log_dcs_new_cs(const char *message_id,
+		const char *function,
 		const char *filename,
 		const char *format,
 		uint8_t priority, uint32_t lineno, uint32_t tags)
@@ -70,6 +71,7 @@ _log_dcs_new_cs(const char *function,
 	assert(rc == 0);
 	assert(cs != NULL);
 
+	cs->message_id = message_id ? strdup(message_id) : NULL;
 	cs->function = strdup(function);
 	cs->filename = strdup(filename);
 	cs->format = strdup(format);
@@ -82,6 +84,7 @@ _log_dcs_new_cs(const char *function,
 
 struct qb_log_callsite *
 qb_log_dcs_get(int32_t * newly_created,
+	       const char *message_id,
 	       const char *function,
 	       const char *filename,
 	       const char *format,
@@ -120,6 +123,7 @@ qb_log_dcs_get(int32_t * newly_created,
 	(void)qb_thread_lock(arr_next_lock);
 	if (csl_head->cs &&
 		priority == csl_head->cs->priority &&
+		(message_id ? (strcmp(message_id, csl_head->cs->message_id) == 0) : 1) &&
 		strcmp(safe_filename, csl_head->cs->filename) == 0 &&
 		strcmp(safe_format, csl_head->cs->format) == 0) {
 		(void)qb_thread_unlock(arr_next_lock);
@@ -130,7 +134,8 @@ qb_log_dcs_get(int32_t * newly_created,
 	 * so we will either have to create it or go through a list
 	 */
 	if (csl_head->cs == NULL) {
-		csl_head->cs = _log_dcs_new_cs(safe_function, safe_filename, safe_format,
+		csl_head->cs = _log_dcs_new_cs(message_id, safe_function,
+					       safe_filename, safe_format,
 					       priority, lineno, tags);
 		cs = csl_head->cs;
 		csl_head->next = NULL;
@@ -152,7 +157,8 @@ qb_log_dcs_get(int32_t * newly_created,
 			if (csl == NULL) {
 				goto cleanup;
 			}
-			csl->cs = _log_dcs_new_cs(safe_function, safe_filename, safe_format,
+			csl->cs = _log_dcs_new_cs(message_id, safe_function,
+						  safe_filename, safe_format,
 						  priority, lineno, tags);
 			csl->next = NULL;
 			csl_last->next = csl;
