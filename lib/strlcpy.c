@@ -33,8 +33,12 @@ strlcpy(char *dest, const char * src, size_t maxlen)
 	size_t	srclen = strlen(src);
 	size_t	len2cpy = QB_MIN(maxlen-1, srclen);
 
-	if (len2cpy > 0) {
-		strncpy(dest, src, len2cpy+1);
+	/* check maxlen separately as it could have underflowed from 0 above. */
+	if (maxlen) {
+		if (len2cpy > 0) {
+			strncpy(dest, src, len2cpy+1);
+		}
+		/* Always terminate, even if its empty */
 		dest[len2cpy] = '\0';
 	}
 	return srclen;
