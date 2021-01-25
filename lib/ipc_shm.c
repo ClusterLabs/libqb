@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright (C) 2010-2021 Red Hat, Inc.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
  *
@@ -39,10 +39,41 @@ static void
 qb_ipcc_shm_disconnect(struct qb_ipcc_connection *c)
 {
 	void (*rb_destructor)(struct qb_ringbuffer_s *);
-
 	rb_destructor = qb_rb_close;
-	if (!c->is_connected && (!c->server_pid || (kill(c->server_pid, 0) == -1 && errno == ESRCH))) {
+
+	/* This is an attempt to make sure that /dev/shm is cleaned up when a
+	 * server exits unexpectedly. Normally it's the server's responsibility
+	 * to tidy up sockets, but if it crashes or is killed with SIGKILL then
+	 * the client (us) makes a reasonable attempt to tidy up the server sockets
+	 * we have connected. The extra delay here just gives the server chance to
+	 * disappear fully. As a client we can get here pretty quickly but shutting
+	 * down a large server may take a little longer even when SIGKILLed.
+	 * The 1/100th of a second is an arbitrary delay (of course) but seems to
+	 * catch most servers in 2 tries or less.
+	 */
+	if (!c->is_connected && c->server_pid) {
+		int attempt = 0;
+		while (attempt++ <= 3 && rb_destructor == qb_rb_close) {
+			if (kill(c->server_pid, 0) == -1 && errno == ESRCH) {
+				rb_destructor = qb_rb_force_close;
+			} else {
+				struct timespec ts = {0, 10*QB_TIME_NS_IN_MSEC};
+				struct timespec ts_left = {0, 0};
+				nanosleep(&ts, &ts_left);
+			}
+		}
+	}
+	/*
+	 * On FreeBSD we don't have a server PID so tidy up anyway. The
+	 * server traps SIGBUS when cleaning up so will cope fine.
+	 */
+	if (!c->is_connected && !c->server_pid) {
 		rb_destructor = qb_rb_force_close;
+	}
+
+	if (rb_destructor == qb_rb_force_close) {
+		qb_util_log(LOG_DEBUG,
+			    "FORCE closing server sockets\n");
 	}
 
 	qb_ipcc_us_sock_close(c->setup.u.us.sock);
