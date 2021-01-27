@@ -36,6 +36,7 @@ static int64_t timerlist_hertz;
 
 struct timerlist {
 	struct qb_list_head timer_head;
+	pthread_mutex_t list_mutex;
 };
 
 struct timerlist_timer {
@@ -50,16 +51,20 @@ struct timerlist_timer {
 static inline void timerlist_init(struct timerlist *timerlist)
 {
 	qb_list_init(&timerlist->timer_head);
+	pthread_mutex_init(&timerlist->list_mutex, NULL);
 	timerlist_hertz = qb_util_nano_monotonic_hz();
 }
 
-static inline void timerlist_add(struct timerlist *timerlist,
+static inline int32_t timerlist_add(struct timerlist *timerlist,
 				 struct timerlist_timer *timer)
 {
 	struct qb_list_head *timer_list = 0;
 	struct timerlist_timer *timer_from_list;
 	int32_t found = QB_FALSE;
 
+	if (pthread_mutex_lock(&timerlist->list_mutex)) {
+		return -errno;
+	}
 	qb_list_for_each(timer_list, &timerlist->timer_head) {
 
 		timer_from_list = qb_list_entry(timer_list,
@@ -74,6 +79,8 @@ static inline void timerlist_add(struct timerlist *timerlist,
 	if (found == QB_FALSE) {
 		qb_list_add_tail(&timer->list, &timerlist->timer_head);
 	}
+	pthread_mutex_unlock(&timerlist->list_mutex);
+	return 0;
 }
 
 static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
@@ -82,6 +89,7 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 					 uint64_t nano_duration,
 					 timer_handle * handle)
 {
+	int res;
 	struct timerlist_timer *timer;
 
 	timer =
@@ -95,7 +103,11 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 	timer->data = data;
 	timer->timer_fn = timer_fn;
 	timer->handle_addr = handle;
-	timerlist_add(timerlist, timer);
+	res = timerlist_add(timerlist, timer);
+	if (res) {
+		free(timer);
+		return res;
+	}
 
 	*handle = timer;
 	return (0);
