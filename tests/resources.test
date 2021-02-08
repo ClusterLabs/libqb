@@ -1,17 +1,31 @@
 #!/bin/sh
 RETURN=0
+SOCKS_PER_PROCESS=3
 
 IPC_NAME=`cat ipc-test-name 2>/dev/null`
 for d in /dev/shm /var/run $SOCKETDIR; do
-	leftovers=$(find $d -name qb-test*${IPC_NAME}* -size +0c 2>/dev/null | wc -l)
+
+	# Tidy up the deadlock checker sockets first
+	dlocks=$(find $d -name qb-*-test_*dlock*${IPC_NAME}* -size +0c 2>/dev/null)
+	if [ `echo $dlocks|wc -w` -eq $(($SOCKS_PER_PROCESS * 6)) ]; then
+		rm $dlocks
+	elif [ -n "${dlocks}" ]; then
+		echo
+		echo "Error: dlock shared memory segments not closed/unlinked"
+		echo
+		RETURN=1
+	fi
+
+	# Now look for other leftovers
+	leftovers=$(find $d -name qb-*-test_*${IPC_NAME}* -size +0c 2>/dev/null | wc -l)
 	if [ "${leftovers}" -gt 0 ]; then
 		echo
 		echo "Error: shared memory segments not closed/unlinked"
 		echo
 		RETURN=1
 	fi
-	leftovers="$(find $d -name qb-test*${IPC_NAME}* -size 0c 2>/dev/null)"
-	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq 6 ]; then
+	leftovers="$(find $d -name qb-*-test_*${IPC_NAME}* -size 0c 2>/dev/null)"
+	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq $(($SOCKS_PER_PROCESS * 2)) ]; then
 		echo
 		echo "There were some empty leftovers (expected), removing them"
 		echo "${leftovers}" | tee /dev/stderr | xargs rm
