@@ -44,6 +44,7 @@ struct qb_timer_source {
 	struct timerlist timerlist;
 	qb_array_t *timers;
 	size_t timer_entry_count;
+	pthread_mutex_t lock;
 };
 
 static void
@@ -104,6 +105,7 @@ qb_loop_timer_create(struct qb_loop *l)
 	timerlist_init(&my_src->timerlist);
 	my_src->timers = qb_array_create_2(16, sizeof(struct qb_loop_timer), 16);
 	my_src->timer_entry_count = 0;
+	pthread_mutex_init(&my_src->lock, NULL);
 
 	return (struct qb_loop_source *)my_src;
 }
@@ -192,6 +194,9 @@ qb_loop_timer_add(struct qb_loop * lp,
 	}
 	my_src = (struct qb_timer_source *)l->timer_source;
 
+	if (pthread_mutex_lock(&my_src->lock)) {
+		return -errno;
+	}
 	i = _get_empty_array_position_(my_src);
 	assert(qb_array_index(my_src->timers, i, (void **)&t) >= 0);
 	t->state = QB_POLL_ENTRY_ACTIVE;
@@ -201,6 +206,9 @@ qb_loop_timer_add(struct qb_loop * lp,
 	t->dispatch_fn = timer_fn;
 	t->p = p;
 	qb_list_init(&t->item.list);
+
+	/* Unlock here to stop anyone else changing the state while we're initializing */
+	pthread_mutex_unlock(&my_src->lock);
 
 	/*
 	 * Make sure just positive integers are used for the integrity(?)

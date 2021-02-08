@@ -439,6 +439,56 @@ START_TEST(test_loop_timer_basic)
 }
 END_TEST
 
+static void *loop_timer_thread(void *arg)
+{
+	int res;
+	qb_loop_t *l = (qb_loop_t *)arg;
+	qb_loop_timer_handle test_tht;
+
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, one_shot_tmo, &test_tht);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_is_running(l, test_th);
+	ck_assert_int_eq(res, QB_TRUE);
+
+	sleep(5);
+
+	return (void *)0;
+}
+
+/* This test will probably never fail (unless something
+   really bad happens) but is useful for running under
+   helgrind to find threading issues */
+START_TEST(test_loop_timer_threads)
+{
+	int32_t res;
+	pthread_t thr;
+	qb_loop_t *l = qb_loop_create();
+	ck_assert(l != NULL);
+
+	res = pthread_create(&thr, NULL, loop_timer_thread, l);
+
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_add(l, QB_LOOP_HIGH, 20*QB_TIME_NS_IN_MSEC, l, check_time_left, &test_th2);
+	ck_assert_int_eq(res, 0);
+
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 60*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);
+	ck_assert_int_eq(res, 0);
+
+	qb_loop_run(l);
+
+	ck_assert_int_eq(reset_timer_step, 2);
+
+	pthread_join(thr, NULL);
+	qb_loop_destroy(l);
+}
+END_TEST
+
+
+
+
 struct qb_stop_watch {
 	uint64_t start;
 	uint64_t end;
@@ -742,6 +792,7 @@ loop_timer_suite(void)
 	add_tcase(s, tc, test_loop_timer_basic, 30);
 	add_tcase(s, tc, test_loop_timer_precision, 30);
 	add_tcase(s, tc, test_loop_timer_expire_leak, 30);
+	add_tcase(s, tc, test_loop_timer_threads, 30);
 
 	return s;
 }
