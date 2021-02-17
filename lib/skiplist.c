@@ -20,6 +20,7 @@
  */
 #include <os_base.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qbmap.h>
@@ -60,6 +61,7 @@ struct skiplist {
 	   needs to be free'd unconditionally */
 	int8_t level;
 	struct skiplist_node *header;
+	pthread_mutex_t lock;
 };
 
 /* An array of nodes that need to be updated after an insert or delete operation
@@ -152,7 +154,7 @@ typedef enum {
 } op_t;
 
 static op_t
-op_search(const struct skiplist *list,
+op_search(struct skiplist *list,
 	  const struct skiplist_node *fwd_node, const void *search)
 {
 	int32_t cmp;
@@ -174,13 +176,19 @@ static struct skiplist_node *
 skiplist_lookup(struct skiplist *list, const char *key)
 {
 	struct skiplist_node *cur_node = list->header;
-	int8_t level = list->level;
+	int8_t level;
 
+	if (pthread_mutex_lock(&list->lock)) {
+		return NULL;
+	}
+
+	level = list->level;
 	while (level >= SKIPLIST_LEVEL_MIN) {
 		struct skiplist_node *fwd_node = cur_node->forward[level];
 
 		switch (op_search(list, fwd_node, key)) {
 		case OP_FINISH:
+			pthread_mutex_unlock(&list->lock);
 			return fwd_node;
 		case OP_GOTO_NEXT_NODE:
 			cur_node = fwd_node;
@@ -189,7 +197,7 @@ skiplist_lookup(struct skiplist *list, const char *key)
 			level--;
 		}
 	}
-
+	pthread_mutex_unlock(&list->lock);
 	return NULL;
 }
 
@@ -382,13 +390,18 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *new_node;
-	int8_t level = list->level;
+	int8_t level;
 	skiplist_update_t update;
 	int8_t update_level;
 	int8_t new_node_level;
 	struct skiplist_node *cur_node = list->header;
 	char *old_k;
 	char *old_v;
+
+	if (pthread_mutex_lock(&list->lock)) {
+		return;
+	}
+	level = list->level;
 
 	while ((update_level = level) >= SKIPLIST_LEVEL_MIN) {
 		struct skiplist_node *fwd_node = cur_node->forward[level];
@@ -399,6 +412,7 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 			old_v = (char *)fwd_node->value;
 			fwd_node->value = (void *)value;
 			fwd_node->key = (void *)key;
+			pthread_mutex_unlock(&list->lock);
 			skiplist_notify(list, fwd_node,
 					QB_MAP_NOTIFY_REPLACED,
 					old_k, old_v, fwd_node->value);
@@ -422,21 +436,22 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 
 		list->level = new_node_level;
 	}
-
+	list->length++;
 	new_node = skiplist_node_new(new_node_level, key, value);
+	pthread_mutex_unlock(&list->lock);
 
 	assert(new_node != NULL);
 	skiplist_notify(list, new_node,
 			QB_MAP_NOTIFY_INSERTED,
-			(char*)new_node->key, NULL, new_node->value);
+			(char*)key, NULL, (void*)value);
 
 	/* Drop @new_node into @list. */
+	pthread_mutex_lock(&list->lock);
 	for (level = SKIPLIST_LEVEL_MIN; level <= new_node_level; level++) {
 		new_node->forward[level] = update[level]->forward[level];
 		update[level]->forward[level] = new_node;
 	}
-
-	list->length++;
+	pthread_mutex_unlock(&list->lock);
 }
 
 static int32_t
@@ -444,10 +459,17 @@ skiplist_rm(struct qb_map *map, const char *key)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *found_node;
-	struct skiplist_node *cur_node = list->header;
-	int8_t level = list->level;
+	struct skiplist_node *cur_node;
+	int8_t level;
 	int8_t update_level;
 	skiplist_update_t update;
+
+	if (pthread_mutex_lock(&list->lock)) {
+		return QB_FALSE;
+	}
+
+	level = list->level;
+	cur_node = list->header;
 
 	while ((update_level = level) >= SKIPLIST_LEVEL_MIN) {
 		struct skiplist_node *fwd_node = cur_node->forward[level];
@@ -470,6 +492,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 
 	/* ...unless we're at the end of the list or the value doesn't exist. */
 	if (!found_node || strcmp(found_node->key, key) != 0) {
+		pthread_mutex_unlock(&list->lock);
 		return QB_FALSE;
 	}
 
@@ -526,7 +549,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 	}
 
 	list->length--;
-
+	pthread_mutex_unlock(&list->lock);
 	return QB_TRUE;
 }
 
@@ -536,7 +559,14 @@ skiplist_get(struct qb_map *map, const char *key)
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *n = skiplist_lookup(list, key);
 	if (n) {
-		return n->value;
+		void *value;
+
+		if (pthread_mutex_lock(&list->lock)) {
+			return NULL;
+		}
+		value = n->value;
+		pthread_mutex_unlock(&list->lock);
+		return value;
 	}
 
 	return NULL;
@@ -550,9 +580,15 @@ skiplist_iter_create(struct qb_map *map, const char *prefix)
 	if (i == NULL) {
 		return NULL;
 	}
+	if (pthread_mutex_lock(&list->lock)) {
+		free(i);
+		return NULL;
+	}
+
 	i->i.m = map;
 	i->n = list->header;
 	i->n->refcount++;
+	pthread_mutex_unlock(&list->lock);
 	return (qb_map_iter_t *) i;
 }
 
@@ -561,19 +597,27 @@ skiplist_iter_next(qb_map_iter_t * i, void **value)
 {
 	struct skiplist_iter *si = (struct skiplist_iter *)i;
 	struct skiplist_node *p = si->n;
+	struct skiplist *list = (struct skiplist *)i->m;
+	const char *k;
 
 	if (p == NULL) {
+		return NULL;
+	}
+	if (pthread_mutex_lock(&list->lock)) {
 		return NULL;
 	}
 	si->n = skiplist_node_next(p);
 	if (si->n == NULL) {
 		skiplist_node_deref(p, (struct skiplist *)i->m);
+		pthread_mutex_unlock(&list->lock);
 		return NULL;
 	}
 	si->n->refcount++;
 	skiplist_node_deref(p, (struct skiplist *)i->m);
 	*value = si->n->value;
-	return si->n->key;
+	k = si->n->key;
+	pthread_mutex_unlock(&list->lock);
+	return k;
 }
 
 static void
@@ -612,6 +656,7 @@ qb_skiplist_create(void)
 	sl->level = SKIPLIST_LEVEL_MIN;
 	sl->length = 0;
 	sl->header = skiplist_header_node_new();
+	pthread_mutex_init(&sl->lock, NULL);
 
 	return (qb_map_t *) sl;
 }

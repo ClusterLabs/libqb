@@ -21,6 +21,7 @@
 #include "os_base.h"
 
 #include <qb/qbmap.h>
+#include <pthread.h>
 #include "util_int.h"
 #include "map_int.h"
 #include <qb/qblist.h>
@@ -37,6 +38,7 @@ struct hash_node {
 
 struct hash_bucket {
 	struct qb_list_head list_head;
+	pthread_mutex_t bkt_lock;
 };
 
 struct hash_table {
@@ -45,6 +47,9 @@ struct hash_table {
 	uint32_t order;
 	uint32_t hash_buckets_len;
 	struct qb_list_head notifier_head;
+	/* Lock ordering:
+	   If you need a bucket lock and this lock, always get the bucket lock first */
+	pthread_mutex_t ht_lock;
 	struct hash_bucket hash_buckets[0];
 };
 
@@ -94,15 +99,47 @@ hashtable_lookup(struct hash_table *t, const char *key)
 	struct hash_node *hash_node;
 
 	hash_entry = qb_hash_string(key, t->order);
+	if (pthread_mutex_lock(&t->hash_buckets[hash_entry].bkt_lock)) {
+		return NULL;
+	}
 
 	qb_list_for_each(list, &t->hash_buckets[hash_entry].list_head) {
 
 		hash_node = qb_list_entry(list, struct hash_node, list);
 		if (strcmp(hash_node->key, key) == 0) {
+			pthread_mutex_unlock(&t->hash_buckets[hash_entry].bkt_lock);
 			return hash_node;
 		}
 	}
+	pthread_mutex_unlock(&t->hash_buckets[hash_entry].bkt_lock);
+	return NULL;
+}
 
+/* As above but returns the value so we don't need to deref the node
+ * outside the lock
+ */
+static void *
+hashtable_lookup_value(struct hash_table *t, const char *key)
+{
+	uint32_t hash_entry;
+	struct qb_list_head *list;
+	struct hash_node *hash_node;
+
+	hash_entry = qb_hash_string(key, t->order);
+	if (pthread_mutex_lock(&t->hash_buckets[hash_entry].bkt_lock)) {
+		return NULL;
+	}
+
+	qb_list_for_each(list, &t->hash_buckets[hash_entry].list_head) {
+
+		hash_node = qb_list_entry(list, struct hash_node, list);
+		if (strcmp(hash_node->key, key) == 0) {
+			void *value = hash_node->value;
+			pthread_mutex_unlock(&t->hash_buckets[hash_entry].bkt_lock);
+			return value;
+		}
+	}
+	pthread_mutex_unlock(&t->hash_buckets[hash_entry].bkt_lock);
 	return NULL;
 }
 
@@ -110,11 +147,7 @@ static void *
 hashtable_get(struct qb_map *map, const char *key)
 {
 	struct hash_table *t = (struct hash_table *)map;
-	struct hash_node *n = hashtable_lookup(t, key);
-	if (n) {
-		return n->value;
-	}
-	return NULL;
+	return hashtable_lookup_value(t, key);
 }
 
 static void
@@ -158,16 +191,26 @@ hashtable_rm_with_hash(struct qb_map *map, const char *key, uint32_t hash_entry)
 	struct qb_list_head *next;
 	struct hash_node *hash_node;
 
+	if (pthread_mutex_lock(&hash_table->hash_buckets[hash_entry].bkt_lock)) {
+		return QB_FALSE;
+	}
+
 	qb_list_for_each_safe(list, next,
 	                      &hash_table->hash_buckets[hash_entry].list_head) {
 
 		hash_node = qb_list_entry(list, struct hash_node, list);
 		if (strcmp(hash_node->key, key) == 0) {
+
 			hashtable_node_deref(map, hash_node);
+			pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
+			(void)pthread_mutex_lock(&hash_table->ht_lock);
 			hash_table->count--;
+			pthread_mutex_unlock(&hash_table->ht_lock);
+
 			return QB_TRUE;
 		}
 	}
+	pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
 
 	return QB_FALSE;
 }
@@ -193,6 +236,9 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 
 	hash_entry = qb_hash_string(key, hash_table->order);
 
+	if (pthread_mutex_lock(&hash_table->hash_buckets[hash_entry].bkt_lock)) {
+		return;
+	}
 	qb_list_for_each(list, &hash_table->hash_buckets[hash_entry].list_head) {
 
 		node_try = qb_list_entry(list, struct hash_node, list);
@@ -203,30 +249,44 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 	}
 
 	if (hash_node == NULL) {
+		/* For use outside of the mutex */
+		const char *local_key;
+		void *local_value;
+
 		hash_node = calloc(1, sizeof(struct hash_node));
 		if (hash_node == NULL) {
 			errno = ENOMEM;
+			pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
 			return;
 		}
 
+		(void)pthread_mutex_lock(&hash_table->ht_lock);
 		hash_table->count++;
+		pthread_mutex_unlock(&hash_table->ht_lock);
+
 		hash_node->refcount = 1;
 		hash_node->key = key;
 		hash_node->value = (void *)value;
 		qb_list_init(&hash_node->list);
+
 		qb_list_add_tail(&hash_node->list,
 				 &hash_table->hash_buckets[hash_entry].
 				 list_head);
 		qb_list_init(&hash_node->notifier_head);
+		local_key = hash_node->key;
+		local_value = hash_node->value;
+		pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
 
 		hashtable_notify(hash_table, hash_node,
 				 QB_MAP_NOTIFY_INSERTED,
-				 hash_node->key, NULL, hash_node->value);
+				 local_key, NULL, local_value);
 	} else {
 		char *old_k = (char *)hash_node->key;
 		char *old_v = (void *)hash_node->value;
+
 		hash_node->key = key;
 		hash_node->value = (void *)value;
+		pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
 
 		hashtable_notify(hash_table, hash_node,
 				 QB_MAP_NOTIFY_REPLACED,
@@ -375,7 +435,12 @@ static size_t
 hashtable_count_get(struct qb_map *map)
 {
 	struct hash_table *hash_table = (struct hash_table *)map;
-	return hash_table->count;
+	size_t count;
+
+	(void)pthread_mutex_lock(&hash_table->ht_lock);
+	count = hash_table->count;
+	pthread_mutex_unlock(&hash_table->ht_lock);
+	return count;
 }
 
 static qb_map_iter_t *
@@ -401,6 +466,7 @@ hashtable_iter_next(qb_map_iter_t * it, void **value)
 	int found = QB_FALSE;
 	int cont = QB_TRUE;
 	int b;
+	const char *ret_key;
 
 	if (hi->node == NULL) {
 		cont = QB_FALSE;
@@ -413,6 +479,10 @@ hashtable_iter_next(qb_map_iter_t * it, void **value)
 			ln = &hash_table->hash_buckets[b].list_head;
 		}
 		hash_node = qb_list_first_entry(ln, struct hash_node, list);
+
+		if (pthread_mutex_lock(&hash_table->hash_buckets[b].bkt_lock)) {
+			return NULL;
+		}
 		qb_list_for_each_entry_from(hash_node,
 		                &hash_table->hash_buckets[b].list_head, list) {
 			if (hash_node->refcount > 0) {
@@ -420,19 +490,23 @@ hashtable_iter_next(qb_map_iter_t * it, void **value)
 				hash_node->refcount++;
 				hi->bucket = b;
 				*value = hash_node->value;
+				ret_key = hash_node->key;
 				break;
 			}
 		}
+		pthread_mutex_unlock(&hash_table->hash_buckets[b].bkt_lock);
 	}
 
 	if (hi->node) {
+		pthread_mutex_lock(&hash_table->hash_buckets[hi->bucket].bkt_lock);
 		hashtable_node_deref(hi->i.m, hi->node);
+		pthread_mutex_unlock(&hash_table->hash_buckets[hi->bucket].bkt_lock);
 	}
 	if (!found) {
 		return NULL;
 	}
 	hi->node = hash_node;
-	return hash_node->key;
+	return ret_key;
 }
 
 static void
@@ -475,7 +549,9 @@ hashtable_node_deref_under_bucket(struct qb_map *map, int32_t hash_entry)
 			      &hash_table->hash_buckets[hash_entry].list_head) {
 		hash_node = qb_list_entry(pos, struct hash_node, list);
 		hashtable_node_deref(map, hash_node);
+		(void)pthread_mutex_lock(&hash_table->ht_lock);
 		hash_table->count--;
+		pthread_mutex_unlock(&hash_table->ht_lock);
 	}
 }
 
@@ -513,11 +589,13 @@ qb_hashtable_create(size_t max_size)
 	ht->map.notify_del = hashtable_notify_del;
 	ht->count = 0;
 	ht->order = order;
+	pthread_mutex_init(&ht->ht_lock, NULL);
 	qb_list_init(&ht->notifier_head);
 
 	ht->hash_buckets_len = 1 << order;
 	for (i = 0; i < ht->hash_buckets_len; i++) {
 		qb_list_init(&ht->hash_buckets[i].list_head);
+		pthread_mutex_init(&ht->hash_buckets[i].bkt_lock, NULL);
 	}
 	return (qb_map_t *) ht;
 }

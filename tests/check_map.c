@@ -176,7 +176,7 @@ check_order2(const char *key, void *value, void *data)
 }
 
 static void
-test_map_search(qb_map_t* m)
+test_map_search(qb_map_t* m, int nonthread_checks)
 {
 	int32_t i;
 	int32_t removed;
@@ -187,16 +187,22 @@ test_map_search(qb_map_t* m)
 	for (i = 0; chars[i]; i++) {
 		qb_map_put(m, chars[i], chars[i]);
 	}
-	qb_map_foreach(m, my_traverse, NULL);
 
-	ck_assert_int_eq(qb_map_count_get(m), (26*2 + 10));
+	if (nonthread_checks) {
+		qb_map_foreach(m, my_traverse, NULL);
+		ck_assert_int_eq(qb_map_count_get(m), (26*2 + 10));
+	}
 
 	order = 0;
-	qb_map_foreach(m, check_order, &order);
+	if (nonthread_checks) {
+		qb_map_foreach(m, check_order, &order);
+	}
 
 	for (i = 0; i < 26; i++) {
 		removed = qb_map_rm(m, chars[i + 10]);
-		ck_assert(removed);
+		if (nonthread_checks) {
+			assert(removed);
+		}
 	}
 
 	c[0] = '\0';
@@ -204,18 +210,20 @@ test_map_search(qb_map_t* m)
 	removed = qb_map_rm(m, c);
 	ck_assert(!removed);
 
-	qb_map_foreach(m, my_traverse, NULL);
-
-	ck_assert_int_eq(qb_map_count_get(m), 26+10);
-
-	order = 0;
-	qb_map_foreach(m, check_order2, &order);
+	if (nonthread_checks) {
+		qb_map_foreach(m, my_traverse, NULL);
+		ck_assert_int_eq(qb_map_count_get(m), 26+10);
+		order = 0;
+		qb_map_foreach(m, check_order2, &order);
+	}
 
 	for (i = 25; i >= 0; i--) {
 		qb_map_put(m, chars[i + 10], chars[i + 10]);
 	}
-	order = 0;
-	qb_map_foreach(m, check_order, &order);
+	if (nonthread_checks) {
+		order = 0;
+		qb_map_foreach(m, check_order, &order);
+	}
 
 	c[0] = '0';
 	p = qb_map_get(m, c);
@@ -223,7 +231,9 @@ test_map_search(qb_map_t* m)
 
 	c[0] = 'A';
 	p = qb_map_get(m, c);
-	ck_assert(p && *p == *c);
+	if (nonthread_checks) {
+		ck_assert(p && *p == *c);
+	}
 
 	c[0] = 'a';
 	p = qb_map_get(m, c);
@@ -245,7 +255,9 @@ test_map_search(qb_map_t* m)
 	p = qb_map_get(m, c);
 	ck_assert(p == NULL);
 
-	qb_map_destroy(m);
+	if (nonthread_checks) {
+		qb_map_destroy(m);
+	}
 }
 
 static void
@@ -795,14 +807,58 @@ END_TEST
 START_TEST(test_skiplist_search)
 {
 	qb_map_t *m = qb_skiplist_create();
-	test_map_search(m);
+	test_map_search(m, 1);
 }
 END_TEST
+
+static void *search_thread(void *arg)
+{
+	qb_map_t *m = arg;
+	test_map_search(m, 0);
+	return (void*)NULL;
+}
+
+START_TEST(test_skiplist_search_threads)
+{
+	qb_map_t *m = qb_skiplist_create();
+	pthread_t thread;
+
+	pthread_create(&thread, NULL, search_thread, (void*)m);
+	test_map_search(m, 0);
+	pthread_join(thread, NULL);
+	qb_map_destroy(m);
+}
+END_TEST
+
+START_TEST(test_hashtable_search_threads)
+{
+	qb_map_t *m = qb_hashtable_create(50);
+	pthread_t thread;
+
+	pthread_create(&thread, NULL, search_thread, (void*)m);
+	test_map_search(m, 0);
+	pthread_join(thread, NULL);
+	qb_map_destroy(m);
+}
+END_TEST
+
+START_TEST(test_trie_search_threads)
+{
+	qb_map_t *m = qb_trie_create();
+	pthread_t thread;
+
+	pthread_create(&thread, NULL, search_thread, (void*)m);
+	test_map_search(m, 0);
+	pthread_join(thread, NULL);
+	qb_map_destroy(m);
+}
+END_TEST
+
 
 START_TEST(test_trie_search)
 {
 	qb_map_t *m = qb_trie_create();
-	test_map_search(m);
+	test_map_search(m, 1);
 }
 END_TEST
 
@@ -1002,12 +1058,15 @@ map_suite(void)
 	add_tcase(s, tc, test_hash_notifications);
 	add_tcase(s, tc, test_skiplist_notifications);
 	add_tcase(s, tc, test_skiplist_search);
+	add_tcase(s, tc, test_skiplist_search_threads);
+	add_tcase(s, tc, test_hashtable_search_threads);
 
 /*
  * 	No hashtable_search as it assumes an ordered
  *	collection
  */
 	add_tcase(s, tc, test_trie_search);
+	add_tcase(s, tc, test_trie_search_threads);
 	add_tcase(s, tc, test_skiplist_traverse);
 	add_tcase(s, tc, test_hashtable_traverse);
 	add_tcase(s, tc, test_trie_traverse);

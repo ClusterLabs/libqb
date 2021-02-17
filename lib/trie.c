@@ -20,6 +20,7 @@
  */
 #include <os_base.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qblist.h>
@@ -53,6 +54,7 @@ struct trie {
 	uint32_t num_nodes;
 	uint32_t mem_used;
 	struct trie_node *header;
+	pthread_mutex_t lock;
 };
 
 static void trie_notify(struct trie_node *n, uint32_t event, const char *key,
@@ -451,11 +453,15 @@ trie_destroy(struct qb_map *map)
 	struct trie_node *cur_node = t->header;
 	struct trie_node *fwd_node;
 
+	if (pthread_mutex_lock(&t->lock)) {
+		return;
+	}
 	do {
 		fwd_node = trie_node_next(cur_node, t->header, QB_FALSE);
 		trie_node_destroy(t, cur_node);
 	} while ((cur_node = fwd_node));
 
+	pthread_mutex_unlock(&t->lock);
 	free(t);
 }
 
@@ -521,7 +527,13 @@ static void
 trie_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_insert(t, key);
+	struct trie_node *n;
+
+	if (pthread_mutex_lock(&t->lock)) {
+		return;
+	}
+
+	n = trie_insert(t, key);
 	if (n) {
 		const char *old_value = n->value;
 		const char *old_key = n->key;
@@ -532,13 +544,17 @@ trie_put(struct qb_map *map, const char *key, const void *value)
 		if (old_value == NULL) {
 			trie_node_ref(t, n);
 			t->length++;
+			pthread_mutex_unlock(&t->lock);
 			trie_notify(n, QB_MAP_NOTIFY_INSERTED,
-				    n->key, NULL, n->value);
+				    (char *)key, NULL, (void *)value);
 		} else {
+			pthread_mutex_unlock(&t->lock);
 			trie_notify(n, QB_MAP_NOTIFY_REPLACED,
 				    (char *)old_key, (void *)old_value,
 				    (void *)value);
 		}
+	} else {
+		pthread_mutex_unlock(&t->lock);
 	}
 }
 
@@ -546,12 +562,20 @@ static int32_t
 trie_rm(struct qb_map *map, const char *key)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key, QB_TRUE);
+	struct trie_node *n;
+
+	if (pthread_mutex_lock(&t->lock)) {
+		return QB_FALSE;
+	}
+
+	n = trie_lookup(t, key, QB_TRUE);
 	if (n) {
-		trie_node_deref(t, n);
 		t->length--;
+		pthread_mutex_unlock(&t->lock);
+		trie_node_deref(t, n);
 		return QB_TRUE;
 	} else {
+		pthread_mutex_unlock(&t->lock);
 		return QB_FALSE;
 	}
 }
@@ -560,11 +584,20 @@ static void *
 trie_get(struct qb_map *map, const char *key)
 {
 	struct trie *t = (struct trie *)map;
-	struct trie_node *n = trie_lookup(t, key, QB_TRUE);
-	if (n) {
-		return n->value;
+	void  *value;
+	struct trie_node *n;
+
+	if (pthread_mutex_lock(&t->lock)) {
+		return NULL;
 	}
 
+	n = trie_lookup(t, key, QB_TRUE);
+	if (n) {
+		value = n->value;
+		pthread_mutex_unlock(&t->lock);
+		return value;
+	}
+	pthread_mutex_unlock(&t->lock);
 	return NULL;
 }
 
@@ -743,8 +776,13 @@ trie_iter_next(qb_map_iter_t * i, void **value)
 	struct trie_iter *si = (struct trie_iter *)i;
 	struct trie_node *p = si->n;
 	struct trie *t = (struct trie *)(i->m);
+	const char *key;
 
 	if (p == NULL) {
+		return NULL;
+	}
+
+	if (pthread_mutex_lock(&t->lock)) {
 		return NULL;
 	}
 
@@ -761,13 +799,17 @@ trie_iter_next(qb_map_iter_t * i, void **value)
 		si->n = trie_node_next(p, si->root, QB_FALSE);
 	}
 	if (si->n == NULL) {
+		pthread_mutex_unlock(&t->lock);
 		trie_node_deref(t, p);
 		return NULL;
 	}
 	trie_node_ref(t, si->n);
 	trie_node_deref(t, p);
 	*value = si->n->value;
-	return si->n->key;
+
+	key = si->n->key;
+	pthread_mutex_unlock(&t->lock);
+	return key;
 }
 
 static void
@@ -814,6 +856,7 @@ qb_trie_create(void)
 	t->num_nodes = 0;
 	t->mem_used = sizeof(struct trie);
 	t->header = trie_new_node(t, NULL);
+	pthread_mutex_init(&t->lock, NULL);
 
 	return (qb_map_t *) t;
 }
