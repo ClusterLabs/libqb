@@ -59,8 +59,8 @@ struct hashtable_iter {
 	uint32_t bucket;
 };
 
-static void hashtable_notify(struct hash_table *t, struct hash_node *n,
-			     uint32_t event, const char *key,
+static struct qb_list_head *copy_notify_list(struct hash_table *t, struct hash_node *n, uint32_t event);
+static void hashtable_notify(struct qb_list_head *head, const char *key,
 			     void *old_value, void *value);
 static void hashtable_node_deref_under_bucket(struct qb_map *map,
 					      int32_t hash_entry);
@@ -156,9 +156,10 @@ hashtable_node_destroy(struct hash_table *t, struct hash_node *hash_node)
 	struct qb_list_head *pos;
 	struct qb_list_head *next;
 	struct qb_map_notifier *tn;
+	struct qb_list_head *nl;
 
-	hashtable_notify(t, hash_node,
-			 QB_MAP_NOTIFY_DELETED,
+	nl = copy_notify_list(t, hash_node, QB_MAP_NOTIFY_DELETED);
+	hashtable_notify(nl,
 			 hash_node->key, hash_node->value, NULL);
 
 	qb_list_for_each_safe(pos, next, &hash_node->notifier_head) {
@@ -233,6 +234,7 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 	struct hash_node *hash_node = NULL;
 	struct hash_node *node_try;
 	struct qb_list_head *list;
+	struct qb_list_head *nl;
 
 	hash_entry = qb_hash_string(key, hash_table->order);
 
@@ -275,55 +277,93 @@ hashtable_put(struct qb_map *map, const char *key, const void *value)
 		qb_list_init(&hash_node->notifier_head);
 		local_key = hash_node->key;
 		local_value = hash_node->value;
+		nl = copy_notify_list(hash_table, hash_node, QB_MAP_NOTIFY_INSERTED);
 		pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
 
-		hashtable_notify(hash_table, hash_node,
-				 QB_MAP_NOTIFY_INSERTED,
+		hashtable_notify(nl,
 				 local_key, NULL, local_value);
+
 	} else {
 		char *old_k = (char *)hash_node->key;
 		char *old_v = (void *)hash_node->value;
 
 		hash_node->key = key;
 		hash_node->value = (void *)value;
+		nl = copy_notify_list(hash_table, hash_node, QB_MAP_NOTIFY_REPLACED);
 		pthread_mutex_unlock(&hash_table->hash_buckets[hash_entry].bkt_lock);
 
-		hashtable_notify(hash_table, hash_node,
-				 QB_MAP_NOTIFY_REPLACED,
-				 old_k, old_v, hash_node->value);
+		hashtable_notify(nl, old_k, old_v, hash_node->value);
 	}
 }
 
-static void
-hashtable_notify(struct hash_table *t, struct hash_node *n,
-		 uint32_t event, const char *key,
-		 void *old_value, void *value)
+
+static void add_notify_event(struct qb_list_head *head, uint32_t event, struct qb_map_notifier *tn)
+{
+	struct qb_map_notifier *nn;
+
+	nn = malloc(sizeof(struct qb_map_notifier));
+	if (!nn) {
+		return;
+	}
+	memcpy(nn, tn, sizeof(struct qb_map_notifier));
+	nn->events = event;
+	qb_list_add_tail(&nn->list, head);
+}
+
+static struct qb_list_head *
+copy_notify_list(struct hash_table *t, struct hash_node *n,
+		 uint32_t event)
 {
 	struct qb_list_head *list;
+	struct qb_list_head *new_head;
 	struct qb_map_notifier *tn;
+
+	new_head = malloc(sizeof(struct qb_list_head));
+	if (!new_head) {
+		return NULL;
+	}
+	qb_list_init(new_head);
 
 	qb_list_for_each(list, &n->notifier_head) {
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, (char *)key, old_value, value,
-				     tn->user_data);
+			add_notify_event(new_head, event, tn);
 		}
 	}
 	qb_list_for_each(list, &t->notifier_head) {
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, (char *)key, old_value, value,
-				     tn->user_data);
+			add_notify_event(new_head, event, tn);
 		}
 		if (((event & QB_MAP_NOTIFY_DELETED) ||
 		     (event & QB_MAP_NOTIFY_REPLACED)) &&
 		    (tn->events & QB_MAP_NOTIFY_FREE)) {
-			tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
-				     old_value, value, tn->user_data);
+			add_notify_event(new_head, QB_MAP_NOTIFY_FREE, tn);
 		}
 	}
+	return new_head;
+}
+
+static void hashtable_notify(struct qb_list_head *head, const char *key,
+				void *old_value, void *value)
+{
+	struct qb_list_head *list;
+	struct qb_list_head *tmp;
+	struct qb_map_notifier *tn;
+
+	if (!head) {
+		return;
+	}
+
+	qb_list_for_each_safe(list, tmp, head) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+		tn->callback(tn->events, (char *)key,
+			     old_value, value, tn->user_data);
+		free(tn);
+	}
+	free(head);
 }
 
 static int32_t

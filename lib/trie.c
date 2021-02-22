@@ -57,7 +57,8 @@ struct trie {
 	pthread_mutex_t lock;
 };
 
-static void trie_notify(struct trie_node *n, uint32_t event, const char *key,
+static struct qb_list_head *copy_notify_list(struct trie_node *n, uint32_t event);
+static void trie_notify(struct qb_list_head *head, struct trie_node *n, const char *key,
 			void *old_value, void *value);
 static struct trie_node *trie_new_node(struct trie *t, struct trie_node *parent);
 static void trie_destroy_node(struct trie_node *node);
@@ -384,13 +385,23 @@ trie_node_release(struct trie *t, struct trie_node *node)
 	}
 }
 
+/* MUST be called with the lock held */
 static void
 trie_node_destroy(struct trie *t, struct trie_node *n)
 {
+	struct qb_list_head *nl;
+
 	if (n->value == NULL) {
 		return;
 	}
-	trie_notify(n, QB_MAP_NOTIFY_DELETED, n->key, n->value, NULL);
+
+	nl = copy_notify_list(n, QB_MAP_NOTIFY_DELETED);
+
+	/* Unlock while calling the notify callbacks
+	   or we can deadlock */
+	pthread_mutex_unlock(&t->lock);
+	trie_notify(nl, n, n->key, n->value, NULL);
+	pthread_mutex_lock(&t->lock);
 
 	n->key = NULL;
 	n->value = NULL;
@@ -537,6 +548,7 @@ trie_put(struct qb_map *map, const char *key, const void *value)
 	if (n) {
 		const char *old_value = n->value;
 		const char *old_key = n->key;
+		struct qb_list_head *nl;
 
 		n->key = (char *)key;
 		n->value = (void *)value;
@@ -544,14 +556,14 @@ trie_put(struct qb_map *map, const char *key, const void *value)
 		if (old_value == NULL) {
 			trie_node_ref(t, n);
 			t->length++;
+
+			nl = copy_notify_list(n, QB_MAP_NOTIFY_INSERTED);
 			pthread_mutex_unlock(&t->lock);
-			trie_notify(n, QB_MAP_NOTIFY_INSERTED,
-				    (char *)key, NULL, (void *)value);
+			trie_notify(nl, n, (char *)key, NULL, (void*)value);
 		} else {
+			nl = copy_notify_list(n, QB_MAP_NOTIFY_REPLACED);
 			pthread_mutex_unlock(&t->lock);
-			trie_notify(n, QB_MAP_NOTIFY_REPLACED,
-				    (char *)old_key, (void *)old_value,
-				    (void *)value);
+			trie_notify(nl, n, (char*)old_key, (void *)old_value, (void *)value);
 		}
 	} else {
 		pthread_mutex_unlock(&t->lock);
@@ -571,8 +583,8 @@ trie_rm(struct qb_map *map, const char *key)
 	n = trie_lookup(t, key, QB_TRUE);
 	if (n) {
 		t->length--;
-		pthread_mutex_unlock(&t->lock);
 		trie_node_deref(t, n);
+		pthread_mutex_unlock(&t->lock);
 		return QB_TRUE;
 	} else {
 		pthread_mutex_unlock(&t->lock);
@@ -617,15 +629,34 @@ trie_notify_ref(struct qb_map_notifier *f)
 	f->refcount++;
 }
 
-static void
-trie_notify(struct trie_node *n,
-	    uint32_t event, const char *key, void *old_value, void *value)
+static void add_notify_event(struct qb_list_head *head, uint32_t event, struct qb_map_notifier *tn)
 {
+	struct qb_map_notifier *nn;
+
+	nn = malloc(sizeof(struct qb_map_notifier));
+	if (!nn) {
+		return;
+	}
+	memcpy(nn, tn, sizeof(struct qb_map_notifier));
+	nn->events = event;
+	qb_list_add_tail(&nn->list, head);
+}
+
+static struct qb_list_head *
+copy_notify_list(struct trie_node *n, uint32_t event)
+{
+	struct qb_list_head *new_head;
 	struct trie_node *c = n;
 	struct qb_list_head *list;
 	struct qb_list_head *next;
 	struct qb_list_head *head;
 	struct qb_map_notifier *tn;
+
+	new_head = malloc(sizeof(struct qb_list_head));
+	if (!new_head) {
+		return NULL;
+	}
+	qb_list_init(new_head);
 
 	do {
 		head = c->notifier_head;
@@ -636,20 +667,39 @@ trie_notify(struct trie_node *n,
 			if ((tn->events & event) &&
 			    ((tn->events & QB_MAP_NOTIFY_RECURSIVE) ||
 			     (n == c))) {
-				tn->callback(event, (char *)key, old_value,
-					     value, tn->user_data);
+				add_notify_event(new_head, event, tn);
 			}
 			if (((event & QB_MAP_NOTIFY_DELETED) ||
 			     (event & QB_MAP_NOTIFY_REPLACED)) &&
 			    (tn->events & QB_MAP_NOTIFY_FREE)) {
-				tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
-					     old_value, value, tn->user_data);
+				add_notify_event(new_head, QB_MAP_NOTIFY_FREE, tn);
 			}
 
 			trie_notify_deref(tn);
 		}
 		c = c->parent;
 	} while (c);
+	return new_head;
+}
+
+static void trie_notify(struct qb_list_head *head, struct trie_node *n, const char *key,
+			void *old_value, void *value)
+{
+	struct qb_list_head *list;
+	struct qb_list_head *tmp;
+	struct qb_map_notifier *tn;
+
+	if (!head) {
+		return;
+	}
+
+	qb_list_for_each_safe(list, tmp, head) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+		tn->callback(tn->events, (char *)key,
+			     old_value, value, tn->user_data);
+		free(tn);
+	}
+	free(head);
 }
 
 static int32_t
@@ -662,6 +712,9 @@ trie_notify_add(qb_map_t * m, const char *key,
 	struct qb_list_head *list;
 	int add_to_tail = QB_FALSE;
 
+	if (pthread_mutex_lock(&t->lock)) {
+		return -EINVAL;
+	}
 	if (key) {
 		n = trie_lookup(t, key, QB_TRUE);
 		if (n == NULL) {
@@ -676,18 +729,21 @@ trie_notify_add(qb_map_t * m, const char *key,
 
 			if (events & QB_MAP_NOTIFY_FREE &&
 			    f->events == events) {
+				pthread_mutex_unlock(&t->lock);
 				/* only one free notifier */
 				return -EEXIST;
 			}
 			if (f->events == events &&
 			    f->callback == fn &&
 			    f->user_data == user_data) {
+				pthread_mutex_unlock(&t->lock);
 				return -EEXIST;
 			}
 		}
 
 		f = malloc(sizeof(struct qb_map_notifier));
 		if (f == NULL) {
+			pthread_mutex_unlock(&t->lock);
 			return -errno;
 		}
 		f->events = events;
@@ -709,8 +765,10 @@ trie_notify_add(qb_map_t * m, const char *key,
 		} else {
 			qb_list_add(&f->list, n->notifier_head);
 		}
+		pthread_mutex_unlock(&t->lock);
 		return 0;
 	}
+	pthread_mutex_unlock(&t->lock);
 	return -EINVAL;
 }
 
@@ -748,7 +806,9 @@ trie_notify_del(qb_map_t * m, const char *key,
 
 	}
 	if (found) {
+		pthread_mutex_lock(&t->lock);
 		trie_node_release(t, n);
+		pthread_mutex_unlock(&t->lock);
 		return 0;
 	} else {
 		return -ENOENT;

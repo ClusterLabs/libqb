@@ -201,21 +201,37 @@ skiplist_lookup(struct skiplist *list, const char *key)
 	return NULL;
 }
 
-static void
-skiplist_notify(struct skiplist *l, struct skiplist_node *n,
-		uint32_t event, char *key, void *old_value, void *value)
+static void add_notify_event(struct qb_list_head *head, uint32_t event, struct qb_map_notifier *tn)
 {
+	struct qb_map_notifier *nn;
+
+	nn = malloc(sizeof(struct qb_map_notifier));
+	if (!nn) {
+		return;
+	}
+	memcpy(nn, tn, sizeof(struct qb_map_notifier));
+	nn->events = event;
+	qb_list_add_tail(&nn->list, head);
+}
+
+static struct qb_list_head *
+copy_notify_list(struct skiplist *l, struct skiplist_node *n, uint32_t event)
+{
+	struct qb_list_head *new_head;
 	struct qb_list_head *list;
 	struct qb_map_notifier *tn;
 
-	/* node callbacks
-	 */
+	new_head = malloc(sizeof(struct qb_list_head));
+	if (!new_head) {
+		return NULL;
+	}
+	qb_list_init(new_head);
+
 	qb_list_for_each(list, &n->notifier_head) {
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, key, old_value, value,
-				     tn->user_data);
+			add_notify_event(new_head, event, tn);
 		}
 	}
 	/* global callbacks
@@ -224,17 +240,35 @@ skiplist_notify(struct skiplist *l, struct skiplist_node *n,
 		tn = qb_list_entry(list, struct qb_map_notifier, list);
 
 		if (tn->events & event) {
-			tn->callback(event, key, old_value, value,
-				     tn->user_data);
+			add_notify_event(new_head, event, tn);
 		}
 		if (((event & QB_MAP_NOTIFY_DELETED) ||
 		     (event & QB_MAP_NOTIFY_REPLACED)) &&
 		    (tn->events & QB_MAP_NOTIFY_FREE)) {
-			tn->callback(QB_MAP_NOTIFY_FREE, (char *)key,
-				     old_value, value, tn->user_data);
+			add_notify_event(new_head, QB_MAP_NOTIFY_FREE, tn);
 		}
 	}
+	return new_head;
+}
 
+static void skiplist_notify(struct qb_list_head *head, struct skiplist_node *n, const char *key,
+			    void *old_value, void *value)
+{
+	struct qb_list_head *list;
+	struct qb_list_head *tmp;
+	struct qb_map_notifier *tn;
+
+	if (!head) {
+		return;
+	}
+
+	qb_list_for_each_safe(list, tmp, head) {
+		tn = qb_list_entry(list, struct qb_map_notifier, list);
+		tn->callback(tn->events, (char *)key,
+			     old_value, value, tn->user_data);
+		free(tn);
+	}
+	free(head);
 }
 
 static void
@@ -243,9 +277,10 @@ skiplist_node_destroy(struct skiplist_node *node, struct skiplist *list)
 	struct qb_list_head *pos;
 	struct qb_list_head *next;
 	struct qb_map_notifier *tn;
+	struct qb_list_head *nl;
 
-	skiplist_notify(list, node,
-			QB_MAP_NOTIFY_DELETED,
+	nl = copy_notify_list(list, node, QB_MAP_NOTIFY_DELETED);
+	skiplist_notify(nl, node,
 			(char *)node->key, node->value, NULL);
 
 	qb_list_for_each_safe(pos, next, &node->notifier_head) {
@@ -390,6 +425,7 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 {
 	struct skiplist *list = (struct skiplist *)map;
 	struct skiplist_node *new_node;
+	struct qb_list_head *nl;
 	int8_t level;
 	skiplist_update_t update;
 	int8_t update_level;
@@ -412,10 +448,11 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 			old_v = (char *)fwd_node->value;
 			fwd_node->value = (void *)value;
 			fwd_node->key = (void *)key;
+			nl = copy_notify_list(list, fwd_node, QB_MAP_NOTIFY_REPLACED);
 			pthread_mutex_unlock(&list->lock);
-			skiplist_notify(list, fwd_node,
-					QB_MAP_NOTIFY_REPLACED,
-					old_k, old_v, fwd_node->value);
+
+			skiplist_notify(nl, fwd_node,
+					old_k, old_v, (void *)value);
 			return;
 
 		case OP_GOTO_NEXT_NODE:
@@ -438,20 +475,19 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 	}
 	list->length++;
 	new_node = skiplist_node_new(new_node_level, key, value);
-	pthread_mutex_unlock(&list->lock);
 
 	assert(new_node != NULL);
-	skiplist_notify(list, new_node,
-			QB_MAP_NOTIFY_INSERTED,
-			(char*)key, NULL, (void*)value);
 
 	/* Drop @new_node into @list. */
-	pthread_mutex_lock(&list->lock);
 	for (level = SKIPLIST_LEVEL_MIN; level <= new_node_level; level++) {
 		new_node->forward[level] = update[level]->forward[level];
 		update[level]->forward[level] = new_node;
 	}
+	nl = copy_notify_list(list, new_node, QB_MAP_NOTIFY_INSERTED);
 	pthread_mutex_unlock(&list->lock);
+
+	skiplist_notify(nl, new_node,
+			(char*)key, NULL, (void*)value);
 }
 
 static int32_t
