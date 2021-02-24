@@ -144,7 +144,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	page_size = QB_MAX(page_size, 16 * 1024);
 #endif /* QB_FORCE_SHM_ALIGN */
 	/* The user of this api expects the 'size' parameter passed into this function
-	 * to be reflective of the max size single write we can do to the 
+	 * to be reflective of the max size single write we can do to the
 	 * ringbuffer.  This means we have to add both the 'margin' space used
 	 * to calculate if there is enough space for a new chunk as well as the '+1' that
 	 * prevents overlap of the read/write pointers */
@@ -798,8 +798,14 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	uint32_t version = 0;
 	uint32_t hash = 0;
 	uint32_t calculated_hash = 0;
+	struct stat st;
 
 	if (fd < 0) {
+		return NULL;
+	}
+
+	if (fstat(fd, &st)) {
+		qb_util_perror(LOG_ERR, "Unable to stat blackbox file");
 		return NULL;
 	}
 
@@ -814,6 +820,11 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	}
 	total_read += n_read;
 
+	if (word_size > (st.st_size / sizeof(uint32_t))) {
+		qb_util_perror(LOG_ERR, "Invalid word size read from blackbox header");
+		return NULL;
+	}
+
 	/*
 	 * 2. 3. read & write pointers
 	 */
@@ -824,6 +835,10 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	n_read = read(fd, &read_pt, sizeof(uint32_t));
 	assert(n_read == sizeof(uint32_t));
 	total_read += n_read;
+	if (write_pt > st.st_size || read_pt > st.st_size) {
+		qb_util_perror(LOG_ERR, "Invalid pointers read from blackbox header");
+		return NULL;
+	}
 
 	/*
 	 * 4. version
