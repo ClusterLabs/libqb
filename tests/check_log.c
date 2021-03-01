@@ -1021,12 +1021,13 @@ START_TEST(test_journal)
 	pid_t log_pid;
 	sd_journal *jnl;
 	int count = 0;
+	const char *msgid="f77379a8490b408bbe5f6940505a777b";
 
 	qb_log_init("check_log", LOG_USER, LOG_DEBUG);
 	qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_TRUE);
 	rc = qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_USE_JOURNAL, 1);
 	ck_assert_int_eq(rc, 0);
-	qb_log(LOG_ERR, "Test message 1 from libqb");
+	qb_log2(msgid, LOG_ERR, "Test message 1 from libqb");
 
 	qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
 	rc = qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_USE_JOURNAL, 1);
@@ -1046,6 +1047,9 @@ START_TEST(test_journal)
 	    if (log_pid == getpid()) {
 	        rc = sd_journal_get_data(jnl, "MESSAGE", (const void **)&msg, &len);
 		ck_assert_int_eq(rc, 0);
+	        rc = sd_journal_get_data(jnl, "MESSAGE_ID", (const void **)&msg, &len);
+		ck_assert_int_eq(rc, 0);
+		ck_assert_str_eq(msg+11, msgid);
 		break;
 	    }
 	    if (++count > 20) {

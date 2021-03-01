@@ -317,7 +317,8 @@ qb_log_thread_log_write(struct qb_log_callsite *cs,
 }
 
 struct qb_log_callsite*
-qb_log_callsite_get(const char *function,
+qb_log_callsite_get2(const char *message_id,
+		    const char *function,
 		    const char *filename,
 		    const char *format,
 		    uint8_t priority,
@@ -335,8 +336,9 @@ qb_log_callsite_get(const char *function,
 		return NULL;
 	}
 
-	cs = qb_log_dcs_get(&new_dcs, function, filename,
-			    format, priority, lineno, tags);
+	cs = qb_log_dcs_get(&new_dcs, message_id, function, filename,
+ 			    format, priority, lineno, tags);
+
 	if (cs == NULL) {
 		return NULL;
 	}
@@ -380,8 +382,21 @@ qb_log_callsite_get(const char *function,
 	return cs;
 }
 
+struct qb_log_callsite*
+qb_log_callsite_get(const char *function,
+		    const char *filename,
+		    const char *format,
+		    uint8_t priority,
+		    uint32_t lineno,
+		    uint32_t tags)
+{
+	return qb_log_callsite_get2(NULL, function, filename, format,
+				    priority, lineno, tags);
+}
+
 void
-qb_log_from_external_source_va(const char *function,
+qb_log_from_external_source_va2(const char *message_id,
+			       const char *function,
 			       const char *filename,
 			       const char *format,
 			       uint8_t priority,
@@ -393,9 +408,20 @@ qb_log_from_external_source_va(const char *function,
 		return;
 	}
 
-	cs = qb_log_callsite_get(function, filename,
+	cs = qb_log_callsite_get2(message_id, function, filename,
 				 format, priority, lineno, tags);
 	qb_log_real_va_(cs, ap);
+}
+
+void
+qb_log_from_external_source_va(const char *function,
+			       const char *filename,
+			       const char *format,
+			       uint8_t priority,
+			       uint32_t lineno, uint32_t tags, va_list ap)
+{
+	qb_log_from_external_source_va2(NULL, function, filename,
+				   format, priority, lineno, tags, ap);
 }
 
 void

@@ -249,6 +249,7 @@ typedef const char *(*qb_log_tags_stringify_fn)(uint32_t tags);
 
 /**
  * An instance of this structure is created for each log message
+ * with the message-id
  */
 struct qb_log_callsite {
 	const char *function;
@@ -258,6 +259,7 @@ struct qb_log_callsite {
 	uint32_t lineno;
 	uint32_t targets;
 	uint32_t tags;
+	const char *message_id;
 } __attribute__((aligned(8)));
 
 typedef void (*qb_log_filter_fn)(struct qb_log_callsite * cs);
@@ -319,6 +321,39 @@ struct qb_log_callsite* qb_log_callsite_get(const char *function,
 					    uint32_t lineno,
 					    uint32_t tags);
 
+/**
+ * Get or create a callsite at the given position.
+ * The same that qb_log_callsite_get but with the
+ * message_id parameter.
+ *
+ * The result can then be passed into qb_log_real_()
+ *
+ * @param message_id in the systemd catalog or NULL
+ * @param function originating function name
+ * @param filename originating filename
+ * @param format format string
+ * @param priority this takes syslog priorities.
+ * @param lineno file line number
+ * @param tags the tag
+ */
+struct qb_log_callsite* qb_log_callsite_get2(const char *message_id,
+					    const char *function,
+					    const char *filename,
+					    const char *format,
+					    uint8_t priority,
+					    uint32_t lineno,
+					    uint32_t tags);
+
+void qb_log_from_external_source_va2(const char *message_id,
+				    const char *function,
+				    const char *filename,
+				    const char *format,
+				    uint8_t priority,
+				    uint32_t lineno,
+				    uint32_t tags,
+				    va_list ap)
+	__attribute__ ((format (printf, 4, 0)));
+
 void qb_log_from_external_source_va(const char *function,
 				    const char *filename,
 				    const char *format,
@@ -332,6 +367,7 @@ void qb_log_from_external_source_va(const char *function,
  * This is the function to generate a log message if you want to
  * manually add tags.
  *
+ * @param message_id in the systemd catalog or NULL
  * @param priority this takes syslog priorities.
  * @param tags this is a uint32_t that you can use with
  *             qb_log_tags_stringify_fn_set() to "tag" a log message
@@ -340,13 +376,37 @@ void qb_log_from_external_source_va(const char *function,
  * @param fmt usual printf style format specifiers
  * @param args usual printf style args
  */
-#define qb_logt(priority, tags, fmt, args...) do {	\
+#define qb_logt2(message_id, priority, tags, fmt, args...) do {	\
 	struct qb_log_callsite* descriptor_pt =		\
-	qb_log_callsite_get(__func__, __FILE__, fmt,	\
+	qb_log_callsite_get2(message_id, __func__, __FILE__, fmt,	\
 			    priority, __LINE__, tags);	\
 	qb_log_real_(descriptor_pt, ##args);		\
     } while(0)
 
+/**
+ * This is the function to generate a log message if you want to
+ * manually add tags.
+ *
+ * @param priority this takes syslog priorities.
+ * @param tags this is a uint32_t that you can use with
+ *             qb_log_tags_stringify_fn_set() to "tag" a log message
+ *             with a feature or sub-system then you can use "%g"
+ *             in the format specifer to print it out.
+ * @param fmt usual printf style format specifiers
+ * @param args usual printf style args
+ */
+#define qb_logt(priority, tags, fmt, args...) qb_logt2(NULL, priority, tags, fmt, ##args)
+
+
+/**
+ * This is the main function to generate a log message.
+ *
+ * @param message_id in the systemd catalog or NULL
+ * @param priority this takes syslog priorities.
+ * @param fmt usual printf style format specifiers
+ * @param args usual printf style args
+ */
+#define qb_log2(message_id, priority, fmt, args...) qb_logt2(message_id, priority, 0, fmt, ##args)
 
 /**
  * This is the main function to generate a log message.
