@@ -33,10 +33,16 @@
 #include <qb/qbutil.h>
 #include <qb/qblog.h>
 
-#define SHORT_TIMEOUT		(100 * QB_TIME_NS_IN_MSEC)
-#define LONG_TIMEOUT		(60 * QB_TIME_NS_IN_SEC)
+#define SHORT_TIMEOUT			(100 * QB_TIME_NS_IN_MSEC)
+#define LONG_TIMEOUT			(60 * QB_TIME_NS_IN_SEC)
 
-#define SPEED_TEST_NO_ITEMS	10000
+#define SPEED_TEST_NO_ITEMS		10000
+
+#define HEAP_TEST_NO_ITEMS		20
+/*
+ * Valid heap checking is slow
+ */
+#define HEAP_SPEED_TEST_NO_ITEMS	1000
 
 static int timer_list_fn1_called = 0;
 
@@ -105,6 +111,8 @@ START_TEST(test_check_basic)
 	timerlist_del(&tlist, thandle);
 	u64 = timerlist_msec_duration_to_expire(&tlist);
 	ck_assert(u64 == -1);
+
+	timerlist_destroy(&tlist);
 }
 END_TEST
 
@@ -154,6 +162,102 @@ START_TEST(test_check_speed)
 
 	u64 = timerlist_msec_duration_to_expire(&tlist);
 	ck_assert(u64 == -1);
+
+	timerlist_destroy(&tlist);
+}
+END_TEST
+
+START_TEST(test_check_heap)
+{
+	struct timerlist tlist;
+	int i;
+	timer_handle tlist_entry[HEAP_TEST_NO_ITEMS];
+	timer_handle tlist_speed_entry[HEAP_SPEED_TEST_NO_ITEMS];
+	int res;
+
+	timerlist_init(&tlist);
+
+	/*
+	 * Empty tlist
+	 */
+	ck_assert(timerlist_msec_duration_to_expire(&tlist) == -1);
+
+	/*
+	 * Add items in standard and reverse order
+	 */
+	for (i = 0; i < HEAP_TEST_NO_ITEMS / 2; i++) {
+		res = timerlist_add_duration(&tlist, timer_list_fn1, &timer_list_fn1_called,
+		    LONG_TIMEOUT * ((HEAP_TEST_NO_ITEMS - i) + 1), &tlist_entry[i * 2]);
+		ck_assert_int_eq(res, 0);
+
+		res = timerlist_add_duration(&tlist, timer_list_fn1, &timer_list_fn1_called,
+		    LONG_TIMEOUT * (i + 1), &tlist_entry[i * 2 + 1]);
+		ck_assert_int_eq(res, 0);
+
+		ck_assert(timerlist_debug_is_valid_heap(&tlist));
+	}
+
+	/*
+	 * Remove items
+	 */
+	for (i = 0; i < HEAP_TEST_NO_ITEMS; i++) {
+		timerlist_del(&tlist, tlist_entry[i]);
+
+		ck_assert(timerlist_debug_is_valid_heap(&tlist));
+	}
+
+	ck_assert(timerlist_msec_duration_to_expire(&tlist) == -1);
+
+	/*
+	 * Add items again in increasing order
+	 */
+	for (i = 0; i < HEAP_TEST_NO_ITEMS; i++) {
+		res = timerlist_add_duration(&tlist, timer_list_fn1, &timer_list_fn1_called,
+		    LONG_TIMEOUT * (i + 1), &tlist_entry[i]);
+		ck_assert_int_eq(res, 0);
+
+		ck_assert(timerlist_debug_is_valid_heap(&tlist));
+	}
+
+
+	/*
+	 * Try delete every third item and test if heap property is kept
+	 */
+	i = 0;
+	while (tlist.size > 0) {
+		i = (i + 3) % HEAP_TEST_NO_ITEMS;
+
+		while (tlist_entry[i] == NULL) {
+			i = (i + 1) % HEAP_TEST_NO_ITEMS;
+		}
+
+		timerlist_del(&tlist, tlist_entry[i]);
+		tlist_entry[i] = NULL;
+		ck_assert(timerlist_debug_is_valid_heap(&tlist));
+	}
+
+	ck_assert(timerlist_msec_duration_to_expire(&tlist) == -1);
+
+	/*
+	 * Speed test
+	 */
+	for (i = 0; i < HEAP_SPEED_TEST_NO_ITEMS; i++) {
+		res = timerlist_add_duration(&tlist, timer_list_fn1, &timer_list_fn1_called,
+		    SHORT_TIMEOUT / 2, &tlist_speed_entry[i]);
+		ck_assert_int_eq(res, 0);
+
+		ck_assert(timerlist_debug_is_valid_heap(&tlist));
+	}
+
+	for (i = 0; i < HEAP_SPEED_TEST_NO_ITEMS; i++) {
+		timerlist_del(&tlist, tlist_speed_entry[i]);
+		ck_assert(timerlist_debug_is_valid_heap(&tlist));
+	}
+
+	/*
+	 * Free list
+	 */
+	timerlist_destroy(&tlist);
 }
 END_TEST
 
@@ -164,6 +268,7 @@ static Suite *tlist_suite(void)
 
 	add_tcase(s, tc, test_check_basic);
 	add_tcase(s, tc, test_check_speed, 30);
+	add_tcase(s, tc, test_check_heap, 30);
 
 	return s;
 }

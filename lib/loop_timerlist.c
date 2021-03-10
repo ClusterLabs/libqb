@@ -115,6 +115,8 @@ qb_loop_timer_destroy(struct qb_loop *l)
 {
 	struct qb_timer_source *my_src =
 	    (struct qb_timer_source *)l->timer_source;
+
+	timerlist_destroy(&my_src->timerlist);
 	qb_array_free(my_src->timers);
 	free(l->timer_source);
 }
