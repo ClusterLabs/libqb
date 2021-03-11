@@ -347,15 +347,22 @@ static inline int32_t timerlist_add_duration(struct timerlist *timerlist,
 	return (0);
 }
 
-static inline void timerlist_del(struct timerlist *timerlist,
+static inline int32_t timerlist_del(struct timerlist *timerlist,
 				 timer_handle _timer_handle)
 {
 	struct timerlist_timer *timer = (struct timerlist_timer *)_timer_handle;
+
+	if (pthread_mutex_lock(&timerlist->list_mutex)) {
+		return -errno;
+	}
 
 	memset(timer->handle_addr, 0, sizeof(struct timerlist_timer *));
 
 	timerlist_heap_delete(timerlist, timer);
 	free(timer);
+
+	pthread_mutex_unlock(&timerlist->list_mutex);
+	return 0;
 }
 
 static inline uint64_t timerlist_expire_time(struct timerlist
@@ -396,13 +403,27 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct timerlist *timer
 	volatile uint64_t msec_duration_to_expire;
 
 	/*
+	 * There is really no reasonable value to return when mutex lock fails
+	 */
+	if (pthread_mutex_lock(&timerlist->list_mutex)) {
+		return (-1);
+	}
+
+	/*
 	 * empty list, no expire
 	 */
 	if (timerlist->size == 0) {
+		pthread_mutex_unlock(&timerlist->list_mutex);
+
 		return (-1);
 	}
 
 	timer_from_list = timerlist_heap_entry_get(timerlist, 0);
+
+	/*
+	 * Mutex is no longer needed
+	 */
+	pthread_mutex_unlock(&timerlist->list_mutex);
 
 	if (timer_from_list->is_absolute_timer) {
 		current_time = qb_util_nano_from_epoch_get();
@@ -426,7 +447,7 @@ static inline uint64_t timerlist_msec_duration_to_expire(struct timerlist *timer
 /*
  * Expires any timers that should be expired
  */
-static inline void timerlist_expire(struct timerlist *timerlist)
+static inline int32_t timerlist_expire(struct timerlist *timerlist)
 {
 	struct timerlist_timer *timer;
 	uint64_t current_time_from_epoch;
@@ -435,6 +456,10 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 
 	current_monotonic_time = qb_util_nano_current_get();
 	current_time_from_epoch = qb_util_nano_from_epoch_get();
+
+	if (pthread_mutex_lock(&timerlist->list_mutex)) {
+		return -errno;
+	}
 
 	while (timerlist->size > 0) {
 		timer = timerlist_heap_entry_get(timerlist, 0);
@@ -455,5 +480,9 @@ static inline void timerlist_expire(struct timerlist *timerlist)
 			break;	/* for timer iteration */
 		}
 	}
+
+	pthread_mutex_unlock(&timerlist->list_mutex);
+
+	return (0);
 }
 #endif /* QB_TLIST_H_DEFINED */
