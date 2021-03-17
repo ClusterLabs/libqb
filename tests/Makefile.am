@@ -38,7 +38,8 @@ bmc_SOURCES = bmc.c
 bmc_LDADD = $(top_builddir)/lib/libqb.la
 
 bmcpt_SOURCES = bmcpt.c
-bmcpt_LDADD = $(top_builddir)/lib/libqb.la
+bmcpt_CFLAGS = $(PTHREAD_CFLAGS)
+bmcpt_LDADD = $(PTHREAD_LIBS) $(top_builddir)/lib/libqb.la
 
 bms_SOURCES = bms.c
 bms_CFLAGS = $(GLIB_CFLAGS)
