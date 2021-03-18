@@ -125,7 +125,7 @@ resources.log: rb.log log.log ipc.log
 
 check_LTLIBRARIES =
 check_PROGRAMS = array.test ipc.test list.test log.test loop.test \
-		 map.test rb.test util.test \
+		 map.test rb.test util.test tlist.test \
 		 crash_test_dummy file_change_bytes
 dist_check_SCRIPTS = start.test resources.test blackbox-segfault.sh
 
@@ -161,6 +161,10 @@ rb_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 loop_test_SOURCES = check_loop.c
 loop_test_CFLAGS = @CHECK_CFLAGS@
 loop_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
+
+tlist_test_SOURCES = check_tlist.c
+tlist_test_CFLAGS = @CHECK_CFLAGS@
+tlist_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
 ipc_test_SOURCES = check_ipc.c
 ipc_test_CFLAGS = @CHECK_CFLAGS@

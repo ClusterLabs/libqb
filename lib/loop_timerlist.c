@@ -76,7 +76,9 @@ expire_the_timers(struct qb_loop_source *s, int32_t ms_timeout)
 {
 	struct qb_timer_source *ts = (struct qb_timer_source *)s;
 	expired_timers = 0;
-	timerlist_expire(&ts->timerlist);
+	if (timerlist_expire(&ts->timerlist) != 0) {
+		qb_util_log(LOG_ERR, "timerlist_expire failed");
+	}
 	return expired_timers;
 }
 
@@ -115,6 +117,8 @@ qb_loop_timer_destroy(struct qb_loop *l)
 {
 	struct qb_timer_source *my_src =
 	    (struct qb_timer_source *)l->timer_source;
+
+	timerlist_destroy(&my_src->timerlist);
 	qb_array_free(my_src->timers);
 	free(l->timer_source);
 }
@@ -263,7 +267,9 @@ qb_loop_timer_del(struct qb_loop * lp, qb_loop_timer_handle th)
 	}
 
 	if (t->timerlist_handle) {
-		timerlist_del(&s->timerlist, t->timerlist_handle);
+		if (timerlist_del(&s->timerlist, t->timerlist_handle) != 0) {
+			qb_util_log(LOG_ERR, "Could not delete timer from timerlist");
+		}
 	}
 	t->state = QB_POLL_ENTRY_EMPTY;
 	return 0;
