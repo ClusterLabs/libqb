@@ -51,6 +51,19 @@ char *cstring_to_chars(cstring_t cstring)
 	return strdup(h->the_string);
 }
 
+size_t cstring_len(cstring_t cstring)
+{
+	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
+
+	if (!h) {
+		return 0;
+	}
+
+	assert(h->checker == CHECKER_WORD);
+	return h->used;
+}
+
+
 cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 {
 	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
