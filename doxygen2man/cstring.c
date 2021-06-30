@@ -41,7 +41,7 @@ cstring_t cstring_alloc(void)
 
 char *cstring_to_chars(cstring_t cstring)
 {
-	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
+	struct cstring_header *h = (struct cstring_header *)cstring;
 
 	if (!h) {
 		return NULL;
@@ -53,7 +53,7 @@ char *cstring_to_chars(cstring_t cstring)
 
 size_t cstring_len(cstring_t cstring)
 {
-	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
+	struct cstring_header *h = (struct cstring_header *)cstring;
 
 	if (!h) {
 		return 0;
@@ -66,7 +66,7 @@ size_t cstring_len(cstring_t cstring)
 
 cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 {
-	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
+	struct cstring_header *h = (struct cstring_header *)cstring;
 	size_t newlen;
 
 	if (!h) {
@@ -87,7 +87,7 @@ cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 		}
 
 		cstring = tmp;
-		h = (struct cstring_header *)(char *)cstring;
+		h = (struct cstring_header *)cstring;
 		h->allocated = new_allocsize;
 	}
 	strncat(h->the_string, newstring, h->allocated - h->used -1);
@@ -98,7 +98,7 @@ cstring_t cstring_append_chars(cstring_t cstring, const char *newstring)
 cstring_t cstring_append_cstring(cstring_t cstring, cstring_t newstring)
 {
 	/* Just check the newstring - cstring_append_chars() will check the target */
-	struct cstring_header *h = (struct cstring_header *)(char *)newstring;
+	struct cstring_header *h = (struct cstring_header *)newstring;
 
 	if (!h) {
 		return NULL;
@@ -119,7 +119,7 @@ cstring_t cstring_from_chars(const char* chars)
 
 void cstring_free(cstring_t cstring)
 {
-	struct cstring_header *h = (struct cstring_header *)(char *)cstring;
+	struct cstring_header *h = (struct cstring_header *)cstring;
 
 	if (!h) {
 		return;
