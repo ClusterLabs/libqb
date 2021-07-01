@@ -10,5 +10,6 @@ char *cstring_to_chars(cstring_t cstring);
 cstring_t cstring_append_chars(cstring_t cstring, const char *newstring);
 cstring_t cstring_append_cstring(cstring_t cstring, cstring_t newstring);
 void cstring_free(cstring_t cstring);
+size_t cstring_len(cstring_t cstring);
 
 #endif
