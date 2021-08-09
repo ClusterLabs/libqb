@@ -76,7 +76,7 @@ _rpl_sem_timedwait(rpl_sem_t * sem, const struct timespec *timeout)
 {
 	int retval = pthread_mutex_lock(&sem->mutex);
 	if (retval != 0) {
-		return -errno;
+		return -retval;
 	}
 	if (sem->destroy_request) {
 		retval = -EINVAL;

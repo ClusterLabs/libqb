@@ -187,6 +187,7 @@ qb_loop_timer_add(struct qb_loop * lp,
 	struct qb_loop_timer *t;
 	struct qb_timer_source *my_src;
 	int32_t i;
+	int res;
 	struct qb_loop *l = lp;
 
 	if (l == NULL) {
@@ -198,8 +199,8 @@ qb_loop_timer_add(struct qb_loop * lp,
 	}
 	my_src = (struct qb_timer_source *)l->timer_source;
 
-	if (pthread_mutex_lock(&my_src->lock)) {
-		return -errno;
+	if ( (res=pthread_mutex_lock(&my_src->lock))) {
+		return -res;
 	}
 	i = _get_empty_array_position_(my_src);
 	assert(qb_array_index(my_src->timers, i, (void **)&t) >= 0);
