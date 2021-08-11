@@ -284,8 +284,8 @@ static inline int32_t timerlist_add(struct timerlist *timerlist,
 	struct timerlist_timer **new_heap_entries;
 	int32_t res = 0;
 
-	if (pthread_mutex_lock(&timerlist->list_mutex)) {
-		return -errno;
+	if ( (res=pthread_mutex_lock(&timerlist->list_mutex))) {
+		return -res;
 	}
 
 	/*
@@ -351,9 +351,10 @@ static inline int32_t timerlist_del(struct timerlist *timerlist,
 				 timer_handle _timer_handle)
 {
 	struct timerlist_timer *timer = (struct timerlist_timer *)_timer_handle;
+	int res;
 
-	if (pthread_mutex_lock(&timerlist->list_mutex)) {
-		return -errno;
+	if ( (res=pthread_mutex_lock(&timerlist->list_mutex))) {
+		return -res;
 	}
 
 	memset(timer->handle_addr, 0, sizeof(struct timerlist_timer *));
@@ -453,12 +454,13 @@ static inline int32_t timerlist_expire(struct timerlist *timerlist)
 	uint64_t current_time_from_epoch;
 	uint64_t current_monotonic_time;
 	uint64_t current_time;
+	int res;
 
 	current_monotonic_time = qb_util_nano_current_get();
 	current_time_from_epoch = qb_util_nano_from_epoch_get();
 
-	if (pthread_mutex_lock(&timerlist->list_mutex)) {
-		return -errno;
+	if ( (res=pthread_mutex_lock(&timerlist->list_mutex))) {
+		return -res;
 	}
 
 	while (timerlist->size > 0) {
