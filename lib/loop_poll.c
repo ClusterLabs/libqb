@@ -475,12 +475,8 @@ try_again:
 		res = write(pipe_fds[1], &sig, sizeof(int32_t));
 		if (res == -1 && errno == EAGAIN) {
 			goto try_again;
-		} else if (res != sizeof(int32_t)) {
-			qb_util_log(LOG_ERR,
-				    "failed to write signal to pipe [%d]", res);
 		}
 	}
-	qb_util_log(LOG_TRACE, "got real signal [%d] sent to pipe", sig);
 }
 
 static void
