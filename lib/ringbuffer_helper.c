@@ -313,17 +313,6 @@ qb_rb_sem_create(struct qb_ringbuffer_s * rb, uint32_t flags)
    given platform (O_PATH for the former, O_DIRECTORY for the
    latter); end result is available as RB_DIR_RO_FLAGS.
  */
-#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
-#  ifndef O_DIRECTORY
-#    define RB_DIR_RO_FLAGS1 O_RDONLY
-#  else
-#    define RB_DIR_RO_FLAGS1 O_RDONLY|O_DIRECTORY
-#  endif
-#  ifndef O_PATH
-#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1
-#  else
-#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1|O_PATH
-#  endif
 
 int32_t
 qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
@@ -350,6 +339,18 @@ qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
 		   we hadn't write permissions to the underlying mmap'd file */
 		char dir_path[PATH_MAX];
 		int dirfd;
+
+#if defined(HAVE_OPENAT) && defined(HAVE_UNLINKAT)
+#  ifndef O_DIRECTORY
+#    define RB_DIR_RO_FLAGS1 O_RDONLY
+#  else
+#    define RB_DIR_RO_FLAGS1 O_RDONLY|O_DIRECTORY
+#  endif
+#  ifndef O_PATH
+#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1
+#  else
+#    define RB_DIR_RO_FLAGS RB_DIR_RO_FLAGS1|O_PATH
+#  endif
 
 		if (sep != NULL) {
 			strncpy(dir_path, data_path, sep - data_path);
