@@ -81,6 +81,36 @@ qb_ipcc_connection_t*
 qb_ipcc_connect(const char *name, size_t max_msg_size);
 
 /**
+ * Asynchronously connect to an IPC service
+ * @param name name of the service.
+ * @param max_msg_size biggest msg size.
+ * @param connect_fd return FD to continue connection with
+ * @return NULL (error: see errno) or a connection object.
+ *
+ * qb_ipcc_connect_async() returns a connection FD which
+ * should be used added to the application's mainloop - when it is
+ * active, qb_ipcc_connect_continue() should be called for the
+ * connection to be finalised.
+ * NOTE: This is NOT the same FD that is used for normal applicaion
+ * polling. qb_ipcc_fd_get() must still be called once the connection
+ * is established.
+ */
+qb_ipcc_connection_t *
+qb_ipcc_connect_async(const char *name, size_t max_msg_size, int *connect_fd);
+
+/**
+ * Finish up an asynchonous IPC connection
+ * @param c connection handle as returned from qb_ipcc_connect_async()
+ * @return 0 or -errno.
+ *
+ * Finishes up a connection that was initiated by qb_ipcc_connect_async(),
+ * this should only be called when the fd returned by qb_ipcc_connect_async()
+ * becomes active, usually as a callback in the application's main loop.
+ */
+int
+qb_ipcc_connect_continue(struct qb_ipcc_connection * c);
+
+/**
  * Test kernel dgram socket buffers to verify the largest size up
  * to the max_msg_size value a single msg can be. Rounds down to the
  * nearest 1k.

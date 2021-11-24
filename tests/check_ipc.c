@@ -1007,6 +1007,62 @@ repeat_send:
 	return res;
 }
 
+
+static int32_t
+process_async_connect(int32_t fd, int32_t revents, void *data)
+{
+	qb_loop_t *cl = (qb_loop_t *)data;
+	int res;
+
+	res = qb_ipcc_connect_continue(conn);
+	ck_assert_int_eq(res, 0);
+	qb_loop_stop(cl);
+	return 0;
+}
+static void test_ipc_connect_async(void)
+{
+	struct qb_ipc_request_header req_header;
+	struct qb_ipc_response_header res_header;
+	int32_t res;
+	pid_t pid;
+	uint32_t max_size = MAX_MSG_SIZE;
+	int connect_fd;
+	struct iovec iov[1];
+	static qb_loop_t *cl;
+
+	pid = run_function_in_new_process("server", run_ipc_server, NULL);
+	ck_assert(pid != -1);
+
+	conn = qb_ipcc_connect_async(ipc_name, max_size, &connect_fd);
+	ck_assert(conn != NULL);
+
+	cl = qb_loop_create();
+	res = qb_loop_poll_add(cl, QB_LOOP_MED,
+			 connect_fd, POLLIN,
+			 cl, process_async_connect);
+	ck_assert_int_eq(res, 0);
+	qb_loop_run(cl);
+
+	/* Send some data */
+	req_header.id = IPC_MSG_REQ_TX_RX;
+	req_header.size = sizeof(struct qb_ipc_request_header);
+
+	iov[0].iov_len = req_header.size;
+	iov[0].iov_base = &req_header;
+
+	res = qb_ipcc_sendv_recv(conn, iov, 1,
+				 &res_header,
+				 sizeof(struct qb_ipc_response_header), 5000);
+
+	ck_assert_int_ge(res, 0);
+
+	request_server_exit();
+	verify_graceful_stop(pid);
+
+
+	qb_ipcc_disconnect(conn);
+}
+
 static void
 test_ipc_txrx_timeout(void)
 {
@@ -1226,6 +1282,7 @@ START_TEST(test_ipc_txrx_shm_timeout)
 }
 END_TEST
 
+
 START_TEST(test_ipc_txrx_us_timeout)
 {
 	qb_enter();
@@ -1236,6 +1293,25 @@ START_TEST(test_ipc_txrx_us_timeout)
 }
 END_TEST
 
+START_TEST(test_ipc_shm_connect_async)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	test_ipc_connect_async();
+	qb_leave();
+}
+END_TEST
+
+START_TEST(test_ipc_us_connect_async)
+{
+	qb_enter();
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	test_ipc_connect_async();
+	qb_leave();
+}
+END_TEST
 
 START_TEST(test_ipc_txrx_shm_getauth)
 {
@@ -2277,6 +2353,8 @@ make_shm_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("shm");
 
+	add_tcase(s, tc, test_ipc_shm_connect_async, 7);
+
 	add_tcase(s, tc, test_ipc_txrx_shm_getauth, 7);
 	add_tcase(s, tc, test_ipc_txrx_shm_timeout, 28);
 	add_tcase(s, tc, test_ipc_server_fail_shm, 7);
@@ -2307,6 +2385,8 @@ make_soc_suite(void)
 {
 	Suite *s = suite_create("socket");
 	TCase *tc;
+
+	add_tcase(s, tc, test_ipc_us_connect_async, 7);
 
 	add_tcase(s, tc, test_ipc_txrx_us_getauth, 7);
 	add_tcase(s, tc, test_ipc_txrx_us_timeout, 28);
