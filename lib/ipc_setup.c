@@ -446,9 +446,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 {
 	int32_t res;
 	struct qb_ipc_connection_request request;
-	struct ipc_auth_data *data;
 #ifdef QB_LINUX
-	int off = 0;
 	int on = 1;
 #endif
 
@@ -471,13 +469,24 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		return res;
 	}
 
+	/* ... To be continued ... (when the FD is active) */
+	return 0;
+}
+
+/* Called from ipcc_connect_continue() when async connect socket is active */
+int qb_ipcc_setup_connect_continue(struct qb_ipcc_connection *c, struct qb_ipc_connection_response *r)
+{
+	struct ipc_auth_data *data;
+	int32_t res;
+#ifdef QB_LINUX
+	int off = 0;
+#endif
 	data = init_ipc_auth_data(c->setup.u.us.sock, sizeof(struct qb_ipc_connection_response));
 	if (data == NULL) {
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return -ENOMEM;
 	}
 
-	qb_ipc_us_ready(&c->setup, NULL, -1, POLLIN);
 	res = qb_ipc_us_recv_msghdr(data);
 
 #ifdef QB_LINUX
@@ -498,6 +507,7 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	c->server_pid = data->ugp.pid;
 
 	destroy_ipc_auth_data(data);
+
 	return r->hdr.error;
 }
 

@@ -45,6 +45,70 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 	if (res < 0) {
 		goto disconnect_and_cleanup;
 	}
+	qb_ipc_us_ready(&c->setup, NULL, -1, POLLIN);
+	res = qb_ipcc_connect_continue(c);
+	if (res != 0) {
+		/* qb_ipcc_connect_continue() has cleaned up for us */
+		errno = -res;
+		return NULL;
+	}
+
+	return c;
+
+disconnect_and_cleanup:
+	if (c->setup.u.us.sock >= 0) {
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
+	}
+	free(c->receive_buf);
+	free(c);
+	errno = -res;
+	return NULL;
+}
+
+qb_ipcc_connection_t *
+qb_ipcc_connect_async(const char *name, size_t max_msg_size, int *connect_fd)
+{
+	int32_t res;
+	qb_ipcc_connection_t *c = NULL;
+	struct qb_ipc_connection_response response;
+
+	c = calloc(1, sizeof(struct qb_ipcc_connection));
+	if (c == NULL) {
+		return NULL;
+	}
+
+	c->setup.max_msg_size = QB_MAX(max_msg_size,
+				       sizeof(struct qb_ipc_connection_response));
+	(void)strlcpy(c->name, name, NAME_MAX);
+	res = qb_ipcc_us_setup_connect(c, &response);
+	if (res < 0) {
+		goto disconnect_and_cleanup;
+	}
+
+	*connect_fd = c->setup.u.us.sock;
+	return c;
+
+disconnect_and_cleanup:
+	if (c->setup.u.us.sock >= 0) {
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
+	}
+	free(c->receive_buf);
+	free(c);
+	errno = -res;
+	return NULL;
+}
+
+int qb_ipcc_connect_continue(struct qb_ipcc_connection * c)
+{
+	struct qb_ipc_connection_response response;
+	int32_t res;
+
+	/* Finish up the authentication part */
+	res = qb_ipcc_setup_connect_continue(c, &response);
+	if (res != 0) {
+		goto disconnect_and_cleanup;
+	}
+
 	c->response.type = response.connection_type;
 	c->request.type = response.connection_type;
 	c->event.type = response.connection_type;
@@ -79,7 +143,7 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 		goto disconnect_and_cleanup;
 	}
 	c->is_connected = QB_TRUE;
-	return c;
+	return 0;
 
 disconnect_and_cleanup:
 	if (c->setup.u.us.sock >= 0) {
@@ -88,7 +152,8 @@ disconnect_and_cleanup:
 	free(c->receive_buf);
 	free(c);
 	errno = -res;
-	return NULL;
+	return -res;
+
 }
 
 static int32_t
