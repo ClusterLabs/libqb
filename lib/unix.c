@@ -81,6 +81,9 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	int32_t i;
 #endif
 	char *is_absolute = strchr(file, '/');
+#ifdef HAVE_POSIX_FALLOCATE
+	int32_t fallocate_retry = 5;
+#endif
 
 	if (is_absolute) {
 		(void)strlcpy(path, file, PATH_MAX);
@@ -121,12 +124,22 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	}
 #endif
 #ifdef HAVE_POSIX_FALLOCATE
-	if ((res = posix_fallocate(fd, 0, bytes)) != 0) {
-		errno = res;
-		res = -1 * res;
-		qb_util_perror(LOG_ERR, "couldn't allocate file %s", path);
-		goto unlink_exit;
-	}
+	/* posix_fallocate(3) can be interrupted by a signal,
+	   so retry few times before giving up */
+	do {
+		fallocate_retry--;
+		res = posix_fallocate(fd, 0, bytes);
+		if (res == EINTR) {
+			qb_util_log(LOG_DEBUG, "got EINTR trying to allocate file %s, retrying...", path);
+			continue;
+		} else if (res != 0) {
+			errno = res;
+			res = -1 * res;
+			qb_util_perror(LOG_ERR, "couldn't allocate file %s", path);
+			goto unlink_exit;
+		}
+		break;
+	} while (fallocate_retry > 0);
 #else
 	if (file_flags & O_CREAT) {
 		long page_size = sysconf(_SC_PAGESIZE);
