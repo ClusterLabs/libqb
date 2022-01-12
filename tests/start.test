@@ -6,6 +6,6 @@
 # which sockets are our and which we can ignore.
 # The test programs all add "qb-test-<name>-" to the front of this.
 #
-NAME="$$-`date +%N`"
-echo -n "$NAME" > ipc-test-name
+
+printf "$$-$RANDOM" > ipc-test-name
 mkdir -p $SOCKETDIR
