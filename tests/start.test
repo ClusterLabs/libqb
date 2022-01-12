@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #
 # Generate a unique(ish) name for the IPCs we will use in the tests and
