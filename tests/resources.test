@@ -1,23 +1,33 @@
 #!/bin/sh
 RETURN=0
 SOCKS_PER_PROCESS=3
+EXPECTED_DLOCK=6
+EXPECTED_LEFTOVER=2
+
+# Linux also runs filesystem socket tests
+if [ "$(uname -s)" = "Linux" ]
+then
+    EXPECTED_DLOCK=12
+    EXPECTED_LEFTOVER=4
+fi
 
 tidy_qb_dirs()
 {
     for dd in "$@"; do
 	rm $dd
-	rmdir `dirname $dd` 2> /dev/null
+	rmdir $(dirname $dd) 2> /dev/null
     done
 }
 
 
-IPC_NAME=`cat ipc-test-name 2>/dev/null`
+IPC_NAME=$(cat ipc-test-name 2>/dev/null)
 for d in /dev/shm /var/run $SOCKETDIR; do
 
 	# Tidy up the deadlock checker sockets first
 	dlocks=$(find $d -name "qb-*-test_*dlock*${IPC_NAME}*" -size +0c 2>/dev/null)
-	if [ "`echo $dlocks|wc -w`" -eq $(($SOCKS_PER_PROCESS * 6)) ]; then
-	    tidy_qb_dirs $dlocks
+	if [ "$(echo $dlocks|wc -w)" -eq $(($SOCKS_PER_PROCESS * $EXPECTED_DLOCK)) ]; then
+	        tidy_qb_dirs $dlocks
+	        rm $dlocks
 	elif [ -n "${dlocks}" ]; then
 		echo
 		echo "Error: dlock shared memory segments not closed/unlinked"
@@ -34,7 +44,7 @@ for d in /dev/shm /var/run $SOCKETDIR; do
 		RETURN=1
 	fi
 	leftovers="$(find $d -name "qb-*-test_*${IPC_NAME}*" -size 0c 2>/dev/null)"
-	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq $(($SOCKS_PER_PROCESS * 2)) ]; then
+	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq $(($SOCKS_PER_PROCESS * $EXPECTED_LEFTOVER)) ]; then
 		echo
 		echo "There were some empty leftovers (expected), removing them"
 		echo "${leftovers}"
