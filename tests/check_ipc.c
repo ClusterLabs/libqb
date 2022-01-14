@@ -1778,7 +1778,7 @@ READY_SIGNALLER(connected_signaller, _)
 	request_server_exit();
 }
 
-START_TEST(test_ipc_dispatch_us_native_prio_dlock)
+START_TEST(test_ipc_us_native_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -1817,7 +1817,7 @@ START_TEST(test_ipc_dispatch_us_native_prio_dlock)
 END_TEST
 
 #if HAVE_GLIB
-START_TEST(test_ipc_dispatch_us_glib_prio_dlock)
+START_TEST(test_ipc_us_glib_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -2407,9 +2407,9 @@ make_soc_suite(void)
 	add_tcase(s, tc, test_ipc_disconnect_after_created_us, 9);
 	add_tcase(s, tc, test_ipc_service_ref_count_us, 9);
 	add_tcase(s, tc, test_ipc_stress_connections_us, 3600 /* ? */);
-	add_tcase(s, tc, test_ipc_dispatch_us_native_prio_dlock, 15);
+	add_tcase(s, tc, test_ipc_us_native_prio_dlock, 15);
 #if HAVE_GLIB
-	add_tcase(s, tc, test_ipc_dispatch_us_glib_prio_dlock, 15);
+	add_tcase(s, tc, test_ipc_us_glib_prio_dlock, 15);
 #endif
 
 	return s;
