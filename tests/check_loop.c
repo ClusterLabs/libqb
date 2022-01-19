@@ -445,7 +445,7 @@ static void *loop_timer_thread(void *arg)
 	qb_loop_t *l = (qb_loop_t *)arg;
 	qb_loop_timer_handle test_tht;
 
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 5*QB_TIME_NS_IN_MSEC, l, one_shot_tmo, &test_tht);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 10*QB_TIME_NS_IN_MSEC, l, one_shot_tmo, &test_tht);
 	ck_assert_int_eq(res, 0);
 
 	res = qb_loop_timer_is_running(l, test_tht);
