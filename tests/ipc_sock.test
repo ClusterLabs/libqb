@@ -7,7 +7,7 @@
 #
 if [ "`uname -s`" = "Linux" ]
 then
-  if [ -f `pwd`/.libs/libstatwrapper.so ]
+  if [ -f `pwd`/.libs/libstat_wrapper.so ]
   then
     export LD_PRELOAD=`pwd`/.libs/libstat_wrapper.so
   else
