@@ -175,7 +175,7 @@ qb_util_nano_from_epoch_get(void)
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
-#else
+#elif defined(HAVE_GETTIMEOFDAY)
 	uint64_t nano_from_epoch;
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
@@ -184,6 +184,8 @@ qb_util_nano_from_epoch_get(void)
 		(time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
 
 	return (nano_from_epoch);
+#else
+#error No high-resolution clock available
 #endif /* HAVE_MONOTONIC_CLOCK */
 }
 
@@ -213,7 +215,7 @@ qb_util_timespec_from_epoch_get(struct timespec *ts)
 {
 #ifdef HAVE_MONOTONIC_CLOCK
 	clock_gettime(QB_CLOCK_REALTIME, ts);
-#else
+#elif defined(HAVE_GETTIMEOFDAY)
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
 
@@ -221,6 +223,8 @@ qb_util_timespec_from_epoch_get(struct timespec *ts)
 	ts->tv_sec = time_from_epoch.tv_sec;
 	ts->tv_nsec = time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC;
 #endif /* S_SPLINT_S */
+#else
+#error No high-resolution clock available
 #endif /* HAVE_MONOTONIC_CLOCK */
 }
 
