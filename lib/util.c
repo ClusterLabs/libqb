@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright (C) 2010-2022 Red Hat, Inc.
  *
  * All rights reserved.
  *
@@ -136,10 +136,10 @@ qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 #endif /* S_SPLINT_S */
 }
 
-#ifdef HAVE_MONOTONIC_CLOCK
 uint64_t
 qb_util_nano_current_get(void)
 {
+#ifdef HAVE_MONOTONIC_CLOCK
 	uint64_t nano_monotonic;
 	struct timespec ts;
 
@@ -147,11 +147,15 @@ qb_util_nano_current_get(void)
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
+#else
+	return qb_util_nano_from_epoch_get();
+#endif /* HAVE_MONOTONIC_CLOCK */
 }
 
 uint64_t
 qb_util_nano_from_epoch_get(void)
 {
+#ifdef HAVE_MONOTONIC_CLOCK
 	uint64_t nano_monotonic;
 	struct timespec ts;
 #ifdef CLOCK_REALTIME_COARSE
@@ -162,11 +166,22 @@ qb_util_nano_from_epoch_get(void)
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
+#else
+	uint64_t nano_from_epoch;
+	struct timeval time_from_epoch;
+	gettimeofday(&time_from_epoch, 0);
+
+	nano_from_epoch = ((time_from_epoch.tv_sec * QB_TIME_NS_IN_SEC) +
+		(time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
+
+	return (nano_from_epoch);
+#endif /* HAVE_MONOTONIC_CLOCK */
 }
 
 uint64_t
 qb_util_nano_monotonic_hz(void)
 {
+#ifdef HAVE_MONOTONIC_CLOCK
 	uint64_t nano_monotonic_hz;
 	struct timespec ts;
 
@@ -181,34 +196,21 @@ qb_util_nano_monotonic_hz(void)
 	    QB_TIME_NS_IN_SEC / ((ts.tv_sec * QB_TIME_NS_IN_SEC) + ts.tv_nsec);
 
 	return (nano_monotonic_hz);
+#else
+	return sysconf(_SC_CLK_TCK);
+#endif /* HAVE_MONOTONIC_CLOCK */
 }
 
 void
 qb_util_timespec_from_epoch_get(struct timespec *ts)
 {
+#ifdef HAVE_MONOTONIC_CLOCK
 #ifdef CLOCK_REALTIME_COARSE
 	clock_gettime(CLOCK_REALTIME_COARSE, ts);
 #else
 	clock_gettime(CLOCK_REALTIME, ts);
 #endif
-}
-
 #else
-uint64_t
-qb_util_nano_current_get(void)
-{
-	return qb_util_nano_from_epoch_get();
-}
-
-uint64_t
-qb_util_nano_monotonic_hz(void)
-{
-	return sysconf(_SC_CLK_TCK);
-}
-
-void
-qb_util_timespec_from_epoch_get(struct timespec *ts)
-{
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
 
@@ -216,21 +218,8 @@ qb_util_timespec_from_epoch_get(struct timespec *ts)
 	ts->tv_sec = time_from_epoch.tv_sec;
 	ts->tv_nsec = time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC;
 #endif /* S_SPLINT_S */
-}
-
-uint64_t
-qb_util_nano_from_epoch_get(void)
-{
-	uint64_t nano_from_epoch;
-	struct timeval time_from_epoch;
-	gettimeofday(&time_from_epoch, 0);
-
-	nano_from_epoch = ((time_from_epoch.tv_sec * QB_TIME_NS_IN_SEC) +
-			   (time_from_epoch.tv_usec * QB_TIME_NS_IN_USEC));
-
-	return (nano_from_epoch);
-}
 #endif /* HAVE_MONOTONIC_CLOCK */
+}
 
 struct qb_util_stopwatch {
 	uint64_t started;
