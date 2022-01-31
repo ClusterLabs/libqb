@@ -123,6 +123,19 @@ qb_thread_lock_destroy(qb_thread_lock_t * tl)
 	return res;
 }
 
+/* If the "coarse" monotonic clock is available, it provides the time as of the
+ * last clock tick (typically at millisecond resolution), which should be
+ * sufficient for expected uses of libqb. This is faster since it avoids a
+ * context switch to the kernel.
+ */
+#ifdef HAVE_MONOTONIC_CLOCK
+# ifdef CLOCK_REALTIME_COARSE
+#  define QB_CLOCK_REALTIME CLOCK_REALTIME_COARSE
+# else
+#  define QB_CLOCK_REALTIME CLOCK_REALTIME
+# endif
+#endif
+
 void
 qb_timespec_add_ms(struct timespec *ts, int32_t ms)
 {
@@ -158,11 +171,7 @@ qb_util_nano_from_epoch_get(void)
 #ifdef HAVE_MONOTONIC_CLOCK
 	uint64_t nano_monotonic;
 	struct timespec ts;
-#ifdef CLOCK_REALTIME_COARSE
-	clock_gettime(CLOCK_REALTIME_COARSE, &ts);
-#else
-	clock_gettime(CLOCK_REALTIME, &ts);
-#endif
+	clock_gettime(QB_CLOCK_REALTIME, &ts);
 	nano_monotonic =
 	    (ts.tv_sec * QB_TIME_NS_IN_SEC) + (uint64_t) ts.tv_nsec;
 	return (nano_monotonic);
@@ -205,11 +214,7 @@ void
 qb_util_timespec_from_epoch_get(struct timespec *ts)
 {
 #ifdef HAVE_MONOTONIC_CLOCK
-#ifdef CLOCK_REALTIME_COARSE
-	clock_gettime(CLOCK_REALTIME_COARSE, ts);
-#else
-	clock_gettime(CLOCK_REALTIME, ts);
-#endif
+	clock_gettime(QB_CLOCK_REALTIME, ts);
 #else
 	struct timeval time_from_epoch;
 	gettimeofday(&time_from_epoch, 0);
