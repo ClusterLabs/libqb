@@ -236,25 +236,12 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
                     ]
                  )
 
+# Checks for library functions
 AX_SAVE_FLAGS
 LIBS="$LIBS $rt_LIBS"
-AC_MSG_CHECKING(for a working clock_getres(CLOCK_MONOTONIC, &ts))
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-[[#include <time.h>]],
-[[struct timespec ts; if(clock_getres(CLOCK_MONOTONIC, &ts)) return -1;]])],
-                    [
-                      AC_MSG_RESULT([yes])
-                      AC_DEFINE_UNQUOTED([HAVE_CLOCK_GETRES_MONOTONIC], 1, [Define to 1 if clock_getres(CLOCK_MONOTONIC, &ts) works])
-                    ],
-                    [
-                      AC_MSG_RESULT([no])
-                    ]
-                 )
 AC_CHECK_FUNCS([clock_gettime])
 AX_RESTORE_FLAGS
 
-
-# Checks for library functions
 AC_FUNC_CHOWN
 AC_FUNC_FORK
 AC_FUNC_MMAP
