@@ -152,7 +152,7 @@ disconnect_and_cleanup:
 	free(c->receive_buf);
 	free(c);
 	errno = -res;
-	return -res;
+	return res;
 
 }
 
