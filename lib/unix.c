@@ -69,6 +69,44 @@ open_mmap_file(char *path, uint32_t file_flags)
 	return open(path, file_flags, 0600);
 }
 
+#if defined(QB_BSD) || !defined(HAVE_POSIX_FALLOCATE)
+static int local_fallocate(int fd, size_t bytes)
+{
+	long page_size = sysconf(_SC_PAGESIZE);
+	long write_size = QB_MIN(page_size, bytes);
+	char *buffer = NULL;
+	int i;
+	size_t written;
+
+	if (page_size < 0) {
+		goto error_exit;
+	}
+	buffer = calloc(1, write_size);
+	if (buffer == NULL) {
+		goto error_exit;
+	}
+
+	for (i = 0; i < (bytes / write_size); i++) {
+	retry_write:
+		written = write(fd, buffer, write_size);
+		if (written == -1 && errno == EINTR) {
+			goto retry_write;
+		}
+		if (written != write_size) {
+			free(buffer);
+			errno = ENOSPC;
+			goto error_exit;
+		}
+	}
+	free(buffer);
+
+	return 0;
+
+error_exit:
+	return -1;
+}
+#endif
+
 int32_t
 qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		       uint32_t file_flags)
@@ -136,6 +174,11 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		} else if (res == EINVAL) { /* posix_fallocate() fails on ZFS
 					       https://lists.freebsd.org/pipermail/freebsd-current/2018-February/068448.html */
 			qb_util_log(LOG_DEBUG, "posix_fallocate returned EINVAL - running on ZFS?");
+			if (file_flags & O_CREAT) {
+				if (local_fallocate(fd, bytes)) {
+					goto unlink_exit;
+				}
+			}
 #endif
 		} else if (res != 0) {
 			errno = res;
@@ -147,30 +190,9 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	} while (fallocate_retry > 0);
 #else
 	if (file_flags & O_CREAT) {
-		long page_size = sysconf(_SC_PAGESIZE);
-		long write_size = QB_MIN(page_size, bytes);
-		if (page_size < 0) {
-			res = -errno;
+		if (local_fallocate(fd, bytes)) {
 			goto unlink_exit;
 		}
-		buffer = calloc(1, write_size);
-		if (buffer == NULL) {
-			res = -ENOMEM;
-			goto unlink_exit;
-		}
-		for (i = 0; i < (bytes / write_size); i++) {
-retry_write:
-			written = write(fd, buffer, write_size);
-			if (written == -1 && errno == EINTR) {
-				goto retry_write;
-			}
-			if (written != write_size) {
-				res = -ENOSPC;
-				free(buffer);
-				goto unlink_exit;
-			}
-		}
-		free(buffer);
 	}
 #endif /* HAVE_POSIX_FALLOCATE */
 
