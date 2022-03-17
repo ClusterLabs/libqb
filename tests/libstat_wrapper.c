@@ -1,7 +1,7 @@
 /*
  * Simulate FORCESOCKETSFILE existing for the IPC tests
  */
-
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <dlfcn.h>
 #include <string.h>
@@ -11,17 +11,15 @@
 #include <gnu/lib-names.h>
 #endif
 
-// __xstat for ealier libc
+// __xstat for earlier libc
 int __xstat(int __ver, const char *__filename, struct stat *__stat_buf)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	static int opened = 0;
-	static void *dlhandle;
 	static int (*real_xstat)(int __ver, const char *__filename, void *__stat_buf);
 
 	if (!opened) {
-		dlhandle = dlopen(LIBC_SO, RTLD_NOW);
-		real_xstat = dlsym(dlhandle, "__xstat");
+		real_xstat = dlsym(RTLD_NEXT, "__xstat");
 		opened = 1;
 	}
 
@@ -36,17 +34,15 @@ int __xstat(int __ver, const char *__filename, struct stat *__stat_buf)
 #endif
 }
 
-// Stat for F35 and later
+// stat for F35 and later
 int stat(const char *__filename, struct stat *__stat_buf)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	static int opened = 0;
-	static void *dlhandle;
 	static int (*real_stat)(const char *__filename, void *__stat_buf);
 
 	if (!opened) {
-		dlhandle = dlopen(LIBC_SO, RTLD_NOW);
-		real_stat = dlsym(dlhandle, "stat");
+		real_stat = dlsym(RTLD_NEXT, "stat");
 		opened = 1;
 	}
 
