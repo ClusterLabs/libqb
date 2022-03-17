@@ -1959,8 +1959,8 @@ test_ipc_disconnect_after_created(void)
 		ck_assert_int_eq(res, -ENOTCONN);
 	}
 	ck_assert_int_eq(QB_FALSE, qb_ipcc_is_connected(conn));
-
 	qb_ipcc_disconnect(conn);
+	sleep(1); /* Give it time to stop */
 	kill_server(pid);
 }
 
