@@ -1509,7 +1509,7 @@ count_stress_events(int32_t fd, int32_t revents, void *data)
 			qb_log(LOG_DEBUG, "RECV: %d stress events processed", events_received);
 			if (res != sizeof(giant_event_recv)) {
 				qb_log(LOG_DEBUG, "Unexpected recv size, expected %d got %d",
-					res, sizeof(giant_event_recv));
+				       sizeof(giant_event_recv), res);
 
 				ck_assert_int_eq(res, sizeof(giant_event_recv));
 			} else if (giant_event_recv.sent_msgs != events_received) {
