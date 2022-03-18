@@ -5,13 +5,13 @@
 # so we can test both options without breaking other things
 # that might be running on this system
 #
-if [ "`uname -s`" = "Linux" ]
+if [ "$(uname -s)" = "Linux" ]
 then
-  if [ -f `pwd`/.libs/libstat_wrapper.so ]
+  if [ -f $(pwd)/.libs/libstat_wrapper.so ]
   then
-    export LD_PRELOAD=`pwd`/.libs/libstat_wrapper.so
+    export LD_PRELOAD=$(pwd)/.libs/libstat_wrapper.so
   else
-    export LD_PRELOAD=`pwd`/libstat_wrapper.so
+    export LD_PRELOAD=$(pwd)/libstat_wrapper.so
   fi
   ./ipc.test
 else
