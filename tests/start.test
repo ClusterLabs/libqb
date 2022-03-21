@@ -7,7 +7,7 @@
 # The test programs all add "qb-test-<name>-" to the front of this.
 #
 
-NAME="$$-`date +%s`"
+NAME="$$-$(date +%s)"
 
 printf "$NAME" > ipc-test-name
 mkdir -p $SOCKETDIR
