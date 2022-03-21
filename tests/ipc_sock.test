@@ -3,9 +3,11 @@
 # Run the IPC tests under the stat wrapper,
 # this simulates /etc/libqb/use-filesystem-sockets existing
 # so we can test both options without breaking other things
-# that might be running on this system
+# that might be running on this system.
 #
-if [ "$(uname -s)" = "Linux" ]
+# This creates sockets in /var/run so needs to be root
+#
+if [ "$(uname -s)" = "Linux" -a "$UID" = "0" ]
 then
   if [ -f "$(pwd)/.libs/libstat_wrapper.so" ]
   then
