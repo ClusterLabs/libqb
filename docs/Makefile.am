@@ -236,19 +236,19 @@ txt-man: man.dox
 
 xml-man: txt-man
 	mkdir -p man3
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbarray_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbatomic_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbdefs_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbhdb_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcc_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipc__common_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbipcs_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qblist_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qblog_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbloop_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbmap_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbrb_8h.xml
-	$(DOXYGEN2MAN) $(doxygen2man_flags) qbutil_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbarray_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbatomic_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbdefs_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbhdb_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbipcc_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbipc__common_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbipcs_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qblist_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qblog_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbloop_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbmap_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbrb_8h.xml
+	"$(DOXYGEN2MAN)" $(doxygen2man_flags) qbutil_8h.xml
 
 all: $(man3_MANS) xml-man
 

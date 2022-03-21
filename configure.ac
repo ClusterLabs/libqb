@@ -176,7 +176,7 @@ PKG_CHECK_MODULES([libxml], [libxml-2.0])
 # don´t build the man pages
 if test "x$cross_compiling" = "xno"; then
   AM_CONDITIONAL([BUILD_MAN], [true])
-  DOXYGEN2MAN="\"\$(abs_builddir)/../doxygen2man/doxygen2man\""
+  DOXYGEN2MAN="\$(abs_builddir)/../doxygen2man/doxygen2man"
 else
   AC_CHECK_PROGS([DOXYGEN2MAN], [doxygen2man])
   if test "x$DOXYGEN2MAN" = "x"; then
