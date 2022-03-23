@@ -113,13 +113,12 @@ endif
 
 bench_log_SOURCES = bench-log.c
 bench_log_LDADD = $(top_builddir)/lib/libqb.la
-
-lib_LTLIBRARIES = libstat_wrapper.la
-libstat_wrapper_la_SOURCES = libstat_wrapper.c
-libstat_wrapper_la_LIBADD = -ldl
 libdir= $(TESTDIR)
 
 if HAVE_CHECK
+libstat_wrapper_la_SOURCES = libstat_wrapper.c
+libstat_wrapper_la_LIBADD = -ldl
+
 EXTRA_DIST += start.test resources.test ipc_sock.test
 EXTRA_DIST += blackbox-segfault.sh
 
@@ -128,11 +127,12 @@ TESTS_ENVIRONMENT = export PATH=.:../tools:$$PATH;
 
 resources.log: rb.log log.log ipc.log
 
-check_LTLIBRARIES =
 check_PROGRAMS = array.test ipc.test list.test log.test loop.test \
 		 map.test rb.test util.test tlist.test \
 		 crash_test_dummy file_change_bytes
 dist_check_SCRIPTS = start.test resources.test blackbox-segfault.sh ipc_sock.test
+#lib_LTLIBRARIES = libstat_wrapper.la
+check_LTLIBRARIES =
 
 if HAVE_SLOW_TESTS
 TESTS += util.test
@@ -143,6 +143,9 @@ if INSTALL_TESTS
 testsuitedir	= $(TESTDIR)
 testsuite_PROGRAMS = $(check_PROGRAMS)
 testsuite_SCRIPTS = $(dist_check_SCRIPTS) test.conf
+lib_LTLIBRARIES = libstat_wrapper.la
+else
+noinst_LTLIBRARIES = libstat_wrapper.la
 endif
 
 file_change_bytes_SOURCES = file_change_bytes.c
