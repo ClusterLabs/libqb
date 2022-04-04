@@ -55,7 +55,7 @@
 	do { \
 		(tcase) = tcase_create(STRINGIFY(func) + sizeof("test")); \
 		tcase_add_test((tcase), func); \
-		tcase_set_timeout((tcase), (timeout)); \
+		tcase_set_timeout((tcase), (timeout*2)); \
 		suite_add_tcase((suite), (tcase)); \
 	} while (0)
 
