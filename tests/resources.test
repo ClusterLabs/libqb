@@ -5,7 +5,7 @@ EXPECTED_DLOCK=6
 EXPECTED_LEFTOVER=2
 
 # Linux also runs filesystem socket tests
-if [ "$(uname -s)" = "Linux" -a "$UID" = "0" ]
+if [ "$(uname -s)" = "Linux" ] && [ "`id -u`" = "0" ]
 then
     EXPECTED_DLOCK=12
     EXPECTED_LEFTOVER=4
