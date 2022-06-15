@@ -58,6 +58,15 @@ for d in /dev/shm /var/run $SOCKETDIR; do
 		RETURN=1
 	fi
 done
+
+# Clean up empty /dev/shm directories left over by some tests
+DIRS=$(grep "Free'ing ringbuffer" ipc.log ipc_sock.log| cut -f4 -d ' '|cut -f-4 -d'/'|sort|uniq)
+for i in $DIRS
+do
+    rmdir $i 2>/dev/null
+done
+
+
 ps aux | grep -v grep | grep -E 'lt-.*\.test'
 if [ $? -eq 0 ]; then
 	echo "test program frozen"
