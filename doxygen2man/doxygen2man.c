@@ -196,7 +196,9 @@ static void get_param_info(xmlNode *cur_node, struct qb_list_head *list)
 			if (sub_tag->type == XML_ELEMENT_NODE &&
 			    strcmp((char *)sub_tag->name, "parameterdescription") == 0 &&
 			    paramname && sub_tag->children->next->children) {
-				paramdesc = (char*)sub_tag->children->next->children->content;
+				cstring_t paramdesc_c = get_text(sub_tag->children->next, NULL, NULL);
+				paramdesc = cstring_to_chars(paramdesc_c);
+				free(paramdesc_c);
 
 				/* Add text to the param_map */
 				pi = find_param_by_name(list, paramname);
@@ -539,10 +541,11 @@ static char *allcaps(const char *name)
  * to fit after the structure member, in a style ...
  * well, in a style like this!
  */
-static void print_long_structure_comment(FILE *manfile, char *comment)
+static void print_long_structure_comment(FILE *manfile, char *struct_comment)
 {
-	char *ptr = strtok(comment, " ");
 	int column = 7;
+	char *comment = strdup(struct_comment); /* We're using strdup */
+	char *ptr = strtok(comment, " ");
 
 	fprintf(manfile, "\\fP    /*");
 	fprintf(manfile, "\n     *");
@@ -556,6 +559,7 @@ static void print_long_structure_comment(FILE *manfile, char *comment)
 		ptr = strtok(NULL, " ");
 	}
 	fprintf(manfile, "\n     */\n");
+	free(comment);
 }
 
 static void print_param(FILE *manfile, struct param_info *pi, int type_field_width, int name_field_width, int bold, const char *delimiter)
@@ -594,8 +598,8 @@ static void print_param(FILE *manfile, struct param_info *pi, int type_field_wid
 				pi->paramname?pi->paramname:"", delimiter);
 		} else {
 			/* Pad out so they all line up */
-			int pad_length = name_field_width -
-				(pi->paramname?strlen(pi->paramname):0) + 1;
+			int pad_length = (name_field_width+2) -
+				(pi->paramname?strlen(pi->paramname):0) - strlen(delimiter) + 1;
 			fprintf(manfile, "    %s%-*s%s%s\\fI%s\\fP%s\\fR%*s/* %s*/\n",
 				bold?"\\fB":"", type_field_width, type,
 				asterisks, bold?"\\fP":"",
@@ -851,7 +855,7 @@ static void print_manpage(char *name, char *def, char *brief, char *args, char *
 			pi = qb_list_entry(iter, struct param_info, list);
 
 			if (pi->paramtype[0] != '\0') {
-				print_param(manfile, pi, max_param_type_len, 0, 1, ++param_num < param_count?",":"");
+				print_param(manfile, pi, max_param_type_len, max_param_name_len, 1, ++param_num < param_count?",":"");
 			}
 		}
 
