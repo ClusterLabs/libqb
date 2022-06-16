@@ -1598,15 +1598,18 @@ test_ipc_stress_connections(void)
 	}
 	multiple_connections = QB_FALSE;
 
-	request_server_exit();
-	verify_graceful_stop(pid);
-	qb_ipcc_disconnect(conn);
-
+	/* Re-enable logging here so we get the "Free'ing" message which allows
+	   for resources.test to clear up after us if needed */
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_CLEAR_ALL,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
 			  QB_LOG_FILTER_FILE, "*", LOG_TRACE);
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
+
+	request_server_exit();
+	qb_ipcc_disconnect(conn);
+	verify_graceful_stop(pid);
+
 }
 
 static void
