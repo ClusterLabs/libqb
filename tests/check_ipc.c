@@ -710,7 +710,7 @@ s1_connection_created(qb_ipcs_connection_t *c)
 	}
 
 
-	ck_assert_int_eq(max, qb_ipcs_connection_get_buffer_size(c));
+	ck_assert_int_le(max, qb_ipcs_connection_get_buffer_size(c));
 
 }
 
@@ -1703,7 +1703,7 @@ test_ipc_stress_test(void)
 	ck_assert(conn != NULL);
 
 	real_buf_size = qb_ipcc_get_buffer_size(conn);
-	ck_assert_int_eq(real_buf_size, max_size);
+	ck_assert_int_ge(real_buf_size, max_size);
 
 	qb_log(LOG_DEBUG, "Testing %d iterations of EVENT msg passing.", num_stress_events);
 
