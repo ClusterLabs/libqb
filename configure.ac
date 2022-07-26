@@ -1,7 +1,7 @@
 
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.61])
+AC_PREREQ([2.69])
 
 dnl inject zero as a "patch" component of the version if missing in tag;
 dnl care to bump "X.Y.Z-yank" template below upon each release very desirable
@@ -41,7 +41,7 @@ LDFLAGS="$saved_LDFLAGS"
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_CANONICAL_HOST
-AC_PROG_LIBTOOL
+LT_INIT
 AC_LANG([C])
 
 dnl Fix default variables - "prefix" variable if not specified
@@ -82,7 +82,7 @@ AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
 AM_PROG_CC_C_O
-AC_PROG_CC_C99
+m4_version_prereq([2.70], [:], [AC_PROG_CC_C99])
 if test "x$ac_cv_prog_cc_c99" = "xno"; then
 	AC_MSG_ERROR(["C99 support is required"])
 fi
@@ -188,7 +188,6 @@ fi
 AC_SUBST(DOXYGEN2MAN)
 
 # Checks for header files.
-AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS([arpa/inet.h link.h fcntl.h inttypes.h limits.h netinet/in.h \
@@ -222,8 +221,7 @@ AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
                 [#include <sys/un.h>])
 
 AC_MSG_CHECKING(looking for union semun in sys/sem.h)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-[[#include <sys/types.h>
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
   #include <sys/ipc.h>
   #include <sys/sem.h>]],
 [[union semun arg; semctl(0, 0, 0, arg);]])],
@@ -266,26 +264,26 @@ AX_RESTORE_FLAGS
 
 # Checks for defined macros
 AC_MSG_CHECKING(for MSG_NOSIGNAL)
-AC_TRY_COMPILE([#include <sys/socket.h>],
-	       [ int f = MSG_NOSIGNAL; ],
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]],
+	      [[ int f = MSG_NOSIGNAL; ]])],
 	       [ AC_MSG_RESULT(yes)
 	         AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
 	         [Define this symbol if you have MSG_NOSIGNAL])],
 	       [ AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for SO_NOSIGPIPE )
-AC_TRY_COMPILE([#include <sys/socket.h>],
-		[ int f = SO_NOSIGPIPE; ],
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]],
+	       [[ int f = SO_NOSIGPIPE; ]])],
 		[ AC_MSG_RESULT(yes)
 		  AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
 		  [Define this symbol if you have SO_NOSIGPIPE]) ],
 		[ AC_MSG_RESULT(no)])
 AC_MSG_CHECKING([for RTLD_NEXT])
-AC_TRY_COMPILE([#ifndef _GNU_SOURCE
-		#define _GNU_SOURCE
-		#endif
-                #include <dlfcn.h>],
-		[ void *h = RTLD_NEXT; ],
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#ifndef _GNU_SOURCE
+				     #define _GNU_SOURCE
+				     #endif
+				     #include <dlfcn.h>]],
+	       [[ void *h = RTLD_NEXT; ]])],
 		[ AC_MSG_RESULT([yes])
 		  AC_DEFINE([HAVE_FAILURE_INJECTION], 1,
 			    [have failure injection])
@@ -455,12 +453,12 @@ AC_MSG_CHECKING([whether GCC supports builtin sync intrinsics])
 if test -z "$gcc_has_builtin_sync_operations"; then
 	gcc_has_builtin_sync_operations=no
 	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
-		AC_TRY_LINK([],
-			    [int i;
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],
+			    [[int i;
 			     __sync_synchronize ();
 			     __sync_bool_compare_and_swap (&i, 0, 1);
 			     __sync_fetch_and_add (&i, 1);
-			     ],
+			     ]])],
 			     [gcc_has_builtin_sync_operations=yes],
 			     [gcc_has_builtin_sync_operations=no])
 	fi
@@ -479,11 +477,11 @@ AC_MSG_CHECKING([whether GCC supports builtin atomic intrinsics])
 if test -z "$gcc_has_builtin_atomic_operations"; then
 	gcc_has_builtin_atomic_operations=no
 	if test x"$GCC" = xyes && test x$have_mingw != xyes; then
-		AC_TRY_LINK([],
-			    [int i;
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],
+			    [[int i;
 			     __atomic_load_n(&i, __ATOMIC_ACQUIRE);
 			     __atomic_exchange_n(&i, 0, __ATOMIC_RELEASE);
-			     ],
+			     ]])],
 			     [gcc_has_builtin_atomic_operations=yes],
 			     [gcc_has_builtin_atomic_operations=no])
 	fi
