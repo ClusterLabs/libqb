@@ -705,7 +705,7 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 		}
 	}
 
-	if (c && c->service->funcs.peek && c->service->funcs.reclaim) {
+	if (c->service->funcs.peek && c->service->funcs.reclaim) {
 		c->service->funcs.reclaim(&c->request);
 	}
 
@@ -747,6 +747,11 @@ qb_ipcs_dispatch_connection_request(int32_t fd, int32_t revents, void *data)
 	int32_t res2;
 	int32_t recvd = 0;
 	ssize_t avail;
+
+	if (c == NULL) {
+		res = -EINVAL;
+		goto dispatch_cleanup;
+	}
 
 	if (revents & POLLNVAL) {
 		qb_util_log(LOG_DEBUG, "NVAL conn (%s)", c->description);

@@ -183,6 +183,7 @@ dgram_verify_msg_size(size_t max_msg_size)
 	int32_t write_passed = 0;
 	int32_t read_passed = 0;
 	char buf[max_msg_size];
+	memset (buf, 0, max_msg_size);
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockets) < 0) {
 		qb_util_perror(LOG_DEBUG, "error calling socketpair()");
