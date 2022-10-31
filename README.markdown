@@ -1,5 +1,7 @@
 # libqb
 
+[English](./README.markdown)|[简体中文](./README_CH.md)
+
 ## What is libqb?
 libqb is a library with the primary purpose of providing high-performance,
 reusable features for client-server architecture, such as logging,
