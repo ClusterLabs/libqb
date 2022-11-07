@@ -478,6 +478,7 @@ int qb_ipcc_setup_connect_continue(struct qb_ipcc_connection *c, struct qb_ipc_c
 {
 	struct ipc_auth_data *data;
 	int32_t res;
+	int retry_count = 0;
 #ifdef QB_LINUX
 	int off = 0;
 #endif
@@ -486,8 +487,12 @@ int qb_ipcc_setup_connect_continue(struct qb_ipcc_connection *c, struct qb_ipc_c
 		qb_ipcc_us_sock_close(c->setup.u.us.sock);
 		return -ENOMEM;
 	}
-
+retry:
 	res = qb_ipc_us_recv_msghdr(data);
+	if (res == -EAGAIN && ++retry_count < 10) {
+		usleep(100000);
+		goto retry;
+	}
 
 #ifdef QB_LINUX
 	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off,
