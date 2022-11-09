@@ -473,6 +473,9 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	return 0;
 }
 
+#define AUTH_RECV_MAX_RETRIES 10
+#define AUTH_RECV_SLEEP_TIME_US 100
+
 /* Called from ipcc_connect_continue() when async connect socket is active */
 int qb_ipcc_setup_connect_continue(struct qb_ipcc_connection *c, struct qb_ipc_connection_response *r)
 {
@@ -489,8 +492,10 @@ int qb_ipcc_setup_connect_continue(struct qb_ipcc_connection *c, struct qb_ipc_c
 	}
 retry:
 	res = qb_ipc_us_recv_msghdr(data);
-	if (res == -EAGAIN && ++retry_count < 10) {
-		usleep(100000);
+	if (res == -EAGAIN && ++retry_count < AUTH_RECV_MAX_RETRIES) {
+		struct timespec ts = {0,  AUTH_RECV_SLEEP_TIME_US*QB_TIME_NS_IN_USEC};
+		struct timespec ts_left = {0, 0};
+		nanosleep(&ts, &ts_left);
 		goto retry;
 	}
 
