@@ -326,10 +326,11 @@ qb_loop_timer_expire_time_remaining(struct qb_loop * lp, qb_loop_timer_handle th
 	if (res != 0) {
 		return 0;
 	}
+	if (t->state != QB_POLL_ENTRY_ACTIVE) {
+		return 0;
+	}
 
 	struct timerlist_timer *timer = (struct timerlist_timer *)t->timerlist_handle;
-
-
 	if (timer->is_absolute_timer) {
 		current_ns = qb_util_nano_from_epoch_get();
 	}
@@ -337,12 +338,6 @@ qb_loop_timer_expire_time_remaining(struct qb_loop * lp, qb_loop_timer_handle th
 		current_ns = qb_util_nano_current_get();
 	}
 	uint64_t timer_ns = timerlist_expire_time(&s->timerlist, t->timerlist_handle);
-	/* since time estimation is racy by nature, I'll try to check the state late,
-	 * and try to understand that no matter what, the timer might have expired in the mean time
-	 */
-	if (t->state != QB_POLL_ENTRY_ACTIVE) {
-		return 0;
-	}
 	if (timer_ns < current_ns) {
 		return 0; // respect the "expired" contract
 	}
