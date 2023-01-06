@@ -361,7 +361,7 @@ static void check_time_left(void *data)
 	ck_assert(abs_time > 0ULL);
 	ck_assert(rel_time > 0ULL);
 	ck_assert(abs_time >  rel_time);
-	ck_assert(rel_time <= 60*QB_TIME_NS_IN_MSEC);
+	ck_assert(rel_time <= 500*QB_TIME_NS_IN_MSEC);
 }
 
 
@@ -425,10 +425,10 @@ START_TEST(test_loop_timer_basic)
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
 	ck_assert_int_eq(res, 0);
 
-	res = qb_loop_timer_add(l, QB_LOOP_HIGH, 50*QB_TIME_NS_IN_MSEC, l, check_time_left, &test_th2);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 500*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);
 	ck_assert_int_eq(res, 0);
 
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 100*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);
+	res = qb_loop_timer_add(l, QB_LOOP_HIGH, 5*QB_TIME_NS_IN_MSEC, l, check_time_left, &test_th2);
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(l);
@@ -471,10 +471,10 @@ START_TEST(test_loop_timer_threads)
 	res = qb_loop_timer_add(l, QB_LOOP_LOW, 7*QB_TIME_NS_IN_MSEC, l, reset_one_shot_tmo, &reset_th);
 	ck_assert_int_eq(res, 0);
 
-	res = qb_loop_timer_add(l, QB_LOOP_HIGH, 20*QB_TIME_NS_IN_MSEC, l, check_time_left, &test_th2);
+	res = qb_loop_timer_add(l, QB_LOOP_LOW, 500*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);
 	ck_assert_int_eq(res, 0);
 
-	res = qb_loop_timer_add(l, QB_LOOP_LOW, 60*QB_TIME_NS_IN_MSEC, l, job_stop, &test_th);
+	res = qb_loop_timer_add(l, QB_LOOP_HIGH, 5*QB_TIME_NS_IN_MSEC, l, check_time_left, &test_th2);
 	ck_assert_int_eq(res, 0);
 
 	qb_loop_run(l);
