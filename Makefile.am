@@ -39,7 +39,11 @@ ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= COPYING INSTALL README.markdown
 
-SUBDIRS			= include lib doxygen2man docs tools tests examples
+SUBDIRS			= include lib doxygen2man docs tools examples
+
+if ENABLE_TESTS
+SUBDIRS			+= tests
+endif
 
 dist-clean-local:
 	rm -f .snapshot-version autoconf automake autoheader
