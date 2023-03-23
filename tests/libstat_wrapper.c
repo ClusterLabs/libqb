@@ -7,9 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "../include/config.h"
-#if defined(QB_LINUX) || defined(QB_CYGWIN)
-#include <gnu/lib-names.h>
-#endif
 
 // __xstat for earlier libc
 int __xstat(int __ver, const char *__filename, struct stat *__stat_buf)
