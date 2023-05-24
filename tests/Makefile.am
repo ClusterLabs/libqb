@@ -17,9 +17,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with libqb.  If not, see <http://www.gnu.org/licenses/>.
 #
-MAINTAINERCLEANFILES = Makefile.in
-EXTRA_DIST =
-CLEANFILES =
+MAINTAINERCLEANFILES = Makefile.in auto_write_logs.c
+EXTRA_DIST = make-log-test.sh sock_ipc_wrapper.test blackbox-segfault.sh resources.test start.test
+CLEANFILES = $(auto_c_files) ${auto_c_files:.c=.opp} auto_write_logs.c
 
 export SOCKETDIR
 
@@ -60,7 +60,6 @@ public_headers = $(sort $(patsubst %.in,%,$(subst $(inc_dir)/,,$(shell \
 	| MAKEFLAGS= ${MAKE} --no-print-directory -f- inst_HEADERS.var \
 	|| echo $(inc_dir)/qb*.h*))))
 auto_c_files = $(patsubst %.h,auto_check_header_%.c,$(public_headers))
-CLEANFILES += $(auto_c_files)
 
 # this works for both non/generated headers thanks to VPATH being
 # automatically set to $(top_srcdir)/tests and $(top_builddir)
@@ -90,18 +89,8 @@ else
 	@echo "C++ compatibility tests not run"
 endif
 
-CLEANFILES += ${auto_c_files:.c=.opp}
-
-distclean-local:
-	rm -rf auto_*.c
-	rm -rf .deps
-
 if HAVE_DICT_WORDS
 if HAVE_SLOW_TESTS
-EXTRA_DIST += make-log-test.sh
-CLEANFILES += auto_write_logs.c
-MAINTAINERCLEANFILES += auto_write_logs.c
-
 nodist_bench_log_SOURCES = auto_write_logs.c
 
 bench_log: auto_write_logs.c
@@ -116,22 +105,13 @@ bench_log_LDADD = $(top_builddir)/lib/libqb.la
 libdir= $(TESTDIR)
 
 if HAVE_CHECK
-libstat_wrapper_la_SOURCES = libstat_wrapper.c
-libstat_wrapper_la_LIBADD = -ldl
-
-EXTRA_DIST += start.test resources.test ipc_sock.test
-EXTRA_DIST += blackbox-segfault.sh
-
-TESTS = start.test array.test map.test rb.test list.test log.test blackbox-segfault.sh loop.test ipc.test ipc_sock.test resources.test
+TESTS = start.test array.test map.test rb.test list.test log.test blackbox-segfault.sh loop.test ipc.test sock_ipc_wrapper.test resources.test
 TESTS_ENVIRONMENT = export PATH=.:../tools:$$PATH;
 
-resources.log: rb.log log.log ipc.log
-
-check_PROGRAMS = array.test ipc.test list.test log.test loop.test \
+check_PROGRAMS = array.test ipc.test ipc_sock.test list.test log.test loop.test \
 		 map.test rb.test util.test tlist.test \
 		 crash_test_dummy file_change_bytes
-dist_check_SCRIPTS = start.test resources.test blackbox-segfault.sh ipc_sock.test
-#lib_LTLIBRARIES = libstat_wrapper.la
+dist_check_SCRIPTS = sock_ipc_wrapper.test blackbox-segfault.sh
 check_LTLIBRARIES =
 
 if HAVE_SLOW_TESTS
@@ -143,9 +123,6 @@ if INSTALL_TESTS
 testsuitedir	= $(TESTDIR)
 testsuite_PROGRAMS = $(check_PROGRAMS)
 testsuite_SCRIPTS = $(dist_check_SCRIPTS) test.conf
-lib_LTLIBRARIES = libstat_wrapper.la
-else
-noinst_LTLIBRARIES = libstat_wrapper.la
 endif
 
 file_change_bytes_SOURCES = file_change_bytes.c
@@ -174,21 +151,39 @@ tlist_test_SOURCES = check_tlist.c
 tlist_test_CFLAGS = @CHECK_CFLAGS@
 tlist_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
-ipc_test_SOURCES = check_ipc.c
-ipc_test_CFLAGS = @CHECK_CFLAGS@
-ipc_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 if HAVE_FAILURE_INJECTION
-ipc_test_LDADD += _failure_injection.la
-
-if HAVE_GLIB
-ipc_test_CFLAGS += $(GLIB_CFLAGS)
-ipc_test_LDADD += $(GLIB_LIBS)
-endif
-
 check_LTLIBRARIES += _failure_injection.la
 _failure_injection_la_SOURCES = _failure_injection.c _failure_injection.h
 _failure_injection_la_LDFLAGS = -module
 _failure_injection_la_LIBADD = $(dlopen_LIBS)
+endif
+
+check_LTLIBRARIES += _libstat_wrapper.la
+_libstat_wrapper_la_SOURCES = _libstat_wrapper.c
+_libstat_wrapper_la_LDFLAGS = -module
+_libstat_wrapper_la_LIBADD = $(dlopen_LIBS)
+
+ipc_test_SOURCES = check_ipc.c
+ipc_test_CFLAGS = @CHECK_CFLAGS@  -DIPC_TEST_NAME_FILE="\"ipc-test-name\""
+ipc_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
+if HAVE_GLIB
+ipc_test_CFLAGS += $(GLIB_CFLAGS)
+ipc_test_LDADD += $(GLIB_LIBS)
+endif
+if HAVE_FAILURE_INJECTION
+ipc_test_LDADD += _failure_injection.la
+endif
+
+ipc_sock_test_SOURCES = check_ipc.c
+ipc_sock_test_CFLAGS = @CHECK_CFLAGS@ -DIPC_TEST_NAME_FILE="\"ipc-test-name-sock\""
+ipc_sock_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
+if HAVE_GLIB
+ipc_sock_test_CFLAGS += $(GLIB_CFLAGS)
+ipc_sock_test_LDADD += $(GLIB_LIBS)
+endif
+ipc_sock_test_LDADD += _libstat_wrapper.la
+if HAVE_FAILURE_INJECTION
+ipc_sock_test_LDADD += _failure_injection.la
 endif
 
 check_LTLIBRARIES += _syslog_override.la
@@ -208,8 +203,43 @@ list_test_SOURCES = check_list.c
 list_test_CFLAGS = @CHECK_CFLAGS@
 list_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 
+
+#
+# This lot allows the tests to run in parallel
+# but with defined dependancies
+#
+ipc.log: start.test
+
+sock_ipc_wrapper.log: start.test
+
+array.log: start.test
+
+list.log: start.test
+
+log.log: start.test
+
+loop.log: start.test
+
+map.log: start.test
+
+rb.log: start.test
+
+tlist.log: start.test
+
+util.log: start.test
+
+resources.log: ipc.log sock_ipc_wrapper.log rb.log log.log
+
 endif
 
 clean-local:
 	rm -f *.log
 	rm -f *.fdata
+	rm -f ipc-test-name
+	rm -f ipc-test-name-sock
+	rm -f crash_test_dummy.core
+
+
+distclean-local:
+	rm -rf auto_*.c
+	rm -rf .deps

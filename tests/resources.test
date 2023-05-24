@@ -4,13 +4,6 @@ SOCKS_PER_PROCESS=3
 EXPECTED_DLOCK=6
 EXPECTED_LEFTOVER=2
 
-# Linux also runs filesystem socket tests
-if [ "$(uname -s)" = "Linux" ] && [ "`id -u`" = "0" ]
-then
-    EXPECTED_DLOCK=12
-    EXPECTED_LEFTOVER=4
-fi
-
 tidy_qb_dirs()
 {
     for dd in "$@"; do
@@ -19,53 +12,72 @@ tidy_qb_dirs()
     done
 }
 
-
-IPC_NAME=$(cat ipc-test-name 2>/dev/null)
-for d in /dev/shm /var/run $SOCKETDIR; do
+tidy_dlock_sockets()
+{
+    IPC_NAME=$1
+    for d in /dev/shm /var/run $SOCKETDIR; do
 
 	# Tidy up the deadlock checker sockets first
 	dlocks=$(find $d -name "qb-*-test_*dlock*${IPC_NAME}*" -size +0c 2>/dev/null)
 	if [ "$(echo $dlocks|wc -w)" -eq $(($SOCKS_PER_PROCESS * $EXPECTED_DLOCK)) ]; then
-	        tidy_qb_dirs $dlocks
-	        rm $dlocks
+	    tidy_qb_dirs $dlocks
+	    rm $dlocks
 	elif [ -n "${dlocks}" ]; then
-		echo
-		echo "Error: dlock shared memory segments not closed/unlinked"
-		echo
-		RETURN=1
+	    echo
+	    echo "Error: dlock shared memory segments not closed/unlinked"
+	    echo
+	    RETURN=1
 	fi
 
 	# Now look for other expected leftovers
 	leftovers=$(find $d -name "qb-*-test_*${IPC_NAME}*" -size +0c 2>/dev/null | wc -l)
 	if [ "${leftovers}" -gt 0 ]; then
-		echo
-		echo "Error: shared memory segments not closed/unlinked"
-		echo
-		RETURN=1
+	    echo
+	    echo "Error: shared memory segments not closed/unlinked"
+	    echo
+	    RETURN=1
 	fi
 	leftovers="$(find $d -name "qb-*-test_*${IPC_NAME}*" -size 0c 2>/dev/null)"
-	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq $(($SOCKS_PER_PROCESS * $EXPECTED_LEFTOVER)) ]; then
-		echo
-		echo "There were some empty leftovers (expected), removing them"
-		echo "${leftovers}"
-		echo
-		tidy_qb_dirs $leftovers
+	expected=$(($SOCKS_PER_PROCESS * $EXPECTED_LEFTOVER))
+	if [ "$(printf '%s\n' "${leftovers}" | wc -l)" -eq "$expected" ]; then
+	    echo
+	    echo "There were some empty leftovers (expected), removing them"
+	    echo "${leftovers}"
+	    echo
+	    tidy_qb_dirs $leftovers
 	elif [ -n "${leftovers}" ]; then
-		echo
-		echo "Error: unexpected number of empty leftovers"
-		echo "${leftovers}"
-		echo
-		RETURN=1
+	    echo
+	    echo "Error: unexpected number of empty leftovers. expected ${expected}"
+	    echo "${leftovers}"
+	    echo
+	    RETURN=1
 	fi
-done
+    done
+    return $RETURN
+}
+
+
+IPC_NAME=$(cat ipc-test-name 2>/dev/null)
+tidy_dlock_sockets $IPC_NAME
+RETURN=$?
+
+# Linux also runs filesystem socket tests
+if [ "$(uname -s)" = "Linux" ] && [ "`id -u`" = "0" ]
+then
+    IPC_NAME=$(cat ipc-test-name-sock 2>/dev/null)
+    tidy_dlock_sockets $IPC_NAME
+    if [ $? -ne 0 ]
+    then
+	RETURN=$?
+    fi
+fi
 
 # Clean up empty /dev/shm directories left over by some tests
-DIRS=$(grep "Free'ing ringbuffer" ipc.log ipc_sock.log| cut -f4 -d ' '|cut -f-4 -d'/'|sort|uniq)
+DIRS=$(grep "Free'ing ringbuffer" ipc.log sock_ipc_wrapper.log| cut -f4 -d ' '|cut -f-4 -d'/'|sort|uniq)
 for i in $DIRS
 do
     rmdir $i 2>/dev/null
 done
-
 
 ps aux | grep -v grep | grep -E 'lt-.*\.test'
 if [ $? -eq 0 ]; then
@@ -74,6 +86,6 @@ if [ $? -eq 0 ]; then
 fi
 
 # Keep it tidy - distcheck checks we have not left a mess
-rm -f ipc-test-name
+rm -f ipc-test-name*
 rm -f crash_test_dummy.core
 exit $RETURN
