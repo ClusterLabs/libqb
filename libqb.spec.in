@@ -16,7 +16,7 @@ License:        LGPLv2+
 URL:            https://github.com/ClusterLabs/libqb
 Source0:        https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.xz
 
-BuildRequires:  autoconf automake libtool doxygen procps check-devel
+BuildRequires:  autoconf automake libtool doxygen procps check-devel util-linux
 
 %description
 libqb provides high-performance, reusable features for client-server

@@ -221,9 +221,9 @@ set_ipc_name(const char *prefix)
 	char process_name[256];
 
 	/* The process-unique part of the IPC name has already been decided
-	 * and stored in the file ipc-test-name.
+	 * and stored in the file IPC_TEST_NAME_FILE
 	 */
-	f = fopen("ipc-test-name", "r");
+	f = fopen(IPC_TEST_NAME_FILE, "r");
 	if (f) {
 		fgets(process_name, sizeof(process_name), f);
 		fclose(f);
@@ -2116,7 +2116,7 @@ START_TEST(test_ipc_server_perms)
 }
 END_TEST
 
-START_TEST(test_ipc_dispatch_shm_native_prio_dlock)
+START_TEST(test_ipc_disp_shm_native_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -2155,7 +2155,7 @@ START_TEST(test_ipc_dispatch_shm_native_prio_dlock)
 END_TEST
 
 #if HAVE_GLIB
-START_TEST(test_ipc_dispatch_shm_glib_prio_dlock)
+START_TEST(test_ipc_disp_shm_glib_prio_dlock)
 {
 	pid_t server_pid, alphaclient_pid;
 	struct dispatch_data data;
@@ -2372,9 +2372,9 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipc_service_ref_count_shm, 9);
 	add_tcase(s, tc, test_ipc_server_perms, 7);
 	add_tcase(s, tc, test_ipc_stress_connections_shm, 3600 /* ? */);
-	add_tcase(s, tc, test_ipc_dispatch_shm_native_prio_dlock, 15);
+	add_tcase(s, tc, test_ipc_disp_shm_native_prio_dlock, 15);
 #if HAVE_GLIB
-	add_tcase(s, tc, test_ipc_dispatch_shm_glib_prio_dlock, 15);
+	add_tcase(s, tc, test_ipc_disp_shm_glib_prio_dlock, 15);
 #endif
 #ifdef HAVE_FAILURE_INJECTION
 	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
