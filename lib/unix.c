@@ -273,17 +273,18 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 
 	res = close(fd);
 	if (res) {
-		goto cleanup_fail;
+		goto cleanup_fail_noclose;
 	}
 	*buf = addr_orig;
 	return 0;
 
 cleanup_fail:
+	close(fd);
 
+cleanup_fail_noclose:
 	if (addr_orig) {
 		munmap(addr_orig, bytes << 1);
 	}
-	close(fd);
 	return res;
 }
 
