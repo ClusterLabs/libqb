@@ -118,7 +118,6 @@ _blackbox_vlogger(int32_t target,
 	    msg_len = qb_vsnprintf_serialize(chunk, QB_LOG_MAX_LEN,
 		"Log message too long to be stored in the blackbox.  "\
 		"Maximum is QB_LOG_MAX_LEN" , ap);
-	    actual_size += msg_len;
 	}
 
 	actual_size += msg_len;
