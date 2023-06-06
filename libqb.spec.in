@@ -12,7 +12,7 @@ Release:        1%{?numcomm:.%{numcomm}}%{?alphatag:.%{alphatag}}%{?dirty:.%{dir
 Summary:        An IPC library for high performance servers
 
 Group:          System Environment/Libraries
-License:        LGPLv2+
+License:        LGPL-2.1-or-later
 URL:            https://github.com/ClusterLabs/libqb
 Source0:        https://fedorahosted.org/releases/q/u/quarterback/%{name}-%{version}%{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}.tar.xz
 
