@@ -208,25 +208,25 @@ list_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 # This lot allows the tests to run in parallel
 # but with defined dependancies
 #
-ipc.log: start.test
+ipc.log: start.log
 
-sock_ipc_wrapper.log: start.test
+sock_ipc_wrapper.log: start.log
 
-array.log: start.test
+array.log: start.log
 
-list.log: start.test
+list.log: start.log
 
-log.log: start.test
+log.log: start.log
 
-loop.log: start.test
+loop.log: start.log
 
-map.log: start.test
+map.log: start.log
 
-rb.log: start.test
+rb.log: start.log
 
-tlist.log: start.test
+tlist.log: start.log
 
-util.log: start.test
+util.log: start.log
 
 resources.log: ipc.log sock_ipc_wrapper.log rb.log log.log
 
