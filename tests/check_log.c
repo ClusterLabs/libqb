@@ -832,8 +832,10 @@ START_TEST(test_log_long_msg)
 		qb_log(LOG_INFO, "Message %d %d - %s", lpc, lpc%600, buffer);
 	}
 
-        qb_log_blackbox_write_to_file("blackbox.dump");
-        qb_log_blackbox_print_from_file("blackbox.dump");
+        rc = qb_log_blackbox_write_to_file("blackbox.dump");
+	ck_assert_int_gt(rc, 0);
+        rc = qb_log_blackbox_print_from_file("blackbox.dump");
+	ck_assert_int_le(rc, 0);
 	unlink("blackbox.dump");
 	qb_log_fini();
 }

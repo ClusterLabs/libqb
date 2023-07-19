@@ -110,8 +110,8 @@ _blackbox_vlogger(int32_t target,
 	chunk += sizeof(uint32_t);
 
 	/* log message */
-	msg_len = qb_vsnprintf_serialize(chunk, max_size, cs->format, ap);
-	if (msg_len >= max_size) {
+	msg_len = qb_vsnprintf_serialize(chunk, t->max_line_length, cs->format, ap);
+	if (msg_len >= t->max_line_length) {
 	    chunk = msg_len_pt + sizeof(uint32_t); /* Reset */
 
 	    /* Leave this at QB_LOG_MAX_LEN so as not to overflow the blackbox */
