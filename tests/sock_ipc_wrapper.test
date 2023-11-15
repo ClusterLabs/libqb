@@ -1,4 +1,4 @@
-#/bin/sh -e
+#!/bin/sh -e
 # filesystem socket IPC test
 if [ "$(uname -s)" = "Linux" ] && [ "`id -u`" = "0" ]
 then
