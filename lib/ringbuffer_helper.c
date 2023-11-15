@@ -359,7 +359,11 @@ qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
 								   truncate_fallback);
 
 				/* the dirname part is assumed to be the same */
-				assert(!strncmp(dir_path, hdr_path, sep - data_path));
+				if (strncmp(dir_path, hdr_path, sep - data_path)) {
+					qb_util_perror(LOG_DEBUG,
+						       "header path is corrupted: %s", hdr_path);
+					res = -ENXIO;
+				}
 
 				sep = hdr_path + (sep - data_path);
 				/* now, don't touch neither data_path nor hdr_path */
