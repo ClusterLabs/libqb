@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <libxml/tree.h>
+#include <libxml/parser.h>
 #include <qb/qblist.h>
 #include <qb/qbmap.h>
 #include "cstring.h"
