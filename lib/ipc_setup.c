@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010,2013 Red Hat, Inc.
+ * Copyright 2010-2024 Red Hat, Inc.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
  *
@@ -765,16 +765,15 @@ send_response:
 		qb_ipcs_connection_unref(c);
 	} else {
 		if (res == -EACCES) {
-			qb_util_log(LOG_ERR, "Invalid IPC credentials (%s).",
+			qb_util_log(LOG_INFO, "IPC connection credentials rejected (%s)",
 				    c->description);
 		} else if (res == -EAGAIN) {
-			qb_util_log(LOG_WARNING, "Denied connection, is not ready (%s)",
+			qb_util_log(LOG_INFO, "IPC connection not ready (%s)",
 				    c->description);
 		} else {
-			errno = -res;
-			qb_util_perror(LOG_ERR,
-				       "Error in connection setup (%s)",
+			qb_util_perror(LOG_INFO, "IPC connection setup failed (%s)",
 				       c->description);
+			errno = -res;
 		}
 
 		if (c->state == QB_IPCS_CONNECTION_INACTIVE) {
