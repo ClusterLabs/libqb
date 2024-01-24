@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011 Red Hat, Inc.
+ * Copyright 2010-2024 Red Hat, Inc.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
  *
@@ -233,7 +233,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 		goto cleanup_hdr;
 	}
 
-	qb_util_log(LOG_DEBUG,
+	qb_util_log(LOG_TRACE,
 		    "shm size:%ld; real_size:%ld; rb->word_size:%d", size,
 		    real_size, rb->shared_hdr->word_size);
 
