@@ -334,12 +334,12 @@ qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
 	char *hdr_path = rb->shared_hdr->hdr_path;
 
 	if (unlink_it) {
-		qb_util_log(LOG_DEBUG, "Free'ing ringbuffer: %s", hdr_path);
+		qb_util_log(LOG_TRACE, "Free'ing ringbuffer: %s", hdr_path);
 		if (rb->notifier.destroy_fn) {
 			(void)rb->notifier.destroy_fn(rb->notifier.instance);
 		}
 	} else {
-		qb_util_log(LOG_DEBUG, "Closing ringbuffer: %s", hdr_path);
+		qb_util_log(LOG_TRACE, "Closing ringbuffer: %s", hdr_path);
 		hdr_path = NULL;
 	}
 

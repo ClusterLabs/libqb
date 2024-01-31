@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Red Hat, Inc.
+ * Copyright 2010-2024 Red Hat, Inc.
  *
  * Author: Angus Salkeld <asalkeld@redhat.com>
  *
@@ -480,7 +480,7 @@ qb_ipcc_disconnect(struct qb_ipcc_connection *c)
 {
 	struct qb_ipc_one_way *ow = NULL;
 
-	qb_util_log(LOG_DEBUG, "%s()", __func__);
+	qb_util_log(LOG_TRACE, "%s(%s)", __func__, (c == NULL)? "NULL" : "");
 
 	if (c == NULL) {
 		return;
