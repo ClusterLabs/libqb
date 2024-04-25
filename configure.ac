@@ -432,7 +432,15 @@ while : ; do
 	case ${file_sync} in
 	fdatasync)
 		test "x${ac_cv_func_fdatasync}" = "xno" || break
-		file_sync=fsync;;
+		file_sync=fsync
+
+		dnl Darwin provides the function but doesn't have it in headers
+		case "$host_os" in
+			darwin*)
+				AH_BOTTOM([int fdatasync(int fildes);])
+			;;
+                esac
+		;;
 	fsync)
 		test "x${ac_cv_func_fsync}" = "xno" || break
 		file_sync=;;
