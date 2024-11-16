@@ -353,6 +353,11 @@ case $host_cpu in
 		AC_DEFINE_UNQUOTED([QB_ARCH_MIPS], [1], [mips])
 		arch_force_shmlba=yes
 		;;
+	loongson*)
+		AC_MSG_RESULT([loongson])
+		AC_DEFINE_UNQUOTED([QB_ARCH_LOONGSON], [1], [loongson])
+		arch_force_shmlba=yes
+		;;
 	*)
 		AC_MSG_RESULT([${host_cpu}])
 		;;

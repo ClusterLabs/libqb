@@ -229,7 +229,7 @@ qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
 	flags |= MAP_PRIVATE;
 #endif /* QB_FORCE_SHM_ALIGN */
 
-#if defined(QB_ARCH_HPPA)
+#if defined(QB_ARCH_HPPA) || defined(QB_ARCH_LOONGSON)
 	/* map twice the size we want to make sure we have already mapped
 	   the second memory location behind it too. Otherwise the Linux
 	   kernel may map it in the upper memory so that we can't map
