@@ -455,8 +455,14 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 		return res;
 	}
 #ifdef QB_LINUX
-	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &on,
-		   sizeof(on));
+	res = setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &on,
+			 sizeof(on));
+	if (res != 0) {
+		int err = errno;
+		qb_ipcc_us_sock_close(c->setup.u.us.sock);
+		errno = err;
+		return res;
+	}
 #endif
 
 	memset(&request, 0, sizeof(request));
@@ -481,6 +487,7 @@ int qb_ipcc_setup_connect_continue(struct qb_ipcc_connection *c, struct qb_ipc_c
 {
 	struct ipc_auth_data *data;
 	int32_t res;
+	int res1;
 	int retry_count = 0;
 #ifdef QB_LINUX
 	int off = 0;
@@ -500,8 +507,14 @@ retry:
 	}
 
 #ifdef QB_LINUX
-	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off,
-		   sizeof(off));
+	res1 = setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &off,
+			 sizeof(off));
+	if (res1 != 0) {
+		int err = errno;
+		destroy_ipc_auth_data(data);
+		errno = err;
+		return res;
+	}
 #endif
 
 	if (res != data->len) {
@@ -793,6 +806,7 @@ process_auth(int32_t fd, int32_t revents, void *d)
 	struct ipc_auth_data *data = (struct ipc_auth_data *) d;
 
 	int32_t res = 0;
+	int res1;
 #ifdef SO_PASSCRED
 	int off = 0;
 #endif
@@ -832,7 +846,13 @@ process_auth(int32_t fd, int32_t revents, void *d)
 
 cleanup_and_return:
 #ifdef SO_PASSCRED
-	setsockopt(data->sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
+	res1 = setsockopt(data->sock, SOL_SOCKET, SO_PASSCRED, &off, sizeof(off));
+	if (res1 != 0) {
+		int err = errno;
+		close(data->sock);
+		errno = err;
+		return res;
+	}
 #endif
 
 	(void)data->s->poll_fns.dispatch_del(data->sock);
@@ -853,6 +873,7 @@ static void
 qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 {
 	int res = 0;
+	int res1;
 	struct ipc_auth_data *data = NULL;
 #ifdef SO_PASSCRED
 	int on = 1;
@@ -869,7 +890,11 @@ qb_ipcs_uc_recv_and_auth(int32_t sock, struct qb_ipcs_service *s)
 	qb_ipcs_ref(data->s);
 
 #ifdef SO_PASSCRED
-	setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+	res1 = setsockopt(sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+	if (res1 != 0) {
+		close(sock);
+		return;
+	}
 #endif
 
 	res = s->poll_fns.dispatch_add(s->poll_priority,

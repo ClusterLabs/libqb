@@ -185,7 +185,6 @@ uint64_t qb_util_nano_from_epoch_get(void);
 /**
  * Get the time in timespec since epoch.
  * @param ts (out) the timespec
- * @return status (0 == ok, -errno on error)
  */
 void qb_util_timespec_from_epoch_get(struct timespec *ts);
 
