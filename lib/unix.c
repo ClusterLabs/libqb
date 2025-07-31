@@ -69,7 +69,7 @@ open_mmap_file(char *path, uint32_t file_flags)
 	return open(path, file_flags, 0600);
 }
 
-#if defined(QB_BSD) || !defined(HAVE_POSIX_FALLOCATE)
+#if defined(QB_BSD) || defined(QB_SOLARIS) || !defined(HAVE_POSIX_FALLOCATE)
 static int local_fallocate(int fd, size_t bytes)
 {
 	long page_size = sysconf(_SC_PAGESIZE);
@@ -170,7 +170,7 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 		if (res == EINTR) {
 			qb_util_log(LOG_DEBUG, "got EINTR trying to allocate file %s, retrying...", path);
 			continue;
-#ifdef QB_BSD
+#if defined (QB_BSD) || defined(QB_SOLARIS)
 		} else if (res == EINVAL) { /* posix_fallocate() fails on ZFS
 					       https://lists.freebsd.org/pipermail/freebsd-current/2018-February/068448.html */
 			qb_util_log(LOG_DEBUG, "posix_fallocate returned EINVAL - running on ZFS?");

@@ -8,8 +8,8 @@
 #
 
 testname=$(echo `uuidgen | sed -e "s#-.*##g"`-`date +%s`)
-echo -n $testname > ipc-test-name
+echo $testname > ipc-test-name
 testname=$(echo `uuidgen | sed -e "s#-.*##g"`-`date +%s`)
-echo -n $testname > ipc-test-name-sock
+echo $testname > ipc-test-name-sock
 
 mkdir -p $SOCKETDIR

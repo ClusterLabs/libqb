@@ -433,7 +433,7 @@ init_ipc_auth_data(int sock, size_t len)
 #endif /* QB_SOLARIS */
 
 	data->len = len;
-	data->iov_recv.iov_base = &data->msg;
+	data->iov_recv.iov_base = (void *)&data->msg;
 	data->iov_recv.iov_len = data->len;
 	data->sock = sock;
 

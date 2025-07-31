@@ -226,6 +226,10 @@ set_ipc_name(const char *prefix)
 	f = fopen(IPC_TEST_NAME_FILE, "r");
 	if (f) {
 		fgets(process_name, sizeof(process_name), f);
+		/* Remove any trailing LF that might be lurking */
+		if (process_name[strlen(process_name)-1] == '\n') {
+		        process_name[strlen(process_name)-1] = '\0';
+		}
 		fclose(f);
 		snprintf(ipc_name, sizeof(ipc_name), "%.44s%s", prefix, process_name);
 	} else {
@@ -890,7 +894,7 @@ request_server_exit(void)
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
 	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
+	iov[0].iov_base = (void*)&req_header;
 
 	ck_assert_int_eq(QB_TRUE, qb_ipcc_is_connected(conn));
 
@@ -1048,7 +1052,7 @@ static void test_ipc_connect_async(void)
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
 	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
+	iov[0].iov_base = (void*)&req_header;
 
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
@@ -1096,7 +1100,7 @@ test_ipc_txrx_timeout(void)
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
 	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
+	iov[0].iov_base = (void*)&req_header;
 
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
@@ -1234,7 +1238,7 @@ test_ipc_exit(void)
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
 	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
+	iov[0].iov_base = (void*)&req_header;
 
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
@@ -1306,7 +1310,7 @@ END_TEST
 START_TEST(test_ipc_us_connect_async)
 {
 	qb_enter();
-	ipc_type = QB_IPC_SHM;
+	ipc_type = QB_IPC_SOCKET;
 	set_ipc_name(__func__);
 	test_ipc_connect_async();
 	qb_leave();
@@ -1729,7 +1733,7 @@ test_ipc_stress_test(void)
 	}
 
 	iov[0].iov_len = giant_req.hdr.size;
-	iov[0].iov_base = &giant_req;
+	iov[0].iov_base = (void*)&giant_req;
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
 				 sizeof(struct qb_ipc_response_header), -1);
@@ -1949,7 +1953,7 @@ test_ipc_disconnect_after_created(void)
 	req_header.size = sizeof(struct qb_ipc_request_header);
 
 	iov[0].iov_len = req_header.size;
-	iov[0].iov_base = &req_header;
+	iov[0].iov_base = (void*)&req_header;
 
 	res = qb_ipcc_sendv_recv(conn, iov, 1,
 				 &res_header,
