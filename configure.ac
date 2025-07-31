@@ -26,12 +26,22 @@ dnl command line
 dnl Wrap in m4_ifdef to avoid breaking on older platforms
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 LT_PREREQ([2.2.6])
+
+AC_CANONICAL_HOST
+
 # --enable-new-dtags: Use RUNPATH instead of RPATH.
 # It is necessary to have this done before libtool does linker detection.
 # See also: https://github.com/kronosnet/kronosnet/issues/107
-AX_CHECK_LINK_FLAG([-Wl,--enable-new-dtags],
-		   [AM_LDFLAGS=-Wl,--enable-new-dtags],
-		   [AC_MSG_ERROR(["Linker support for --enable-new-dtags is required"])])
+case "$host_os" in
+	solaris*)
+		AC_MSG_NOTICE([Skipping --enable-new-dtags check, Solaris' RPATH logic is like RUNPATH on other platforms])
+		;;
+	*)
+		AX_CHECK_LINK_FLAG([-Wl,--enable-new-dtags],
+				   [AM_LDFLAGS=-Wl,--enable-new-dtags],
+				   [AC_MSG_ERROR(["Linker support for --enable-new-dtags is required"])])
+		;;
+esac
 AC_SUBST([AM_LDFLAGS])
 saved_LDFLAGS="$LDFLAGS"
 LDFLAGS="$AM_LDFLAGS $LDFLAGS"

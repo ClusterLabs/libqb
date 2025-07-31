@@ -61,7 +61,7 @@ _benchmark(qb_ipcc_connection_t *conn, int write_size)
 	hdr.size = write_size;
 	hdr.id = QB_IPC_MSG_USER_START + 1;
 
-	iov[0].iov_base = &hdr;
+	iov[0].iov_base = (void*)&hdr;
 	iov[0].iov_len = sizeof(struct qb_ipc_request_header);
 
 	iov[1].iov_base = data;

@@ -20,6 +20,8 @@
 #define _GNU_SOURCE
 #define _XOPEN_SOURCE
 #define _XOPEN_SOURCE_EXTENDED
+#define _XPG4_2
+#define _XPG7
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/stat.h>
