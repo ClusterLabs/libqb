@@ -177,7 +177,7 @@ skiplist_lookup(struct skiplist *list, const char *key)
 	int8_t level = list->level;
 
 	while (level >= SKIPLIST_LEVEL_MIN) {
-		struct skiplist_node *fwd_node = cur_node->forward[level];
+		struct skiplist_node *fwd_node = cur_node->forward[(size_t)level];
 
 		switch (op_search(list, fwd_node, key)) {
 		case OP_FINISH:
@@ -391,7 +391,7 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 	char *old_v;
 
 	while ((update_level = level) >= SKIPLIST_LEVEL_MIN) {
-		struct skiplist_node *fwd_node = cur_node->forward[level];
+		struct skiplist_node *fwd_node = cur_node->forward[(size_t)level];
 
 		switch (op_search(list, fwd_node, key)) {
 		case OP_FINISH:
@@ -411,14 +411,14 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 			level--;
 		}
 
-		update[update_level] = cur_node;
+		update[(size_t)update_level] = cur_node;
 	}
 
 	new_node_level = skiplist_level_generate();
 
 	if (new_node_level > list->level) {
 		for (level = list->level + 1; level <= new_node_level; level++)
-			update[level] = list->header;
+			update[(size_t)level] = list->header;
 
 		list->level = new_node_level;
 	}
@@ -432,8 +432,8 @@ skiplist_put(struct qb_map *map, const char *key, const void *value)
 
 	/* Drop @new_node into @list. */
 	for (level = SKIPLIST_LEVEL_MIN; level <= new_node_level; level++) {
-		new_node->forward[level] = update[level]->forward[level];
-		update[level]->forward[level] = new_node;
+		new_node->forward[(size_t)level] = update[(size_t)level]->forward[(size_t)level];
+		update[(size_t)level]->forward[(size_t)level] = new_node;
 	}
 
 	list->length++;
@@ -450,7 +450,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 	skiplist_update_t update;
 
 	while ((update_level = level) >= SKIPLIST_LEVEL_MIN) {
-		struct skiplist_node *fwd_node = cur_node->forward[level];
+		struct skiplist_node *fwd_node = cur_node->forward[(size_t)level];
 
 		switch (op_search(list, fwd_node, key)) {
 		case OP_GOTO_NEXT_NODE:
@@ -462,7 +462,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 			break;
 		}
 
-		update[update_level] = cur_node;
+		update[(size_t)update_level] = cur_node;
 	}
 
 	/* The immediate forward node should be the matching node... */
@@ -476,8 +476,8 @@ skiplist_rm(struct qb_map *map, const char *key)
 	/* Splice found_node out of list. */
 	for (level = SKIPLIST_LEVEL_MIN; level <= list->level; level++) {
 		if (update[level]->forward[level] == found_node) {
-			update[level]->forward[level] =
-			    found_node->forward[level];
+			update[(size_t)level]->forward[(size_t)level] =
+				found_node->forward[(size_t)level];
 		}
 	}
 
@@ -519,7 +519,7 @@ skiplist_rm(struct qb_map *map, const char *key)
 	 * highest level.
 	 */
 	for (level = list->level; level >= SKIPLIST_LEVEL_MIN; level--) {
-		if (list->header->forward[level])
+		if (list->header->forward[(size_t)level])
 			break;
 
 		list->level--;
