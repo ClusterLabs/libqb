@@ -425,7 +425,7 @@ init_ipc_auth_data(int sock, size_t len)
 	data->msg_recv.msg_control = (void *)data->cmsg_cred;
 	data->msg_recv.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
 #endif
-#ifdef QB_SOLARIS
+#if defined(QB_SOLARIS) && !defined(_XPG4_2)
 	data->msg_recv.msg_accrights = 0;
 	data->msg_recv.msg_accrightslen = 0;
 #else
