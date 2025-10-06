@@ -365,7 +365,7 @@ main(int32_t argc, char *argv[])
 	qb_log_format_set(QB_LOG_STDERR, "%f:%l [%p] %b");
 	qb_log_ctl(QB_LOG_STDERR, QB_LOG_CONF_ENABLED, QB_TRUE);
 
-	s1 = qb_ipcs_create("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", 0, ipc_type, &sh);
+	s1 = qb_ipcs_create("ipcserver", 0, ipc_type, &sh);
 	if (s1 == 0) {
 		qb_perror(LOG_ERR, "qb_ipcs_create");
 		exit(1);
