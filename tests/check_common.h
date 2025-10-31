@@ -26,44 +26,18 @@
 
 #include <check.h>
 
-/*
-    Auxiliary macros
- */
+#define _STRINGIFY(arg)                #arg
+#define STRINGIFY(arg)         _STRINGIFY(arg)
 
-#define JOIN(a, b)		a##b
-#define _STRINGIFY(arg)		#arg
-#define STRINGIFY(arg)		_STRINGIFY(arg)
-
-/* wide-spread technique, see, e.g.,
-   http://cplusplus.co.il/2010/07/17/variadic-macro-to-count-number-of-arguments
- */
-#define VA_ARGS_CNT(...)	VA_ARGS_CNT_IMPL(__VA_ARGS__,8,7,6,5,4,3,2,1,_)
-#define VA_ARGS_CNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,N,...)		N
-
-/* add_tcase "overloading" per argument count;
-   "func" argument is assumed to always starts with "test_", which is skipped
-   for the purpose of naming the respective test case that's being created */
-
-#define add_tcase_select(cnt)	JOIN(add_tcase_, cnt)
-#define add_tcase_3(suite, tcase, func) \
+#define add_tcase(suite, tcase, func, timeout) \
 	do { \
-		(tcase) = tcase_create(STRINGIFY(func) + sizeof("test")); \
+		const char * fname = STRINGIFY(func); \
+		(tcase) = tcase_create(fname + sizeof("test") ); \
 		tcase_add_test((tcase), func); \
+		if (timeout != 0) { \
+			tcase_set_timeout((tcase), (timeout));	\
+		} \
 		suite_add_tcase((suite), (tcase)); \
 	} while (0)
-#define add_tcase_4(suite, tcase, func, timeout) \
-	do { \
-		(tcase) = tcase_create(STRINGIFY(func) + sizeof("test")); \
-		tcase_add_test((tcase), func); \
-		tcase_set_timeout((tcase), (timeout)); \
-		suite_add_tcase((suite), (tcase)); \
-	} while (0)
-
-/*
-    Use-me macros
- */
-
-/* add_tcase(<dest-suite>, <testcase-tmp-storage>, <function>[, <timeout>]) */
-#define add_tcase(...)	add_tcase_select(VA_ARGS_CNT(__VA_ARGS__))(__VA_ARGS__)
 
 #endif

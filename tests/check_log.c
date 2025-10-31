@@ -1093,31 +1093,31 @@ log_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("logging");
 
-	add_tcase(s, tc, test_va_serialize);
-	add_tcase(s, tc, test_log_stupid_inputs);
-	add_tcase(s, tc, test_log_basic);
-	add_tcase(s, tc, test_log_format);
-	add_tcase(s, tc, test_log_enable);
+	add_tcase(s, tc, test_va_serialize, 0);
+	add_tcase(s, tc, test_log_stupid_inputs, 0);
+	add_tcase(s, tc, test_log_basic, 0);
+	add_tcase(s, tc, test_log_format, 0);
+	add_tcase(s, tc, test_log_enable, 0);
 	add_tcase(s, tc, test_log_threads, 360);
-	add_tcase(s, tc, test_log_long_msg);
-	add_tcase(s, tc, test_log_filter_fn);
-	add_tcase(s, tc, test_threaded_logging);
-	add_tcase(s, tc, test_line_length);
-	add_tcase(s, tc, test_file_logging);
+	add_tcase(s, tc, test_log_long_msg, 0);
+	add_tcase(s, tc, test_log_filter_fn, 0);
+	add_tcase(s, tc, test_threaded_logging, 0);
+	add_tcase(s, tc, test_line_length, 0);
+	add_tcase(s, tc, test_file_logging, 0);
 #ifdef HAVE_PTHREAD_SETSCHEDPARAM
-	add_tcase(s, tc, test_threaded_logging_bad_sched_params);
+	add_tcase(s, tc, test_threaded_logging_bad_sched_params, 0);
 #endif
-	add_tcase(s, tc, test_timestamps);
-	add_tcase(s, tc, test_extended_information);
-	add_tcase(s, tc, test_zero_tags);
+	add_tcase(s, tc, test_timestamps, 0);
+	add_tcase(s, tc, test_extended_information, 0);
+	add_tcase(s, tc, test_zero_tags, 0);
 /*
  * You can still use syslog and journal in a normal application,
  * but the syslog_override code doesn't work when -lsystemd is present
  */
 #ifdef USE_JOURNAL
-        add_tcase(s, tc, test_journal);
+        add_tcase(s, tc, test_journal, 0);
 #else
-	add_tcase(s, tc, test_syslog);
+	add_tcase(s, tc, test_syslog, 0);
 #endif
 
 	return s;

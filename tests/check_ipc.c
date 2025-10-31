@@ -64,12 +64,12 @@ static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
    'variable length array in structure' extension will never be supported;
    assign default for SHM as we'll skip test that would use run-time
    established value (via qb_ipcc_verify_dgram_max_msg_size), anyway */
-static const int MAX_MSG_SIZE = DEFAULT_MAX_MSG_SIZE;
+#define MAX_MSG_SIZE  DEFAULT_MAX_MSG_SIZE
 #endif
 
 /* The size the giant msg's data field needs to be to make
  * this the largests msg we can successfully send. */
-#define GIANT_MSG_DATA_SIZE MAX_MSG_SIZE - sizeof(struct qb_ipc_response_header) - 8
+#define GIANT_MSG_DATA_SIZE (MAX_MSG_SIZE - sizeof(struct qb_ipc_response_header) - 8)
 
 static int enforce_server_buffer;
 static qb_ipcc_connection_t *conn;

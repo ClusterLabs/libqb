@@ -160,8 +160,8 @@ static Suite *util_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("qb_util");
 
-	add_tcase(s, tc, test_check_overwrite);
-	add_tcase(s, tc, test_check_normal);
+	add_tcase(s, tc, test_check_overwrite, 0);
+	add_tcase(s, tc, test_check_normal, 0);
 
 	return s;
 }

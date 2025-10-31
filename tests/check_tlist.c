@@ -266,7 +266,7 @@ static Suite *tlist_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("tlist");
 
-	add_tcase(s, tc, test_check_basic);
+	add_tcase(s, tc, test_check_basic, 0);
 	add_tcase(s, tc, test_check_speed, 30);
 	add_tcase(s, tc, test_check_heap, 30);
 

@@ -332,13 +332,13 @@ static Suite *loop_job_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("loop_job");
 
-	add_tcase(s, tc, test_loop_job_input);
-	add_tcase(s, tc, test_loop_job_1);
-	add_tcase(s, tc, test_loop_job_4);
+	add_tcase(s, tc, test_loop_job_input, 0);
+	add_tcase(s, tc, test_loop_job_1, 0);
+	add_tcase(s, tc, test_loop_job_4, 0);
 	add_tcase(s, tc, test_loop_job_nuts, 5);
 	add_tcase(s, tc, test_job_rate_limit, 5);
-	add_tcase(s, tc, test_job_add_del);
-	add_tcase(s, tc, test_loop_job_order);
+	add_tcase(s, tc, test_job_add_del, 0);
+	add_tcase(s, tc, test_loop_job_order, 0);
 
 	return s;
 }
@@ -788,7 +788,7 @@ loop_timer_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("loop_timers");
 
-	add_tcase(s, tc, test_loop_timer_input);
+	add_tcase(s, tc, test_loop_timer_input, 0);
 	add_tcase(s, tc, test_loop_timer_basic, 30);
 	add_tcase(s, tc, test_loop_timer_precision, 30);
 	add_tcase(s, tc, test_loop_timer_expire_leak, 30);
@@ -804,9 +804,9 @@ loop_signal_suite(void)
 	Suite *s = suite_create("loop_signal_suite");
 
 	add_tcase(s, tc, test_loop_sig_handling, 10);
-	add_tcase(s, tc, test_loop_sig_only_get_one);
-	add_tcase(s, tc, test_loop_sig_delete);
-	add_tcase(s, tc, test_loop_dont_override_other_signals);
+	add_tcase(s, tc, test_loop_sig_only_get_one, 0);
+	add_tcase(s, tc, test_loop_sig_delete, 0);
+	add_tcase(s, tc, test_loop_dont_override_other_signals, 0);
 
 	return s;
 }
