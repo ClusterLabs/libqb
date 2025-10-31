@@ -81,7 +81,7 @@ static Suite *array_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("qb_list");
 
-	add_tcase(s, tc, test_list_iter);
+	add_tcase(s, tc, test_list_iter, 0);
 
 	return s;
 }

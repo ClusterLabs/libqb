@@ -195,10 +195,10 @@ static Suite *rb_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("ringbuffer");
 
-	add_tcase(s, tc, test_ring_buffer1);
-	add_tcase(s, tc, test_ring_buffer2);
-	add_tcase(s, tc, test_ring_buffer3);
-	add_tcase(s, tc, test_ring_buffer4);
+	add_tcase(s, tc, test_ring_buffer1, 0);
+	add_tcase(s, tc, test_ring_buffer2, 0);
+	add_tcase(s, tc, test_ring_buffer3, 0);
+	add_tcase(s, tc, test_ring_buffer4, 0);
 
 	return s;
 }

@@ -992,32 +992,32 @@ map_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("qb_map");
 
-	add_tcase(s, tc, test_skiplist_simple);
-	add_tcase(s, tc, test_hashtable_simple);
-	add_tcase(s, tc, test_trie_simple);
-	add_tcase(s, tc, test_trie_partial_iterate);
-	add_tcase(s, tc, test_skiplist_remove);
-	add_tcase(s, tc, test_hashtable_remove);
-	add_tcase(s, tc, test_trie_notifications);
-	add_tcase(s, tc, test_hash_notifications);
-	add_tcase(s, tc, test_skiplist_notifications);
-	add_tcase(s, tc, test_skiplist_search);
+	add_tcase(s, tc, test_skiplist_simple, 0);
+	add_tcase(s, tc, test_hashtable_simple, 0);
+	add_tcase(s, tc, test_trie_simple, 0);
+	add_tcase(s, tc, test_trie_partial_iterate, 0);
+	add_tcase(s, tc, test_skiplist_remove, 0);
+	add_tcase(s, tc, test_hashtable_remove, 0);
+	add_tcase(s, tc, test_trie_notifications, 0);
+	add_tcase(s, tc, test_hash_notifications, 0);
+	add_tcase(s, tc, test_skiplist_notifications, 0);
+	add_tcase(s, tc, test_skiplist_search, 0);
 
 /*
  * 	No hashtable_search as it assumes an ordered
  *	collection
  */
-	add_tcase(s, tc, test_trie_search);
-	add_tcase(s, tc, test_skiplist_traverse);
-	add_tcase(s, tc, test_hashtable_traverse);
-	add_tcase(s, tc, test_trie_traverse);
+	add_tcase(s, tc, test_trie_search, 0);
+	add_tcase(s, tc, test_skiplist_traverse, 0);
+	add_tcase(s, tc, test_hashtable_traverse, 0);
+	add_tcase(s, tc, test_trie_traverse, 0);
 	add_tcase(s, tc, test_skiplist_load, 30);
 	add_tcase(s, tc, test_hashtable_load, 30);
 	add_tcase(s, tc, test_trie_load, 30);
 
-	add_tcase(s, tc, test_skiplist_accents);
-	add_tcase(s, tc, test_hashtable_accents);
-	add_tcase(s, tc, test_trie_accents);
+	add_tcase(s, tc, test_skiplist_accents, 0);
+	add_tcase(s, tc, test_hashtable_accents, 0);
+	add_tcase(s, tc, test_trie_accents, 0);
 
 	return s;
 }
