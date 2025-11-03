@@ -140,10 +140,10 @@ static Suite *array_suite(void)
 	TCase *tc;
 	Suite *s = suite_create("qb_array");
 
-	add_tcase(s, tc, test_array_limits);
-	add_tcase(s, tc, test_array_alloc_free);
-	add_tcase(s, tc, test_array_correct_retrieval);
-	add_tcase(s, tc, test_array_static_memory);
+	add_tcase(s, tc, test_array_limits, 0);
+	add_tcase(s, tc, test_array_alloc_free, 0);
+	add_tcase(s, tc, test_array_correct_retrieval, 0);
+	add_tcase(s, tc, test_array_static_memory, 0);
 
 	return s;
 }
