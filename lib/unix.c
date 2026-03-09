@@ -171,8 +171,9 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 			qb_util_log(LOG_DEBUG, "got EINTR trying to allocate file %s, retrying...", path);
 			continue;
 #if defined (QB_BSD) || defined(QB_SOLARIS)
-		} else if (res == EINVAL) { /* posix_fallocate() fails on ZFS
-					       https://lists.freebsd.org/pipermail/freebsd-current/2018-February/068448.html */
+		} else if (res == EINVAL || res == EOPNOTSUPP) {
+			/* posix_fallocate() fails on ZFS
+			   https://lists.freebsd.org/pipermail/freebsd-current/2018-February/068448.html */
 			qb_util_log(LOG_DEBUG, "posix_fallocate returned EINVAL - running on ZFS?");
 			if (file_flags & O_CREAT) {
 				if (local_fallocate(fd, bytes)) {
