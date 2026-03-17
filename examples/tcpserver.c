@@ -33,7 +33,7 @@
 #include <sys/socket.h>
 #endif /* HAVE_SYS_SOCKET_H */
 #ifdef HAVE_SYS_POLL_H
-#include <sys/poll.h>
+#include <poll.h>
 #endif /* HAVE_SYS_POLL_H */
 
 #include <qb/qbdefs.h>
