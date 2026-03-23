@@ -19,7 +19,7 @@
  * along with libqb.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "os_base.h"
-#include <sys/poll.h>
+#include <poll.h>
 
 #include <qb/qbdefs.h>
 #include <qb/qbutil.h>
