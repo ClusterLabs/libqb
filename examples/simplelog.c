@@ -248,8 +248,8 @@ main(int32_t argc, char *argv[])
 	}
 
 	if (do_blackbox) {
-		logfile = NULL;
-		logfile[5] = 'a';
+		/* Emulate a bug to exercise the signal handler */
+		*(volatile int *)0 = 1;
 	} else {
 		qb_log_fini();
 	}

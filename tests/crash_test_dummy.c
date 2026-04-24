@@ -72,7 +72,6 @@ sigsegv_handler(int sig)
 int32_t
 main(int32_t argc, char *argv[])
 {
-	char *logfile;
 	int i;
 
 	signal(SIGSEGV, sigsegv_handler);
@@ -100,9 +99,7 @@ main(int32_t argc, char *argv[])
 		func_two();
 	}
 
-	/* on purpose crash to make a blackbox.
-	 */
-       	logfile = NULL;
-	logfile[5] = 'a';
+	/* on purpose crash to make a blackbox. */
+	*(volatile int *)0 = 1;
 	return 0;
 }
