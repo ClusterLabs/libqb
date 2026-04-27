@@ -223,6 +223,7 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT16_T
 AC_TYPE_UINT8_T
 
+AC_CHECK_DECLS_ONCE([[__xstat]], [], [], [[#include <sys/stat.h>]])
 AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
                 [AC_DEFINE([HAVE_STRUCT_SOCKADDR_UN_SUN_LEN],
                            1,

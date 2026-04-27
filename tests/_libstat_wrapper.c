@@ -8,8 +8,13 @@
 #include <sys/stat.h>
 #include "../include/config.h"
 
+#if !HAVE_DECL___XSTAT
+#define XSTATIC __attribute__((used)) static
+#else
+#define XSTATIC
+#endif
 // __xstat for earlier libc
-int __xstat(int __ver, const char *__filename, struct stat *__stat_buf)
+XSTATIC int __xstat(int __ver, const char *__filename, struct stat *__stat_buf)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	static int opened = 0;

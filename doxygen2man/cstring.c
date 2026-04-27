@@ -26,17 +26,16 @@ struct cstring_header
 
 cstring_t cstring_alloc(void)
 {
-	char *cstring = malloc(INITIAL_SIZE);
-	if (cstring) {
-		struct cstring_header *h = (struct cstring_header *)cstring;
-		h->checker = CHECKER_WORD;
-		h->allocated = INITIAL_SIZE;
-		h->used = 0;
-		h->the_string[0] = '\0';
-		return cstring;
-	} else {
+	struct cstring_header *cstring = malloc(INITIAL_SIZE);
+
+	if (cstring == NULL)
 		return NULL;
-	}
+
+	cstring->checker = CHECKER_WORD;
+	cstring->allocated = INITIAL_SIZE;
+	cstring->used = 0;
+	cstring->the_string[0] = '\0';
+	return cstring;
 }
 
 char *cstring_to_chars(cstring_t cstring)

@@ -500,7 +500,7 @@ test_map_traverse_ordered(qb_map_t *m)
 	for (i = 0; chars[i]; i++) {
 		qb_map_put(m, chars[i], chars[i]);
 	}
-	result = calloc(sizeof(char), 26 * 2 + 10 + 1);
+	result = calloc(26 * 2 + 10 + 1, sizeof(char));
 
 	i = 0;
 	for (p = qb_map_iter_next(it, &data); p; p = qb_map_iter_next(it, &data)) {

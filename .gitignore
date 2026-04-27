@@ -61,3 +61,6 @@ test-driver
 /tests/functional/**/log_interlib_client
 /tests/functional/_pkgs
 /tests/functional/_results
+
+# blackbox data dumps from tests/examples
+*.fdata
