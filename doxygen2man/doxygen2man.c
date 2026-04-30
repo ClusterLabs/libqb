@@ -1030,7 +1030,11 @@ static void collect_enums(xmlNode *cur_node, void *arg)
 
 			for (this_tag = cur_node->children; this_tag; this_tag = this_tag->next) {
 				if (this_tag->type == XML_ELEMENT_NODE && strcmp((char *)this_tag->name, "name") == 0) {
-					name = strdup((char *)this_tag->children->content);
+					if (this_tag->children)
+						name = strdup((char *)this_tag->children->content);
+					else
+						name = strdup("enum");
+					break;
 				}
 			}
 
@@ -1040,7 +1044,7 @@ static void collect_enums(xmlNode *cur_node, void *arg)
 					memset(si, 0, sizeof(*si));
 					si->kind = STRUCTINFO_ENUM;
 					qb_list_init(&si->params_list);
-					si->structname = strdup(name);
+					si->structname = name;
 					traverse_node(cur_node, "enumvalue", read_struct, si);
 					qb_map_put(structures_map, refid, si);
 				}
