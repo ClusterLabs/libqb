@@ -39,7 +39,11 @@ ACLOCAL_AMFLAGS		= -I m4
 
 dist_doc_DATA		= COPYING INSTALL README.markdown
 
-SUBDIRS			= include lib doxygen2man docs tools examples
+SUBDIRS			= include lib
+if BUILD_MAN
+SUBDIRS			+= doxygen2man
+endif
+SUBDIRS			+= docs tools examples
 
 if ENABLE_TESTS
 SUBDIRS			+= tests
