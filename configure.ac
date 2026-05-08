@@ -178,22 +178,30 @@ AC_DEFINE_UNQUOTED([HAVE_GLIB], [1], [We have glib])
 fi
 
 # For building doxygen2man and man pages
-PKG_CHECK_MODULES([libxml], [libxml-2.0])
+AC_ARG_ENABLE([man],
+  [AS_HELP_STRING([--disable-man], [disable man page generation @<:@default=yes@:>@])],
+  [], [enable_man=yes])
 
-# if we are not cross-compiling, we can use the locally built
-# version of doxygen2man, otherwise we can look for
-# a locally installed version. If neither are usable, then
-# don´t build the man pages
-if test "x$cross_compiling" = "xno"; then
-  AM_CONDITIONAL([BUILD_MAN], [true])
-  DOXYGEN2MAN="\$(abs_builddir)/../doxygen2man/doxygen2man"
-else
-  AC_CHECK_PROGS([DOXYGEN2MAN], [doxygen2man])
-  if test "x$DOXYGEN2MAN" = "x"; then
-    AM_CONDITIONAL([BUILD_MAN], [false])
-  else
+if test "x$enable_man" = "xyes"; then
+  PKG_CHECK_MODULES([libxml], [libxml-2.0])
+
+  # if we are not cross-compiling, we can use the locally built
+  # version of doxygen2man, otherwise we can look for
+  # a locally installed version. If neither are usable, then
+  # don't build the man pages
+  if test "x$cross_compiling" = "xno"; then
     AM_CONDITIONAL([BUILD_MAN], [true])
+    DOXYGEN2MAN="\$(abs_builddir)/../doxygen2man/doxygen2man"
+  else
+    AC_CHECK_PROGS([DOXYGEN2MAN], [doxygen2man])
+    if test "x$DOXYGEN2MAN" = "x"; then
+      AM_CONDITIONAL([BUILD_MAN], [false])
+    else
+      AM_CONDITIONAL([BUILD_MAN], [true])
+    fi
   fi
+else
+  AM_CONDITIONAL([BUILD_MAN], [false])
 fi
 AC_SUBST(DOXYGEN2MAN)
 
