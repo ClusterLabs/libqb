@@ -301,7 +301,7 @@ qb_log_real_(struct qb_log_callsite *cs, ...)
 
 void
 qb_log_thread_log_write(struct qb_log_callsite *cs,
-			struct timespec *timestamp, const char *buffer)
+			struct timespec *timestamp, char *buffer)
 {
 	struct qb_log_target *t;
 	enum qb_log_target_slot pos;

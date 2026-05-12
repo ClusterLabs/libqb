@@ -963,7 +963,7 @@ void remove_tempdir(const char *name)
 {
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
 	char dirname[PATH_MAX];
-	char *slash = strrchr(name, '/');
+	const char *slash = strrchr(name, '/');
 
 	if (slash && slash - name < sizeof dirname) {
 		memcpy(dirname, name, slash - name);

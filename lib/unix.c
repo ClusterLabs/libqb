@@ -118,7 +118,7 @@ qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 	char *buffer = NULL;
 	int32_t i;
 #endif
-	char *is_absolute = strchr(file, '/');
+	const char *is_absolute = strchr(file, '/');
 #ifdef HAVE_POSIX_FALLOCATE
 	int32_t fallocate_retry = 5;
 #endif
