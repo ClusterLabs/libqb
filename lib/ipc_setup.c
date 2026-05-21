@@ -716,8 +716,11 @@ handle_new_connection(struct qb_ipcs_service *s,
 		res = -errno;
 		goto send_response;
 	}
-	/* chown can fail because we might not be root */
-	(void)chown(c->description, c->auth.uid, c->auth.gid);
+	/* chown may fail if not root, but log it */
+	if (chown(c->description, c->auth.uid, c->auth.gid) != 0) {
+		qb_util_perror(LOG_WARNING, "failed to chown directory (%s)",
+			       c->description);
+	}
 
 	/* We can't pass just a directory spec to the clients */
 	memcpy(c->description + desc_len, suffix, sizeof suffix);
