@@ -695,6 +695,14 @@ _process_request_(struct qb_ipcs_connection *c, int32_t ms_timeout)
 		res = -ESHUTDOWN;
 		goto cleanup;
 	} else {
+		/* Validate message size to prevent integer overflow attacks */
+		if (hdr->size <= 0 || hdr->size > c->request.max_msg_size) {
+			qb_util_log(LOG_WARNING,
+				    "invalid message size %d (max: %zu) from client %s",
+				    hdr->size, c->request.max_msg_size, c->description);
+			res = -EINVAL;
+			goto cleanup;
+		}
 		c->stats.requests++;
 		res = c->service->serv_fns.msg_process(c, hdr, hdr->size);
 		/* 0 == good, negative == backoff */
