@@ -371,6 +371,14 @@ qb_ipc_auth_creds(struct ipc_auth_data *data)
 			if (cmsg->cmsg_type != SCM_CREDENTIALS)
 				continue;
 
+			/* Validate that the control message contains a full ucred structure */
+			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct ucred))) {
+				qb_util_log(LOG_WARNING,
+					    "received malformed credential message (len=%zu, expected=%zu)",
+					    (size_t)cmsg->cmsg_len, CMSG_LEN(sizeof(struct ucred)));
+				continue;
+			}
+
 			memcpy(&cred, CMSG_DATA(cmsg), sizeof(struct ucred));
 			res = 0;
 			data->ugp.pid = cred.pid;
