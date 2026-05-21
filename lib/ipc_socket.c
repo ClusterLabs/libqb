@@ -816,17 +816,20 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	}
 	(void)strlcpy(r->request, path, PATH_MAX);
 	(void)strlcpy(c->request.u.us.shared_file_name, r->request, NAME_MAX);
+	/* These aren't failures, but are worth logging */
 	res = chown(r->request, c->auth.uid, c->auth.gid);
 	if (res != 0) {
-		/* ignore res, this is just for the compiler warnings.
-		 */
 		res = 0;
+		qb_util_perror(LOG_ERR, "failed to chown shared memory file (%s)",
+			       r->request);
+		goto cleanup_hdr;
 	}
 	res = chmod(r->request, c->auth.mode);
 	if (res != 0) {
-		/* ignore res, this is just for the compiler warnings.
-		 */
 		res = 0;
+		qb_util_perror(LOG_ERR, "failed to chmod shared memory file (%s)",
+			       r->request);
+		goto cleanup_hdr;
 	}
 
 	shm_ptr = mmap(0, SHM_CONTROL_SIZE,
@@ -874,6 +877,10 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	c->response.u.us.sock = c->request.u.us.sock;
 	snprintf(path, PATH_MAX, "%s-%s", r->response, "response");
 	c->response.u.us.sock_name = strdup(path);
+	if (c->response.u.us.sock_name == NULL) {
+		res = -ENOMEM;
+		goto cleanup_hdr;
+	}
 
 	/* event channel */
 	res = qb_ipc_dgram_sock_setup(r->response, "event-tx",
@@ -889,6 +896,10 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 
 	snprintf(path, PATH_MAX, "%s-%s", r->response, "event");
 	c->event.u.us.sock_name = strdup(path);
+	if (c->event.u.us.sock_name == NULL) {
+		res = -ENOMEM;
+		goto cleanup_hdr;
+	}
 
 	res = _sock_add_to_mainloop(c);
 	if (res < 0) {
