@@ -106,13 +106,21 @@ qb_ipc_dgram_sock_setup(const char *base_name,
 	}
 	res = bind(request_fd, (struct sockaddr *)&local_address,
 		   sizeof(local_address));
-
-	if (use_filesystem_sockets()) {
-		(void)chmod(local_address.sun_path, 0660);
-		(void)chown(local_address.sun_path, -1, gid);
-	}
 	if (res < 0) {
 		goto error_connect;
+	}
+
+	if (use_filesystem_sockets()) {
+		if (chmod(local_address.sun_path, 0660) != 0) {
+			res = 0;
+			qb_util_perror(LOG_ERR, "failed to chmod socket (%s)",
+				       local_address.sun_path);
+		}
+		/* chown may fail if not root, but log it */
+		if (chown(local_address.sun_path, -1, gid) != 0) {
+			qb_util_perror(LOG_WARNING, "failed to chown socket (%s)",
+				       local_address.sun_path);
+		}
 	}
 
 	*sock_pt = request_fd;
