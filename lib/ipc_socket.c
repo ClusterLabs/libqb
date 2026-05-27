@@ -822,14 +822,12 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 		res = 0;
 		qb_util_perror(LOG_ERR, "failed to chown shared memory file (%s)",
 			       r->request);
-		goto cleanup_hdr;
 	}
 	res = chmod(r->request, c->auth.mode);
 	if (res != 0) {
 		res = 0;
 		qb_util_perror(LOG_ERR, "failed to chmod shared memory file (%s)",
 			       r->request);
-		goto cleanup_hdr;
 	}
 
 	shm_ptr = mmap(0, SHM_CONTROL_SIZE,
