@@ -819,13 +819,11 @@ qb_ipcs_us_connect(struct qb_ipcs_service *s,
 	/* These aren't failures, but are worth logging */
 	res = chown(r->request, c->auth.uid, c->auth.gid);
 	if (res != 0) {
-		res = 0;
 		qb_util_perror(LOG_ERR, "failed to chown shared memory file (%s)",
 			       r->request);
 	}
 	res = chmod(r->request, c->auth.mode);
 	if (res != 0) {
-		res = 0;
 		qb_util_perror(LOG_ERR, "failed to chmod shared memory file (%s)",
 			       r->request);
 	}
