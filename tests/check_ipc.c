@@ -49,7 +49,7 @@
 static char ipc_name[256];
 
 #define DEFAULT_MAX_MSG_SIZE (8192*16)
-#ifndef __clang__
+#if !defined(__clang__) && !defined(__LCC__)
 static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
 
 #define DGRAM_MAX_MSG_SIZE \
