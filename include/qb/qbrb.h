@@ -106,6 +106,14 @@ extern "C" {
  */
 #define QB_RB_FLAG_NO_SEMAPHORE		0x10
 
+/**
+ * Lock the ringbuffer pages in memory.
+ *
+ * qb_rb_open() will fail if the pages cannot be locked. The lock lasts until
+ * this process closes the ringbuffer or exits.
+ */
+#define QB_RB_FLAG_MLOCK		0x20
+
 struct qb_ringbuffer_s;
 typedef struct qb_ringbuffer_s qb_ringbuffer_t;
 
@@ -120,7 +128,8 @@ typedef struct qb_ringbuffer_s qb_ringbuffer_t;
  * @param shared_user_data_size size for a shared data area.
  * @note the actual size will be rounded up to the next page size.
  * @return a new ring buffer or NULL if there was a problem.
- * @see QB_RB_FLAG_CREATE, QB_RB_FLAG_OVERWRITE, QB_RB_FLAG_SHARED_THREAD, QB_RB_FLAG_SHARED_PROCESS
+ * @see QB_RB_FLAG_CREATE, QB_RB_FLAG_OVERWRITE, QB_RB_FLAG_SHARED_THREAD,
+ * QB_RB_FLAG_SHARED_PROCESS, QB_RB_FLAG_MLOCK
  */
 qb_ringbuffer_t *qb_rb_open(const char *name, size_t size, uint32_t flags,
 			    size_t shared_user_data_size);
@@ -270,7 +279,8 @@ ssize_t qb_rb_write_to_file(qb_ringbuffer_t * rb, int32_t fd);
 /**
  * Load the saved ring buffer from file into temporary memory.
  * @param fd file with saved ringbuffer data.
- * @param flags same flags as passed into qb_rb_open()
+ * @param flags QB_RB_FLAG_MLOCK to lock the restored ringbuffer mappings;
+ * otherwise 0
  * @return new ringbuffer instance
  * @see qb_rb_write_to_file()
  */

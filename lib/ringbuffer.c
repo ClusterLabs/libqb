@@ -135,7 +135,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	uint32_t file_flags = O_RDWR;
 	char filename[PATH_MAX];
 	int32_t error = 0;
-	void *shm_addr;
+	void *shm_addr = MAP_FAILED;
 	long page_size = sysconf(_SC_PAGESIZE);
 
 #ifdef QB_ARCH_HPPA
@@ -162,6 +162,7 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 	if (rb == NULL) {
 		return NULL;
 	}
+	rb->shared_hdr_size = shared_size;
 
 	/*
 	 * Create a shared_hdr memory segment for the header.
@@ -198,6 +199,15 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 		rb->shared_hdr->write_pt = 0;
 		rb->shared_hdr->read_pt = 0;
 		(void)strlcpy(rb->shared_hdr->hdr_path, path, PATH_MAX);
+	}
+	if (flags & QB_RB_FLAG_MLOCK) {
+		error = qb_sys_mlock(rb->shared_hdr, shared_size);
+		if (error != 0) {
+			errno = -error;
+			qb_util_perror(LOG_ERR,
+				       "couldn't lock ringbuffer header mapping");
+			goto cleanup_hdr;
+		}
 	}
 	if (notifiers && notifiers->post_fn) {
 		error = 0;
@@ -238,13 +248,15 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 		    real_size, rb->shared_hdr->word_size);
 
 	/* this function closes fd_data */
-	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size);
-	rb->shared_data = shm_addr;
+	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size,
+				     flags & QB_RB_FLAG_MLOCK);
 	if (error != 0) {
-		qb_util_log(LOG_ERR, "couldn't create circular mmap on %s",
-			    rb->shared_hdr->data_path);
+		errno = -error;
+		qb_util_perror(LOG_ERR, "couldn't create circular mmap on %s",
+			       rb->shared_hdr->data_path);
 		goto cleanup_data;
 	}
+	rb->shared_data = shm_addr;
 
 	if (flags & QB_RB_FLAG_CREATE) {
 		memset(rb->shared_data, 0, real_size);
@@ -273,7 +285,7 @@ cleanup_hdr:
 		}
 	}
 	if (rb && (rb->shared_hdr != MAP_FAILED)) {
-		munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s));
+		munmap(rb->shared_hdr, rb->shared_hdr_size);
 	}
 	free(rb);
 	errno = -error;
@@ -881,7 +893,8 @@ qb_rb_create_from_file(int32_t fd, uint32_t flags)
 	 * qb_rb_open adds QB_RB_CHUNK_MARGIN + 1 to the requested size.
 	 */
 	rb = qb_rb_open("create_from_file", n_required - (QB_RB_CHUNK_MARGIN + 1),
-			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE, 0);
+			QB_RB_FLAG_CREATE | QB_RB_FLAG_NO_SEMAPHORE
+			| (flags & QB_RB_FLAG_MLOCK), 0);
 	if (rb == NULL) {
 		return NULL;
 	}

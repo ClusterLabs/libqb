@@ -73,6 +73,7 @@ struct qb_ringbuffer_shared_s {
 
 struct qb_ringbuffer_s {
 	uint32_t flags;
+	size_t shared_hdr_size;
 	int32_t sem_id;
 	struct qb_ringbuffer_shared_s *shared_hdr;
 	uint32_t *shared_data;

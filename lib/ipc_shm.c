@@ -308,11 +308,15 @@ qb_ipcs_shm_rb_open(struct qb_ipcs_connection *c,
 		    const char *rb_name)
 {
 	int32_t res = 0;
+	uint32_t rb_flags = QB_RB_FLAG_CREATE | QB_RB_FLAG_SHARED_PROCESS;
+
+	if (c->service->create_flags & QB_IPCS_REQUIRE_LOCKED_MAPPINGS) {
+		rb_flags |= QB_RB_FLAG_MLOCK;
+	}
 
 	ow->u.shm.rb = qb_rb_open(rb_name,
 				  ow->max_msg_size,
-				  QB_RB_FLAG_CREATE |
-				  QB_RB_FLAG_SHARED_PROCESS,
+				  rb_flags,
 				  sizeof(int32_t));
 	if (ow->u.shm.rb == NULL) {
 		res = -errno;

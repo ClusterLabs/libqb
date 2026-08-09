@@ -33,6 +33,8 @@
 #include <fcntl.h>  /* O_CREAT, ... */
 #include <stdarg.h>
 #include <stdio.h>  /* perror */
+#include <string.h>  /* memset */
+#include <sys/mman.h>  /* mlock */
 #include <sys/types.h>  /* mode_t, off_t */
 
 
@@ -99,6 +101,63 @@ unlinkat(int dirfd, const char *pathname, int flags)
 	return real_unlinkat(dirfd, pathname, flags);
 }
 #endif
+
+
+/*** mlock (failure injection and call recording) ***/
+
+int _fi_mlock_called = 0;
+int _fi_mlock_fail_at = 0;
+int _fi_mlock_fake_success = 0;
+int _fi_mlock_error = ENOMEM;
+struct qb_fi_mlock_call
+	_fi_mlock_calls[QB_FAILURE_INJECTION_MAX_CALLS];
+typedef int (func_mlock)(const void *, size_t);
+func_mlock mlock;
+
+static int
+fake_mlock(const void *address, size_t length)
+{
+	(void)address;
+	(void)length;
+	errno = _fi_mlock_error;
+	return -1;
+}
+
+void
+_fi_mlock_reset(void)
+{
+	_fi_mlock_called = 0;
+	_fi_mlock_fail_at = 0;
+	_fi_mlock_fake_success = 0;
+	_fi_mlock_error = ENOMEM;
+	memset(_fi_mlock_calls, 0, sizeof(_fi_mlock_calls));
+}
+
+int
+mlock(const void *address, size_t length)
+{
+	static func_mlock *real_mlock;
+	int call = _fi_mlock_called++;
+
+	if (call < QB_FAILURE_INJECTION_MAX_CALLS) {
+		_fi_mlock_calls[call].address = address;
+		_fi_mlock_calls[call].length = length;
+	}
+	if (_fi_mlock_called == _fi_mlock_fail_at) {
+		return fake_mlock(address, length);
+	}
+	if (_fi_mlock_fake_success) {
+		return 0;
+	}
+	if (!real_mlock) {
+		real_mlock = (func_mlock *)dlsym(RTLD_NEXT, "mlock");
+		if (!real_mlock) {
+			perror("dlsym(RTLD_NEXT, \"mlock\"");
+			real_mlock = fake_mlock;
+		}
+	}
+	return real_mlock(address, length);
+}
 
 
 /*** truncate (trigger detection) ***/

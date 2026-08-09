@@ -136,6 +136,7 @@ struct qb_ipcs_funcs {
 
 struct qb_ipcs_service {
 	enum qb_ipc_type type;
+	uint32_t create_flags;
 	char name[NAME_MAX];
 	uint32_t max_buffer_size;
 	int32_t service_id;

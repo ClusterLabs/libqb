@@ -191,6 +191,12 @@ struct qb_ipcs_service_handlers {
 	qb_ipcs_connection_destroyed_fn connection_destroyed;
 };
 
+/** Optional requirements for qb_ipcs_create_2(). */
+enum qb_ipcs_create_flags {
+	/** Lock the server's SHM request, response, and event ring mappings. */
+	QB_IPCS_REQUIRE_LOCKED_MAPPINGS = (1U << 0),
+};
+
 /**
  * Create a new IPC server.
  *
@@ -204,6 +210,28 @@ qb_ipcs_service_t* qb_ipcs_create(const char *name,
 				  int32_t service_id,
 				  enum qb_ipc_type type,
 				  struct qb_ipcs_service_handlers *handlers);
+
+/**
+ * Create a new IPC server with additional requirements.
+ *
+ * @param name for clients to connect to.
+ * @param service_id an integer to associate with the service
+ * @param type transport type.
+ * @param handlers callbacks.
+ * @param flags bitwise flags from qb_ipcs_create_flags.
+ * @return the new service instance.
+ * @note QB_IPCS_REQUIRE_LOCKED_MAPPINGS is supported with QB_IPC_SHM, or
+ * QB_IPC_NATIVE when it resolves to QB_IPC_SHM. The server locks the header
+ * and data pages for all three rings, subject to its memory locking resource
+ * limit. Connection setup fails before connection_created if the server
+ * cannot lock every ring. Shared pages remain protected for clients only
+ * while the server retains its locked mappings.
+ */
+qb_ipcs_service_t* qb_ipcs_create_2(const char *name,
+				    int32_t service_id,
+				    enum qb_ipc_type type,
+				    struct qb_ipcs_service_handlers *handlers,
+				    uint32_t flags);
 
 
 /**
