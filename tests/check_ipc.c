@@ -1009,20 +1009,19 @@ END_TEST
 #if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
 
 static pid_t
-start_mlock_test_server(uint32_t create_flags, int server_fail_at,
-			int server_error)
+start_mlock_test_server(int server_fail_at)
 {
 	pid_t pid;
 
-	server_create_flags = create_flags;
+	server_create_flags = QB_IPCS_REQUIRE_LOCKED_MAPPINGS;
 	_fi_mlock_reset();
 	_fi_mlock_fake_success = QB_TRUE;
 	_fi_mlock_fail_at = server_fail_at;
-	_fi_mlock_error = server_error;
 	pid = run_function_in_new_process("server", run_ipc_server, NULL);
 	ck_assert_int_ne(pid, -1);
 
 	/* The server has its own copy of the failure-injection state. */
+	server_create_flags = 0;
 	_fi_mlock_reset();
 	_fi_mlock_fake_success = QB_TRUE;
 	return pid;
@@ -1035,66 +1034,8 @@ finish_mlock_test_server(pid_t pid)
 	verify_graceful_stop(pid);
 	qb_ipcc_disconnect(conn);
 	conn = NULL;
-	server_create_flags = 0;
 	_fi_mlock_reset();
 }
-
-START_TEST(test_ipc_shm_default_does_not_mlock)
-{
-	pid_t pid;
-	int mlock_calls;
-
-	ipc_type = QB_IPC_SHM;
-	set_ipc_name(__func__);
-	pid = start_mlock_test_server(0, 0, ENOMEM);
-	conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
-	ck_assert(conn != NULL);
-	mlock_calls = _fi_mlock_called;
-	finish_mlock_test_server(pid);
-
-	ck_assert_int_eq(mlock_calls, 0);
-}
-END_TEST
-
-START_TEST(test_ipc_shm_required_server_mlock_failure)
-{
-	qb_ipcc_connection_t *failed_conn;
-	pid_t pid;
-	char observed;
-	int connect_errno;
-	int observer_pipe[2];
-	int mlock_calls;
-	ssize_t observations;
-
-	ipc_type = QB_IPC_SHM;
-	set_ipc_name(__func__);
-	ck_assert_int_eq(pipe(observer_pipe), 0);
-	connection_created_observer_fd = observer_pipe[1];
-	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 1,
-				      ENOMEM);
-	ck_assert_int_eq(close(connection_created_observer_fd), 0);
-	connection_created_observer_fd = -1;
-	failed_conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
-	connect_errno = errno;
-	mlock_calls = _fi_mlock_called;
-
-	if (failed_conn != NULL) {
-		conn = failed_conn;
-		finish_mlock_test_server(pid);
-	} else {
-		verify_graceful_stop(pid);
-		server_create_flags = 0;
-		_fi_mlock_reset();
-	}
-	observations = read(observer_pipe[0], &observed, sizeof(observed));
-	ck_assert_int_eq(close(observer_pipe[0]), 0);
-
-	ck_assert(failed_conn == NULL);
-	ck_assert_int_eq(connect_errno, ENOMEM);
-	ck_assert_int_eq(mlock_calls, 0);
-	ck_assert_int_eq(observations, 0);
-}
-END_TEST
 
 START_TEST(test_ipc_shm_required_server_late_mlock_failure)
 {
@@ -1109,8 +1050,7 @@ START_TEST(test_ipc_shm_required_server_late_mlock_failure)
 	set_ipc_name(__func__);
 	ck_assert_int_eq(pipe(observer_pipe), 0);
 	connection_created_observer_fd = observer_pipe[1];
-	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 6,
-				      EPERM);
+	pid = start_mlock_test_server(6);
 	ck_assert_int_eq(close(connection_created_observer_fd), 0);
 	connection_created_observer_fd = -1;
 	failed_conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
@@ -1121,7 +1061,6 @@ START_TEST(test_ipc_shm_required_server_late_mlock_failure)
 		finish_mlock_test_server(pid);
 	} else {
 		verify_graceful_stop(pid);
-		server_create_flags = 0;
 		_fi_mlock_reset();
 	}
 	observations = read(observer_pipe[0], &observed, sizeof(observed));
@@ -1139,8 +1078,7 @@ START_TEST(test_ipc_shm_required_server_has_six_mlocks)
 
 	ipc_type = QB_IPC_SHM;
 	set_ipc_name(__func__);
-	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 7,
-				      ENOMEM);
+	pid = start_mlock_test_server(7);
 	conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 	ck_assert(conn != NULL);
 	ck_assert_int_eq(_fi_mlock_called, 0);
@@ -1155,8 +1093,7 @@ START_TEST(test_ipc_native_required_server_connects)
 
 	ipc_type = QB_IPC_NATIVE;
 	set_ipc_name(__func__);
-	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 7,
-				      ENOMEM);
+	pid = start_mlock_test_server(7);
 	conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 	ck_assert(conn != NULL);
 	finish_mlock_test_server(pid);
@@ -2604,8 +2541,6 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
 #endif
 #if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
-	add_tcase(s, tc, test_ipc_shm_default_does_not_mlock, 8);
-	add_tcase(s, tc, test_ipc_shm_required_server_mlock_failure, 8);
 	add_tcase(s, tc, test_ipc_shm_required_server_late_mlock_failure, 8);
 	add_tcase(s, tc, test_ipc_shm_required_server_has_six_mlocks, 8);
 #ifndef DISABLE_IPC_SHM

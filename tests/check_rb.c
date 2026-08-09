@@ -25,20 +25,13 @@
 #include <stdlib.h>
 #include <syslog.h>
 #include <errno.h>
-#include <unistd.h>
 
-#include "os_base.h"
 #include "check_common.h"
 
 #include <qb/qbdefs.h>
 #include <qb/qbrb.h>
 #include <qb/qbipc_common.h>
 #include <qb/qblog.h>
-
-#if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
-#include "_failure_injection.h"
-#include "../lib/ringbuffer_int.h"
-#endif
 
 START_TEST(test_ring_buffer1)
 {
@@ -94,179 +87,6 @@ START_TEST(test_ring_buffer1)
 	qb_rb_close(rb);
 }
 END_TEST
-
-#if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
-
-static void
-make_mlock_test_path(char *directory, size_t directory_size,
-		     char *name, size_t name_size)
-{
-	const char *tmpdir = getenv("TMPDIR");
-	int result;
-
-	if ((tmpdir == NULL) || (tmpdir[0] == '\0')) {
-		tmpdir = "/tmp";
-	}
-	result = snprintf(directory, directory_size,
-			  "%s/qb-rb-mlock-XXXXXX", tmpdir);
-	ck_assert_int_ge(result, 0);
-	ck_assert((size_t)result < directory_size);
-	ck_assert(mkdtemp(directory) != NULL);
-
-	result = snprintf(name, name_size, "%s/ring", directory);
-	ck_assert_int_ge(result, 0);
-	ck_assert((size_t)result < name_size);
-}
-
-static void
-assert_mlock_test_files_absent(const char *name)
-{
-	char path[PATH_MAX];
-	int result;
-
-	result = snprintf(path, sizeof(path), "%s-header", name);
-	ck_assert_int_ge(result, 0);
-	ck_assert((size_t)result < sizeof(path));
-	ck_assert_int_eq(access(path, F_OK), -1);
-	ck_assert_int_eq(errno, ENOENT);
-
-	result = snprintf(path, sizeof(path), "%s-data", name);
-	ck_assert_int_ge(result, 0);
-	ck_assert((size_t)result < sizeof(path));
-	ck_assert_int_eq(access(path, F_OK), -1);
-	ck_assert_int_eq(errno, ENOENT);
-}
-
-START_TEST(test_ring_buffer_mlocks_mappings)
-{
-	char directory[PATH_MAX];
-	char name[PATH_MAX];
-	qb_ringbuffer_t *rb;
-	const void *header_address;
-	const void *data_address;
-	size_t header_length;
-	size_t data_length;
-
-	make_mlock_test_path(directory, sizeof(directory), name, sizeof(name));
-	_fi_mlock_reset();
-	_fi_mlock_fake_success = QB_TRUE;
-
-	rb = qb_rb_open(name, 1, QB_RB_FLAG_CREATE | QB_RB_FLAG_MLOCK,
-			4);
-	ck_assert(rb != NULL);
-	header_address = rb->shared_hdr;
-	header_length = sizeof(struct qb_ringbuffer_shared_s) + 4;
-	data_address = rb->shared_data;
-	data_length = rb->shared_hdr->word_size * sizeof(uint32_t);
-	qb_rb_close(rb);
-
-	assert_mlock_test_files_absent(name);
-	ck_assert_int_eq(rmdir(directory), 0);
-	ck_assert_int_eq(_fi_mlock_called, 2);
-	ck_assert(_fi_mlock_calls[0].address == header_address);
-	ck_assert(_fi_mlock_calls[0].length == header_length);
-	ck_assert(_fi_mlock_calls[1].address == data_address);
-	ck_assert(_fi_mlock_calls[1].length == data_length);
-}
-END_TEST
-
-START_TEST(test_ring_buffer_restore_mlocks_mappings)
-{
-	char directory[PATH_MAX];
-	char name[PATH_MAX];
-	qb_ringbuffer_t *rb;
-	qb_ringbuffer_t *restored;
-	FILE *file;
-	int fd;
-
-	make_mlock_test_path(directory, sizeof(directory), name, sizeof(name));
-	rb = qb_rb_open(name, 1, QB_RB_FLAG_CREATE, 0);
-	ck_assert(rb != NULL);
-
-	file = tmpfile();
-	ck_assert(file != NULL);
-	fd = fileno(file);
-	ck_assert_int_ge(fd, 0);
-	ck_assert_int_gt(qb_rb_write_to_file(rb, fd), 0);
-	qb_rb_close(rb);
-	ck_assert_int_eq(lseek(fd, 0, SEEK_SET), 0);
-
-	_fi_mlock_reset();
-	_fi_mlock_fake_success = QB_TRUE;
-	restored = qb_rb_create_from_file(fd, QB_RB_FLAG_MLOCK);
-	ck_assert(restored != NULL);
-	qb_rb_close(restored);
-
-	ck_assert_int_eq(fclose(file), 0);
-	ck_assert_int_eq(rmdir(directory), 0);
-	ck_assert_int_eq(_fi_mlock_called, 2);
-	ck_assert(_fi_mlock_calls[0].address != NULL);
-	ck_assert(_fi_mlock_calls[1].address != NULL);
-}
-END_TEST
-
-START_TEST(test_ring_buffer_header_mlock_failure_cleans_up)
-{
-	char directory[PATH_MAX];
-	char name[PATH_MAX];
-	qb_ringbuffer_t *rb;
-	int open_errno;
-
-	make_mlock_test_path(directory, sizeof(directory), name, sizeof(name));
-	_fi_mlock_reset();
-	_fi_mlock_fake_success = QB_TRUE;
-	_fi_mlock_fail_at = 1;
-
-	rb = qb_rb_open(name, 1, QB_RB_FLAG_CREATE | QB_RB_FLAG_MLOCK,
-			4);
-	open_errno = errno;
-	if (rb != NULL) {
-		qb_rb_close(rb);
-	}
-
-	assert_mlock_test_files_absent(name);
-	ck_assert_int_eq(rmdir(directory), 0);
-	ck_assert(rb == NULL);
-	ck_assert_int_eq(open_errno, ENOMEM);
-	ck_assert_int_eq(_fi_mlock_called, 1);
-	ck_assert(_fi_mlock_calls[0].address != NULL);
-	ck_assert(_fi_mlock_calls[0].length ==
-		  sizeof(struct qb_ringbuffer_shared_s) + 4);
-}
-END_TEST
-
-START_TEST(test_ring_buffer_data_mlock_failure_cleans_up)
-{
-	char directory[PATH_MAX];
-	char name[PATH_MAX];
-	qb_ringbuffer_t *rb;
-	long page_size = sysconf(_SC_PAGESIZE);
-	int open_errno;
-
-	ck_assert_int_gt(page_size, 0);
-	make_mlock_test_path(directory, sizeof(directory), name, sizeof(name));
-	_fi_mlock_reset();
-	_fi_mlock_fake_success = QB_TRUE;
-	_fi_mlock_fail_at = 2;
-
-	rb = qb_rb_open(name, 1, QB_RB_FLAG_CREATE | QB_RB_FLAG_MLOCK,
-			4);
-	open_errno = errno;
-	if (rb != NULL) {
-		qb_rb_close(rb);
-	}
-
-	assert_mlock_test_files_absent(name);
-	ck_assert_int_eq(rmdir(directory), 0);
-	ck_assert(rb == NULL);
-	ck_assert_int_eq(open_errno, ENOMEM);
-	ck_assert_int_eq(_fi_mlock_called, 2);
-	ck_assert(_fi_mlock_calls[1].address != NULL);
-	ck_assert(_fi_mlock_calls[1].length == (size_t)page_size);
-}
-END_TEST
-
-#endif /* HAVE_FAILURE_INJECTION && HAVE_MLOCK */
 
 /*
  * nice size (int64)
@@ -379,12 +199,6 @@ static Suite *rb_suite(void)
 	add_tcase(s, tc, test_ring_buffer2, 0);
 	add_tcase(s, tc, test_ring_buffer3, 0);
 	add_tcase(s, tc, test_ring_buffer4, 0);
-#if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
-	add_tcase(s, tc, test_ring_buffer_mlocks_mappings, 0);
-	add_tcase(s, tc, test_ring_buffer_restore_mlocks_mappings, 0);
-	add_tcase(s, tc, test_ring_buffer_header_mlock_failure_cleans_up, 0);
-	add_tcase(s, tc, test_ring_buffer_data_mlock_failure_cleans_up, 0);
-#endif
 
 	return s;
 }

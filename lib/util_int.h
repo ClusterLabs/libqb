@@ -66,16 +66,7 @@ int32_t qb_sys_mmap_file_open(char *path, const char *file, size_t bytes,
 			       uint32_t file_flags);
 
 /**
- * Lock a mapping in memory.
- *
- * @param address start of the mapping.
- * @param bytes length of the mapping.
- * @return 0 (success) or -errno
- */
-int32_t qb_sys_mlock(const void *address, size_t bytes);
-
-/**
- * Create a shared memory circular buffer.
+ * Create a shared mamory circular buffer.
  *
  * @param fd an open file to use to back the shared memory.
  * @param buf (out) the pointer to the start of the memory.
@@ -83,18 +74,6 @@ int32_t qb_sys_mlock(const void *address, size_t bytes);
  * @return 0 (success) or -errno
  */
 int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes);
-
-/**
- * Create a shared memory circular buffer, optionally locked in memory.
- *
- * @param fd an open file to use to back the shared memory.
- * @param buf (out) the pointer to the start of the memory.
- * @param bytes the size of the shared memory.
- * @param lock whether to lock the mapping in memory.
- * @return 0 (success) or -errno
- */
-int32_t qb_sys_circular_mmap_2(int32_t fd, void **buf, size_t bytes,
-			       int32_t lock);
 
 
 /**

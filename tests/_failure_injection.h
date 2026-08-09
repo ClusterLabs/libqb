@@ -24,24 +24,12 @@
 #ifndef QB_FAILURE_INJECTION_H_DEFINED
 #define QB_FAILURE_INJECTION_H_DEFINED
 
-#include <stddef.h>
-
-#define QB_FAILURE_INJECTION_MAX_CALLS 8
-
-struct qb_fi_mlock_call {
-	const void *address;
-	size_t length;
-};
-
 extern int _fi_unlink_inject_failure;
 extern int _fi_truncate_called;
 extern int _fi_openat_called;
 extern int _fi_mlock_called;
 extern int _fi_mlock_fail_at;
 extern int _fi_mlock_fake_success;
-extern int _fi_mlock_error;
-extern struct qb_fi_mlock_call
-	_fi_mlock_calls[QB_FAILURE_INJECTION_MAX_CALLS];
 
 void _fi_mlock_reset(void);
 

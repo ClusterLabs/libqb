@@ -209,26 +209,7 @@ unlink_exit:
 
 
 int32_t
-qb_sys_mlock(const void *address, size_t bytes)
-{
-#ifdef HAVE_MLOCK
-	if (mlock(address, bytes) == -1) {
-		return -errno;
-	}
-	return 0;
-#else
-	return -ENOTSUP;
-#endif
-}
-
-int32_t
 qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
-{
-	return qb_sys_circular_mmap_2(fd, buf, bytes, 0);
-}
-
-int32_t
-qb_sys_circular_mmap_2(int32_t fd, void **buf, size_t bytes, int32_t lock)
 {
 	void *addr_orig = NULL;
 	void *addr;
@@ -290,13 +271,6 @@ qb_sys_circular_mmap_2(int32_t fd, void **buf, size_t bytes, int32_t lock)
 #if defined(QB_BSD) && defined(MADV_NOSYNC)
 	madvise(((char *)addr_orig) + bytes, bytes, MADV_NOSYNC);
 #endif
-	if (lock) {
-		/* Both adjacent mappings alias the same file pages. */
-		res = qb_sys_mlock(addr_orig, bytes);
-		if (res != 0) {
-			goto cleanup_fail;
-		}
-	}
 
 	res = close(fd);
 	if (res) {

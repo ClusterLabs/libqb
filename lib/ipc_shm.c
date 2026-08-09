@@ -308,21 +308,37 @@ qb_ipcs_shm_rb_open(struct qb_ipcs_connection *c,
 		    const char *rb_name)
 {
 	int32_t res = 0;
-	uint32_t rb_flags = QB_RB_FLAG_CREATE | QB_RB_FLAG_SHARED_PROCESS;
-
-	if (c->service->create_flags & QB_IPCS_REQUIRE_LOCKED_MAPPINGS) {
-		rb_flags |= QB_RB_FLAG_MLOCK;
-	}
 
 	ow->u.shm.rb = qb_rb_open(rb_name,
 				  ow->max_msg_size,
-				  rb_flags,
+				  QB_RB_FLAG_CREATE |
+				  QB_RB_FLAG_SHARED_PROCESS,
 				  sizeof(int32_t));
 	if (ow->u.shm.rb == NULL) {
 		res = -errno;
 		qb_util_perror(LOG_ERR, "qb_rb_open:%s", rb_name);
 		return res;
 	}
+#ifdef HAVE_MLOCK
+	if (c->service->create_flags & QB_IPCS_REQUIRE_LOCKED_MAPPINGS) {
+		if (mlock(ow->u.shm.rb->shared_hdr,
+			  sizeof(struct qb_ringbuffer_shared_s)
+			  + sizeof(int32_t)) == -1) {
+			res = -errno;
+			qb_util_perror(LOG_ERR,
+				       "couldn't lock ringbuffer header mapping");
+			goto cleanup;
+		}
+		if (mlock(ow->u.shm.rb->shared_data,
+			  ow->u.shm.rb->shared_hdr->word_size
+			  * sizeof(uint32_t)) == -1) {
+			res = -errno;
+			qb_util_perror(LOG_ERR,
+				       "couldn't lock ringbuffer data mapping");
+			goto cleanup;
+		}
+	}
+#endif
 	res = qb_rb_chown(ow->u.shm.rb, c->auth.uid, c->auth.gid);
 	if (res != 0) {
 		qb_util_perror(LOG_ERR, "qb_rb_chown:%s", rb_name);

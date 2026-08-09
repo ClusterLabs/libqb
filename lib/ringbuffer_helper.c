@@ -393,7 +393,7 @@ qb_rb_close_helper(struct qb_ringbuffer_s * rb, int32_t unlink_it,
 		res = res ? res : -errno;
 		qb_util_perror(LOG_DEBUG, "Cannot munmap shared_data");
 	}
-	if (munmap(rb->shared_hdr, rb->shared_hdr_size) == -1) {
+	if (munmap(rb->shared_hdr, sizeof(struct qb_ringbuffer_shared_s)) == -1) {
 		res = res ? res : -errno;
 		qb_util_perror(LOG_DEBUG, "Cannot munmap shared_hdr");
 	}

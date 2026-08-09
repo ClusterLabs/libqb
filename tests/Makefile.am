@@ -142,9 +142,6 @@ map_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
 rb_test_SOURCES = check_rb.c
 rb_test_CFLAGS = @CHECK_CFLAGS@
 rb_test_LDADD = $(top_builddir)/lib/libqb.la @CHECK_LIBS@
-if HAVE_FAILURE_INJECTION
-rb_test_LDADD += _failure_injection.la
-endif
 
 loop_test_SOURCES = check_loop.c
 loop_test_CFLAGS = @CHECK_CFLAGS@
