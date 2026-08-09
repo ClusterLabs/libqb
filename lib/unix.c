@@ -222,7 +222,13 @@ qb_sys_mlock(const void *address, size_t bytes)
 }
 
 int32_t
-qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes, int32_t lock)
+qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes)
+{
+	return qb_sys_circular_mmap_2(fd, buf, bytes, 0);
+}
+
+int32_t
+qb_sys_circular_mmap_2(int32_t fd, void **buf, size_t bytes, int32_t lock)
 {
 	void *addr_orig = NULL;
 	void *addr;

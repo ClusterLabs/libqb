@@ -80,11 +80,21 @@ int32_t qb_sys_mlock(const void *address, size_t bytes);
  * @param fd an open file to use to back the shared memory.
  * @param buf (out) the pointer to the start of the memory.
  * @param bytes the size of the shared memory.
+ * @return 0 (success) or -errno
+ */
+int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes);
+
+/**
+ * Create a shared memory circular buffer, optionally locked in memory.
+ *
+ * @param fd an open file to use to back the shared memory.
+ * @param buf (out) the pointer to the start of the memory.
+ * @param bytes the size of the shared memory.
  * @param lock whether to lock the mapping in memory.
  * @return 0 (success) or -errno
  */
-int32_t qb_sys_circular_mmap(int32_t fd, void **buf, size_t bytes,
-			     int32_t lock);
+int32_t qb_sys_circular_mmap_2(int32_t fd, void **buf, size_t bytes,
+			       int32_t lock);
 
 
 /**

@@ -78,6 +78,7 @@ static uint32_t server_create_flags;
 static enum qb_loop_priority global_loop_prio = QB_LOOP_MED;
 static bool global_use_glib;
 static int global_pipefd[2];
+static int connection_created_observer_fd = -1;
 
 enum my_msg_ids {
 	IPC_MSG_REQ_TX_RX,
@@ -687,7 +688,13 @@ s1_connection_accept(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
 static void
 s1_connection_created(qb_ipcs_connection_t *c)
 {
+	char observed = 1;
 	uint32_t max = MAX_MSG_SIZE;
+
+	if (connection_created_observer_fd >= 0) {
+		(void)write(connection_created_observer_fd, &observed,
+			    sizeof(observed));
+	}
 	if (multiple_connections) {
 		return;
 	}
@@ -1053,13 +1060,20 @@ START_TEST(test_ipc_shm_required_server_mlock_failure)
 {
 	qb_ipcc_connection_t *failed_conn;
 	pid_t pid;
+	char observed;
 	int connect_errno;
+	int observer_pipe[2];
 	int mlock_calls;
+	ssize_t observations;
 
 	ipc_type = QB_IPC_SHM;
 	set_ipc_name(__func__);
+	ck_assert_int_eq(pipe(observer_pipe), 0);
+	connection_created_observer_fd = observer_pipe[1];
 	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 1,
 				      ENOMEM);
+	ck_assert_int_eq(close(connection_created_observer_fd), 0);
+	connection_created_observer_fd = -1;
 	failed_conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 	connect_errno = errno;
 	mlock_calls = _fi_mlock_called;
@@ -1072,10 +1086,13 @@ START_TEST(test_ipc_shm_required_server_mlock_failure)
 		server_create_flags = 0;
 		_fi_mlock_reset();
 	}
+	observations = read(observer_pipe[0], &observed, sizeof(observed));
+	ck_assert_int_eq(close(observer_pipe[0]), 0);
 
 	ck_assert(failed_conn == NULL);
 	ck_assert_int_eq(connect_errno, ENOMEM);
 	ck_assert_int_eq(mlock_calls, 0);
+	ck_assert_int_eq(observations, 0);
 }
 END_TEST
 
@@ -1083,12 +1100,19 @@ START_TEST(test_ipc_shm_required_server_late_mlock_failure)
 {
 	qb_ipcc_connection_t *failed_conn;
 	pid_t pid;
+	char observed;
 	int connect_errno;
+	int observer_pipe[2];
+	ssize_t observations;
 
 	ipc_type = QB_IPC_SHM;
 	set_ipc_name(__func__);
+	ck_assert_int_eq(pipe(observer_pipe), 0);
+	connection_created_observer_fd = observer_pipe[1];
 	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 6,
 				      EPERM);
+	ck_assert_int_eq(close(connection_created_observer_fd), 0);
+	connection_created_observer_fd = -1;
 	failed_conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
 	connect_errno = errno;
 
@@ -1100,9 +1124,12 @@ START_TEST(test_ipc_shm_required_server_late_mlock_failure)
 		server_create_flags = 0;
 		_fi_mlock_reset();
 	}
+	observations = read(observer_pipe[0], &observed, sizeof(observed));
+	ck_assert_int_eq(close(observer_pipe[0]), 0);
 
 	ck_assert(failed_conn == NULL);
 	ck_assert_int_eq(connect_errno, EPERM);
+	ck_assert_int_eq(observations, 0);
 }
 END_TEST
 
@@ -1120,6 +1147,22 @@ START_TEST(test_ipc_shm_required_server_has_six_mlocks)
 	finish_mlock_test_server(pid);
 }
 END_TEST
+
+#ifndef DISABLE_IPC_SHM
+START_TEST(test_ipc_native_required_server_connects)
+{
+	pid_t pid;
+
+	ipc_type = QB_IPC_NATIVE;
+	set_ipc_name(__func__);
+	pid = start_mlock_test_server(QB_IPCS_REQUIRE_LOCKED_MAPPINGS, 7,
+				      ENOMEM);
+	conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+	ck_assert(conn != NULL);
+	finish_mlock_test_server(pid);
+}
+END_TEST
+#endif
 
 #endif /* HAVE_FAILURE_INJECTION && HAVE_MLOCK */
 
@@ -2565,6 +2608,9 @@ make_shm_suite(void)
 	add_tcase(s, tc, test_ipc_shm_required_server_mlock_failure, 8);
 	add_tcase(s, tc, test_ipc_shm_required_server_late_mlock_failure, 8);
 	add_tcase(s, tc, test_ipc_shm_required_server_has_six_mlocks, 8);
+#ifndef DISABLE_IPC_SHM
+	add_tcase(s, tc, test_ipc_native_required_server_connects, 8);
+#endif
 #endif
 	add_tcase(s, tc, test_ipcs_create_2_rejects_invalid_flags, 8);
 	add_tcase(s, tc, test_ipcs_create_2_rejects_locked_socket, 8);

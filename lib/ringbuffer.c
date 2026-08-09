@@ -248,8 +248,8 @@ qb_rb_open_2(const char *name, size_t size, uint32_t flags,
 		    real_size, rb->shared_hdr->word_size);
 
 	/* this function closes fd_data */
-	error = qb_sys_circular_mmap(fd_data, &shm_addr, real_size,
-				     flags & QB_RB_FLAG_MLOCK);
+	error = qb_sys_circular_mmap_2(fd_data, &shm_addr, real_size,
+				       flags & QB_RB_FLAG_MLOCK);
 	if (error != 0) {
 		errno = -error;
 		qb_util_perror(LOG_ERR, "couldn't create circular mmap on %s",
