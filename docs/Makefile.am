@@ -97,6 +97,7 @@ man3_MANS = \
 	man3/qb_ipcs_context_get.3 \
 	man3/qb_ipcs_context_set.3 \
 	man3/qb_ipcs_create.3 \
+	man3/qb_ipcs_create_2.3 \
 	man3/qb_ipcs_destroy.3 \
 	man3/qb_ipcs_disconnect.3 \
 	man3/qb_ipcs_enforce_buffer_size.3 \

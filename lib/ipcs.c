@@ -38,7 +38,27 @@ qb_ipcs_create(const char *name,
 	       int32_t service_id,
 	       enum qb_ipc_type type, struct qb_ipcs_service_handlers *handlers)
 {
+	return qb_ipcs_create_2(name, service_id, type, handlers, 0);
+}
+
+qb_ipcs_service_t *
+qb_ipcs_create_2(const char *name,
+		 int32_t service_id,
+		 enum qb_ipc_type type, struct qb_ipcs_service_handlers *handlers,
+		 uint32_t flags)
+{
 	struct qb_ipcs_service *s;
+
+	if (flags & ~QB_IPCS_REQUIRE_LOCKED_MAPPINGS) {
+		errno = EINVAL;
+		return NULL;
+	}
+#ifndef HAVE_MLOCK
+	if (flags & QB_IPCS_REQUIRE_LOCKED_MAPPINGS) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+#endif
 
 	s = calloc(1, sizeof(struct qb_ipcs_service));
 	if (s == NULL) {
@@ -53,6 +73,13 @@ qb_ipcs_create(const char *name,
 	} else {
 		s->type = type;
 	}
+	if ((flags & QB_IPCS_REQUIRE_LOCKED_MAPPINGS)
+	    && (s->type != QB_IPC_SHM)) {
+		free(s);
+		errno = ENOTSUP;
+		return NULL;
+	}
+	s->create_flags = flags;
 
 	s->pid = getpid();
 	s->needs_sock_for_poll = QB_FALSE;

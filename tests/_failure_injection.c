@@ -33,6 +33,7 @@
 #include <fcntl.h>  /* O_CREAT, ... */
 #include <stdarg.h>
 #include <stdio.h>  /* perror */
+#include <sys/mman.h>  /* mlock */
 #include <sys/types.h>  /* mode_t, off_t */
 
 
@@ -99,6 +100,54 @@ unlinkat(int dirfd, const char *pathname, int flags)
 	return real_unlinkat(dirfd, pathname, flags);
 }
 #endif
+
+
+/*** mlock (failure injection) ***/
+
+int _fi_mlock_called = 0;
+int _fi_mlock_fail_at = 0;
+int _fi_mlock_fake_success = 0;
+typedef int (func_mlock)(const void *, size_t);
+func_mlock mlock;
+
+static int
+fake_mlock(const void *address, size_t length)
+{
+	(void)address;
+	(void)length;
+	errno = EPERM;
+	return -1;
+}
+
+void
+_fi_mlock_reset(void)
+{
+	_fi_mlock_called = 0;
+	_fi_mlock_fail_at = 0;
+	_fi_mlock_fake_success = 0;
+}
+
+int
+mlock(const void *address, size_t length)
+{
+	static func_mlock *real_mlock;
+
+	_fi_mlock_called++;
+	if (_fi_mlock_called == _fi_mlock_fail_at) {
+		return fake_mlock(address, length);
+	}
+	if (_fi_mlock_fake_success) {
+		return 0;
+	}
+	if (!real_mlock) {
+		real_mlock = (func_mlock *)dlsym(RTLD_NEXT, "mlock");
+		if (!real_mlock) {
+			perror("dlsym(RTLD_NEXT, \"mlock\"");
+			real_mlock = fake_mlock;
+		}
+	}
+	return real_mlock(address, length);
+}
 
 
 /*** truncate (trigger detection) ***/

@@ -74,9 +74,11 @@ static int CALCULATED_DGRAM_MAX_MSG_SIZE = 0;
 static int enforce_server_buffer;
 static qb_ipcc_connection_t *conn;
 static enum qb_ipc_type ipc_type;
+static uint32_t server_create_flags;
 static enum qb_loop_priority global_loop_prio = QB_LOOP_MED;
 static bool global_use_glib;
 static int global_pipefd[2];
+static int connection_created_observer_fd = -1;
 
 enum my_msg_ids {
 	IPC_MSG_REQ_TX_RX,
@@ -686,7 +688,13 @@ s1_connection_accept(qb_ipcs_connection_t *c, uid_t uid, gid_t gid)
 static void
 s1_connection_created(qb_ipcs_connection_t *c)
 {
+	char observed = 1;
 	uint32_t max = MAX_MSG_SIZE;
+
+	if (connection_created_observer_fd >= 0) {
+		(void)write(connection_created_observer_fd, &observed,
+			    sizeof(observed));
+	}
 	if (multiple_connections) {
 		return;
 	}
@@ -762,7 +770,12 @@ NEW_PROCESS_RUNNER(run_ipc_server, ready_signaller, signaller_data, data)
 	                   NULL, exit_handler, &handle);
 
 
-	s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
+	if (server_create_flags == 0) {
+		s1 = qb_ipcs_create(ipc_name, 4, ipc_type, &sh);
+	} else {
+		s1 = qb_ipcs_create_2(ipc_name, 4, ipc_type, &sh,
+				     server_create_flags);
+	}
 	ck_assert(s1 != 0);
 
 	if (global_loop_prio != QB_LOOP_MED) {
@@ -945,6 +958,150 @@ verify_graceful_stop(pid_t pid)
 
 	return 0;
 }
+
+START_TEST(test_ipcs_create_2_rejects_invalid_flags)
+{
+	struct qb_ipcs_service_handlers handlers = { 0, };
+	qb_ipcs_service_t *service;
+	int create_errno;
+
+	service = qb_ipcs_create_2(__func__, 1, QB_IPC_SHM, &handlers,
+				   (1U << 31));
+	create_errno = errno;
+
+	ck_assert(service == NULL);
+	ck_assert_int_eq(create_errno, EINVAL);
+}
+END_TEST
+
+START_TEST(test_ipcs_create_2_rejects_locked_socket)
+{
+	struct qb_ipcs_service_handlers handlers = { 0, };
+	qb_ipcs_service_t *service;
+	int create_errno;
+
+	service = qb_ipcs_create_2(__func__, 1, QB_IPC_SOCKET, &handlers,
+				   QB_IPCS_REQUIRE_LOCKED_MAPPINGS);
+	create_errno = errno;
+
+	ck_assert(service == NULL);
+	ck_assert_int_eq(create_errno, ENOTSUP);
+}
+END_TEST
+
+#ifndef HAVE_MLOCK
+START_TEST(test_ipcs_create_2_rejects_locked_shm_without_mlock)
+{
+	struct qb_ipcs_service_handlers handlers = { 0, };
+	qb_ipcs_service_t *service;
+	int create_errno;
+
+	service = qb_ipcs_create_2(__func__, 1, QB_IPC_SHM, &handlers,
+				   QB_IPCS_REQUIRE_LOCKED_MAPPINGS);
+	create_errno = errno;
+
+	ck_assert(service == NULL);
+	ck_assert_int_eq(create_errno, ENOTSUP);
+}
+END_TEST
+#endif
+
+#if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
+
+static pid_t
+start_mlock_test_server(int server_fail_at)
+{
+	pid_t pid;
+
+	server_create_flags = QB_IPCS_REQUIRE_LOCKED_MAPPINGS;
+	_fi_mlock_reset();
+	_fi_mlock_fake_success = QB_TRUE;
+	_fi_mlock_fail_at = server_fail_at;
+	pid = run_function_in_new_process("server", run_ipc_server, NULL);
+	ck_assert_int_ne(pid, -1);
+
+	/* The server has its own copy of the failure-injection state. */
+	server_create_flags = 0;
+	_fi_mlock_reset();
+	_fi_mlock_fake_success = QB_TRUE;
+	return pid;
+}
+
+static void
+finish_mlock_test_server(pid_t pid)
+{
+	request_server_exit();
+	verify_graceful_stop(pid);
+	qb_ipcc_disconnect(conn);
+	conn = NULL;
+	_fi_mlock_reset();
+}
+
+START_TEST(test_ipc_shm_required_server_late_mlock_failure)
+{
+	qb_ipcc_connection_t *failed_conn;
+	pid_t pid;
+	char observed;
+	int connect_errno;
+	int observer_pipe[2];
+	ssize_t observations;
+
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	ck_assert_int_eq(pipe(observer_pipe), 0);
+	connection_created_observer_fd = observer_pipe[1];
+	pid = start_mlock_test_server(6);
+	ck_assert_int_eq(close(connection_created_observer_fd), 0);
+	connection_created_observer_fd = -1;
+	failed_conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+	connect_errno = errno;
+
+	if (failed_conn != NULL) {
+		conn = failed_conn;
+		finish_mlock_test_server(pid);
+	} else {
+		verify_graceful_stop(pid);
+		_fi_mlock_reset();
+	}
+	observations = read(observer_pipe[0], &observed, sizeof(observed));
+	ck_assert_int_eq(close(observer_pipe[0]), 0);
+
+	ck_assert(failed_conn == NULL);
+	ck_assert_int_eq(connect_errno, EPERM);
+	ck_assert_int_eq(observations, 0);
+}
+END_TEST
+
+START_TEST(test_ipc_shm_required_server_has_six_mlocks)
+{
+	pid_t pid;
+
+	ipc_type = QB_IPC_SHM;
+	set_ipc_name(__func__);
+	pid = start_mlock_test_server(7);
+	conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+	ck_assert(conn != NULL);
+	ck_assert_int_eq(_fi_mlock_called, 0);
+	finish_mlock_test_server(pid);
+}
+END_TEST
+
+#ifndef DISABLE_IPC_SHM
+START_TEST(test_ipc_native_required_server_connects)
+{
+	pid_t pid;
+
+	ipc_type = QB_IPC_NATIVE;
+	set_ipc_name(__func__);
+	pid = start_mlock_test_server(7);
+	conn = qb_ipcc_connect(ipc_name, MAX_MSG_SIZE);
+	ck_assert(conn != NULL);
+	finish_mlock_test_server(pid);
+}
+END_TEST
+#endif
+
+#endif /* HAVE_FAILURE_INJECTION && HAVE_MLOCK */
 
 struct my_req {
 	struct qb_ipc_request_header hdr;
@@ -2382,6 +2539,18 @@ make_shm_suite(void)
 #endif
 #ifdef HAVE_FAILURE_INJECTION
 	add_tcase(s, tc, test_ipcc_truncate_when_unlink_fails_shm, 8);
+#endif
+#if defined(HAVE_FAILURE_INJECTION) && defined(HAVE_MLOCK)
+	add_tcase(s, tc, test_ipc_shm_required_server_late_mlock_failure, 8);
+	add_tcase(s, tc, test_ipc_shm_required_server_has_six_mlocks, 8);
+#ifndef DISABLE_IPC_SHM
+	add_tcase(s, tc, test_ipc_native_required_server_connects, 8);
+#endif
+#endif
+	add_tcase(s, tc, test_ipcs_create_2_rejects_invalid_flags, 8);
+	add_tcase(s, tc, test_ipcs_create_2_rejects_locked_socket, 8);
+#ifndef HAVE_MLOCK
+	add_tcase(s, tc, test_ipcs_create_2_rejects_locked_shm_without_mlock, 8);
 #endif
 
 	return s;

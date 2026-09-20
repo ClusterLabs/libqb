@@ -27,5 +27,10 @@
 extern int _fi_unlink_inject_failure;
 extern int _fi_truncate_called;
 extern int _fi_openat_called;
+extern int _fi_mlock_called;
+extern int _fi_mlock_fail_at;
+extern int _fi_mlock_fake_success;
+
+void _fi_mlock_reset(void);
 
 #endif
